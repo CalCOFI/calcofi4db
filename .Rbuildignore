@@ -1,0 +1,8 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^\.github$
+^README\.Rmd$
+^data-raw$
+^\.Rbuildignore$
+^\.gitignore$
+^LICENSE\.md$
