@@ -1,0 +1,18 @@
+<urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
+<url><loc>/404.html</loc></url>
+<url><loc>/LICENSE-text.html</loc></url>
+<url><loc>/LICENSE.html</loc></url>
+<url><loc>/authors.html</loc></url>
+<url><loc>/index.html</loc></url>
+<url><loc>/reference/calcofi4db-package.html</loc></url>
+<url><loc>/reference/create_redefinition_files.html</loc></url>
+<url><loc>/reference/detect_csv_changes.html</loc></url>
+<url><loc>/reference/determine_field_types.html</loc></url>
+<url><loc>/reference/index.html</loc></url>
+<url><loc>/reference/ingest_csv_to_db.html</loc></url>
+<url><loc>/reference/ingest_dataset.html</loc></url>
+<url><loc>/reference/load_csv_files.html</loc></url>
+<url><loc>/reference/read_csv_metadata.html</loc></url>
+<url><loc>/reference/transform_data.html</loc></url>
+</urlset>
+
