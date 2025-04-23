@@ -9,11 +9,12 @@
 #'
 #' @return A list with two data frames: tables and fields metadata
 #' @export
+#' @concept read
 #'
 #' @examples
 #' \dontrun{
 #' csv_metadata <- read_csv_metadata(
-#'   dir_csv = "/path/to/data/provider/dataset", 
+#'   dir_csv = "/path/to/data/provider/dataset",
 #'   dir_ingest = "/path/to/ingest/provider/dataset")
 #' }
 read_csv_metadata <- function(dir_csv, dir_ingest, create_dirs = TRUE) {
@@ -21,15 +22,15 @@ read_csv_metadata <- function(dir_csv, dir_ingest, create_dirs = TRUE) {
   if (!dir.exists(dir_csv)) {
     stop(glue::glue("CSV directory does not exist: {dir_csv}"))
   }
-  
+
   if (create_dirs && !dir.exists(dirname(dir_ingest))) {
     dir.create(dirname(dir_ingest), recursive = TRUE)
   }
-  
+
   # Create paths for metadata files
   tbls_in_csv <- file.path(dir_ingest, "tbls_raw.csv")
   flds_in_csv <- file.path(dir_ingest, "flds_raw.csv")
-  
+
   # Read data, extract field headers
   d <- tibble::tibble(
     csv = list.files(dir_csv, pattern = "\\.csv$", full.names = TRUE)) |>
@@ -45,18 +46,18 @@ read_csv_metadata <- function(dir_csv, dir_ingest, create_dirs = TRUE) {
         )
       })) |>
     dplyr::relocate(tbl)
-  
+
   # Extract and write tables metadata
   d_tbls_in <- d |>
     dplyr::select(tbl, nrow, ncol)
   readr::write_csv(d_tbls_in, tbls_in_csv)
-  
+
   # Extract and write fields metadata
   d_flds_in <- d |>
     dplyr::select(tbl, flds) |>
     tidyr::unnest(flds)
   readr::write_csv(d_flds_in, flds_in_csv)
-  
+
   # Return both metadata tables
   list(
     tables = d_tbls_in,
@@ -65,112 +66,131 @@ read_csv_metadata <- function(dir_csv, dir_ingest, create_dirs = TRUE) {
   )
 }
 
-#' Load CSV Files and Their Metadata
+#' Read CSV Files and Their Metadata
 #'
-#' Reads CSV files from a directory and prepares them for ingestion into a database.
+#' Reads CSV files from a directory and prepares them for ingestion into a
+#' database.
 #'
 #' @param provider Data provider (e.g., "swfsc.noaa.gov")
 #' @param dataset Dataset name (e.g., "calcofi-db")
-#' @param dir_data Base directory for data
-#' @param dir_googledata Optional Google Drive data directory
-#' @param use_gdrive Whether to query Google Drive for metadata
-#' @param email Google Drive authentication email (if use_gdrive=TRUE)
+#' @param dir_data directory path of CalCOFI base data folder available locally,
+#'   with CSVs under {provider}/{dataset} directory. Default: "~/My
+#'   Drive/projects/calcofi/data"
+#' @param url_gdata URL of CalCOFI base data folder in Google Drive (with CSVs
+#'   under {provider}/{dataset} directory) with metadata information on CSVs.
+#'   Default: [data - Google
+#'   Drive](https://drive.google.com/drive/u/0/folders/1xxdWa4mWkmfkJUQsHxERTp9eBBXBMbV7)
+#' @param use_gdrive Whether to query Google Drive for metadata. Default: TRUEs
+#' @param email Google Drive authentication email (if use_gdrive=TRUE). Default:
+#'   "ben@ecoquants.com"
 #'
 #' @return A list containing table data and metadata
 #' @export
+#' @concept read
 #'
 #' @examples
 #' \dontrun{
-#' dataset_info <- load_csv_files(
+#' dataset_info <- read_csv_files(
 #'   provider = "swfsc.noaa.gov",
-#'   dataset = "calcofi-db",
-#'   dir_data = "/path/to/data",
-#'   use_gdrive = TRUE,
-#'   email = "user@example.com"
-#' )
+#'   dataset  = "calcofi-db")
 #' }
-load_csv_files <- function(provider, dataset, dir_data, 
-                          dir_googledata = NULL, use_gdrive = FALSE, 
-                          email = NULL) {
-  
+read_csv_files <- function(
+    provider,
+    dataset,
+    dir_data    = "~/My Drive/projects/calcofi/data",
+    url_gdata   = "https://drive.google.com/drive/u/0/folders/1xxdWa4mWkmfkJUQsHxERTp9eBBXBMbV7",
+    use_gdrive  = TRUE,
+    email       = "ben@ecoquants.com") {
+
   # Define paths
-  dir_csv <- file.path(dir_data, provider, dataset)
-  dir_ingest <- file.path(here::here(), "workflows/ingest", provider, dataset)
-  
+  dir_csv    <- file.path(dir_data, provider, dataset)
+  dir_ingest <- file.path(here::here(), "ingest", provider, dataset)
+  stopifnot(dir.exists(dir_csv))
+
   # Get workflow info
   workflow_info <- get_workflow_info(provider, dataset)
-  
+  stopifnot(file.exists(file.path(here::here(), workflow_info$workflow_qmd)))
+  path_workflow_qmd <- file.path(here::here(), workflow_info$workflow_qmd)
+  if (!file.exists(path_workflow_qmd))
+    stop(glue::glue(
+      "Workflow file does not exist: {path_workflow_qmd}.
+       This function should be called from inside the workflow."))
+
   # Input/output tables (version controlled)
   tbls_in_csv <- file.path(dir_ingest, "tbls_raw.csv")
   flds_in_csv <- file.path(dir_ingest, "flds_raw.csv")
-  
-  # Rename tables (version controlled)
-  tbls_rn_csv <- file.path(dir_ingest, "tbls_redefine.csv")
-  flds_rn_csv <- file.path(dir_ingest, "flds_redefine.csv")
-  
+
+  # redefine tables (version controlled)
+  tbls_rd_csv <- file.path(dir_ingest, "tbls_redefine.csv")
+  flds_rd_csv <- file.path(dir_ingest, "flds_redefine.csv")
+
   # Google Drive metadata
   d_gdir_data <- NULL
-  
+
   # Query Google Drive if requested
   if (use_gdrive) {
-    if (is.null(dir_googledata)) {
-      stop("dir_googledata must be provided when use_gdrive=TRUE")
+
+    if (is.null(url_gdata)) {
+      stop("url_gdata must be provided when use_gdrive=TRUE")
     }
-    
+
     if (is.null(email)) {
       stop("email must be provided when use_gdrive=TRUE")
     }
-    
+
     # Authenticate with Google Drive
     googledrive::drive_auth(
       email = email,
       scopes = "drive")
-    
-    # Get file metadata from Google Drive
-    d_gdir_data <- googledrive::drive_ls(dir_googledata) |>
+
+    # check/get Google Drive calcofi/data/provider/dataset folder
+    g_provider <- drive_ls(url_gdata, q = glue::glue("name = '{provider}'"))
+    if (!nrow(g_provider) != 0)
+      stop(glue::glue("No unique folder found in Google Drive url_gdata for provider: {provider}"))
+    g_dataset <- drive_ls(g_provider$id, q = glue::glue("name = '{dataset}'"))
+    if (!nrow(g_dataset) != 0)
+      stop(glue::glue("No unique folder found in Google Drive url_gdata for provider/dataset: {provider}/{dataset}"))
+
+    # get metadata for CSV files in Google Drive calcofi/data/provider/dataset folder
+    d_gdata <- googledrive::drive_ls(g_dataset, q = "name contains '.csv$'") |>
       dplyr::mutate(
         web_view_link = purrr::map_chr(drive_resource, \(x) x$webViewLink),
-        created_time = purrr::map_chr(drive_resource, \(x) x$createdTime) |>
-          lubridate::as_datetime()) |>
-      dplyr::filter(
-        stringr::str_detect(name, "\\.csv$"))
+        created_time  = purrr::map_chr(drive_resource, \(x) x$createdTime) |>
+          lubridate::as_datetime())
   }
-  
+
   # Read CSV metadata files
-  csv_metadata <- read_csv_metadata(dir_csv, dir_ingest)
-  
+  m <- read_csv_metadata(dir_csv, dir_ingest) # csv_metadata -> m
+
   # Determine if redefinition files need to be created
-  if (!file.exists(flds_rn_csv)) {
+  if (!file.exists(flds_rd_csv)) {
     # Create redefinition files
     create_redefinition_files(
-      d_tbls_in = csv_metadata$tables,
-      d_flds_in = csv_metadata$fields,
-      d = csv_metadata$data,
-      tbls_rn_csv = tbls_rn_csv,
-      flds_rn_csv = flds_rn_csv
-    )
+      d_tbls_in   = m$tables,
+      d_flds_in   = m$fields,
+      d           = m$data,
+      tbls_rd_csv = tbls_rd_csv,
+      flds_rd_csv = flds_rd_csv)
   }
-  
+
   # Read redefinition files
-  d_tbls_rn <- readr::read_csv(tbls_rn_csv)
-  d_flds_rn <- readr::read_csv(flds_rn_csv)
-  
+  d_tbls_rd <- readr::read_csv(tbls_rd_csv)
+  d_flds_rd <- readr::read_csv(flds_rd_csv)
+
   # Return all data and metadata
   list(
-    csv_metadata = csv_metadata,
-    d_tbls_rn = d_tbls_rn,
-    d_flds_rn = d_flds_rn,
-    d_gdir_data = d_gdir_data,
+    csv           = d_csv,
+    gdir          = d_gdata,
+    d_tbls_rd     = d_tbls_rd,
+    d_flds_rd     = d_flds_rd,
     workflow_info = workflow_info,
     paths = list(
-      dir_csv = dir_csv,
-      dir_ingest = dir_ingest,
+      dir_csv     = dir_csv,
+      dir_ingest  = dir_ingest,
       tbls_in_csv = tbls_in_csv,
       flds_in_csv = flds_in_csv,
-      tbls_rn_csv = tbls_rn_csv,
-      flds_rn_csv = flds_rn_csv
-    )
-  )
+      tbls_rd_csv = tbls_rd_csv,
+      flds_rd_csv = flds_rd_csv))
 }
 
 #' Create Redefinition Files for Tables and Fields
@@ -180,11 +200,12 @@ load_csv_files <- function(provider, dataset, dir_data,
 #' @param d_tbls_in Data frame with table metadata
 #' @param d_flds_in Data frame with field metadata
 #' @param d Data frame with raw data
-#' @param tbls_rn_csv Path to table redefinition CSV file
-#' @param flds_rn_csv Path to field redefinition CSV file
+#' @param tbls_rd_csv Path to table redefinition CSV file
+#' @param flds_rd_csv Path to field redefinition CSV file
 #'
 #' @return Invisible NULL (files are written to disk)
 #' @export
+#' @concept read
 #'
 #' @examples
 #' \dontrun{
@@ -192,12 +213,12 @@ load_csv_files <- function(provider, dataset, dir_data,
 #'   d_tbls_in = tables_metadata,
 #'   d_flds_in = fields_metadata,
 #'   d = raw_data,
-#'   tbls_rn_csv = "path/to/tbls_redefine.csv",
-#'   flds_rn_csv = "path/to/flds_redefine.csv"
+#'   tbls_rd_csv = "path/to/tbls_redefine.csv",
+#'   flds_rd_csv = "path/to/flds_redefine.csv"
 #' )
 #' }
-create_redefinition_files <- function(d_tbls_in, d_flds_in, d, 
-                                     tbls_rn_csv, flds_rn_csv) {
+create_redefinition_files <- function(d_tbls_in, d_flds_in, d,
+                                     tbls_rd_csv, flds_rd_csv) {
   # Create table redefinition file
   d_tbls_in |>
     dplyr::select(
@@ -205,8 +226,8 @@ create_redefinition_files <- function(d_tbls_in, d_flds_in, d,
       tbl_new = tbl) |>
     dplyr::mutate(
       tbl_description = "") |>
-    readr::write_csv(tbls_rn_csv)
-  
+    readr::write_csv(tbls_rd_csv)
+
   # Create field redefinition file
   d_flds_in |>
     dplyr::group_by(tbl) |>
@@ -223,13 +244,13 @@ create_redefinition_files <- function(d_tbls_in, d_flds_in, d,
       order_old = order, order_new = order,
       type_old = type, type_new,
       fld_description, notes, mutation) |>
-    readr::write_csv(flds_rn_csv)
-  
+    readr::write_csv(flds_rd_csv)
+
   message(glue::glue(
-    "Please update the table and field rename tables before proceeding:
-      {tbls_rn_csv}
-      {flds_rn_csv}"))
-  
+    "Please update the table and field redefine tables before proceeding:
+      {tbls_rd_csv}
+      {flds_rd_csv}"))
+
   invisible(NULL)
 }
 
@@ -243,6 +264,7 @@ create_redefinition_files <- function(d_tbls_in, d_flds_in, d,
 #'
 #' @return Character vector of PostgreSQL data types
 #' @export
+#' @concept read
 #'
 #' @examples
 #' \dontrun{
@@ -255,7 +277,7 @@ determine_field_types <- function(d, tbl, fld) {
       purrr::pull(data) |>
       purrr::pluck(1) |>
       purrr::pull(y)
-    
+
     determine_field_type(v)
   })
 }

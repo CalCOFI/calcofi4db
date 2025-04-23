@@ -1,6 +1,8 @@
 Package: calcofi4db
 Title: CalCOFI Database Tools
 Version: 0.1.0
+URL: https://calcofi.io/calcofi4db
+BugReports: https://github.com/calcofi/calcofi4db/issues
 Authors@R: 
     person("Ben", "Best", , "ben@ecoquants.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-2686-0784"))
@@ -30,3 +32,4 @@ Imports:
     tibble,
     tidyr,
     uuid
+VignetteBuilder: knitr

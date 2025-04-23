@@ -4,7 +4,7 @@
 \alias{detect_csv_changes}
 \title{Detect Changes in CSV Files}
 \usage{
-detect_csv_changes(con, schema, transformed_data, d_flds_rn)
+detect_csv_changes(con, schema, transformed_data, d_flds_rd)
 }
 \arguments{
 \item{con}{Database connection}
@@ -13,7 +13,7 @@ detect_csv_changes(con, schema, transformed_data, d_flds_rn)
 
 \item{transformed_data}{Transformed data from transform_data()}
 
-\item{d_flds_rn}{Field redefinition data frame}
+\item{d_flds_rd}{Field redefinition data frame}
 }
 \value{
 A list of detected changes in tables, fields, and types
@@ -28,7 +28,8 @@ changes <- detect_csv_changes(
   con = db_connection,
   schema = "public",
   transformed_data = transformed_data,
-  d_flds_rn = data_info$d_flds_rn
+  d_flds_rd = data_info$d_flds_rd
 )
 }
 }
+\concept{transform}

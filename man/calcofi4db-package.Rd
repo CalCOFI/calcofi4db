@@ -8,6 +8,14 @@
 \description{
 Tools for ingesting datasets into the CalCOFI database with functions to read source CSV files, detect changes in tables and fields, and update the database with proper metadata.
 }
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://calcofi.io/calcofi4db}
+  \item Report bugs at \url{https://github.com/calcofi/calcofi4db/issues}
+}
+
+}
 \author{
 \strong{Maintainer}: Ben Best \email{ben@ecoquants.com} (\href{https://orcid.org/0000-0002-2686-0784}{ORCID})
 

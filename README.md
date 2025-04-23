@@ -64,7 +64,7 @@ For more control over the process, you can use the individual functions:
 
 ```r
 # Load CSV files and metadata
-data_info <- load_csv_files(
+data_info <- read_csv_files(
   provider = "swfsc.noaa.gov",
   dataset = "calcofi-db",
   dir_data = "/path/to/data",
@@ -81,7 +81,7 @@ changes <- detect_csv_changes(
   con = con,
   schema = "public",
   transformed_data = transformed_data,
-  d_flds_rn = data_info$d_flds_rn
+  d_flds_rd = data_info$d_flds_rd
 )
 
 # Ingest data to database
@@ -89,7 +89,7 @@ stats <- ingest_csv_to_db(
   con = con,
   schema = "public",
   transformed_data = transformed_data,
-  d_flds_rn = data_info$d_flds_rn,
+  d_flds_rd = data_info$d_flds_rd,
   d_gdir_data = data_info$d_gdir_data,
   workflow_info = data_info$workflow_info
 )

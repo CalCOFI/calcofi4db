@@ -24,3 +24,4 @@ Determines appropriate PostgreSQL data types for fields based on data values.
 determine_field_types(raw_data, "species", "species_name")
 }
 }
+\concept{read}

@@ -4,7 +4,7 @@
 \alias{create_redefinition_files}
 \title{Create Redefinition Files for Tables and Fields}
 \usage{
-create_redefinition_files(d_tbls_in, d_flds_in, d, tbls_rn_csv, flds_rn_csv)
+create_redefinition_files(d_tbls_in, d_flds_in, d, tbls_rd_csv, flds_rd_csv)
 }
 \arguments{
 \item{d_tbls_in}{Data frame with table metadata}
@@ -13,9 +13,9 @@ create_redefinition_files(d_tbls_in, d_flds_in, d, tbls_rn_csv, flds_rn_csv)
 
 \item{d}{Data frame with raw data}
 
-\item{tbls_rn_csv}{Path to table redefinition CSV file}
+\item{tbls_rd_csv}{Path to table redefinition CSV file}
 
-\item{flds_rn_csv}{Path to field redefinition CSV file}
+\item{flds_rd_csv}{Path to field redefinition CSV file}
 }
 \value{
 Invisible NULL (files are written to disk)
@@ -29,8 +29,9 @@ create_redefinition_files(
   d_tbls_in = tables_metadata,
   d_flds_in = fields_metadata,
   d = raw_data,
-  tbls_rn_csv = "path/to/tbls_redefine.csv",
-  flds_rn_csv = "path/to/flds_redefine.csv"
+  tbls_rd_csv = "path/to/tbls_redefine.csv",
+  flds_rd_csv = "path/to/flds_redefine.csv"
 )
 }
 }
+\concept{read}

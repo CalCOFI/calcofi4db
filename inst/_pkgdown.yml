@@ -1,0 +1,28 @@
+url: https://calcofi.io/calcofi4db
+template:
+  bootstrap: 5
+reference:
+- title: "Read"
+  desc: functions reading data, particularly from CSV files in the Google Drive CalCOFI data folder
+  contents:
+  - has_concept("read")
+- title: "Transform"
+  desc: functions to transform data, after reading data and before ingesting into the database
+  contents:
+  - has_concept("transform")
+- title: "Ingest"
+  desc: functions for ingesting data into the database
+  contents:
+  - has_concept("ingest")
+- title: "Utilities"
+  desc: utility functions for database operations
+  contents:
+  - has_concept("utils")
+- title: "Visualize"
+  desc: functions visualizing diagnostic outputs, particularly color coded data tables
+  contents:
+  - has_concept("viz")
+- title: "Other"
+  desc: check for other functions or datasets not captured by above categories
+  contents:
+  - lacks_concepts(c("read", "transform", "ingest", "utils", "viz"))

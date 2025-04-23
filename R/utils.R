@@ -1,5 +1,58 @@
 # Utility functions for database operations
 
+#' Get a database connection to the CalCOFI PostgreSQL database
+#'
+#' @param schemas Character vector of schema search paths (default: "public")
+#' @param host Database host (default: automatically detected based on system)
+#' @param port Database port (default: 5432)
+#' @param dbname Database name (default: "gis")
+#' @param user Database user (default: "admin")
+#' @param password_file Path to file containing database password (default: system-dependent location)
+#'
+#' @return A database connection object
+#' @export
+#' @concept utils
+get_db_con <- function(
+    schemas = "public",
+    host = NULL,
+    port = 5432,
+    dbname = "gis",
+    user = "admin",
+    password_file = NULL) {
+
+  # Determine if running on server or local system
+  is_server <- Sys.info()[["sysname"]] == "Linux"
+
+  # Set default host if not provided
+  if (is.null(host)) {
+    host <- ifelse(
+      is_server,
+      "postgis",   # from rstudio to postgis docker container on server
+      "localhost") # from laptop to locally tunneled connection to db container on server
+  }
+
+  # Set default password file if not provided
+  if (is.null(password_file)) {
+    password_file <- ifelse(
+      is_server,
+      "/share/.calcofi_db_pass.txt",
+      "~/.calcofi_db_pass.txt")
+  }
+
+  # Check if password file exists
+  stopifnot(file.exists(password_file))
+
+  # Create and return connection
+  DBI::dbConnect(
+    RPostgres::Postgres(),
+    dbname   = dbname,
+    host     = host,
+    port     = port,
+    user     = user,
+    password = readLines(password_file),
+    options  = glue::glue("-c search_path={paste(schemas, collapse = ',')}"))
+}
+
 #' Get primary key constraints for a table
 #'
 #' @param con Database connection

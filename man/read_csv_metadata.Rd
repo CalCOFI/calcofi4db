@@ -23,7 +23,8 @@ and writes this metadata to files for further processing.
 \examples{
 \dontrun{
 csv_metadata <- read_csv_metadata(
-  dir_csv = "/path/to/data/provider/dataset", 
+  dir_csv = "/path/to/data/provider/dataset",
   dir_ingest = "/path/to/ingest/provider/dataset")
 }
 }
+\concept{read}

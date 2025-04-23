@@ -8,7 +8,7 @@ ingest_csv_to_db(
   con,
   schema,
   transformed_data,
-  d_flds_rn,
+  d_flds_rd,
   d_gdir_data = NULL,
   workflow_info,
   overwrite = FALSE
@@ -21,7 +21,7 @@ ingest_csv_to_db(
 
 \item{transformed_data}{Transformed data from transform_data()}
 
-\item{d_flds_rn}{Field redefinition data frame}
+\item{d_flds_rd}{Field redefinition data frame}
 
 \item{d_gdir_data}{Google Drive metadata (optional)}
 
@@ -41,9 +41,10 @@ stats <- ingest_csv_to_db(
   con = db_connection,
   schema = "public",
   transformed_data = transformed_data,
-  d_flds_rn = data_info$d_flds_rn,
+  d_flds_rd = data_info$d_flds_rd,
   d_gdir_data = data_info$d_gdir_data,
   workflow_info = data_info$workflow_info
 )
 }
 }
+\concept{ingest}

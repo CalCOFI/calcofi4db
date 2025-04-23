@@ -7,7 +7,7 @@
 transform_data(data_info)
 }
 \arguments{
-\item{data_info}{List containing data and metadata from load_csv_files()}
+\item{data_info}{List containing data and metadata from \code{read_csv_files()}}
 }
 \value{
 List with transformed data ready for database ingestion
@@ -20,3 +20,4 @@ Applies transformations to raw data based on redefinition files.
 transformed_data <- transform_data(data_info)
 }
 }
+\concept{transform}
