@@ -182,7 +182,13 @@ print_csv_change_stats <- function(changes, verbose = TRUE) {
   # Count total field changes
   n_fields_added <- sum(sapply(changes$fields_added, length))
   n_fields_removed <- sum(sapply(changes$fields_removed, length))
-  n_type_mismatches <- sum(sapply(changes$type_mismatches, length))
+  
+  # Count type mismatches (need to count fields within each table)
+  n_type_mismatches <- if (length(changes$type_mismatches) > 0) {
+    sum(sapply(changes$type_mismatches, function(tbl) length(tbl)))
+  } else {
+    0
+  }
   
   # Print summary
   cat("CSV Change Summary:\n")
