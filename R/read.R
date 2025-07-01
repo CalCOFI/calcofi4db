@@ -69,7 +69,20 @@ read_csv_metadata <- function(dir_csv, dir_ingest, create_dirs = TRUE) {
 #' Read CSV Files and Their Metadata
 #'
 #' Reads CSV files from a directory and prepares them for ingestion into a
-#' database.
+#' database. This function is the primary entry point for the CalCOFI data
+#' ingestion workflow. It performs the following steps:
+#' 
+#' 1. Reads all CSV files from the specified provider/dataset directory
+#' 2. Extracts metadata about tables and fields from the CSV files
+#' 3. Creates or reads redefinition files for table and field transformations
+#' 4. Optionally queries Google Drive for file metadata (creation dates, etc.)
+#' 
+#' The function returns a comprehensive data structure containing:
+#' - Raw CSV data and metadata (d_csv)
+#' - Table redefinitions (d_tbls_rd) for renaming/describing tables
+#' - Field redefinitions (d_flds_rd) for renaming/typing/transforming fields
+#' - Google Drive metadata if requested (d_gdata)
+#' - Workflow information and file paths
 #'
 #' @param provider Data provider (e.g., "swfsc.noaa.gov")
 #' @param dataset Dataset name (e.g., "calcofi-db")
@@ -80,19 +93,51 @@ read_csv_metadata <- function(dir_csv, dir_ingest, create_dirs = TRUE) {
 #'   under {provider}/{dataset} directory) with metadata information on CSVs.
 #'   Default: [data - Google
 #'   Drive](https://drive.google.com/drive/u/0/folders/1xxdWa4mWkmfkJUQsHxERTp9eBBXBMbV7)
-#' @param use_gdrive Whether to query Google Drive for metadata. Default: TRUEs
+#' @param use_gdrive Whether to query Google Drive for metadata. Default: TRUE
 #' @param email Google Drive authentication email (if use_gdrive=TRUE). Default:
 #'   "ben@ecoquants.com"
 #'
-#' @return A list containing table data and metadata
+#' @return A list containing:
+#'   \describe{
+#'     \item{d_csv}{List with CSV data including:
+#'       - data: tibble with columns (tbl, csv, data, nrow, ncol, flds)
+#'       - tables: summary of tables (tbl, nrow, ncol)
+#'       - fields: summary of fields (tbl, fld, type)}
+#'     \item{d_gdata}{Google Drive metadata (if use_gdrive=TRUE) including
+#'       file names, IDs, modification times, and web links}
+#'     \item{d_tbls_rd}{Table redefinition data frame with columns:
+#'       tbl_old, tbl_new, tbl_description}
+#'     \item{d_flds_rd}{Field redefinition data frame with columns:
+#'       tbl_old, tbl_new, fld_old, fld_new, order_old, order_new,
+#'       type_old, type_new, fld_description, notes, mutation}
+#'     \item{workflow_info}{Information about the workflow including
+#'       workflow name, QMD file path, and URL}
+#'     \item{paths}{List of file paths used in the workflow}
+#'   }
 #' @export
 #' @concept read
 #'
 #' @examples
 #' \dontrun{
-#' dataset_info <- read_csv_files(
+#' # Basic usage
+#' d <- read_csv_files(
 #'   provider = "swfsc.noaa.gov",
 #'   dataset  = "calcofi-db")
+#' 
+#' # Access the raw CSV data
+#' d$d_csv$data
+#' 
+#' # Check table redefinitions
+#' d$d_tbls_rd
+#' 
+#' # Check field redefinitions
+#' d$d_flds_rd
+#' 
+#' # Without Google Drive metadata
+#' d <- read_csv_files(
+#'   provider = "swfsc.noaa.gov",
+#'   dataset  = "calcofi-db",
+#'   use_gdrive = FALSE)
 #' }
 read_csv_files <- function(
     provider,
@@ -140,7 +185,7 @@ read_csv_files <- function(
 
     # Authenticate with Google Drive
     googledrive::drive_auth(
-      email = email,
+      email  = email,
       scopes = "drive")
 
     # check/get Google Drive calcofi/data/provider/dataset folder
@@ -159,16 +204,16 @@ read_csv_files <- function(
           lubridate::as_datetime())
   }
 
-  # Read CSV metadata files
-  m <- read_csv_metadata(dir_csv, dir_ingest) # csv_metadata -> m
+  # Read CSV metadata and data
+  d_csv <- read_csv_metadata(dir_csv, dir_ingest)
 
   # Determine if redefinition files need to be created
   if (!file.exists(flds_rd_csv)) {
     # Create redefinition files
     create_redefinition_files(
-      d_tbls_in   = m$tables,
-      d_flds_in   = m$fields,
-      d           = m$data,
+      d_tbls_in   = d_csv$tables,
+      d_flds_in   = d_csv$fields,
+      d           = d_csv$data,
       tbls_rd_csv = tbls_rd_csv,
       flds_rd_csv = flds_rd_csv)
   }
@@ -179,8 +224,8 @@ read_csv_files <- function(
 
   # Return all data and metadata
   list(
-    csv           = d_csv,
-    gdir          = d_gdata,
+    d_csv         = d_csv,
+    d_gdata       = d_gdata,
     d_tbls_rd     = d_tbls_rd,
     d_flds_rd     = d_flds_rd,
     workflow_info = workflow_info,

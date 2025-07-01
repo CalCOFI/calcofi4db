@@ -27,23 +27,73 @@ Drive/projects/calcofi/data"}
 under {provider}/{dataset} directory) with metadata information on CSVs.
 Default: \href{https://drive.google.com/drive/u/0/folders/1xxdWa4mWkmfkJUQsHxERTp9eBBXBMbV7}{data - Google Drive}}
 
-\item{use_gdrive}{Whether to query Google Drive for metadata. Default: TRUEs}
+\item{use_gdrive}{Whether to query Google Drive for metadata. Default: TRUE}
 
 \item{email}{Google Drive authentication email (if use_gdrive=TRUE). Default:
 "ben@ecoquants.com"}
 }
 \value{
-A list containing table data and metadata
+A list containing:
+\describe{
+\item{d_csv}{List with CSV data including:
+- data: tibble with columns (tbl, csv, data, nrow, ncol, flds)
+- tables: summary of tables (tbl, nrow, ncol)
+- fields: summary of fields (tbl, fld, type)}
+\item{d_gdata}{Google Drive metadata (if use_gdrive=TRUE) including
+file names, IDs, modification times, and web links}
+\item{d_tbls_rd}{Table redefinition data frame with columns:
+tbl_old, tbl_new, tbl_description}
+\item{d_flds_rd}{Field redefinition data frame with columns:
+tbl_old, tbl_new, fld_old, fld_new, order_old, order_new,
+type_old, type_new, fld_description, notes, mutation}
+\item{workflow_info}{Information about the workflow including
+workflow name, QMD file path, and URL}
+\item{paths}{List of file paths used in the workflow}
+}
 }
 \description{
 Reads CSV files from a directory and prepares them for ingestion into a
-database.
+database. This function is the primary entry point for the CalCOFI data
+ingestion workflow. It performs the following steps:
+}
+\details{
+\enumerate{
+\item Reads all CSV files from the specified provider/dataset directory
+\item Extracts metadata about tables and fields from the CSV files
+\item Creates or reads redefinition files for table and field transformations
+\item Optionally queries Google Drive for file metadata (creation dates, etc.)
+}
+
+The function returns a comprehensive data structure containing:
+\itemize{
+\item Raw CSV data and metadata (d_csv)
+\item Table redefinitions (d_tbls_rd) for renaming/describing tables
+\item Field redefinitions (d_flds_rd) for renaming/typing/transforming fields
+\item Google Drive metadata if requested (d_gdata)
+\item Workflow information and file paths
+}
 }
 \examples{
 \dontrun{
-dataset_info <- read_csv_files(
+# Basic usage
+d <- read_csv_files(
   provider = "swfsc.noaa.gov",
   dataset  = "calcofi-db")
+
+# Access the raw CSV data
+d$d_csv$data
+
+# Check table redefinitions
+d$d_tbls_rd
+
+# Check field redefinitions
+d$d_flds_rd
+
+# Without Google Drive metadata
+d <- read_csv_files(
+  provider = "swfsc.noaa.gov",
+  dataset  = "calcofi-db",
+  use_gdrive = FALSE)
 }
 }
 \concept{read}

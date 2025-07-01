@@ -82,7 +82,7 @@ show_fields_redefine = function(d) {
 #' @concept viz
 show_googledrive_files = function(d) {
   # Google Drive files were already loaded in setup
-  d$gdir |>
+  d$d_gdata |>
     dplyr::mutate(
       csv = glue::glue("<a href='{web_view_link}' target='_blank'>{name}</a>") ) |>
     dplyr::select(csv = name, created_time) |>

@@ -70,126 +70,218 @@ transform_data <- function(data_info) {
 
 #' Detect Changes in CSV Files
 #'
-#' Compares current CSV files with existing database tables to detect changes
-#' in tables, fields, and data types.
+#' Compares latest CSV files with redefinition metadata to detect changes
+#' in tables, fields, and data types. This function compares the raw CSV data
+#' (d$d_csv) with the table and field redefinitions (d$d_tbls_rd and d$d_flds_rd)
+#' to identify mismatches before database ingestion.
 #'
-#' @param con Database connection
-#' @param schema Database schema
-#' @param transformed_data Transformed data from transform_data()
-#' @param d_flds_rd Field redefinition data frame
+#' @param d List output from read_csv_files() containing:
+#'   - d_csv: CSV metadata with tables, fields, and data
+#'   - d_tbls_rd: Table redefinition data frame
+#'   - d_flds_rd: Field redefinition data frame
 #'
-#' @return A list of detected changes in tables, fields, and types
+#' @return A list containing detected changes:
+#'   - tables_added: Tables in CSV but not in redefinitions
+#'   - tables_removed: Tables in redefinitions but not in CSV
+#'   - fields_added: Fields in CSV but not in redefinitions (by table)
+#'   - fields_removed: Fields in redefinitions but not in CSV (by table)
+#'   - type_mismatches: Field type differences between CSV and redefinitions
+#'   - summary: Data frame summarizing all changes for display
 #' @export
 #' @concept transform
 #'
 #' @examples
 #' \dontrun{
-#' changes <- detect_csv_changes(
-#'   con = db_connection,
-#'   schema = "public",
-#'   transformed_data = transformed_data,
-#'   d_flds_rd = data_info$d_flds_rd
-#' )
+#' # Read CSV files and metadata
+#' d <- read_csv_files("swfsc.noaa.gov", "calcofi-db")
+#' 
+#' # Detect changes between CSV files and redefinitions
+#' changes <- detect_csv_changes(d)
+#' 
+#' # Display summary of changes
+#' print(changes$summary)
 #' }
-detect_csv_changes <- function(con, schema, transformed_data, d_flds_rd) {
-  # Get list of tables in the database
-  existing_tables <- DBI::dbListTables(con)
-
-  # Get list of tables in the transformed data
-  new_tables <- transformed_data |>
-    dplyr::pull(tbl_new) |>
-    unique()
-
-  # Identify added, removed, and common tables
-  added_tables <- setdiff(new_tables, existing_tables)
-  common_tables <- intersect(new_tables, existing_tables)
-
-  # Initialize changes list
-  changes <- list(
-    new_tables = added_tables,
-    existing_tables = common_tables,
-    field_changes = list(),
-    type_changes = list(),
-    data_changes = list()
-  )
-
-  # Check for field and type changes in common tables
-  for (tbl in common_tables) {
-    # Get existing table schema
-    existing_fields <- DBI::dbListFields(con, DBI::Id(schema = schema, table = tbl))
-
-    # Get new table schema
-    new_data <- transformed_data |>
-      dplyr::filter(tbl_new == tbl) |>
-      dplyr::pull(data_new) |>
+detect_csv_changes <- function(d) {
+  # Extract components
+  d_csv <- d$d_csv$data
+  d_tbls_rd <- d$d_tbls_rd
+  d_flds_rd <- d$d_flds_rd
+  
+  # Get tables from CSV and redefinitions
+  csv_tables <- unique(d_csv$tbl)
+  rd_tables <- unique(d_tbls_rd$tbl_old)
+  
+  # Identify table-level changes
+  tables_added <- setdiff(csv_tables, rd_tables)
+  tables_removed <- setdiff(rd_tables, csv_tables)
+  tables_common <- intersect(csv_tables, rd_tables)
+  
+  # Initialize results
+  fields_added <- list()
+  fields_removed <- list()
+  type_mismatches <- list()
+  summary_rows <- list()
+  
+  # Check field-level changes for each common table
+  for (tbl in tables_common) {
+    # Get fields from CSV
+    csv_fields_data <- d_csv |>
+      dplyr::filter(tbl == !!tbl) |>
+      dplyr::pull(flds) |>
       purrr::pluck(1)
-
-    new_fields <- names(new_data)
-
-    # Identify field changes
-    added_fields <- setdiff(new_fields, existing_fields)
-    removed_fields <- setdiff(existing_fields, new_fields)
-
-    if (length(added_fields) > 0 || length(removed_fields) > 0) {
-      changes$field_changes[[tbl]] <- list(
-        added = added_fields,
-        removed = removed_fields
-      )
-    }
-
-    # Check field type changes (for existing fields)
-    common_fields <- intersect(existing_fields, new_fields)
-
-    type_changes <- list()
-
-    # Only check if there are common fields
-    if (length(common_fields) > 0) {
-      # Get existing field types
-      existing_types_query <- glue::glue("
-        SELECT
-          column_name,
-          data_type
-        FROM
-          information_schema.columns
-        WHERE
-          table_schema = '{schema}' AND
-          table_name = '{tbl}'
-      ")
-
-      existing_types_df <- DBI::dbGetQuery(con, existing_types_query)
-
-      # Get new field types
-      new_types_df <- d_flds_rd |>
-        dplyr::filter(tbl_new == tbl) |>
-        dplyr::select(column_name = fld_new, data_type = type_new)
-
-      # Compare types
-      for (field in common_fields) {
-        existing_type <- existing_types_df |>
-          dplyr::filter(column_name == field) |>
-          dplyr::pull(data_type)
-
-        new_type <- new_types_df |>
-          dplyr::filter(column_name == field) |>
-          dplyr::pull(data_type)
-
-        if (length(existing_type) > 0 && length(new_type) > 0 &&
-            existing_type != new_type) {
-          type_changes[[field]] <- list(
-            from = existing_type,
-            to = new_type
+    
+    csv_fields <- csv_fields_data$fld
+    csv_types <- csv_fields_data$type
+    
+    # Get fields from redefinitions
+    rd_fields_data <- d_flds_rd |>
+      dplyr::filter(tbl_old == !!tbl)
+    
+    rd_fields <- rd_fields_data$fld_old
+    rd_types <- rd_fields_data$type_old
+    
+    # Find field differences
+    flds_added <- setdiff(csv_fields, rd_fields)
+    flds_removed <- setdiff(rd_fields, csv_fields)
+    flds_common <- intersect(csv_fields, rd_fields)
+    
+    if (length(flds_added) > 0) {
+      fields_added[[tbl]] <- flds_added
+      for (fld in flds_added) {
+        fld_type <- csv_types[csv_fields == fld]
+        summary_rows <- append(summary_rows, list(
+          tibble::tibble(
+            table = tbl,
+            field = fld,
+            change_type = "added",
+            old_value = NA_character_,
+            new_value = fld_type,
+            description = "Field added in CSV"
           )
-        }
+        ))
       }
     }
-
-    if (length(type_changes) > 0) {
-      changes$type_changes[[tbl]] <- type_changes
+    
+    if (length(flds_removed) > 0) {
+      fields_removed[[tbl]] <- flds_removed
+      for (fld in flds_removed) {
+        fld_type <- rd_types[rd_fields == fld]
+        summary_rows <- append(summary_rows, list(
+          tibble::tibble(
+            table = tbl,
+            field = fld,
+            change_type = "removed",
+            old_value = fld_type,
+            new_value = NA_character_,
+            description = "Field removed from CSV"
+          )
+        ))
+      }
     }
-
-    # TODO: Implement data comparison to detect changes in values
-    # This would require comparing sample data or checksums
+    
+    # Check type mismatches for common fields
+    type_changes <- list()
+    for (fld in flds_common) {
+      csv_type <- csv_types[csv_fields == fld]
+      rd_type <- rd_types[rd_fields == fld]
+      
+      if (!is.na(csv_type) && !is.na(rd_type) && csv_type != rd_type) {
+        type_changes[[fld]] <- list(
+          csv_type = csv_type,
+          rd_type = rd_type
+        )
+        summary_rows <- append(summary_rows, list(
+          tibble::tibble(
+            table = tbl,
+            field = fld,
+            change_type = "type_mismatch",
+            old_value = rd_type,
+            new_value = csv_type,
+            description = "Field type changed"
+          )
+        ))
+      }
+    }
+    
+    if (length(type_changes) > 0) {
+      type_mismatches[[tbl]] <- type_changes
+    }
   }
-
-  return(changes)
+  
+  # Add table-level changes to summary
+  for (tbl in tables_added) {
+    summary_rows <- append(summary_rows, list(
+      tibble::tibble(
+        table = tbl,
+        field = NA_character_,
+        change_type = "table_added",
+        old_value = NA_character_,
+        new_value = "new table",
+        description = "Table added in CSV"
+      )
+    ))
+  }
+  
+  for (tbl in tables_removed) {
+    summary_rows <- append(summary_rows, list(
+      tibble::tibble(
+        table = tbl,
+        field = NA_character_,
+        change_type = "table_removed",
+        old_value = "existing table",
+        new_value = NA_character_,
+        description = "Table removed from CSV"
+      )
+    ))
+  }
+  
+  # Combine summary rows
+  summary <- if (length(summary_rows) > 0) {
+    dplyr::bind_rows(summary_rows) |>
+      dplyr::arrange(table, field)
+  } else {
+    tibble::tibble(
+      table = character(),
+      field = character(),
+      change_type = character(),
+      old_value = character(),
+      new_value = character(),
+      description = character()
+    )
+  }
+  
+  # Print warnings if changes detected
+  if (nrow(summary) > 0) {
+    warning("Mismatches detected between CSV files and redefinitions:")
+    
+    if (length(tables_added) > 0) {
+      warning(sprintf("  Tables added: %s", paste(tables_added, collapse = ", ")))
+    }
+    
+    if (length(tables_removed) > 0) {
+      warning(sprintf("  Tables removed: %s", paste(tables_removed, collapse = ", ")))
+    }
+    
+    if (length(fields_added) > 0) {
+      warning(sprintf("  Fields added in %d table(s)", length(fields_added)))
+    }
+    
+    if (length(fields_removed) > 0) {
+      warning(sprintf("  Fields removed in %d table(s)", length(fields_removed)))
+    }
+    
+    if (length(type_mismatches) > 0) {
+      warning(sprintf("  Type mismatches in %d table(s)", length(type_mismatches)))
+    }
+  }
+  
+  # Return results
+  list(
+    tables_added = tables_added,
+    tables_removed = tables_removed,
+    fields_added = fields_added,
+    fields_removed = fields_removed,
+    type_mismatches = type_mismatches,
+    summary = summary
+  )
 }

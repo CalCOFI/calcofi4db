@@ -4,32 +4,43 @@
 \alias{detect_csv_changes}
 \title{Detect Changes in CSV Files}
 \usage{
-detect_csv_changes(con, schema, transformed_data, d_flds_rd)
+detect_csv_changes(d)
 }
 \arguments{
-\item{con}{Database connection}
-
-\item{schema}{Database schema}
-
-\item{transformed_data}{Transformed data from transform_data()}
-
-\item{d_flds_rd}{Field redefinition data frame}
+\item{d}{List output from read_csv_files() containing:
+\itemize{
+\item d_csv: CSV metadata with tables, fields, and data
+\item d_tbls_rd: Table redefinition data frame
+\item d_flds_rd: Field redefinition data frame
+}}
 }
 \value{
-A list of detected changes in tables, fields, and types
+A list containing detected changes:
+\itemize{
+\item tables_added: Tables in CSV but not in redefinitions
+\item tables_removed: Tables in redefinitions but not in CSV
+\item fields_added: Fields in CSV but not in redefinitions (by table)
+\item fields_removed: Fields in redefinitions but not in CSV (by table)
+\item type_mismatches: Field type differences between CSV and redefinitions
+\item summary: Data frame summarizing all changes for display
+}
 }
 \description{
-Compares current CSV files with existing database tables to detect changes
-in tables, fields, and data types.
+Compares latest CSV files with redefinition metadata to detect changes
+in tables, fields, and data types. This function compares the raw CSV data
+(d$d_csv) with the table and field redefinitions (d$d_tbls_rd and d$d_flds_rd)
+to identify mismatches before database ingestion.
 }
 \examples{
 \dontrun{
-changes <- detect_csv_changes(
-  con = db_connection,
-  schema = "public",
-  transformed_data = transformed_data,
-  d_flds_rd = data_info$d_flds_rd
-)
+# Read CSV files and metadata
+d <- read_csv_files("swfsc.noaa.gov", "calcofi-db")
+
+# Detect changes between CSV files and redefinitions
+changes <- detect_csv_changes(d)
+
+# Display summary of changes
+print(changes$summary)
 }
 }
 \concept{transform}
