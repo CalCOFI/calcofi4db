@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -32,6 +32,7 @@
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto">
 <li class="nav-item"><a class="nav-link" href="reference/index.html">Reference</a></li>
+<li class="nav-item"><a class="nav-link" href="news/index.html">Changelog</a></li>
       </ul>
 <ul class="navbar-nav">
 <li class="nav-item"><form class="form-inline" role="search">
@@ -114,7 +115,7 @@
 <p>For more control over the process, you can use the individual functions:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Load CSV files and metadata</span></span>
-<span><span class="va">data_info</span> <span class="op">&lt;-</span> <span class="fu">read_csv_files</span><span class="op">(</span></span>
+<span><span class="va">data_info</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/read_csv_files.html">read_csv_files</a></span><span class="op">(</span></span>
 <span>  provider <span class="op">=</span> <span class="st">"swfsc.noaa.gov"</span>,</span>
 <span>  dataset <span class="op">=</span> <span class="st">"calcofi-db"</span>,</span>
 <span>  dir_data <span class="op">=</span> <span class="st">"/path/to/data"</span>,</span>
@@ -178,7 +179,7 @@
 <div class="developers">
 <h2 data-toc-skip>Developers</h2>
 <ul class="list-unstyled">
-<li>Ben Best <br><small class="roles"> Author, maintainer </small> <a href="https://orcid.org/0000-0002-2686-0784" target="orcid.widget" aria-label="ORCID" class="external-link"><span class="fab fa-orcid orcid" aria-hidden="true"></span></a> </li>
+<li>Ben Best <br><small class="roles"> Author, maintainer </small> <a href="https://orcid.org/0000-0002-2686-0784" target="orcid.widget" aria-label="ORCID" class="external-link"><span class="fab fa-orcid orcid" aria-hidden="true"></span></a>  </li>
 </ul>
 </div>
 
@@ -193,7 +194,7 @@
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.1.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.3.</p>
 </div>
 
     </footer>
