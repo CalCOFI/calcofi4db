@@ -11,7 +11,8 @@ read_csv_files(
   url_gdata =
     "https://drive.google.com/drive/u/0/folders/1xxdWa4mWkmfkJUQsHxERTp9eBBXBMbV7",
   use_gdrive = TRUE,
-  email = "ben@ecoquants.com"
+  email = "ben@ecoquants.com",
+  verbose = F
 )
 }
 \arguments{

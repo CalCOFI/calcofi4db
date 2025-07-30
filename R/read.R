@@ -71,12 +71,12 @@ read_csv_metadata <- function(dir_csv, dir_ingest, create_dirs = TRUE) {
 #' Reads CSV files from a directory and prepares them for ingestion into a
 #' database. This function is the primary entry point for the CalCOFI data
 #' ingestion workflow. It performs the following steps:
-#' 
+#'
 #' 1. Reads all CSV files from the specified provider/dataset directory
 #' 2. Extracts metadata about tables and fields from the CSV files
 #' 3. Creates or reads redefinition files for table and field transformations
 #' 4. Optionally queries Google Drive for file metadata (creation dates, etc.)
-#' 
+#'
 #' The function returns a comprehensive data structure containing:
 #' - Raw CSV data and metadata (d_csv)
 #' - Table redefinitions (d_tbls_rd) for renaming/describing tables
@@ -123,16 +123,16 @@ read_csv_metadata <- function(dir_csv, dir_ingest, create_dirs = TRUE) {
 #' d <- read_csv_files(
 #'   provider = "swfsc.noaa.gov",
 #'   dataset  = "calcofi-db")
-#' 
+#'
 #' # Access the raw CSV data
 #' d$d_csv$data
-#' 
+#'
 #' # Check table redefinitions
 #' d$d_tbls_rd
-#' 
+#'
 #' # Check field redefinitions
 #' d$d_flds_rd
-#' 
+#'
 #' # Without Google Drive metadata
 #' d <- read_csv_files(
 #'   provider = "swfsc.noaa.gov",
@@ -145,12 +145,18 @@ read_csv_files <- function(
     dir_data    = "~/My Drive/projects/calcofi/data",
     url_gdata   = "https://drive.google.com/drive/u/0/folders/1xxdWa4mWkmfkJUQsHxERTp9eBBXBMbV7",
     use_gdrive  = TRUE,
-    email       = "ben@ecoquants.com") {
+    email       = "ben@ecoquants.com",
+    verbose     = F) {
 
   # Define paths
   dir_csv    <- file.path(dir_data, provider, dataset)
   dir_ingest <- file.path(here::here(), "ingest", provider, dataset)
   stopifnot(dir.exists(dir_csv))
+  if (verbose) {
+    message(glue::glue("Reading CSV data from dir_csv: {dir_csv}"))
+    message(glue::glue("Reading CSV redefinition from dir_ingest: {dir_ingest}"))
+  }
+  # TODO: add more verbose messages...
 
   # Get workflow info
   workflow_info <- get_workflow_info(provider, dataset)
@@ -206,6 +212,9 @@ read_csv_files <- function(
 
   # Read CSV metadata and data
   d_csv <- read_csv_metadata(dir_csv, dir_ingest)
+  # New names:
+  # • `stationid` -> `stationid...1`
+  # • `stationid` -> `stationid...7`
 
   # Determine if redefinition files need to be created
   if (!file.exists(flds_rd_csv)) {

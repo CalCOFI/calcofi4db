@@ -18,23 +18,23 @@
 #' # Read CSV files and detect changes
 #' d <- read_csv_files("swfsc.noaa.gov", "calcofi-db")
 #' changes <- detect_csv_changes(d)
-#' 
+#'
 #' # Display interactive table
 #' display_csv_changes(changes)
-#' 
+#'
 #' # Display static table for reports
 #' display_csv_changes(changes, format = "kable")
 #' }
 display_csv_changes <- function(changes, format = "DT", title = NULL) {
   # Extract summary data
   summary_df <- changes$summary
-  
+
   # If no changes, return message
   if (nrow(summary_df) == 0) {
     message("No changes detected between CSV files and redefinitions.")
     return(invisible(NULL))
   }
-  
+
   # Add color coding based on change type
   summary_df <- summary_df |>
     dplyr::mutate(
@@ -51,14 +51,14 @@ display_csv_changes <- function(changes, format = "DT", title = NULL) {
         TRUE ~ ""
       )
     )
-  
+
   # Format based on requested output
   if (format == "DT") {
     # Create interactive DataTable
     if (!requireNamespace("DT", quietly = TRUE)) {
       stop("Package 'DT' required for interactive tables. Please install it.")
     }
-    
+
     # Prepare display columns
     display_df <- summary_df |>
       dplyr::select(
@@ -70,7 +70,7 @@ display_csv_changes <- function(changes, format = "DT", title = NULL) {
         `New Value` = new_value,
         Description = description
       )
-    
+
     # Create DataTable with color coding
     dt <- DT::datatable(
       display_df,
@@ -91,7 +91,7 @@ display_csv_changes <- function(changes, format = "DT", title = NULL) {
       ),
       rownames = FALSE
     )
-    
+
     # Apply row colors based on change type
     for (i in seq_len(nrow(summary_df))) {
       row_color <- summary_df$color[i]
@@ -103,7 +103,7 @@ display_csv_changes <- function(changes, format = "DT", title = NULL) {
           backgroundColor = DT::styleRow(i, paste0(row_color, "20"))
         )
     }
-    
+
     # Style the icon column
     dt <- dt |>
       DT::formatStyle(
@@ -115,15 +115,15 @@ display_csv_changes <- function(changes, format = "DT", title = NULL) {
         fontWeight = "bold",
         fontSize = "120%"
       )
-    
+
     return(dt)
-    
+
   } else if (format == "kable") {
     # Create static kable table
     if (!requireNamespace("knitr", quietly = TRUE)) {
       stop("Package 'knitr' required for kable tables. Please install it.")
     }
-    
+
     display_df <- summary_df |>
       dplyr::mutate(
         Change = paste(icon, change_type),
@@ -139,17 +139,17 @@ display_csv_changes <- function(changes, format = "DT", title = NULL) {
         `New Value` = new_value,
         Description = description
       )
-    
+
     knitr::kable(
       display_df,
       caption = title %||% "CSV Changes Summary",
       format = "html"
     )
-    
+
   } else if (format == "tibble") {
     # Return raw tibble
     return(summary_df)
-    
+
   } else {
     stop("Invalid format. Choose 'DT', 'kable', or 'tibble'.")
   }
@@ -178,18 +178,24 @@ print_csv_change_stats <- function(changes, verbose = TRUE) {
   n_tables_removed <- length(changes$tables_removed)
   n_tables_with_field_changes <- length(changes$fields_added) + length(changes$fields_removed)
   n_tables_with_type_changes <- length(changes$type_mismatches)
-  
+
   # Count total field changes
-  n_fields_added <- sum(sapply(changes$fields_added, length))
-  n_fields_removed <- sum(sapply(changes$fields_removed, length))
-  
+  n_fields_added <- ifelse(
+    length(changes$fields_added) == 0,
+    0,
+    sum(sapply(changes$fields_added, length)))
+  n_fields_removed <- ifelse(
+    length(changes$fields_added) == 0,
+    0,
+    sum(sapply(changes$fields_removed, length)))
+
   # Count type mismatches (need to count fields within each table)
   n_type_mismatches <- if (length(changes$type_mismatches) > 0) {
     sum(sapply(changes$type_mismatches, function(tbl) length(tbl)))
   } else {
     0
   }
-  
+
   # Print summary
   cat("CSV Change Summary:\n")
   cat("==================\n")
@@ -198,7 +204,7 @@ print_csv_change_stats <- function(changes, verbose = TRUE) {
   cat(sprintf("Fields added:    %d (across %d tables)\n", n_fields_added, length(changes$fields_added)))
   cat(sprintf("Fields removed:  %d (across %d tables)\n", n_fields_removed, length(changes$fields_removed)))
   cat(sprintf("Type mismatches: %d (across %d tables)\n", n_type_mismatches, length(changes$type_mismatches)))
-  
+
   if (verbose) {
     # Print detailed information
     if (n_tables_added > 0) {
@@ -207,14 +213,14 @@ print_csv_change_stats <- function(changes, verbose = TRUE) {
         cat(sprintf("  + %s\n", tbl))
       }
     }
-    
+
     if (n_tables_removed > 0) {
       cat("\nTables Removed:\n")
       for (tbl in changes$tables_removed) {
         cat(sprintf("  - %s\n", tbl))
       }
     }
-    
+
     if (length(changes$fields_added) > 0) {
       cat("\nFields Added:\n")
       for (tbl in names(changes$fields_added)) {
@@ -224,7 +230,7 @@ print_csv_change_stats <- function(changes, verbose = TRUE) {
         }
       }
     }
-    
+
     if (length(changes$fields_removed) > 0) {
       cat("\nFields Removed:\n")
       for (tbl in names(changes$fields_removed)) {
@@ -234,7 +240,7 @@ print_csv_change_stats <- function(changes, verbose = TRUE) {
         }
       }
     }
-    
+
     if (length(changes$type_mismatches) > 0) {
       cat("\nType Mismatches:\n")
       for (tbl in names(changes$type_mismatches)) {
@@ -246,6 +252,6 @@ print_csv_change_stats <- function(changes, verbose = TRUE) {
       }
     }
   }
-  
+
   invisible(NULL)
 }

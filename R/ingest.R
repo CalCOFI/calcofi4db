@@ -42,16 +42,24 @@ ingest_csv_to_db <- function(con, schema, transformed_data, d_flds_rd,
 
       # Get transformed data
       d_tbl <- transformed_data |>
-        dplyr::filter(tbl_new == tbl) |>
+        dplyr::filter(tbl_new == !!tbl) |>
         dplyr::pull(data_new) |>
         purrr::pluck(1)
 
       # Get field types
       v_fld_types <- d_flds_rd |>
-        dplyr::filter(tbl_new == tbl) |>
+        dplyr::filter(tbl_new == !!tbl) |>
         dplyr::arrange(order_new) |>
         dplyr::select(fld_new, type_new) |>
         tibble::deframe()
+
+      # Drop cascade if table exists
+      if (tbl_exists) {
+        message("  dropping existing table")
+        DBI::dbExecute(
+          con,
+          glue::glue("DROP TABLE IF EXISTS {schema}.{tbl} CASCADE"))
+      }
 
       # Write table to database
       DBI::dbWriteTable(
@@ -59,8 +67,8 @@ ingest_csv_to_db <- function(con, schema, transformed_data, d_flds_rd,
         DBI::Id(schema = schema, table = tbl),
         d_tbl,
         field.types = v_fld_types,
-        append = FALSE,
-        overwrite = TRUE)
+        append      = FALSE,
+        overwrite   = TRUE)
 
       # Add table comment with JSON metadata
       tbl_description <- transformed_data |>

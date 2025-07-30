@@ -13,7 +13,9 @@
 #' transformed_data <- transform_data(data_info)
 #' }
 transform_data <- function(data_info) {
-  d <- data_info$csv$data
+  # data_info <- d
+
+  d <- data_info$d_csv$data
   d_tbls_rd <- data_info$d_tbls_rd
   d_flds_rd <- data_info$d_flds_rd
 
@@ -27,14 +29,14 @@ transform_data <- function(data_info) {
       dplyr::select(fld_old, fld_new) |>
       tibble::deframe()
 
-    y <- dplyr::redefine_with(data, ~ f_rd[.x])
+    y <- dplyr::rename_with(data, ~ f_rd[.x])
 
     # Mutate fields
     d_m <- d_f |>
       dplyr::select(fld_new, mutation) |>
       dplyr::filter(!is.na(mutation))
 
-    for (i in seq_len(nrow(d_m))) {
+    for (i in seq_len(nrow(d_m))) { # i = 1
       fld <- d_m$fld_new[i]
       mx <- d_m$mutation[i]
 
@@ -94,10 +96,10 @@ transform_data <- function(data_info) {
 #' \dontrun{
 #' # Read CSV files and metadata
 #' d <- read_csv_files("swfsc.noaa.gov", "calcofi-db")
-#' 
+#'
 #' # Detect changes between CSV files and redefinitions
 #' changes <- detect_csv_changes(d)
-#' 
+#'
 #' # Display summary of changes
 #' print(changes$summary)
 #' }
@@ -106,22 +108,22 @@ detect_csv_changes <- function(d) {
   d_csv <- d$d_csv$data
   d_tbls_rd <- d$d_tbls_rd
   d_flds_rd <- d$d_flds_rd
-  
+
   # Get tables from CSV and redefinitions
   csv_tables <- unique(d_csv$tbl)
   rd_tables <- unique(d_tbls_rd$tbl_old)
-  
+
   # Identify table-level changes
   tables_added <- setdiff(csv_tables, rd_tables)
   tables_removed <- setdiff(rd_tables, csv_tables)
   tables_common <- intersect(csv_tables, rd_tables)
-  
+
   # Initialize results
   fields_added <- list()
   fields_removed <- list()
   type_mismatches <- list()
   summary_rows <- list()
-  
+
   # Check field-level changes for each common table
   for (tbl in tables_common) {
     # Get fields from CSV
@@ -129,22 +131,22 @@ detect_csv_changes <- function(d) {
       dplyr::filter(tbl == !!tbl) |>
       dplyr::pull(flds) |>
       purrr::pluck(1)
-    
+
     csv_fields <- csv_fields_data$fld
     csv_types <- csv_fields_data$type
-    
+
     # Get fields from redefinitions
     rd_fields_data <- d_flds_rd |>
       dplyr::filter(tbl_old == !!tbl)
-    
+
     rd_fields <- rd_fields_data$fld_old
     rd_types <- rd_fields_data$type_old
-    
+
     # Find field differences
     flds_added <- setdiff(csv_fields, rd_fields)
     flds_removed <- setdiff(rd_fields, csv_fields)
     flds_common <- intersect(csv_fields, rd_fields)
-    
+
     if (length(flds_added) > 0) {
       fields_added[[tbl]] <- flds_added
       for (fld in flds_added) {
@@ -161,7 +163,7 @@ detect_csv_changes <- function(d) {
         ))
       }
     }
-    
+
     if (length(flds_removed) > 0) {
       fields_removed[[tbl]] <- flds_removed
       for (fld in flds_removed) {
@@ -178,13 +180,13 @@ detect_csv_changes <- function(d) {
         ))
       }
     }
-    
+
     # Check type mismatches for common fields
     type_changes <- list()
     for (fld in flds_common) {
       csv_type <- csv_types[csv_fields == fld]
       rd_type <- rd_types[rd_fields == fld]
-      
+
       if (!is.na(csv_type) && !is.na(rd_type) && csv_type != rd_type) {
         type_changes[[fld]] <- list(
           csv_type = csv_type,
@@ -202,12 +204,12 @@ detect_csv_changes <- function(d) {
         ))
       }
     }
-    
+
     if (length(type_changes) > 0) {
       type_mismatches[[tbl]] <- type_changes
     }
   }
-  
+
   # Add table-level changes to summary
   for (tbl in tables_added) {
     summary_rows <- append(summary_rows, list(
@@ -221,7 +223,7 @@ detect_csv_changes <- function(d) {
       )
     ))
   }
-  
+
   for (tbl in tables_removed) {
     summary_rows <- append(summary_rows, list(
       tibble::tibble(
@@ -234,7 +236,7 @@ detect_csv_changes <- function(d) {
       )
     ))
   }
-  
+
   # Combine summary rows
   summary <- if (length(summary_rows) > 0) {
     dplyr::bind_rows(summary_rows) |>
@@ -249,32 +251,32 @@ detect_csv_changes <- function(d) {
       description = character()
     )
   }
-  
+
   # Print warnings if changes detected
   if (nrow(summary) > 0) {
     warning("Mismatches detected between CSV files and redefinitions:")
-    
+
     if (length(tables_added) > 0) {
       warning(sprintf("  Tables added: %s", paste(tables_added, collapse = ", ")))
     }
-    
+
     if (length(tables_removed) > 0) {
       warning(sprintf("  Tables removed: %s", paste(tables_removed, collapse = ", ")))
     }
-    
+
     if (length(fields_added) > 0) {
       warning(sprintf("  Fields added in %d table(s)", length(fields_added)))
     }
-    
+
     if (length(fields_removed) > 0) {
       warning(sprintf("  Fields removed in %d table(s)", length(fields_removed)))
     }
-    
+
     if (length(type_mismatches) > 0) {
       warning(sprintf("  Type mismatches in %d table(s)", length(type_mismatches)))
     }
   }
-  
+
   # Return results
   list(
     tables_added = tables_added,
