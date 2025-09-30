@@ -1,3 +1,41 @@
+## 2025-09-29.a ∆ fix read_csv_files() error with path to redefinition files flds|tbls_raw|redefine.csv
+
+When running the ingestion script @workflows/ingest_swfsc.noaa.gov_calcofi-db.qmd:
+
+```r
+d_noaa <- read_csv_files(provider, dataset)
+```
+
+```
+New names:                                                                        
+• `stationid` -> `stationid...1`
+• `stationid` -> `stationid...7`
+Error: Cannot open file for writing:
+* '/Users/bbest/Github/CalCOFI/calcofi4db/ingest/swfsc.noaa.gov/calcofi-db/tbls_raw.csv'
+```
+
+This is because the function read_csv_files() in @calcofi4db/R/read.R is looking
+for the redefinition files `tbls_raw.csv`, `flds_rd.csv`, `tbls_redefine.csv`
+and`flds_redefine.csv` in the wrong directory. It should be looking in
+@calcofi4db/inst/ingest and then `{provider}/{dataset}`, so files should be
+moved from  of `workflows/ingest` and `{provider}/{dataset}` subfolders. And
+functions in @calcofi4db need to be updated accordingly.
+
+⏺ Perfect! I've fixed the directory structure issue:
+
+  Changes Made
+
+  1. Created new directory structure: calcofi4db/inst/ingest/{provider}/{dataset}
+  2. Moved redefinition files: Copied all CSV files from workflows/ingest/swfsc.noaa.gov/calcofi-db/ to calcofi4db/inst/ingest/swfsc.noaa.gov/calcofi-db/
+  3. Updated read_csv_files(): Modified to look for ingest files in the correct location:
+    - When running from calcofi4db/: uses inst/ingest/{provider}/{dataset}
+    - When running from parent directory: uses calcofi4db/inst/ingest/{provider}/{dataset}
+    - Auto-creates the directory if it doesn't exist
+  4. Updated read_csv_metadata(): Fixed to create the full dir_ingest path if needed (not just the parent)
+
+  The function should now correctly find the redefinition files at calcofi4db/inst/ingest/swfsc.noaa.gov/calcofi-db/ when you call read_csv_files(provider, dataset).
+
+
 ## 2025-09-29.b ∆ fix read_csv_files() error
 
 Fix the error in the function read_csv_files() in @calcofi4db/R/read.R:

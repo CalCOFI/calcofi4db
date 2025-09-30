@@ -1,0 +1,13 @@
+tbl,nrow,ncol
+cruise,691,3
+eggs,93065,3
+eggstage,19968,4
+larvae,398124,3
+larvaesize,241873,4
+larvaestage,114879,4
+net,76512,8
+shiplookup,48,3
+species,1144,5
+station,61104,7
+tow,75506,5
+towtypelookup,10,2

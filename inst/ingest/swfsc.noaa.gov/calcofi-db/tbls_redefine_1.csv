@@ -1,0 +1,13 @@
+tbl_old,tbl_new,tbl_description
+cruise,cruise,
+eggs,eggs,
+eggstage,eggstage,
+larvae,larvae,
+larvaesize,larvaesize,
+larvaestage,larvaestage,
+net,net,
+shiplookup,shiplookup,
+species,species,
+station,station,
+tow,tow,
+towtypelookup,towtypelookup,

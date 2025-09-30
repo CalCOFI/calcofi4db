@@ -1,0 +1,13 @@
+tbl_old,tbl_new,tbl_description
+cruise,cruise,unique by ship and year-month
+eggs,egg,number of eggs from net tow by species
+eggstage,eggstage,egg stage of larvae from net tow by species
+larvae,larva,number of larvae from net tow by species
+larvaesize,larvasize,size of larvae from net tow by species
+larvaestage,larvastage,stage of larvae from net tow by species
+net,net,individual net from given tow
+shiplookup,ship,unique ship with many cruises
+species,species,unique species (or taxa) found in egg or larva net tows
+station,site,"unique location (longitude, latitude) and time along cruise"
+tow,tow,unique net tows
+towtypelookup,tow_type,unique types of tows

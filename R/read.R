@@ -18,13 +18,13 @@
 #'   dir_ingest = "/path/to/ingest/provider/dataset")
 #' }
 read_csv_metadata <- function(dir_csv, dir_ingest, create_dirs = TRUE) {
-  # Check if directories exist
+  # check if directories exist
   if (!dir.exists(dir_csv)) {
     stop(glue::glue("CSV directory does not exist: {dir_csv}"))
   }
 
-  if (create_dirs && !dir.exists(dirname(dir_ingest))) {
-    dir.create(dirname(dir_ingest), recursive = TRUE)
+  if (create_dirs && !dir.exists(dir_ingest)) {
+    dir.create(dir_ingest, recursive = TRUE)
   }
 
   # Create paths for metadata files
@@ -148,15 +148,28 @@ read_csv_files <- function(
     email       = "ben@ecoquants.com",
     verbose     = F) {
 
-  # Define paths
-  dir_csv    <- file.path(dir_data, provider, dataset)
-  dir_ingest <- file.path(here::here(), "ingest", provider, dataset)
+  # define paths
+  dir_csv <- file.path(dir_data, provider, dataset)
+
+  # check if running from calcofi4db/ or parent directory
+  if (basename(here::here()) == "calcofi4db") {
+    dir_ingest <- file.path(here::here(), "inst", "ingest", provider, dataset)
+  } else {
+    dir_ingest <- file.path(here::here(), "calcofi4db", "inst", "ingest", provider, dataset)
+  }
+
   stopifnot(dir.exists(dir_csv))
+
+  # create ingest directory if it doesn't exist
+  if (!dir.exists(dir_ingest)) {
+    dir.create(dir_ingest, recursive = TRUE)
+    message(glue::glue("Created ingest directory: {dir_ingest}"))
+  }
+
   if (verbose) {
     message(glue::glue("Reading CSV data from dir_csv: {dir_csv}"))
     message(glue::glue("Reading CSV redefinition from dir_ingest: {dir_ingest}"))
   }
-  # TODO: add more verbose messages...
 
   # get workflow info - for master ingestion script, use inst/ingest.qmd
   # check both possible locations (running from calcofi4db/ or from parent)
