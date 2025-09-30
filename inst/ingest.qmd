@@ -1,5 +1,7 @@
 ---
 title: "Master Database Ingestion"
+date: "`r Sys.time()`"
+date-format: "YYYY-MM-DD HH:mm:ss z"
 execute:
   echo: true
   warning: false
@@ -13,9 +15,29 @@ format:
 editor:
   markdown:
     wrap: 72
+params:
+  target_version: "1.0.0"
+  version_description: "Initial production release with NOAA CalCOFI Database"
+  do_version_release: false
+  do_git_commit: false
+  do_git_push: false
 ---
 
+```{r}
+#| label: start-timer
+#| include: false
+
+# record start time for duration calculation
+start_time <- Sys.time()
+```
+
 ## Overview {.unnumbered}
+
+**Target Version:** `r params$target_version`
+
+**Description:** `r params$version_description`
+
+**Render Started:** `r format(start_time, "%Y-%m-%d %H:%M:%S %Z")`
 
 This master ingestion script recreates the `dev` schema with all CalCOFI datasets from Google Drive source files. The workflow:
 
@@ -39,7 +61,7 @@ options(readr.show_col_types = F)
 devtools::load_all(here()) # load calcofi4db package from local
 
 # get database connection
-con <- get_db_con(c("dev", "dev_ref"))
+con     <- get_db_con(c("dev", "dev_ref"))
 con_dev <- get_db_con(c("dev"))
 
 # dbListTables(con) |> sort()
@@ -93,97 +115,22 @@ provider <- "swfsc.noaa.gov"
 d_noaa <- read_csv_files(provider, dataset)
 ```
 
-### Check for any mismatched tables and fields
-
-```{r}
-#| label: noaa-check-mismatches
-
-# detect changes between csv files and redefinitions
-changes_noaa <- detect_csv_changes(d_noaa)
-
-# print summary statistics
-print_csv_change_stats(changes_noaa, verbose = TRUE)
-
-# display interactive table of changes
-if (nrow(changes_noaa$summary) > 0) {
-  display_csv_changes(changes_noaa, format = "DT", title = "CSV vs Redefinition Mismatches")
-}
-```
-
 ### Data integrity checkpoint
 
 ```{r}
 #| label: noaa-integrity-checkpoint
 #| output: asis
 
-# check if there are any mismatches that need to be resolved
-if (nrow(changes_noaa$summary) > 0) {
-  # disable evaluation of remaining chunks
-  knitr::opts_chunk$set(eval = FALSE)
+# check data integrity and halt execution if mismatches detected
+integrity_noaa <- check_data_integrity(
+  d              = d_noaa,
+  dataset_name   = "NOAA CalCOFI Database",
+  halt_on_fail   = TRUE,
+  display_format = "DT",
+  verbose        = TRUE)
 
-  # output markdown warning
-  cat(glue("
-
-    ## ⚠️ Data Integrity Check Failed
-
-    ### Workflow Halted
-
-    Mismatches have been detected between the CSV files and redefinition metadata.
-    These must be resolved before proceeding with database ingestion to ensure data integrity.
-
-    ### Required Actions
-
-    Please review the changes detected above and update the following redefinition files:
-
-    - **Tables redefinition**: `{d_noaa$paths$tbls_rd_csv}`
-    - **Fields redefinition**: `{d_noaa$paths$flds_rd_csv}`
-
-    ### Common Resolutions
-
-    1. **New tables/fields in CSV**: Add them to the appropriate redefinition file
-    2. **Removed tables/fields from CSV**: Remove obsolete entries from redefinition files
-    3. **Type mismatches**: Update field types in redefinition files to match CSV data types
-    4. **Field name changes**: Update `fld_old` entries to match current CSV field names
-
-    ### Next Steps
-
-    After updating the redefinition files, re-run this workflow. The remaining code chunks
-    have been disabled and will not execute until all mismatches are resolved.
-
-    ---
-
-    *Note: The remainder of this document contains code that will not be executed due to
-    data integrity issues.*
-
-    "))
-} else {
-  # no mismatches found - enable evaluation and show success message
-  knitr::opts_chunk$set(eval = TRUE)
-
-  cat(glue("
-
-    ## ✅ Data Integrity Check Passed
-
-    ### All Systems Go
-
-    No mismatches were found between the CSV files and redefinition metadata.
-    The data structures are properly aligned and ready for database ingestion.
-
-    ### Proceeding with Workflow
-
-    The workflow will now continue with the following steps:
-
-    1. Display CSV file metadata from Google Drive
-    2. Show tables and fields to be ingested
-    3. Apply data transformations based on redefinitions
-    4. Load transformed data into the database
-    5. Create indexes and relationships
-    6. Add spatial data and generate reports
-
-    ---
-
-    "))
-}
+# render the integrity check message
+render_integrity_message(integrity_noaa)
 ```
 
 ### Show CSV Files on Google Drive
@@ -237,18 +184,15 @@ transformed_data_noaa <- transform_data(d_noaa)
 ```{r}
 #| label: noaa-load-to-db
 
-schema    <- "dev"
-overwrite <- T
-
 # ingest data to database
 tbl_stats_noaa <- ingest_csv_to_db(
   con              = con,
-  schema           = schema,
+  schema           = "dev",
   transformed_data = transformed_data_noaa,
   d_flds_rd        = d_noaa$d_flds_rd,
   d_gdir_data      = d_noaa$d_gdata,
   workflow_info    = d_noaa$workflow_info,
-  overwrite        = overwrite)
+  overwrite        = T)
 
 # display summary statistics
 tbl_stats_noaa |>
@@ -266,8 +210,10 @@ tbls_dev <- dbListTables(con_dev) |> sort() |> setdiff(c("grid", "site_seg"))
 
 dm_dev <- dm_from_con(
   con_dev,
-  table_names = tbls_dev,
+  schema = "dev",
+  .names = "{.schema}.{.table}",
   learn_keys  = T)
+
 dm_draw(dm_dev, view_type = "all")
 ```
 
@@ -335,10 +281,10 @@ Noticing egg and larva missing pkey.
 #| label: noaa-manual-keys
 
 dbExecute(con_dev, "ALTER TABLE egg ADD PRIMARY KEY (net_uuid, species_id)")
-dbExecute(con_dev, "ALTER TABLE eggstage ADD PRIMARY KEY (net_uuid, species_id, stage)")
+dbExecute(con_dev, "ALTER TABLE egg_stage ADD PRIMARY KEY (net_uuid, species_id, stage)")
 dbExecute(con_dev, "ALTER TABLE larva ADD PRIMARY KEY (net_uuid, species_id)")
-dbExecute(con_dev, "ALTER TABLE larvastage ADD PRIMARY KEY (net_uuid, species_id, stage)")
-dbExecute(con_dev, "ALTER TABLE larvasize ADD PRIMARY KEY (net_uuid, species_id, length_mm)")
+dbExecute(con_dev, "ALTER TABLE larva_stage ADD PRIMARY KEY (net_uuid, species_id, stage)")
+dbExecute(con_dev, "ALTER TABLE larva_size ADD PRIMARY KEY (net_uuid, species_id, length_mm)")
 dbExecute(con_dev, "ALTER TABLE net ADD PRIMARY KEY (net_uuid)")
 dbExecute(con_dev, "ALTER TABLE species ADD PRIMARY KEY (species_id)")
 dbExecute(con_dev, "ALTER TABLE tow ADD PRIMARY KEY (tow_uuid)")
@@ -398,6 +344,7 @@ ship.ship_key
 
 dm_dev <- dm_from_con(
   con_dev,
+  schema = "dev",
   table_names = tbls_dev,
   learn_keys  = T)
 dm_draw(dm_dev, view_type = "all")
@@ -405,14 +352,14 @@ dm_draw(dm_dev, view_type = "all")
 dm_dev_fk <- dm_dev |>
   dm_add_fk(egg, net_uuid, net) |>
   dm_add_fk(egg, species_id, species) |>
-  dm_add_fk(eggstage, net_uuid, net) |>
-  dm_add_fk(eggstage, species_id, species) |>
+  dm_add_fk(egg_stage, net_uuid, net) |>
+  dm_add_fk(egg_stage, species_id, species) |>
   dm_add_fk(larva, net_uuid, net) |>
   dm_add_fk(larva, species_id, species) |>
-  dm_add_fk(larvasize, net_uuid, net) |>
-  dm_add_fk(larvasize, species_id, species) |>
-  dm_add_fk(larvastage, net_uuid, net) |>
-  dm_add_fk(larvastage, species_id, species) |>
+  dm_add_fk(larva_size, net_uuid, net) |>
+  dm_add_fk(larva_size, species_id, species) |>
+  dm_add_fk(larva_stage, net_uuid, net) |>
+  dm_add_fk(larva_stage, species_id, species) |>
   dm_add_fk(net, tow_uuid, tow) |>
   dm_add_fk(tow, site_uuid, site) |>
   dm_add_fk(site, cruise_uuid, cruise) |>
@@ -442,8 +389,8 @@ dbExecute(con_dev, glue(
   "DELETE FROM egg WHERE species_id NOT IN ({paste(spp_ids, collapse=',')})")) # 10
 add_fkey("egg", "species_id", "species")
 
-add_fkey("eggstage", "net_uuid", "net")
-add_fkey("eggstage", "species_id", "species")
+add_fkey("egg_stage", "net_uuid", "net")
+add_fkey("egg_stage", "species_id", "species")
 add_fkey("larva", "net_uuid", "net")
 
 # add_fkey("larva", "species_id", "species")
@@ -452,21 +399,21 @@ dbExecute(con_dev, glue(
   "DELETE FROM larva WHERE species_id NOT IN ({paste(spp_ids, collapse=',')})")) # 27,524
 add_fkey("larva", "species_id", "species")
 
-add_fkey("larvasize", "net_uuid", "net")
+add_fkey("larva_size", "net_uuid", "net")
 
 # add_fkey("larvasize", "species_id", "species")
 # ERROR: Key (species_id)=(3023) is not present in table "species"
 dbExecute(con_dev, glue(
-  "DELETE FROM larvasize WHERE species_id NOT IN ({paste(spp_ids, collapse=',')})")) # 2
-add_fkey("larvasize", "species_id", "species")
+  "DELETE FROM larva_size WHERE species_id NOT IN ({paste(spp_ids, collapse=',')})")) # 2
+add_fkey("larva_size", "species_id", "species")
 
-add_fkey("larvastage", "net_uuid", "net")
+add_fkey("larva_stage", "net_uuid", "net")
 
 # add_fkey("larvastage", "species_id", "species")
 # ERROR: Key (species_id)=(3023) is not present in table "species"
 dbExecute(con_dev, glue(
-  "DELETE FROM larvastage WHERE species_id NOT IN ({paste(spp_ids, collapse=',')})")) # 9,500
-add_fkey("larvastage", "species_id", "species")
+  "DELETE FROM larva_stage WHERE species_id NOT IN ({paste(spp_ids, collapse=',')})")) # 9,500
+add_fkey("larva_stage", "species_id", "species")
 
 add_fkey("net", "tow_uuid", "tow")
 add_fkey("tow", "site_uuid", "site")
@@ -476,8 +423,8 @@ add_fkey("cruise", "ship_key", "ship")
 
 dm_dev <- dm_from_con(
   con_dev,
-  table_names = tbls_dev,
-  learn_keys  = T)
+  schema     = "dev",
+  learn_keys = T)
 dm_draw(dm_dev, view_type = "all")
 ```
 
@@ -488,8 +435,12 @@ dm_draw(dm_dev, view_type = "all")
 ```{r}
 #| label: noaa-site-geom
 
-dbExecute(con_dev, "ALTER TABLE dev.site ADD COLUMN geom geometry(Point, 4326)")
-dbExecute(con_dev, "UPDATE dev.site SET geom = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)") # 61,220 rows
+con_dev_public <- get_db_con(schemas = c("dev", "public"))
+dbExecute(con_dev_public, "CREATE EXTENSION IF NOT EXISTS postgis SCHEMA dev;")
+dbGetQuery(con_dev_public, "SELECT PostGIS_full_version();")
+
+dbExecute(con_dev_public, "ALTER TABLE site ADD COLUMN geom geometry(Point, 4326)")
+dbExecute(con_dev_public, "UPDATE dev.site SET geom = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)") # 61,220 rows
 ```
 
 #### Fix calcofi4r `grid`
@@ -563,10 +514,10 @@ grid <- cc_grid_v2 |>
   st_as_sf(sf_column_name = "geom")
 
 grid |>
-  st_write(con_dev, "grid")
-dbExecute(con_dev, glue(
+  st_write(con_dev_public, "grid")
+dbExecute(con_dev_public, glue(
   "CREATE INDEX IF NOT EXISTS idx_grid_geom ON grid USING gist(geom);"))
-dbExecute(con_dev, "ALTER TABLE grid ADD PRIMARY KEY (grid_key)")
+dbExecute(con_dev_public, "ALTER TABLE grid ADD PRIMARY KEY (grid_key)")
 ```
 
 #### Update `site.grid_key`
@@ -574,9 +525,9 @@ dbExecute(con_dev, "ALTER TABLE grid ADD PRIMARY KEY (grid_key)")
 ```{r}
 #| label: noaa-update-site-grid
 
-dbExecute(con_dev, "ALTER TABLE site ADD COLUMN grid_key text")
+dbExecute(con_dev_public, "ALTER TABLE site ADD COLUMN IF NOT EXISTS grid_key text")
 
-dbExecute(con_dev, "
+dbExecute(con_dev_public, "
   UPDATE site
   SET
     grid_key = g.grid_key
@@ -584,14 +535,15 @@ dbExecute(con_dev, "
     SELECT s.site_uuid, g.grid_key
     FROM site s
     INNER JOIN grid g ON ST_Intersects(s.geom, g.geom)) g
-  WHERE site.site_uuid = g.site_uuid") # 59,136
+  WHERE site.site_uuid = g.site_uuid") # 59,020
 
-dbExecute(con_dev, glue(
+dbExecute(con_dev_public, glue(
   "CREATE INDEX IF NOT EXISTS idx_site_geom_key ON grid (grid_key);"))
 add_fkey("site", "grid_key", "grid")
 
 dm_from_con(
   con_dev,
+  schema = "dev",
   table_names = c("site", "grid"),
   learn_keys  = T) |>
   dm_set_colors(green = grid) |>
@@ -667,16 +619,17 @@ fld_types <- tibble(
         .default = "numeric") })) |>
   select(fld, type) |>
   deframe()
-st_write(site_seg, con_dev, "site_seg", field.types = fld_types)
-dbExecute(con_dev, "CREATE INDEX IF NOT EXISTS idx_site_seg_geom ON grid USING gist(geom)")
-dbExecute(con_dev, "ALTER TABLE site_seg ADD PRIMARY KEY (site_uuid_beg)")
-dbExecute(con_dev, 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp"')
+st_write(site_seg, con_dev_public, "site_seg", field.types = fld_types)
+dbExecute(con_dev_public, "CREATE INDEX IF NOT EXISTS idx_site_seg_geom ON grid USING gist(geom)")
+dbExecute(con_dev_public, "ALTER TABLE site_seg ADD PRIMARY KEY (site_uuid_beg)")
+dbExecute(con_dev_public, 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp"')
 add_fkey("site_seg", "site_uuid_beg", "site", "site_uuid")
 add_fkey("site_seg", "site_uuid_end", "site", "site_uuid")
 add_fkey("site_seg", "cruise_uuid", "cruise")
 
 dm_from_con(
   con_dev,
+  schema = "dev",
   table_names = c("site_seg", "site", "cruise"),
   learn_keys  = T) |>
   dm_set_colors(green = site_seg) |>
@@ -696,6 +649,7 @@ mapView(site_seg, zcol = "year")
 
 dm_from_con(
   con_dev,
+  schema = "dev",
   table_names = dbListTables(con_dev),
   learn_keys  = T) |>
   dm_set_colors(lightgreen = c(site_seg, grid)) |>
@@ -711,7 +665,7 @@ d_eff <- tbl(con_dev, "site_seg") |>
   collect()
 
 sum(d_eff$time_hr, na.rm = T)    # 302,516 hours; 12,604 days; 34.5 years
-sum(d_eff$length_km, na.rm = T)  # 3,672,794 km
+sum(d_eff$length_km, na.rm = T)  # 3,666,181 km
 ```
 
 ## Record Schema Version
@@ -719,27 +673,172 @@ sum(d_eff$length_km, na.rm = T)  # 3,672,794 km
 ```{r}
 #| label: record-version
 
-# record schema version with metadata
-record_schema_version(
-  con = con_dev,
-  schema = "dev",
-  version = "1.0.0",
-  description = "Initial ingestion of NOAA CalCOFI Database",
-  script_permalink = "https://github.com/CalCOFI/calcofi4db/blob/main/inst/ingest.qmd"
-)
+# complete version release workflow if requested
+if (params$do_version_release) {
+
+  message(glue("
+    ═══════════════════════════════════════════════════════════════
+    Starting Complete Version Release Workflow
+    ═══════════════════════════════════════════════════════════════
+    Target Version: {params$target_version}
+    Description: {params$version_description}
+    Git Commit: {params$do_git_commit}
+    Git Push: {params$do_git_push}
+    ═══════════════════════════════════════════════════════════════
+  "))
+
+  release_result <- complete_version_release(
+    con = con_dev,
+    schema = "dev",
+    version = params$target_version,
+    description = params$version_description,
+    news_items = c(
+      "Complete NOAA CalCOFI Database ingestion with spatial features",
+      "Add synchronized versioning system for package and database",
+      "Create master ingestion workflow with integrity checks",
+      "Implement comprehensive metadata management"
+    ),
+    additional_files = c(
+      "inst/ingest.qmd",
+      "inst/schema_version.csv",
+      "inst/ingest/swfsc.noaa.gov/calcofi-db/flds_redefine.csv",
+      "inst/ingest/swfsc.noaa.gov/calcofi-db/tbls_redefine.csv"
+    ),
+    commit = params$do_git_commit,
+    push = params$do_git_push,
+    repo_owner = "CalCOFI",
+    repo_name = "calcofi4db"
+  )
+
+  message(glue("
+    ═══════════════════════════════════════════════════════════════
+    Version Release Workflow Completed!
+    ═══════════════════════════════════════════════════════════════
+    Version: {release_result$version}
+    Commit Hash: {release_result$git_result$commit_hash}
+    Permalink: {release_result$git_result$permalink}
+    ═══════════════════════════════════════════════════════════════
+  "))
+
+} else {
+
+  # manual version recording (no package version update)
+  message(glue("
+    ═══════════════════════════════════════════════════════════════
+    Recording Schema Version (Manual Mode)
+    ═══════════════════════════════════════════════════════════════
+    Target Version: {params$target_version}
+    Description: {params$version_description}
+    Note: Not updating package version or committing to git
+    ═══════════════════════════════════════════════════════════════
+  "))
+
+  # get current git commit hash for permalink
+  git_hash <- tryCatch({
+    system2("git", c("rev-parse", "HEAD"), stdout = TRUE)
+  }, error = function(e) {
+    warning("Could not get git commit hash")
+    "unknown"
+  })
+
+  permalink <- glue("https://github.com/CalCOFI/calcofi4db/blob/{git_hash}/inst/ingest.qmd")
+
+  record_schema_version(
+    con = con_dev,
+    schema = "dev",
+    version = params$target_version,
+    description = params$version_description,
+    script_permalink = permalink
+  )
+
+  message(glue("
+    Schema version {params$target_version} recorded in dev.schema_version
+    Permalink: {permalink}
+  "))
+}
 
 # display schema version history
+cat("\n### Schema Version History\n\n")
 tbl(con_dev, "schema_version") |>
   collect() |>
   datatable()
 ```
+
+### Version Release Instructions
+
+To perform a full version release:
+
+1. **Set version parameters** in the YAML header:
+   ```yaml
+   params:
+     target_version: "1.0.0"
+     version_description: "Your description here"
+     do_version_release: true
+     do_git_commit: true
+     do_git_push: true
+   ```
+
+2. **Run the notebook** - it will:
+   - Update `DESCRIPTION` version
+   - Prepend entry to `NEWS.md`
+   - Commit changes to git
+   - Push to GitHub (if enabled)
+   - Record schema version with permalink
+   - Update `inst/schema_version.csv`
+
+3. **Manual mode** (default):
+   - Only records schema version in database
+   - Does not update package version
+   - Does not commit to git
+   - Uses current git commit for permalink
 
 ## Cleanup
 
 ```{r}
 #| label: cleanup
 
-# close database connection
+# close database connections
 dbDisconnect(con)
-message("Database connection closed successfully")
+if (exists("con_dev_public")) {
+  dbDisconnect(con_dev_public)
+}
+message("Database connections closed successfully")
 ```
+
+## Render Summary
+
+```{r}
+#| label: render-summary
+#| echo: false
+
+# calculate duration
+end_time <- Sys.time()
+duration <- difftime(end_time, start_time, units = "auto")
+
+# format duration nicely
+duration_str <- if (as.numeric(duration, units = "hours") >= 1) {
+  sprintf("%.1f hours", as.numeric(duration, units = "hours"))
+} else if (as.numeric(duration, units = "mins") >= 1) {
+  sprintf("%.1f minutes", as.numeric(duration, units = "mins"))
+} else {
+  sprintf("%.1f seconds", as.numeric(duration, units = "secs"))
+}
+
+# display summary
+cat("**Render Started:** ", format(start_time, "%Y-%m-%d %H:%M:%S %Z"), "\n\n")
+cat("**Render Completed:** ", format(end_time, "%Y-%m-%d %H:%M:%S %Z"), "\n\n")
+cat("**Total Duration:** ", duration_str, "\n\n")
+```
+
+## R Environment {.unnumbered}
+
+::: {.callout-note collapse="true"}
+## Session Info
+
+```{r}
+#| label: session-info
+#| echo: false
+
+devtools::session_info()
+```
+:::
