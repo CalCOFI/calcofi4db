@@ -31,14 +31,19 @@ After validation, the `dev` schema is copied to `prod` with a version number for
 #| label: setup
 
 librarian::shelf(
-  calcofi4db, DBI, dm, dplyr, DT, fs, glue, gargle, googledrive, here, janitor,
+  # CalCOFI/calcofi4db, 
+  DBI, dm, dplyr, DT, fs, glue, gargle, googledrive, here, janitor,
   jsonlite, knitr, lubridate, purrr, readr, rlang, tibble, tidyr, uuid,
   quiet = T)
 options(readr.show_col_types = F)
+devtools::load_all(here()) # load calcofi4db package from local
 
 # get database connection
 con <- get_db_con(c("dev", "dev_ref"))
 con_dev <- get_db_con(c("dev"))
+
+# dbListTables(con) |> sort()
+# dbListTables(con_dev) |> sort()
 ```
 
 ```{r}
@@ -47,7 +52,7 @@ con_dev <- get_db_con(c("dev"))
 # drop and recreate dev schema for fresh start
 dbExecute(con_dev, "DROP SCHEMA IF EXISTS dev CASCADE")
 dbExecute(con_dev, "CREATE SCHEMA dev")
-message("Dev schema recreated successfully")
+message("Schema dev recreated successfully")
 ```
 
 ## Dataset: NOAA CalCOFI Database

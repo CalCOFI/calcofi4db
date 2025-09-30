@@ -1,3 +1,16 @@
+## 2025-09-29.b ∆ fix read_csv_files() error
+
+Fix the error in the function read_csv_files() in @calcofi4db/R/read.R:
+
+```r
+d_noaa <- read_csv_files(provider, dataset)
+```
+
+```
+Error in read_csv_files(provider, dataset) : 
+  file.exists(file.path(here::here(), workflow_info$workflow_qmd)) is not TRUE
+```
+
 ## 2025-09-29 ∆ integrated database strategy with dev/prod schemas
 
 ```bash

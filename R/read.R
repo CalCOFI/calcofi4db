@@ -158,14 +158,35 @@ read_csv_files <- function(
   }
   # TODO: add more verbose messages...
 
-  # Get workflow info
-  workflow_info <- get_workflow_info(provider, dataset)
-  stopifnot(file.exists(file.path(here::here(), workflow_info$workflow_qmd)))
-  path_workflow_qmd <- file.path(here::here(), workflow_info$workflow_qmd)
-  if (!file.exists(path_workflow_qmd))
+  # get workflow info - for master ingestion script, use inst/ingest.qmd
+  # check both possible locations (running from calcofi4db/ or from parent)
+  workflow_qmd_paths <- c(
+    "inst/ingest.qmd",
+    "calcofi4db/inst/ingest.qmd"
+  )
+
+  path_workflow_qmd <- NULL
+  for (path in workflow_qmd_paths) {
+    full_path <- file.path(here::here(), path)
+    if (file.exists(full_path)) {
+      path_workflow_qmd <- full_path
+      workflow_qmd <- path
+      break
+    }
+  }
+
+  if (is.null(path_workflow_qmd)) {
     stop(glue::glue(
-      "Workflow file does not exist: {path_workflow_qmd}.
-       This function should be called from inside the workflow."))
+      "Master ingestion workflow not found. Tried:
+       - {paste(file.path(here::here(), workflow_qmd_paths), collapse = '\n       - ')}
+       This function should be called from inside the master ingestion script."))
+  }
+
+  workflow_info <- list(
+    workflow = "ingest",
+    workflow_qmd = workflow_qmd,
+    workflow_url = "https://github.com/CalCOFI/calcofi4db/blob/main/inst/ingest.qmd"
+  )
 
   # Input/output tables (version controlled)
   tbls_in_csv <- file.path(dir_ingest, "tbls_raw.csv")
