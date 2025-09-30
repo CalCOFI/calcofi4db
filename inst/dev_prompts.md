@@ -1,3 +1,27 @@
+## 2025-09-29.b ∆ fix read_csv_files() error
+
+Fix the error in the function read_csv_files() in @calcofi4db/R/read.R:
+
+```r
+d_noaa <- read_csv_files(provider, dataset)
+```
+
+```
+Error in read_csv_files(provider, dataset) : 
+  file.exists(file.path(here::here(), workflow_info$workflow_qmd)) is not TRUE
+```
+
+⏺ Fixed! The read_csv_files() function now:
+
+  1. Looks for the master ingestion script inst/ingest.qmd in two possible locations:
+    - inst/ingest.qmd (when running from within calcofi4db/)
+    - calcofi4db/inst/ingest.qmd (when running from parent directory)
+  2. Uses the master ingestion script as the workflow reference instead of trying to find dataset-specific workflows
+  3. Provides a helpful error message showing which paths were checked if the script isn't found
+
+  This should resolve the error when calling read_csv_files(provider, dataset) from the ingestion script.
+
+
 ## 2025-09-29 ∆ integrated database strategy with dev/prod schemas
 
 ```bash
