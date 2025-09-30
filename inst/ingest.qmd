@@ -1,0 +1,740 @@
+---
+title: "Master Database Ingestion"
+execute:
+  echo: true
+  warning: false
+editor_options:
+  chunk_output_type: console
+format:
+  html:
+    code-fold: true
+    toc: true
+    toc-depth: 3
+editor:
+  markdown:
+    wrap: 72
+---
+
+## Overview {.unnumbered}
+
+This master ingestion script recreates the `dev` schema with all CalCOFI datasets from Google Drive source files. The workflow:
+
+1. **Drops and recreates** `dev` schema (fresh start)
+2. **Ingests multiple datasets** from Google Drive CSV files
+3. **Applies transformations** using redefinition files
+4. **Creates relationships** (primary keys, foreign keys, indexes)
+5. **Records schema version** with full provenance
+
+After validation, the `dev` schema is copied to `prod` with a version number for production use.
+
+```{r}
+#| label: setup
+
+librarian::shelf(
+  calcofi4db, DBI, dm, dplyr, DT, fs, glue, gargle, googledrive, here, janitor,
+  jsonlite, knitr, lubridate, purrr, readr, rlang, tibble, tidyr, uuid,
+  quiet = T)
+options(readr.show_col_types = F)
+
+# get database connection
+con <- get_db_con(c("dev", "dev_ref"))
+con_dev <- get_db_con(c("dev"))
+```
+
+```{r}
+#| label: recreate-dev-schema
+
+# drop and recreate dev schema for fresh start
+dbExecute(con_dev, "DROP SCHEMA IF EXISTS dev CASCADE")
+dbExecute(con_dev, "CREATE SCHEMA dev")
+message("Dev schema recreated successfully")
+```
+
+## Dataset: NOAA CalCOFI Database
+
+### Overview {.unnumbered}
+
+**Goal**: Generate the database from source files with workflow scripts to make updating easier and provenance fully transparent. This allows us to:
+
+- Rename tables and column names, control data types and use Unicode encoding for a consistent database ingestion strategy, per Database naming conventions in [Database – CalCOFI.io Docs](https://calcofi.io/docs/db.html).
+
+- Differentiate between raw and derived or updated tables and columns. For instance, the taxonomy for any given species can change over time, such as lumping or splitting of a given taxa, and by taxonomic authority (e.g., WoRMS, ITIS or GBIF). These taxonomic identifiers and the full taxonomic hierarchy should get regularly updated regardless of source observational data, and can either be updated in the table directly or joined one-to-one with a seperate table in a materialized view (so as not to slow down queries with a regular view).
+
+This workflow processes NOAA CalCOFI database CSV files and updates the PostgreSQL database. The workflow:
+
+1. Reads CSV files from source directory
+2. Compares with lookup tables for field descriptions
+3. Initializes or updates database tables
+4. Generates summary statistics
+
+```{mermaid}
+%%| label: overview-noaa
+%%| fig-cap: "Overview diagram of CSV ingestion process into the database."
+%%| file: diagrams/ingest_noaa-calcofi-db_overview.mmd
+```
+
+See also [Integrated database ingestion strategy – Database – CalCOFI.io Docs](https://calcofi.io/docs/db.html#integrated-database-ingestion-strategy) for generic overview of ingestion process.
+
+### Setup and load data
+
+```{r}
+#| label: noaa-setup
+
+# define paths
+dataset  <- "calcofi-db"
+provider <- "swfsc.noaa.gov"
+
+# load data using calcofi4db package
+d_noaa <- read_csv_files(provider, dataset)
+```
+
+### Check for any mismatched tables and fields
+
+```{r}
+#| label: noaa-check-mismatches
+
+# detect changes between csv files and redefinitions
+changes_noaa <- detect_csv_changes(d_noaa)
+
+# print summary statistics
+print_csv_change_stats(changes_noaa, verbose = TRUE)
+
+# display interactive table of changes
+if (nrow(changes_noaa$summary) > 0) {
+  display_csv_changes(changes_noaa, format = "DT", title = "CSV vs Redefinition Mismatches")
+}
+```
+
+### Data integrity checkpoint
+
+```{r}
+#| label: noaa-integrity-checkpoint
+#| output: asis
+
+# check if there are any mismatches that need to be resolved
+if (nrow(changes_noaa$summary) > 0) {
+  # disable evaluation of remaining chunks
+  knitr::opts_chunk$set(eval = FALSE)
+
+  # output markdown warning
+  cat(glue("
+
+    ## ⚠️ Data Integrity Check Failed
+
+    ### Workflow Halted
+
+    Mismatches have been detected between the CSV files and redefinition metadata.
+    These must be resolved before proceeding with database ingestion to ensure data integrity.
+
+    ### Required Actions
+
+    Please review the changes detected above and update the following redefinition files:
+
+    - **Tables redefinition**: `{d_noaa$paths$tbls_rd_csv}`
+    - **Fields redefinition**: `{d_noaa$paths$flds_rd_csv}`
+
+    ### Common Resolutions
+
+    1. **New tables/fields in CSV**: Add them to the appropriate redefinition file
+    2. **Removed tables/fields from CSV**: Remove obsolete entries from redefinition files
+    3. **Type mismatches**: Update field types in redefinition files to match CSV data types
+    4. **Field name changes**: Update `fld_old` entries to match current CSV field names
+
+    ### Next Steps
+
+    After updating the redefinition files, re-run this workflow. The remaining code chunks
+    have been disabled and will not execute until all mismatches are resolved.
+
+    ---
+
+    *Note: The remainder of this document contains code that will not be executed due to
+    data integrity issues.*
+
+    "))
+} else {
+  # no mismatches found - enable evaluation and show success message
+  knitr::opts_chunk$set(eval = TRUE)
+
+  cat(glue("
+
+    ## ✅ Data Integrity Check Passed
+
+    ### All Systems Go
+
+    No mismatches were found between the CSV files and redefinition metadata.
+    The data structures are properly aligned and ready for database ingestion.
+
+    ### Proceeding with Workflow
+
+    The workflow will now continue with the following steps:
+
+    1. Display CSV file metadata from Google Drive
+    2. Show tables and fields to be ingested
+    3. Apply data transformations based on redefinitions
+    4. Load transformed data into the database
+    5. Create indexes and relationships
+    6. Add spatial data and generate reports
+
+    ---
+
+    "))
+}
+```
+
+### Show CSV Files on Google Drive
+
+```{r}
+#| label: noaa-google-drive-files
+show_googledrive_files(d_noaa)
+```
+
+### Show CSV Tables and Fields to Ingest
+
+```{r}
+#| label: noaa-tbls-in
+
+d_noaa$d_csv$tables |>
+  datatable(caption = "Tables to ingest.")
+```
+
+```{r}
+#| label: noaa-flds-in
+
+d_noaa$d_csv$fields |>
+  datatable(caption = "Fields to ingest.")
+```
+
+### Show tables and fields redefined
+
+```{r}
+#| label: noaa-tbls-rd
+
+show_tables_redefine(d_noaa)
+```
+
+```{r}
+#| label: noaa-flds-rd
+
+show_fields_redefine(d_noaa)
+```
+
+### Apply remappings to data
+
+```{r}
+#| label: noaa-transform-data
+
+# use calcofi4db to transform data
+transformed_data_noaa <- transform_data(d_noaa)
+```
+
+### Load Tables into Database
+
+```{r}
+#| label: noaa-load-to-db
+
+schema    <- "dev"
+overwrite <- T
+
+# ingest data to database
+tbl_stats_noaa <- ingest_csv_to_db(
+  con              = con,
+  schema           = schema,
+  transformed_data = transformed_data_noaa,
+  d_flds_rd        = d_noaa$d_flds_rd,
+  d_gdir_data      = d_noaa$d_gdata,
+  workflow_info    = d_noaa$workflow_info,
+  overwrite        = overwrite)
+
+# display summary statistics
+tbl_stats_noaa |>
+  datatable(rownames = FALSE, filter = "top")
+```
+
+### Create Indexes and Relationships
+
+```{r}
+#| label: noaa-relationships
+
+# source(here("../apps_dev/libs/db.R"))
+
+tbls_dev <- dbListTables(con_dev) |> sort() |> setdiff(c("grid", "site_seg"))
+
+dm_dev <- dm_from_con(
+  con_dev,
+  table_names = tbls_dev,
+  learn_keys  = T)
+dm_draw(dm_dev, view_type = "all")
+```
+
+### Show existing unique keys across tables
+
+```{r}
+#| label: noaa-show-keys
+
+dm_get_all_uks(dm_dev)
+```
+
+### Add candidate keys, automatically
+
+```{r}
+#| label: noaa-auto-keys
+
+# function to get primary key constraints for a table
+tbl_pkeys <- function(con, tbl) {
+  dbGetQuery(con, glue("
+    SELECT a.attname as column_name
+    FROM pg_index i
+    JOIN pg_attribute a ON a.attrelid = i.indrelid
+    AND a.attnum = ANY(i.indkey)
+    WHERE i.indrelid = '{tbl}'::regclass
+    AND i.indisprimary;
+  "))$column_name
+}
+
+d_pk <- tibble(
+  tbl = tbls_dev) |>
+  mutate(
+    d        = map(tbl, \(x) eval(bquote(dm_enum_pk_candidates(dm_dev, .(x)))) ),
+    n        = map_int(d, \(x) x |> filter(candidate == T) |> nrow()),
+    flds     = map_chr(d, \(x){
+      x |> filter(candidate == T) |> pull(columns) |>
+        unlist() |> paste(collapse = "; ") }),
+    fld      = map_chr(d, \(x){
+      y <- x |> filter(candidate == T) |> pull(columns) |>
+        unlist()
+      if (length(y) == 0)
+        return(NA)
+      if (length(y) > 1)
+        return(y[1])
+      y }),
+    add_pkey = map2_lgl(tbl, fld, \(tbl, fld){
+      if (is.na(fld))
+        return(F)
+      # tbl <- "cruise"; fld = "cruise_uuid"
+      pkey_exists <- tbl_pkeys(con_dev, "cruise") |> length() > 0
+      if (pkey_exists)
+        return(F)
+      dbExecute(con_dev, glue("ALTER TABLE {tbl} ADD PRIMARY KEY ({fld})"))
+      return(T) }) ) |>
+  select(-d)
+
+d_pk |>
+  datatable()
+```
+
+### Add primary keys, manually
+
+Noticing egg and larva missing pkey.
+
+```{r}
+#| label: noaa-manual-keys
+
+dbExecute(con_dev, "ALTER TABLE egg ADD PRIMARY KEY (net_uuid, species_id)")
+dbExecute(con_dev, "ALTER TABLE eggstage ADD PRIMARY KEY (net_uuid, species_id, stage)")
+dbExecute(con_dev, "ALTER TABLE larva ADD PRIMARY KEY (net_uuid, species_id)")
+dbExecute(con_dev, "ALTER TABLE larvastage ADD PRIMARY KEY (net_uuid, species_id, stage)")
+dbExecute(con_dev, "ALTER TABLE larvasize ADD PRIMARY KEY (net_uuid, species_id, length_mm)")
+dbExecute(con_dev, "ALTER TABLE net ADD PRIMARY KEY (net_uuid)")
+dbExecute(con_dev, "ALTER TABLE species ADD PRIMARY KEY (species_id)")
+dbExecute(con_dev, "ALTER TABLE tow ADD PRIMARY KEY (tow_uuid)")
+dbExecute(con_dev, "ALTER TABLE tow_type ADD PRIMARY KEY (tow_type_key)")
+dbExecute(con_dev, "ALTER TABLE site ADD PRIMARY KEY (site_uuid)")
+dbExecute(con_dev, "ALTER TABLE ship ADD PRIMARY KEY (ship_key)")
+
+tibble(
+  tbl = tbls_dev) |>
+  mutate(
+    pkeys = map_chr(tbl, \(x) tbl_pkeys(x, con = con_dev) |> paste(collapse = ", "))) |>
+  datatable()
+```
+
+### Add other indexes
+
+That are not already the first field of a primary key.
+
+```{r}
+#| label: noaa-indexes
+#| eval: false
+
+d_idx <- tibble(
+  tbl = tbls_dev) |>
+  mutate(
+    fld   = map(tbl, ~dbListFields(.x, conn = con_dev)),
+    pkeys = map(tbl, ~tbl_pkeys(.x, con = con_dev))) |>
+  unnest(fld) |>
+  mutate(
+    is_pkey  = map2_lgl(fld, pkeys, `%in%`),
+    is_pkey1 = map2_lgl(fld, pkeys, \(fld, pkeys) fld == pkeys[1]),
+    is_id    = map_lgl(fld, ~str_detect(.x, "_(id|uuid|tsn)$")),
+    idx_todo = !is_pkey1 & is_id,
+    mk_idx   = pmap_lgl(list(tbl, fld, idx_todo), \(tbl, fld, idx_todo){
+      if (idx_todo){
+        q <- glue("CREATE INDEX IF NOT EXISTS idx_{tbl}_{fld} ON {tbl} ({fld})")
+        # message(q)
+        dbExecute(con_dev, q)
+        return(T)
+      }
+      return(F)
+    }))
+
+d_idx |>
+  select(-pkeys) |>
+  datatable()
+```
+
+### Add foreign keys
+
+egg.net_uuid -> net.net_uuid .tow_uuid -> tow.tow_uuid .site_uuid ->
+site.site_uuid .cruise_uuid -> cruise.cruise_uuid .ship_key ->
+ship.ship_key
+
+```{r}
+#| label: noaa-foreign-keys
+
+dm_dev <- dm_from_con(
+  con_dev,
+  table_names = tbls_dev,
+  learn_keys  = T)
+dm_draw(dm_dev, view_type = "all")
+
+dm_dev_fk <- dm_dev |>
+  dm_add_fk(egg, net_uuid, net) |>
+  dm_add_fk(egg, species_id, species) |>
+  dm_add_fk(eggstage, net_uuid, net) |>
+  dm_add_fk(eggstage, species_id, species) |>
+  dm_add_fk(larva, net_uuid, net) |>
+  dm_add_fk(larva, species_id, species) |>
+  dm_add_fk(larvasize, net_uuid, net) |>
+  dm_add_fk(larvasize, species_id, species) |>
+  dm_add_fk(larvastage, net_uuid, net) |>
+  dm_add_fk(larvastage, species_id, species) |>
+  dm_add_fk(net, tow_uuid, tow) |>
+  dm_add_fk(tow, site_uuid, site) |>
+  dm_add_fk(site, cruise_uuid, cruise) |>
+  dm_add_fk(cruise, ship_key, ship) |>
+  dm_add_fk(tow, tow_type_key, tow_type)
+
+dm_draw(dm_dev_fk, view_type = "all")
+```
+
+```{r}
+#| label: noaa-add-fkeys-sql
+
+add_fkey <- function(tbl_m, fld_m, tbl_1, fld_1 = fld_m, schema = "dev"){
+  q <- glue(
+    "ALTER TABLE {schema}.{tbl_m} ADD FOREIGN KEY ({fld_m})
+    REFERENCES {schema}.{tbl_1} ({fld_1})")
+  dbExecute(con_dev, q)
+}
+
+add_fkey("egg", "net_uuid", "net")
+
+# add_fkey("egg", "species_id", "species")
+# ERROR: Key (species_id)=(641) is not present in table "species"
+spp_ids <- tbl(con_dev, "species") |> arrange(species_id) |> pull(species_id)
+
+dbExecute(con_dev, glue(
+  "DELETE FROM egg WHERE species_id NOT IN ({paste(spp_ids, collapse=',')})")) # 10
+add_fkey("egg", "species_id", "species")
+
+add_fkey("eggstage", "net_uuid", "net")
+add_fkey("eggstage", "species_id", "species")
+add_fkey("larva", "net_uuid", "net")
+
+# add_fkey("larva", "species_id", "species")
+# ERROR: Key (species_id)=(3023) is not present in table "species"
+dbExecute(con_dev, glue(
+  "DELETE FROM larva WHERE species_id NOT IN ({paste(spp_ids, collapse=',')})")) # 27,524
+add_fkey("larva", "species_id", "species")
+
+add_fkey("larvasize", "net_uuid", "net")
+
+# add_fkey("larvasize", "species_id", "species")
+# ERROR: Key (species_id)=(3023) is not present in table "species"
+dbExecute(con_dev, glue(
+  "DELETE FROM larvasize WHERE species_id NOT IN ({paste(spp_ids, collapse=',')})")) # 2
+add_fkey("larvasize", "species_id", "species")
+
+add_fkey("larvastage", "net_uuid", "net")
+
+# add_fkey("larvastage", "species_id", "species")
+# ERROR: Key (species_id)=(3023) is not present in table "species"
+dbExecute(con_dev, glue(
+  "DELETE FROM larvastage WHERE species_id NOT IN ({paste(spp_ids, collapse=',')})")) # 9,500
+add_fkey("larvastage", "species_id", "species")
+
+add_fkey("net", "tow_uuid", "tow")
+add_fkey("tow", "site_uuid", "site")
+add_fkey("tow", "tow_type_key", "tow_type")
+add_fkey("site", "cruise_uuid", "cruise")
+add_fkey("cruise", "ship_key", "ship")
+
+dm_dev <- dm_from_con(
+  con_dev,
+  table_names = tbls_dev,
+  learn_keys  = T)
+dm_draw(dm_dev, view_type = "all")
+```
+
+### Add Spatial
+
+#### Add `site.geom`
+
+```{r}
+#| label: noaa-site-geom
+
+dbExecute(con_dev, "ALTER TABLE dev.site ADD COLUMN geom geometry(Point, 4326)")
+dbExecute(con_dev, "UPDATE dev.site SET geom = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)") # 61,220 rows
+```
+
+#### Fix calcofi4r `grid`
+
+Problems with
+[calcofi4r::`cc_grid`](https://calcofi.io/calcofi4r/articles/calcofi4r.html):
+
+-   uses old station (line, position) vs newer site (line, station)
+-   `sta_lin`, `sta_pos`: integer, so drops necessary decimal that is
+    found in `sta_key`
+-   `sta_lin == 90, sta_pos == 120` repeats for:
+    -   `sta_pattern` == 'historical' (`sta_dpos` == 20); and
+    -   `sta_pattern` == 'standard' (`sta_dpos` == 10)
+
+```{r}
+#| label: noaa-grid-fix
+
+librarian::shelf(
+  calcofi4r, dplyr, mapview, sf, tidyr, units)
+
+cc_grid_v2 <- calcofi4r::cc_grid |>
+  select(sta_key, shore = sta_shore, pattern = sta_pattern, spacing = sta_dpos) |>
+  separate_wider_delim(
+    sta_key,
+    ",", names = c("line", "station"), cols_remove = F) |>
+  mutate(
+    line    = as.double(line),
+    station = as.double(station),
+    grid_key = ifelse(
+      pattern == "historical",
+      glue("st{station}-ln{line}_hist"),
+      glue("st{station}-ln{line}")),
+    zone = glue("{shore}-{pattern}")) |>
+  relocate(grid_key, station) |>
+  st_as_sf() |>
+  mutate(
+    area_km2 = st_area(geom) |>
+      set_units(km^2) |>
+      as.numeric())
+
+cc_grid_ctrs_v2 <- calcofi4r::cc_grid_ctrs |>
+  select(sta_key, pattern = sta_pattern) |>
+  left_join(
+    cc_grid_v2 |>
+      st_drop_geometry(),
+    by = c("sta_key", "pattern")) |>
+  select(-sta_key) |>
+  relocate(grid_key)
+
+cc_grid_v2 <- cc_grid_v2 |>
+  select(-sta_key)
+
+cc_grid_v2 |>
+  st_drop_geometry() |>
+  datatable()
+
+mapview(cc_grid_v2, zcol="zone") +
+  mapview(cc_grid_ctrs_v2, cex = 1)
+```
+
+```{r}
+#| label: noaa-grid-to-db
+
+grid <- cc_grid_v2 |>
+  as.data.frame() |>
+  left_join(
+    cc_grid_ctrs_v2 |>
+      as.data.frame() |>
+      select(grid_key, geom_ctr = geom),
+    by = "grid_key") |>
+  st_as_sf(sf_column_name = "geom")
+
+grid |>
+  st_write(con_dev, "grid")
+dbExecute(con_dev, glue(
+  "CREATE INDEX IF NOT EXISTS idx_grid_geom ON grid USING gist(geom);"))
+dbExecute(con_dev, "ALTER TABLE grid ADD PRIMARY KEY (grid_key)")
+```
+
+#### Update `site.grid_key`
+
+```{r}
+#| label: noaa-update-site-grid
+
+dbExecute(con_dev, "ALTER TABLE site ADD COLUMN grid_key text")
+
+dbExecute(con_dev, "
+  UPDATE site
+  SET
+    grid_key = g.grid_key
+  FROM (
+    SELECT s.site_uuid, g.grid_key
+    FROM site s
+    INNER JOIN grid g ON ST_Intersects(s.geom, g.geom)) g
+  WHERE site.site_uuid = g.site_uuid") # 59,136
+
+dbExecute(con_dev, glue(
+  "CREATE INDEX IF NOT EXISTS idx_site_geom_key ON grid (grid_key);"))
+add_fkey("site", "grid_key", "grid")
+
+dm_from_con(
+  con_dev,
+  table_names = c("site", "grid"),
+  learn_keys  = T) |>
+  dm_set_colors(green = grid) |>
+  dm_draw(view_type = "all")
+```
+
+#### Add `site_seg`: segments from site
+
+```{r}
+#| label: noaa-site-seg
+
+site_seg <- tbl(con_dev, "site") |>
+  select(cruise_uuid, orderocc, site_uuid, lon = longitude, lat = latitude) |>
+  left_join(
+    tbl(con_dev, "tow") |>
+      select(site_uuid, time_start),
+    by = "site_uuid") |>
+  arrange(cruise_uuid, orderocc) |>
+  group_by(
+    cruise_uuid, orderocc, site_uuid, lon, lat) |>
+  summarize(
+    time_beg = min(time_start, na.rm = T),
+    time_end = max(time_start, na.rm = T),
+    .groups = "drop") |>
+  collect() |>
+  arrange(cruise_uuid, orderocc, time_beg) |>
+  group_by(cruise_uuid) |>
+  mutate(
+    site_uuid_beg = lag(site_uuid),
+    lon_beg       = lag(lon),
+    lat_beg       = lag(lat),
+    time_beg      = lag(time_beg)) |>
+  ungroup() |>
+  filter(!is.na(lon_beg), !is.na(lat_beg)) |>
+  mutate(
+    m    = pmap(
+      list(lon_beg, lat_beg, lon, lat),
+      \(x1, y1, x2, y2){
+        matrix(c(x1, y1, x2, y2), nrow = 2, byrow = T) }),
+    geom = map(m, st_linestring)) |>
+  select(
+    cruise_uuid,
+    site_uuid_beg,
+    site_uuid_end = site_uuid,
+    lon_beg,
+    lat_beg,
+    lon_end = lon,
+    lat_end = lat,
+    time_beg,
+    time_end,
+    geom) |>
+  st_as_sf(
+    sf_column_name = "geom",
+    crs = 4326) |>
+  mutate(
+    time_hr   = as.numeric(difftime(time_end, time_beg, units = "hours")),
+    length_km = st_length(geom) |>
+      set_units(km) |>
+      as.numeric(),
+    km_per_hr = length_km / time_hr)
+
+fld_types <- tibble(
+  lst = lapply(site_seg, class)) |>
+  mutate(
+    fld    = names(lst),
+    type_r = map_chr(lst, pluck, 1),
+    type   = map2_chr(fld, type_r, \(fld, type_r){
+      case_when(
+        str_detect(fld, "uuid") ~ "uuid",
+        fld    == "geom"        ~ "geometry",
+        type_r == "POSIXct"     ~ "timestamp",
+        type_r == "character"   ~ "varchar",
+        .default = "numeric") })) |>
+  select(fld, type) |>
+  deframe()
+st_write(site_seg, con_dev, "site_seg", field.types = fld_types)
+dbExecute(con_dev, "CREATE INDEX IF NOT EXISTS idx_site_seg_geom ON grid USING gist(geom)")
+dbExecute(con_dev, "ALTER TABLE site_seg ADD PRIMARY KEY (site_uuid_beg)")
+dbExecute(con_dev, 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp"')
+add_fkey("site_seg", "site_uuid_beg", "site", "site_uuid")
+add_fkey("site_seg", "site_uuid_end", "site", "site_uuid")
+add_fkey("site_seg", "cruise_uuid", "cruise")
+
+dm_from_con(
+  con_dev,
+  table_names = c("site_seg", "site", "cruise"),
+  learn_keys  = T) |>
+  dm_set_colors(green = site_seg) |>
+  dm_draw(view_type = "all")
+
+site_seg <- st_read(con_dev, "site_seg") |>
+  mutate(
+    year = year(time_beg))
+
+mapView(site_seg, zcol = "year")
+```
+
+### Report
+
+```{r}
+#| label: noaa-report
+
+dm_from_con(
+  con_dev,
+  table_names = dbListTables(con_dev),
+  learn_keys  = T) |>
+  dm_set_colors(lightgreen = c(site_seg, grid)) |>
+  dm_draw(view_type = "all")
+
+d_eff <- tbl(con_dev, "site_seg") |>
+  mutate(
+    year = year(time_beg)) |>
+  group_by(year) |>
+  summarize(
+    time_hr   = sum(time_hr, na.rm = T),
+    length_km = sum(length_km, na.rm = T)) |>
+  collect()
+
+sum(d_eff$time_hr, na.rm = T)    # 302,516 hours; 12,604 days; 34.5 years
+sum(d_eff$length_km, na.rm = T)  # 3,672,794 km
+```
+
+## Record Schema Version
+
+```{r}
+#| label: record-version
+
+# record schema version with metadata
+record_schema_version(
+  con = con_dev,
+  schema = "dev",
+  version = "1.0.0",
+  description = "Initial ingestion of NOAA CalCOFI Database",
+  script_permalink = "https://github.com/CalCOFI/calcofi4db/blob/main/inst/ingest.qmd"
+)
+
+# display schema version history
+tbl(con_dev, "schema_version") |>
+  collect() |>
+  datatable()
+```
+
+## Cleanup
+
+```{r}
+#| label: cleanup
+
+# close database connection
+dbDisconnect(con)
+message("Database connection closed successfully")
+```

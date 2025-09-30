@@ -1,17 +1,22 @@
 # calcofi4db
 
-CalCOFI Database Tools package for ingesting and managing datasets in the CalCOFI database.
+CalCOFI Database Tools package for ingesting and managing datasets in the CalCOFI database using an integrated schema-based workflow.
 
 ## Overview
 
-This package provides functions for:
+This package provides functions for the CalCOFI integrated database ingestion strategy, which uses a two-schema approach:
 
-- Reading CSV files and extracting metadata about tables and fields
+- **`dev` schema**: Fresh development schema recreated with each ingestion run for QA/QC
+- **`prod` schema**: Versioned production schema for stable public access
+
+### Key features:
+
+- Reading CSV files from Google Drive with metadata extraction
 - Creating and managing redefinition files for tables and fields
 - Transforming data according to redefinition rules
-- Detecting changes between CSV files and database tables
-- Ingesting datasets into the database with proper metadata
+- Ingesting multiple datasets into a fresh database schema
 - Managing database relationships and indexes
+- Recording schema versions with full provenance
 
 ## Installation
 
@@ -22,7 +27,19 @@ remotes::install_github("CalCOFI/calcofi4db")
 
 ## Usage
 
-### Basic workflow
+### Master ingestion workflow
+
+The primary workflow is the master ingestion script `inst/ingest.qmd` that recreates the `dev` schema with all datasets:
+
+1. Drops and recreates `dev` schema
+2. Ingests multiple datasets from Google Drive
+3. Applies transformations via redefinition files
+4. Creates relationships (primary/foreign keys, indexes)
+5. Records schema version with metadata
+
+### Individual dataset ingestion
+
+For programmatic control, use the core functions:
 
 ```r
 library(calcofi4db)
@@ -39,61 +56,58 @@ con <- dbConnect(
   password = "postgres"
 )
 
-# Ingest a dataset
-result <- ingest_dataset(
-  con = con,
+# Read CSV files and metadata from Google Drive
+d <- read_csv_files(
   provider = "swfsc.noaa.gov",
-  dataset = "calcofi-db",
-  dir_data = "/path/to/data",
-  schema = "public",
-  dir_googledata = "https://drive.google.com/drive/folders/your-folder-id",
-  email = "your.email@example.com"
+  dataset = "calcofi-db"
 )
 
-# Examine changes and statistics
-result$changes
-result$stats
+# Transform data according to redefinitions
+transformed_data <- transform_data(d)
+
+# Ingest into dev schema
+ingest_csv_to_db(
+  con = con,
+  schema = "dev",
+  transformed_data = transformed_data,
+  d_flds_rd = d$d_flds_rd,
+  d_gdata = d$d_gdata,
+  workflow_info = d$workflow_info
+)
+
+# Record schema version
+record_schema_version(
+  con = con,
+  schema = "dev",
+  version = "1.0.0",
+  description = "Initial ingestion of NOAA CalCOFI Database",
+  script_permalink = "https://github.com/CalCOFI/calcofi4db/blob/main/inst/ingest.qmd"
+)
 
 # Disconnect
 dbDisconnect(con)
 ```
 
-### Step-by-step workflow
+## Schema versioning
 
-For more control over the process, you can use the individual functions:
+Each successful ingestion records a version in the `schema_version` table with:
 
-```r
-# Load CSV files and metadata
-data_info <- read_csv_files(
-  provider = "swfsc.noaa.gov",
-  dataset = "calcofi-db",
-  dir_data = "/path/to/data",
-  dir_googledata = "https://drive.google.com/drive/folders/your-folder-id",
-  use_gdrive = TRUE,
-  email = "your.email@example.com"
-)
+- **version**: Semantic version (e.g., "1.0.0", "1.1.0")
+- **description**: Changes in this version
+- **date_created**: Ingestion timestamp
+- **script_permalink**: GitHub permalink to ingestion script
 
-# Transform data
-transformed_data <- transform_data(data_info)
+Versions are archived as SQL dumps in Google Drive for reproducibility.
 
-# Detect changes
-changes <- detect_csv_changes(
-  con = con,
-  schema = "public",
-  transformed_data = transformed_data,
-  d_flds_rd = data_info$d_flds_rd
-)
+## Documentation
 
-# Ingest data to database
-stats <- ingest_csv_to_db(
-  con = con,
-  schema = "public",
-  transformed_data = transformed_data,
-  d_flds_rd = data_info$d_flds_rd,
-  d_gdir_data = data_info$d_gdir_data,
-  workflow_info = data_info$workflow_info
-)
-```
+See the [CalCOFI Database Documentation](https://calcofi.io/docs/db.html) for complete details on:
+
+- Database naming conventions
+- Ingestion workflow architecture
+- Schema versioning strategy
+- Metadata management
+- Publishing to data portals
 
 ## License
 
