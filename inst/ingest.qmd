@@ -1,6 +1,6 @@
 ---
 title: "Master Database Ingestion"
-date: "`r Sys.time()`"
+date: now
 date-format: "YYYY-MM-DD HH:mm:ss z"
 execute:
   echo: true
@@ -18,9 +18,10 @@ editor:
 params:
   target_version: "1.0.0"
   version_description: "Initial production release with NOAA CalCOFI Database"
-  do_version_release: false
-  do_git_commit: false
-  do_git_push: false
+  do_version_release: true
+  do_git_commit: true
+  do_git_push: true
+  do_copy_to_prod: true
 ---
 
 ```{r}
@@ -211,7 +212,7 @@ tbls_dev <- dbListTables(con_dev) |> sort() |> setdiff(c("grid", "site_seg"))
 dm_dev <- dm_from_con(
   con_dev,
   schema = "dev",
-  .names = "{.schema}.{.table}",
+  # .names = "{.schema}.{.table}",
   learn_keys  = T)
 
 dm_draw(dm_dev, view_type = "all")
@@ -436,11 +437,12 @@ dm_draw(dm_dev, view_type = "all")
 #| label: noaa-site-geom
 
 con_dev_public <- get_db_con(schemas = c("dev", "public"))
+
 dbExecute(con_dev_public, "CREATE EXTENSION IF NOT EXISTS postgis SCHEMA dev;")
-dbGetQuery(con_dev_public, "SELECT PostGIS_full_version();")
+# dbGetQuery(con_dev_public, "SELECT PostGIS_full_version();")
 
 dbExecute(con_dev_public, "ALTER TABLE site ADD COLUMN geom geometry(Point, 4326)")
-dbExecute(con_dev_public, "UPDATE dev.site SET geom = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)") # 61,220 rows
+dbExecute(con_dev_public, "UPDATE dev.site SET geom = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)") # 61,104 rows
 ```
 
 #### Fix calcofi4r `grid`
@@ -459,7 +461,7 @@ Problems with
 #| label: noaa-grid-fix
 
 librarian::shelf(
-  calcofi4r, dplyr, mapview, sf, tidyr, units)
+  CalCOFI/calcofi4r, dplyr, mapview, sf, tidyr, units)
 
 cc_grid_v2 <- calcofi4r::cc_grid |>
   select(sta_key, shore = sta_shore, pattern = sta_pattern, spacing = sta_dpos) |>
@@ -642,10 +644,10 @@ site_seg <- st_read(con_dev, "site_seg") |>
 mapView(site_seg, zcol = "year")
 ```
 
-### Report
+### Reporting Effort
 
 ```{r}
-#| label: noaa-report
+#| label: report-effort
 
 dm_from_con(
   con_dev,
@@ -776,6 +778,7 @@ To perform a full version release:
      do_version_release: true
      do_git_commit: true
      do_git_push: true
+     do_copy_to_prod: true
    ```
 
 2. **Run the notebook** - it will:
@@ -785,12 +788,47 @@ To perform a full version release:
    - Push to GitHub (if enabled)
    - Record schema version with permalink
    - Update `inst/schema_version.csv`
+   - Copy `dev` schema to `prod` (if enabled)
 
 3. **Manual mode** (default):
    - Only records schema version in database
    - Does not update package version
    - Does not commit to git
    - Uses current git commit for permalink
+   - Does not copy to `prod`
+
+## Copy to Production Schema
+
+```{r}
+#| label: copy-to-prod
+
+# copy dev schema to prod after successful version recording
+if (params$do_copy_to_prod) {
+
+  result <- copy_schema(
+    con           = con_dev,
+    from_schema   = "dev",
+    to_schema     = "prod",
+    drop_existing = TRUE,
+    copy_fk       = TRUE,
+    verbose       = TRUE)
+
+  # display summary
+  result$summary |>
+    datatable(caption = "Schema comparison: dev vs prod")
+
+} else {
+
+  message(glue("
+    ═══════════════════════════════════════════════════════════════
+    Skipping Copy to Production
+    ═══════════════════════════════════════════════════════════════
+    Set params$do_copy_to_prod = TRUE to enable copying dev to prod
+    ═══════════════════════════════════════════════════════════════
+  "))
+
+}
+```
 
 ## Cleanup
 
