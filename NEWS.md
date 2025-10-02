@@ -1,3 +1,12 @@
+# calcofi4db 1.1.0
+
+*Addition of CalCOFI Bottle Database*
+
+* Complete NOAA CalCOFI Database ingestion with spatial features
+* Add synchronized versioning system for package and database
+* Create master ingestion workflow with integrity checks
+* Implement comprehensive metadata management
+
 # calcofi4db 1.0.0
 
 *Initial production release with NOAA CalCOFI Database*

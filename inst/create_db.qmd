@@ -19,8 +19,8 @@ editor:
   markdown:
     wrap: 72
 params:
-  target_version: "1.0.0"
-  version_description: "Initial production release with NOAA CalCOFI Database"
+  target_version: "1.1.0"
+  version_description: "Addition of CalCOFI Bottle Database"
   do_version_release: true
   do_git_commit: true
   do_git_push: true
@@ -71,7 +71,7 @@ After validation, the `dev` schema is copied to `prod` with a version number for
 librarian::shelf(
   # CalCOFI/calcofi4db, 
   DBI, dm, dplyr, DT, duckdb, fs, glue, gargle, googledrive, here, janitor,
-  jsonlite, knitr, lubridate, purrr, readr, rlang, tibble, tidyr, uuid,
+  jsonlite, knitr, lubridate, purrr, readr, rlang, rlang, tibble, tidyr, uuid,
   quiet = T)
 options(readr.show_col_types = F)
 devtools::load_all(here()) # load calcofi4db package from local
@@ -135,8 +135,8 @@ See also [Integrated database ingestion strategy – Database – CalCOFI.io Doc
 #| label: noaa-setup
 
 # define paths
-dataset  <- "calcofi-db"
 provider <- "swfsc.noaa.gov"
+dataset  <- "calcofi-db"
 
 # load data using calcofi4db package
 d_noaa <- read_csv_files(provider, dataset)
@@ -694,6 +694,115 @@ sum(d_eff$time_hr, na.rm = T)    # 302,516 hours; 12,604 days; 34.5 years
 sum(d_eff$length_km, na.rm = T)  # 3,666,181 km
 ```
 
+## Dataset: CalCOFI Bottle Database
+
+Source: [Bottle Database | CalCOFI.org](https://calcofi.org/data/oceanographic-data/bottle-database/)
+
+- <https://calcofi.org/downloads/database/CalCOFI_Database_194903-202105_csv_16October2023.zip>
+
+**Goal**: Ingest bottle database from source files, while:
+
+- Ship names: fix typos, standardize abbreviations, and add missing ships.
+
+- COMMENTs: append to field descriptions, and add missing fields.
+
+
+```{r}
+#| label: bottle-meta
+
+# paths ---
+
+# dataset with external data folder
+provider     <- "calcofi.org"
+dataset      <- "bottle-database"
+subdir       <- "CalCOFI_Database_194903-202105_csv_16October2023"
+  
+dir_dataset  <- glue("{dir_data}/{provider}/{dataset}")
+dir_ingest   <- here(glue("inst/ingest/{provider}/{dataset}"))
+
+bottle_csv   <- glue("{dir_dataset}/{subdir}/194903-202105_Bottle.csv")
+cast_csv     <- glue("{dir_dataset}/{subdir}/194903-202105_Cast.csv")
+
+# Open "Bottle Field Descriptions.csv" in Excel and Save As File Format: CSV UTF-8 (Comma delimited) (.csv)
+m_bottle_csv <- glue("{dir_dataset}/Bottle Field Descriptions - UTF-8.csv")
+m_cast_csv   <- glue("{dir_dataset}/Cast Field Descriptions.csv")
+
+flds_rn_csv  <- glue("{dir_ingest}/flds_rename.csv")
+  
+if (!file.exists(flds_rn_csv)){
+  
+  # metadata
+  m <- bind_rows(
+    read_csv(m_cast_csv) |> 
+      mutate(tbl = "cast") |> 
+      relocate(tbl) |> 
+      clean_names(),
+    read_csv(m_bottle_csv) |>
+      mutate(tbl = "bottle") |> 
+      relocate(tbl) |> 
+      clean_names()) |> 
+    rename(
+      fld_csv     = field_name) |> 
+    mutate(
+      fld_clean   = make_clean_names(fld_csv),
+      fld_db      = fld_clean,
+      ingest_note = "",
+      comment     = pmap_chr(
+        list(description, units, fld_csv), 
+        \(description, units, fld_csv){
+          list(
+            description = description, 
+            units       = units, 
+            source      = glue("{basename(bottle_csv)}.{fld_csv}")) |> 
+            toJSON(auto_unbox=T) })) |> 
+    relocate(fld_clean, fld_db, note, .after = "fld_csv")
+  
+  write_excel_csv(m, flds_rn_csv) # UTF-8 encoding
+  
+  message(glue(
+    "Please modify columns for data ingestion:
+       {flds_rn_csv}
+     - fld_db: (optionally making blank to exclude); 
+     - note: notes for ingestion; and 
+     - comment: for metadata description in JSON format"))
+}
+m <- read_csv(flds_rn_csv)
+
+m |> 
+  datatable()
+```
+
+```{r}
+#| label: bottle-read
+
+stopifnot(all(file.exists(c(bottle_csv, cast_csv))))
+
+d_bottle <- read_csv(
+  bottle_csv, 
+  locale    = locale(encoding = "LATIN1"),
+  guess_max = 1e6) |> 
+  clean_names(
+    replace = janitor:::mu_to_u)
+
+head(d_bottle) |> 
+  datatable()
+
+d_cast <- read_csv(cast_csv) |> 
+  clean_names() |> 
+  mutate(
+    date = as_date(date, format = "%m/%d/%Y"))
+head(d_cast) |> 
+  datatable()
+```
+
+```{r}
+#| label: bottle-write
+
+# write d_cast and d_bottle to dev database
+dbWriteTable(con_dev, "cast", d_cast, overwrite = T)
+dbWriteTable(con_dev, "bottle", d_bottle, overwrite = T)
+```
+
 ## Record Schema Version
 
 ```{r}
@@ -933,9 +1042,11 @@ cat("**Total Duration:** ", duration_str, "\n\n")
 
 # close database connections
 dbDisconnect(con)
-if (exists("con_dev_public")) {
-  dbDisconnect(con_dev_public)
-}
+dbDisconnect(con_dev)
+dbDisconnect(con_dev_public)
+
+dbDisconnect(con_dk, shutdown = T); duckdb_shutdown(duckdb()); rm(con_dk)
+
 message("Database connections closed successfully")
 ```
 
