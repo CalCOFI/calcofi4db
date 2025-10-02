@@ -170,3 +170,193 @@ determine_field_type <- function(value, cl = class(value)[1]) {
   # Default: use R class
   return(cl)
 }
+
+#' Copy Database Schema
+#'
+#' Copies a database schema with all tables, data, sequences, and constraints
+#' to a new schema. Useful for promoting dev to prod.
+#'
+#' @param con Database connection
+#' @param from_schema Source schema name (default: "dev")
+#' @param to_schema Destination schema name (default: "prod")
+#' @param drop_existing Logical, drop existing destination schema (default: TRUE)
+#' @param copy_fk Logical, copy foreign key constraints (default: TRUE)
+#' @param verbose Logical, print progress messages (default: TRUE)
+#'
+#' @return List with copy summary statistics
+#' @export
+#' @concept utils
+#'
+#' @examples
+#' \dontrun{
+#' # Copy dev to prod
+#' result <- copy_schema(con, from_schema = "dev", to_schema = "prod")
+#'
+#' # Check results
+#' result$summary
+#' }
+#' @importFrom DBI dbExecute dbGetQuery
+#' @importFrom glue glue
+#' @importFrom tibble tibble
+copy_schema <- function(
+    con,
+    from_schema = "dev",
+    to_schema = "prod",
+    drop_existing = TRUE,
+    copy_fk = TRUE,
+    verbose = TRUE) {
+
+  if (verbose) {
+    message(glue::glue("
+      ═══════════════════════════════════════════════════════════════
+      Copying {from_schema} schema to {to_schema}
+      ═══════════════════════════════════════════════════════════════
+    "))
+  }
+
+  # drop existing schema if requested
+  if (drop_existing) {
+    DBI::dbExecute(con, glue::glue("DROP SCHEMA IF EXISTS {to_schema} CASCADE"))
+    if (verbose) message(glue::glue("Dropped existing {to_schema} schema"))
+  }
+
+  # create new schema
+  DBI::dbExecute(con, glue::glue("CREATE SCHEMA {to_schema}"))
+  if (verbose) message(glue::glue("Created {to_schema} schema"))
+
+  # get all tables in source schema
+  from_tables <- DBI::dbGetQuery(con, glue::glue("
+    SELECT tablename
+    FROM pg_tables
+    WHERE schemaname = '{from_schema}'
+    ORDER BY tablename
+  "))$tablename
+
+  if (verbose) message(glue::glue("Found {length(from_tables)} tables to copy"))
+
+  # copy each table with data and constraints
+  for (tbl in from_tables) {
+    # copy table structure and data
+    DBI::dbExecute(con, glue::glue(
+      "CREATE TABLE {to_schema}.{tbl} (LIKE {from_schema}.{tbl} INCLUDING ALL)"
+    ))
+
+    DBI::dbExecute(con, glue::glue(
+      "INSERT INTO {to_schema}.{tbl} SELECT * FROM {from_schema}.{tbl}"
+    ))
+
+    if (verbose) message(glue::glue("  ✓ Copied table: {tbl}"))
+  }
+
+  # copy sequences
+  from_sequences <- DBI::dbGetQuery(con, glue::glue("
+    SELECT sequence_name
+    FROM information_schema.sequences
+    WHERE sequence_schema = '{from_schema}'
+  "))
+
+  n_sequences <- 0
+  if (nrow(from_sequences) > 0) {
+    for (seq in from_sequences$sequence_name) {
+      # get current sequence value
+      curr_val <- DBI::dbGetQuery(con, glue::glue(
+        "SELECT last_value FROM {from_schema}.{seq}"
+      ))$last_value
+
+      # create sequence in destination
+      DBI::dbExecute(con, glue::glue(
+        "CREATE SEQUENCE {to_schema}.{seq} START WITH {curr_val}"
+      ))
+
+      n_sequences <- n_sequences + 1
+      if (verbose) message(glue::glue("  ✓ Copied sequence: {seq}"))
+    }
+  }
+
+  # copy foreign key constraints
+  n_fk_success <- 0
+  n_fk_failed <- 0
+
+  if (copy_fk) {
+    fk_constraints <- DBI::dbGetQuery(con, glue::glue("
+      SELECT
+        tc.table_name,
+        tc.constraint_name,
+        kcu.column_name,
+        ccu.table_name AS foreign_table_name,
+        ccu.column_name AS foreign_column_name
+      FROM information_schema.table_constraints AS tc
+      JOIN information_schema.key_column_usage AS kcu
+        ON tc.constraint_name = kcu.constraint_name
+        AND tc.table_schema = kcu.table_schema
+      JOIN information_schema.constraint_column_usage AS ccu
+        ON ccu.constraint_name = tc.constraint_name
+        AND ccu.table_schema = tc.table_schema
+      WHERE tc.constraint_type = 'FOREIGN KEY'
+        AND tc.table_schema = '{from_schema}'
+    "))
+
+    if (nrow(fk_constraints) > 0) {
+      for (i in seq_len(nrow(fk_constraints))) {
+        fk <- fk_constraints[i, ]
+
+        tryCatch({
+          DBI::dbExecute(con, glue::glue(
+            "ALTER TABLE {to_schema}.{fk$table_name}
+             ADD CONSTRAINT {fk$constraint_name}
+             FOREIGN KEY ({fk$column_name})
+             REFERENCES {to_schema}.{fk$foreign_table_name} ({fk$foreign_column_name})"
+          ))
+          n_fk_success <- n_fk_success + 1
+          if (verbose) {
+            message(glue::glue(
+              "  ✓ Added FK: {fk$table_name}.{fk$column_name} -> {fk$foreign_table_name}.{fk$foreign_column_name}"
+            ))
+          }
+        }, error = function(e) {
+          n_fk_failed <- n_fk_failed + 1
+          warning(glue::glue("  ✗ Failed to add FK {fk$constraint_name}: {e$message}"))
+        })
+      }
+    }
+  }
+
+  # verify copy
+  to_tables <- DBI::dbGetQuery(con, glue::glue("
+    SELECT tablename
+    FROM pg_tables
+    WHERE schemaname = '{to_schema}'
+  "))$tablename
+
+  # create summary
+  summary <- tibble::tibble(
+    from_schema = from_schema,
+    to_schema = to_schema,
+    tables_copied = length(to_tables),
+    sequences_copied = n_sequences,
+    fk_success = n_fk_success,
+    fk_failed = n_fk_failed,
+    copy_successful = length(from_tables) == length(to_tables)
+  )
+
+  if (verbose) {
+    message(glue::glue("
+      ═══════════════════════════════════════════════════════════════
+      Schema Copy Summary
+      ═══════════════════════════════════════════════════════════════
+      {from_schema} tables: {length(from_tables)}
+      {to_schema} tables: {length(to_tables)}
+      Sequences copied: {n_sequences}
+      Foreign keys: {n_fk_success} success, {n_fk_failed} failed
+      Copy successful: {summary$copy_successful[1]}
+      ═══════════════════════════════════════════════════════════════
+    "))
+  }
+
+  invisible(list(
+    summary = summary,
+    from_tables = from_tables,
+    to_tables = to_tables,
+    success = summary$copy_successful[1]
+  ))
+}

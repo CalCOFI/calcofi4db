@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -49,19 +49,29 @@
   <main id="main" class="col-md-9"><div class="section level1">
 <div class="page-header"><h1 id="calcofi4db">calcofi4db<a class="anchor" aria-label="anchor" href="#calcofi4db"></a>
 </h1></div>
-<p>CalCOFI Database Tools package for ingesting and managing datasets in the CalCOFI database.</p>
+<p>CalCOFI Database Tools package for ingesting and managing datasets in the CalCOFI database using an integrated schema-based workflow.</p>
 <div class="section level2">
 <h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a>
 </h2>
-<p>This package provides functions for:</p>
+<p>This package provides functions for the CalCOFI integrated database ingestion strategy, which uses a two-schema approach:</p>
 <ul>
-<li>Reading CSV files and extracting metadata about tables and fields</li>
+<li>
+<strong><code>dev</code> schema</strong>: Fresh development schema recreated with each ingestion run for QA/QC</li>
+<li>
+<strong><code>prod</code> schema</strong>: Versioned production schema for stable public access</li>
+</ul>
+<div class="section level3">
+<h3 id="key-features">Key features:<a class="anchor" aria-label="anchor" href="#key-features"></a>
+</h3>
+<ul>
+<li>Reading CSV files from Google Drive with metadata extraction</li>
 <li>Creating and managing redefinition files for tables and fields</li>
 <li>Transforming data according to redefinition rules</li>
-<li>Detecting changes between CSV files and database tables</li>
-<li>Ingesting datasets into the database with proper metadata</li>
+<li>Ingesting multiple datasets into a fresh database schema</li>
 <li>Managing database relationships and indexes</li>
+<li>Recording schema versions with full provenance</li>
 </ul>
+</div>
 </div>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
@@ -74,8 +84,21 @@
 <h2 id="usage">Usage<a class="anchor" aria-label="anchor" href="#usage"></a>
 </h2>
 <div class="section level3">
-<h3 id="basic-workflow">Basic workflow<a class="anchor" aria-label="anchor" href="#basic-workflow"></a>
+<h3 id="master-ingestion-workflow">Master ingestion workflow<a class="anchor" aria-label="anchor" href="#master-ingestion-workflow"></a>
 </h3>
+<p>The primary workflow is the master ingestion script <code>inst/ingest.qmd</code> that recreates the <code>dev</code> schema with all datasets:</p>
+<ol style="list-style-type: decimal">
+<li>Drops and recreates <code>dev</code> schema</li>
+<li>Ingests multiple datasets from Google Drive</li>
+<li>Applies transformations via redefinition files</li>
+<li>Creates relationships (primary/foreign keys, indexes)</li>
+<li>Records schema version with metadata</li>
+</ol>
+</div>
+<div class="section level3">
+<h3 id="individual-dataset-ingestion">Individual dataset ingestion<a class="anchor" aria-label="anchor" href="#individual-dataset-ingestion"></a>
+</h3>
+<p>For programmatic control, use the core functions:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://calcofi.io/calcofi4db">calcofi4db</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://dbi.r-dbi.org" class="external-link">DBI</a></span><span class="op">)</span></span>
@@ -91,60 +114,65 @@
 <span>  password <span class="op">=</span> <span class="st">"postgres"</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Ingest a dataset</span></span>
-<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/ingest_dataset.html">ingest_dataset</a></span><span class="op">(</span></span>
-<span>  con <span class="op">=</span> <span class="va">con</span>,</span>
+<span><span class="co"># Read CSV files and metadata from Google Drive</span></span>
+<span><span class="va">d</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/read_csv_files.html">read_csv_files</a></span><span class="op">(</span></span>
 <span>  provider <span class="op">=</span> <span class="st">"swfsc.noaa.gov"</span>,</span>
-<span>  dataset <span class="op">=</span> <span class="st">"calcofi-db"</span>,</span>
-<span>  dir_data <span class="op">=</span> <span class="st">"/path/to/data"</span>,</span>
-<span>  schema <span class="op">=</span> <span class="st">"public"</span>,</span>
-<span>  dir_googledata <span class="op">=</span> <span class="st">"https://drive.google.com/drive/folders/your-folder-id"</span>,</span>
-<span>  email <span class="op">=</span> <span class="st">"your.email@example.com"</span></span>
+<span>  dataset <span class="op">=</span> <span class="st">"calcofi-db"</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Examine changes and statistics</span></span>
-<span><span class="va">result</span><span class="op">$</span><span class="va">changes</span></span>
-<span><span class="va">result</span><span class="op">$</span><span class="va">stats</span></span>
+<span><span class="co"># Transform data according to redefinitions</span></span>
+<span><span class="va">transformed_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/transform_data.html">transform_data</a></span><span class="op">(</span><span class="va">d</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Ingest into dev schema</span></span>
+<span><span class="fu"><a href="reference/ingest_csv_to_db.html">ingest_csv_to_db</a></span><span class="op">(</span></span>
+<span>  con <span class="op">=</span> <span class="va">con</span>,</span>
+<span>  schema <span class="op">=</span> <span class="st">"dev"</span>,</span>
+<span>  transformed_data <span class="op">=</span> <span class="va">transformed_data</span>,</span>
+<span>  d_flds_rd <span class="op">=</span> <span class="va">d</span><span class="op">$</span><span class="va">d_flds_rd</span>,</span>
+<span>  d_gdata <span class="op">=</span> <span class="va">d</span><span class="op">$</span><span class="va">d_gdata</span>,</span>
+<span>  workflow_info <span class="op">=</span> <span class="va">d</span><span class="op">$</span><span class="va">workflow_info</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Record schema version</span></span>
+<span><span class="fu"><a href="reference/record_schema_version.html">record_schema_version</a></span><span class="op">(</span></span>
+<span>  con <span class="op">=</span> <span class="va">con</span>,</span>
+<span>  schema <span class="op">=</span> <span class="st">"dev"</span>,</span>
+<span>  version <span class="op">=</span> <span class="st">"1.0.0"</span>,</span>
+<span>  description <span class="op">=</span> <span class="st">"Initial ingestion of NOAA CalCOFI Database"</span>,</span>
+<span>  script_permalink <span class="op">=</span> <span class="st">"https://github.com/CalCOFI/calcofi4db/blob/main/inst/ingest.qmd"</span></span>
+<span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Disconnect</span></span>
 <span><span class="fu"><a href="https://dbi.r-dbi.org/reference/dbDisconnect.html" class="external-link">dbDisconnect</a></span><span class="op">(</span><span class="va">con</span><span class="op">)</span></span></code></pre></div>
 </div>
-<div class="section level3">
-<h3 id="step-by-step-workflow">Step-by-step workflow<a class="anchor" aria-label="anchor" href="#step-by-step-workflow"></a>
-</h3>
-<p>For more control over the process, you can use the individual functions:</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Load CSV files and metadata</span></span>
-<span><span class="va">data_info</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/read_csv_files.html">read_csv_files</a></span><span class="op">(</span></span>
-<span>  provider <span class="op">=</span> <span class="st">"swfsc.noaa.gov"</span>,</span>
-<span>  dataset <span class="op">=</span> <span class="st">"calcofi-db"</span>,</span>
-<span>  dir_data <span class="op">=</span> <span class="st">"/path/to/data"</span>,</span>
-<span>  dir_googledata <span class="op">=</span> <span class="st">"https://drive.google.com/drive/folders/your-folder-id"</span>,</span>
-<span>  use_gdrive <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  email <span class="op">=</span> <span class="st">"your.email@example.com"</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Transform data</span></span>
-<span><span class="va">transformed_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/transform_data.html">transform_data</a></span><span class="op">(</span><span class="va">data_info</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Detect changes</span></span>
-<span><span class="va">changes</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/detect_csv_changes.html">detect_csv_changes</a></span><span class="op">(</span></span>
-<span>  con <span class="op">=</span> <span class="va">con</span>,</span>
-<span>  schema <span class="op">=</span> <span class="st">"public"</span>,</span>
-<span>  transformed_data <span class="op">=</span> <span class="va">transformed_data</span>,</span>
-<span>  d_flds_rd <span class="op">=</span> <span class="va">data_info</span><span class="op">$</span><span class="va">d_flds_rd</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Ingest data to database</span></span>
-<span><span class="va">stats</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/ingest_csv_to_db.html">ingest_csv_to_db</a></span><span class="op">(</span></span>
-<span>  con <span class="op">=</span> <span class="va">con</span>,</span>
-<span>  schema <span class="op">=</span> <span class="st">"public"</span>,</span>
-<span>  transformed_data <span class="op">=</span> <span class="va">transformed_data</span>,</span>
-<span>  d_flds_rd <span class="op">=</span> <span class="va">data_info</span><span class="op">$</span><span class="va">d_flds_rd</span>,</span>
-<span>  d_gdir_data <span class="op">=</span> <span class="va">data_info</span><span class="op">$</span><span class="va">d_gdir_data</span>,</span>
-<span>  workflow_info <span class="op">=</span> <span class="va">data_info</span><span class="op">$</span><span class="va">workflow_info</span></span>
-<span><span class="op">)</span></span></code></pre></div>
 </div>
+<div class="section level2">
+<h2 id="schema-versioning">Schema versioning<a class="anchor" aria-label="anchor" href="#schema-versioning"></a>
+</h2>
+<p>Each successful ingestion records a version in the <code>schema_version</code> table with:</p>
+<ul>
+<li>
+<strong>version</strong>: Semantic version (e.g., “1.0.0”, “1.1.0”)</li>
+<li>
+<strong>description</strong>: Changes in this version</li>
+<li>
+<strong>date_created</strong>: Ingestion timestamp</li>
+<li>
+<strong>script_permalink</strong>: GitHub permalink to ingestion script</li>
+</ul>
+<p>Versions are archived as SQL dumps in Google Drive for reproducibility.</p>
+</div>
+<div class="section level2">
+<h2 id="documentation">Documentation<a class="anchor" aria-label="anchor" href="#documentation"></a>
+</h2>
+<p>See the <a href="https://calcofi.io/docs/db.html" class="external-link">CalCOFI Database Documentation</a> for complete details on:</p>
+<ul>
+<li>Database naming conventions</li>
+<li>Ingestion workflow architecture</li>
+<li>Schema versioning strategy</li>
+<li>Metadata management</li>
+<li>Publishing to data portals</li>
+</ul>
 </div>
 <div class="section level2">
 <h2 id="license">License<a class="anchor" aria-label="anchor" href="#license"></a>

@@ -52,7 +52,7 @@ record_schema_version <- function(
     !missing(script_permalink))
 
   # path to schema version CSV file
-  csv_path <- here::here("calcofi4db", "inst", "schema_version.csv")
+  csv_path <- here::here("inst", "schema_version.csv")
 
   # create schema_version table if it doesn't exist
   table_name <- glue::glue("{schema}.schema_version")
@@ -74,9 +74,9 @@ record_schema_version <- function(
     d_existing <- readr::read_csv(csv_path, show_col_types = FALSE)
   } else {
     d_existing <- tibble::tibble(
-      version = character(),
-      description = character(),
-      date_created = lubridate::POSIXct(),
+      version          = character(),
+      description      = character(),
+      date_created     = lubridate::POSIXct(),
       script_permalink = character()
     )
   }

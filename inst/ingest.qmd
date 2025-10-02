@@ -745,13 +745,13 @@ if (params$do_version_release) {
 
   permalink <- glue("https://github.com/CalCOFI/calcofi4db/blob/{git_hash}/inst/ingest.qmd")
 
+  # dbExecute(con_dev, "TRUNCATE TABLE dev.schema_version")
   record_schema_version(
-    con = con_dev,
-    schema = "dev",
-    version = params$target_version,
-    description = params$version_description,
-    script_permalink = permalink
-  )
+    con              = con_dev,
+    schema           = "dev",
+    version          = params$target_version,
+    description      = params$version_description,
+    script_permalink = permalink)
 
   message(glue("
     Schema version {params$target_version} recorded in dev.schema_version

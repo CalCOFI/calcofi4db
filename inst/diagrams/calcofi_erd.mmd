@@ -1,0 +1,106 @@
+erDiagram
+    net {
+        string net_uuid PK
+        string tow_uuid FK
+        string side
+        float std_haul_factor
+        float vol_sampled_m3
+        float prop_sorted
+        float smallplankton
+        float totalplankton
+    }
+    
+    tow {
+        string tow_uuid PK
+        string site_uuid FK
+        string tow_type_key FK
+        int tow_number
+        datetime time_start
+    }
+    
+    site {
+        string site_uuid PK
+        string cruise_uuid FK
+        string orderocc
+        float longitude
+        float latitude
+        string line
+        string station
+    }
+    
+    cruise {
+        string cruise_uuid PK
+        string ship_key FK
+        string date_ym
+    }
+    
+    ship {
+        string ship_key PK
+        string ship_name
+        string ship_nodc
+    }
+    
+    tow_type {
+        string tow_type_key PK
+        string description
+    }
+    
+    species {
+        string species_id PK
+        string scientific_name
+        string itis_id
+        string worms_id
+        string common_name
+    }
+    
+    larvastage {
+        string net_uuid FK
+        string species_id FK
+        string stage
+        int tally
+    }
+    
+    egg {
+        string net_uuid FK
+        string species_id FK
+        int tally
+    }
+    
+    eggstage {
+        string net_uuid FK
+        string species_id FK
+        string stage
+        int tally
+    }
+    
+    larva {
+        string net_uuid FK
+        string species_id FK
+        int tally
+    }
+    
+    larvasize {
+        string net_uuid FK
+        string species_id FK
+        float length_mm
+        int tally
+    }
+
+    %% Relationships
+    net ||--o{ larvastage : "has"
+    net ||--o{ egg : "has"
+    net ||--o{ eggstage : "has"
+    net ||--o{ larva : "has"
+    net ||--o{ larvasize : "has"
+    
+    species ||--o{ larvastage : "identified_as"
+    species ||--o{ egg : "identified_as"
+    species ||--o{ eggstage : "identified_as"
+    species ||--o{ larva : "identified_as"
+    species ||--o{ larvasize : "identified_as"
+    
+    tow ||--o{ net : "uses"
+    site ||--o{ tow : "conducted_at"
+    cruise ||--o{ site : "visits"
+    ship ||--o{ cruise : "operates"
+    tow_type ||--o{ tow : "defines"

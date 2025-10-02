@@ -1,0 +1,9 @@
+graph TD
+    A[Read CSV Files] --> B[Extract Column Names]
+    B --> C[Compare with Lookups]
+    C --> D[Process Field Descriptions]
+    D --> E{Table Exists?}
+    E -->|Yes| F[Update Table]
+    E -->|No| G[Initialize Table]
+    F --> H[Summary Stats]
+    G --> H

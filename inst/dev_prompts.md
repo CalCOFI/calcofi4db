@@ -1,3 +1,86 @@
+## 2025-09-29.g copy to prod
+
+Add a final R chunk to @calcofi4db/inst/ingest.qmd (but before "cleanup"" R
+chunk) to copy the `dev` schema to a new `prod` schema after recording the
+version in the `schema_version` table.
+
+⏺ Perfect! I've added a comprehensive copy-to-prod chunk that creates a production schema after version recording. Here's what it does:
+
+  New "Copy to Production Schema" Section
+
+  Features:
+
+  1. Drops and recreates prod schema
+    - Ensures clean slate for new production version
+    - Prevents conflicts with existing prod schema
+  2. Copies all tables with structure and data
+    - Uses CREATE TABLE ... (LIKE ... INCLUDING ALL) to copy:
+        - Column definitions
+      - Data types
+      - Default values
+      - NOT NULL constraints
+      - Primary keys
+      - Indexes
+    - Then copies all data with INSERT INTO ... SELECT *
+  3. Copies sequences (if any exist)
+    - Preserves sequence current values
+    - Important for auto-incrementing IDs
+  4. Recreates foreign key constraints
+    - Queries information_schema for all FK constraints from dev
+    - Recreates them in prod schema
+    - Uses tryCatch to handle any FK recreation errors gracefully
+  5. Verification and reporting
+    - Counts tables in both schemas
+    - Displays formatted summary with comparison
+    - Shows interactive DataTable comparing dev vs prod
+
+  Output Messages:
+
+  The chunk provides clear progress feedback:
+  ═══════════════════════════════════════════════════════════════
+  Copying dev schema to prod
+  ═══════════════════════════════════════════════════════════════
+  Version: 1.0.0
+  ═══════════════════════════════════════════════════════════════
+
+  Found 15 tables to copy
+    ✓ Copied table: cruise
+    ✓ Copied table: egg
+    ✓ Copied table: species
+    ...
+    ✓ Added FK: egg.net_uuid -> net.net_uuid
+    ...
+
+  ═══════════════════════════════════════════════════════════════
+  Schema Copy Summary
+  ═══════════════════════════════════════════════════════════════
+  Dev tables: 15
+  Prod tables: 15
+  Copy successful: TRUE
+  ═══════════════════════════════════════════════════════════════
+
+  This ensures that after a successful ingestion and version recording, you have a clean, versioned production schema ready for public APIs, apps, and data portals!
+
+Simplify this R chunk copy-to-prod in @calcofi4db/inst/ingest.qmd with one or
+more functions and a yaml boolean parameter to control whether to copy to `prod`
+schema.
+
+⏺ Perfect! I've successfully completed the task of simplifying the copy-to-prod chunk in the ingest.qmd file. Here's what was done:
+
+  Summary of Changes
+
+  1. Added YAML parameter do_copy_to_prod: false to control whether to copy the dev schema to prod
+  2. Replaced ~130-line chunk with a simplified 28-line version that:
+    - Uses the new copy_schema() function from utils.R
+    - Conditionally executes based on params$do_copy_to_prod
+    - Displays a summary table when copying
+    - Shows a message when skipping
+  3. Updated documentation in the "Version Release Instructions" section to reflect the new parameter
+
+  The chunk went from ~130 lines of detailed PostgreSQL operations to ~28 lines of clean, readable code that delegates the complexity to the reusable copy_schema()
+  function. This makes the notebook much easier to maintain and understand.
+
+
 ## 2025-09-29.f + bookkeeping with timestamps and R environment
 
 Add a few bookkeeping items to @calcofi4db/inst/ingest.qmd:
