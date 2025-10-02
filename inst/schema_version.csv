@@ -1,2 +1,3 @@
 version,description,date_created,script_permalink
 1.0.0,Initial production release with NOAA CalCOFI Database,2025-10-02T15:38:14Z,https://github.com/CalCOFI/calcofi4db/blob/78325bf8fb4bc3fe76616260585b633be89c84fc/inst/create_db.qmd
+1.1.0,Addition of CalCOFI Bottle Database,2025-10-02T19:47:23Z,https://github.com/CalCOFI/calcofi4db/blob/06bef5799bcda47ed46142e9736e8f227801f545/inst/create_db.qmd

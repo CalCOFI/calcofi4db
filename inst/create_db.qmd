@@ -665,7 +665,7 @@ site_seg <- st_read(con_dev, "site_seg") |>
   mutate(
     year = year(time_beg))
 
-mapView(site_seg, zcol = "year")
+# mapView(site_seg, zcol = "year")
 ```
 
 ### Reporting Effort

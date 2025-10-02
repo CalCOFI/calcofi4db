@@ -86,6 +86,8 @@ read_csv_metadata <- function(dir_csv, dir_ingest, create_dirs = TRUE) {
 #'
 #' @param provider Data provider (e.g., "swfsc.noaa.gov")
 #' @param dataset Dataset name (e.g., "calcofi-db")
+#' @param subdir Optional subdirectory (i.e.,
+#'   {dir_data}/{provider}/{dataset}/{subdir}) for CSV files
 #' @param dir_data directory path of CalCOFI base data folder available locally,
 #'   with CSVs under {provider}/{dataset} directory. Default: "~/My
 #'   Drive/projects/calcofi/data"
@@ -142,6 +144,7 @@ read_csv_metadata <- function(dir_csv, dir_ingest, create_dirs = TRUE) {
 read_csv_files <- function(
     provider,
     dataset,
+    subdir      = NULL,
     dir_data    = "~/My Drive/projects/calcofi/data",
     url_gdata   = "https://drive.google.com/drive/u/0/folders/1xxdWa4mWkmfkJUQsHxERTp9eBBXBMbV7",
     use_gdrive  = TRUE,
@@ -149,7 +152,10 @@ read_csv_files <- function(
     verbose     = F) {
 
   # define paths
-  dir_csv <- file.path(dir_data, provider, dataset)
+  dir_csv <- ifelse(
+    is.null(subdir),
+    file.path(dir_data, provider, dataset),
+    file.path(dir_data, provider, dataset, subdir) )
 
   # check if running from calcofi4db/ or parent directory
   if (basename(here::here()) == "calcofi4db") {
@@ -362,9 +368,9 @@ determine_field_types <- function(d, tbl, fld) {
   purrr::map2_chr(tbl, fld, function(x, y) {
     v <- d |>
       dplyr::filter(tbl == x) |>
-      purrr::pull(data) |>
+      dplyr::pull(data) |>
       purrr::pluck(1) |>
-      purrr::pull(y)
+      dplyr::pull(y)
 
     determine_field_type(v)
   })

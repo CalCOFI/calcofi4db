@@ -7,6 +7,7 @@
 read_csv_files(
   provider,
   dataset,
+  subdir = NULL,
   dir_data = "~/My Drive/projects/calcofi/data",
   url_gdata =
     "https://drive.google.com/drive/u/0/folders/1xxdWa4mWkmfkJUQsHxERTp9eBBXBMbV7",
@@ -19,6 +20,9 @@ read_csv_files(
 \item{provider}{Data provider (e.g., "swfsc.noaa.gov")}
 
 \item{dataset}{Dataset name (e.g., "calcofi-db")}
+
+\item{subdir}{Optional subdirectory (i.e.,
+{dir_data}/{provider}/{dataset}/{subdir}) for CSV files}
 
 \item{dir_data}{directory path of CalCOFI base data folder available locally,
 with CSVs under {provider}/{dataset} directory. Default: "~/My

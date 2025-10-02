@@ -1,0 +1,10 @@
+csv_name,csv_code,n_casts,code_in_cc_name,code_in_nodc_name,name_in_cc_code,name_in_nodc_name,name_similar_db,db_code,csv_name_new,csv_code_new,notes
+ARGO,31AR,4,ARGO,ARGO,36A4; 31AR,31AR; 36A4,NA,NA,ARGO,31AR,"No name or code in db, and two for name in both CC and NODC, the first of which is valid, so keeping"
+DAVID PHILLIP DOLPHIN,33DP,34,NA,RV DAVID PHILLIP DOLPHIN!,NA,NA,NA,NA,DAVID PHILLIP DOLPHIN,33DP,"No name or code in db, but code matches NODC, so new"
+RV BELL M SHIMADA,325S,670,BELL M SHIMADA; SHIMADA,SHIMADA,NA,NA,BELL M. SHIMADA,3322,BELL M. SHIMADA,3322,"Name matches in db with diff't code, converting to db name and code"
+RV BELL M. SHIMADA,325S,67,BELL M SHIMADA; SHIMADA,SHIMADA,NA,NA,BELL M. SHIMADA,3322,BELL M. SHIMADA,3322,"Name matches in db with diff't code, converting to db name and code"
+RV DAVID STARR JORDAN,03JD,1,NA,NA,NA,NA,DAVID STARR JORDAN,31JD,DAVID STARR JORDAN,31JD,"Name matches in db with diff't code, converting to db name and code"
+RV OCEAN STARR,31OS,213,ALAMINOS,ALAMINOS,NA,NA,OCEAN STARR,32I1,OCEAN STARR,32I1,"Name matches in db with diff't code, converting to db name and code"
+RV REUBEN LASKER,33RL,464,NA,NA,NA,NA,REUBEN LASKER,33UD,REUBEN LASKER,33UD,"Name matches in db with diff't code, converting to db name and code"
+RV SALLY RIDE,33SR,514,STRONG ICELANDER,STRONG ICELANDER,NA,NA,SALLY RIDE,33P4,SALLY RIDE,33P4,"Name matches in db with diff't code, converting to db name and code"
+WESTWIND,32WC,11,WECOMA,WECOMA,31WE,NA,NA,NA,WESTWIND,31WE,"No name or code in db, name matches in CC but with difft code, so using CC name and code"
