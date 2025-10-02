@@ -105,10 +105,10 @@ update_package_version <- function(
 #' a GitHub permalink to the ingestion script at the committed version.
 #'
 #' @param version Version number for commit message
-#' @param files Additional files to commit (e.g., "inst/ingest.qmd")
+#' @param files Additional files to commit (e.g., "inst/create_db.qmd")
 #' @param repo_owner GitHub repository owner (default: "CalCOFI")
 #' @param repo_name GitHub repository name (default: "calcofi4db")
-#' @param script_path Path to script for permalink (default: "inst/ingest.qmd")
+#' @param script_path Path to script for permalink (default: "inst/create_db.qmd")
 #' @param commit Logical, whether to actually commit (default: FALSE for safety)
 #' @param push Logical, whether to push to remote (default: FALSE for safety)
 #'
@@ -121,13 +121,13 @@ update_package_version <- function(
 #' # Dry run (no commit)
 #' result <- commit_version_and_permalink(
 #'   version = "1.0.0",
-#'   files = c("inst/ingest.qmd", "inst/schema_version.csv")
+#'   files = c("inst/create_db.qmd", "inst/schema_version.csv")
 #' )
 #'
 #' # Actually commit and push
 #' result <- commit_version_and_permalink(
 #'   version = "1.0.0",
-#'   files = c("inst/ingest.qmd", "inst/schema_version.csv"),
+#'   files = c("inst/create_db.qmd", "inst/schema_version.csv"),
 #'   commit = TRUE,
 #'   push = TRUE
 #' )
@@ -137,7 +137,7 @@ commit_version_and_permalink <- function(
     files = NULL,
     repo_owner = "CalCOFI",
     repo_name = "calcofi4db",
-    script_path = "inst/ingest.qmd",
+    script_path = "inst/create_db.qmd",
     commit = FALSE,
     push = FALSE) {
 
@@ -248,7 +248,7 @@ commit_version_and_permalink <- function(
 #'     "Add synchronized versioning system",
 #'     "Create master ingestion workflow"
 #'   ),
-#'   additional_files = c("inst/ingest.qmd", "inst/schema_version.csv"),
+#'   additional_files = c("inst/create_db.qmd", "inst/schema_version.csv"),
 #'   commit = TRUE,
 #'   push = TRUE
 #' )
@@ -282,7 +282,7 @@ complete_version_release <- function(
     files = additional_files,
     repo_owner = repo_owner,
     repo_name = repo_name,
-    script_path = "inst/ingest.qmd",
+    script_path = "inst/create_db.qmd",
     commit = commit,
     push = push
   )

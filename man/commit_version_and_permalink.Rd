@@ -9,7 +9,7 @@ commit_version_and_permalink(
   files = NULL,
   repo_owner = "CalCOFI",
   repo_name = "calcofi4db",
-  script_path = "inst/ingest.qmd",
+  script_path = "inst/create_db.qmd",
   commit = FALSE,
   push = FALSE
 )
@@ -17,13 +17,13 @@ commit_version_and_permalink(
 \arguments{
 \item{version}{Version number for commit message}
 
-\item{files}{Additional files to commit (e.g., "inst/ingest.qmd")}
+\item{files}{Additional files to commit (e.g., "inst/create_db.qmd")}
 
 \item{repo_owner}{GitHub repository owner (default: "CalCOFI")}
 
 \item{repo_name}{GitHub repository name (default: "calcofi4db")}
 
-\item{script_path}{Path to script for permalink (default: "inst/ingest.qmd")}
+\item{script_path}{Path to script for permalink (default: "inst/create_db.qmd")}
 
 \item{commit}{Logical, whether to actually commit (default: FALSE for safety)}
 
@@ -41,13 +41,13 @@ a GitHub permalink to the ingestion script at the committed version.
 # Dry run (no commit)
 result <- commit_version_and_permalink(
   version = "1.0.0",
-  files = c("inst/ingest.qmd", "inst/schema_version.csv")
+  files = c("inst/create_db.qmd", "inst/schema_version.csv")
 )
 
 # Actually commit and push
 result <- commit_version_and_permalink(
   version = "1.0.0",
-  files = c("inst/ingest.qmd", "inst/schema_version.csv"),
+  files = c("inst/create_db.qmd", "inst/schema_version.csv"),
   commit = TRUE,
   push = TRUE
 )

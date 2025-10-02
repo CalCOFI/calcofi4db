@@ -171,11 +171,11 @@ read_csv_files <- function(
     message(glue::glue("Reading CSV redefinition from dir_ingest: {dir_ingest}"))
   }
 
-  # get workflow info - for master ingestion script, use inst/ingest.qmd
+  # get workflow info - for master ingestion script, use inst/create_db.qmd
   # check both possible locations (running from calcofi4db/ or from parent)
   workflow_qmd_paths <- c(
-    "inst/ingest.qmd",
-    "calcofi4db/inst/ingest.qmd"
+    "inst/create_db.qmd",
+    "calcofi4db/inst/create_db.qmd"
   )
 
   path_workflow_qmd <- NULL
@@ -198,7 +198,7 @@ read_csv_files <- function(
   workflow_info <- list(
     workflow = "ingest",
     workflow_qmd = workflow_qmd,
-    workflow_url = "https://github.com/CalCOFI/calcofi4db/blob/main/inst/ingest.qmd"
+    workflow_url = "https://github.com/CalCOFI/calcofi4db/blob/main/inst/create_db.qmd"
   )
 
   # Input/output tables (version controlled)

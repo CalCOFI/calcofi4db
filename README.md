@@ -29,7 +29,7 @@ remotes::install_github("CalCOFI/calcofi4db")
 
 ### Master ingestion workflow
 
-The primary workflow is the master ingestion script `inst/ingest.qmd` that recreates the `dev` schema with all datasets:
+The primary workflow is the master ingestion script `inst/create_db.qmd` that recreates the `dev` schema with all datasets:
 
 1. Drops and recreates `dev` schema
 2. Ingests multiple datasets from Google Drive
@@ -81,7 +81,7 @@ record_schema_version(
   schema = "dev",
   version = "1.0.0",
   description = "Initial ingestion of NOAA CalCOFI Database",
-  script_permalink = "https://github.com/CalCOFI/calcofi4db/blob/main/inst/ingest.qmd"
+  script_permalink = "https://github.com/CalCOFI/calcofi4db/blob/main/inst/create_db.qmd"
 )
 
 # Disconnect

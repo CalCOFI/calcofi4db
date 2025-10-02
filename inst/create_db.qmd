@@ -12,6 +12,9 @@ format:
     code-fold: true
     toc: true
     toc-depth: 3
+    embed-resources: false
+    anchor-sections: true
+    smooth-scroll: true
 editor:
   markdown:
     wrap: 72
@@ -40,6 +43,13 @@ start_time <- Sys.time()
 
 **Render Started:** `r format(start_time, "%Y-%m-%d %H:%M:%S %Z")`
 
+Render this Quarto document from command line (while in root of the calcofi4db directory and with Postgres database connected):
+
+```bash
+cd inst
+quarto render create_db.qmd
+```
+
 This master ingestion script recreates the `dev` schema with all CalCOFI datasets from Google Drive source files. The workflow:
 
 1. **Drops and recreates** `dev` schema (fresh start)
@@ -47,24 +57,40 @@ This master ingestion script recreates the `dev` schema with all CalCOFI dataset
 3. **Applies transformations** using redefinition files
 4. **Creates relationships** (primary keys, foreign keys, indexes)
 5. **Records schema version** with full provenance
+5. **Copies to `prod` schema** for production use
 
 After validation, the `dev` schema is copied to `prod` with a version number for production use.
+
+```{r eval_false, include=FALSE}
+# knitr::opts_chunk$set(eval = FALSE)
+```
 
 ```{r}
 #| label: setup
 
 librarian::shelf(
   # CalCOFI/calcofi4db, 
-  DBI, dm, dplyr, DT, fs, glue, gargle, googledrive, here, janitor,
+  DBI, dm, dplyr, DT, duckdb, fs, glue, gargle, googledrive, here, janitor,
   jsonlite, knitr, lubridate, purrr, readr, rlang, tibble, tidyr, uuid,
   quiet = T)
 options(readr.show_col_types = F)
 devtools::load_all(here()) # load calcofi4db package from local
 
-# get database connection
-con     <- get_db_con(c("dev", "dev_ref"))
-con_dev <- get_db_con(c("dev"))
+# paths
+is_server <-  Sys.info()[["sysname"]] == "Linux"
+dir_data  <- ifelse(
+  is_server,
+  "/share/data",
+  "~/My Drive/projects/calcofi/data")
+dk_db     <- glue("{dir_data}/calcofi.duckdb")
 
+# get database connections
+con            <- get_db_con(c("dev", "dev_ref")) # for reference
+con_dev        <- get_db_con(c("dev"))            # for dev only
+con_dev_public <- get_db_con(c("dev", "public"))  # for spatial
+con_dk         <- dbConnect(duckdb(), dbdir = dk_db, read_only = F)
+
+# dbListTables(con_dk) |> sort()
 # dbListTables(con) |> sort()
 # dbListTables(con_dev) |> sort()
 ```
@@ -436,8 +462,6 @@ dm_draw(dm_dev, view_type = "all")
 ```{r}
 #| label: noaa-site-geom
 
-con_dev_public <- get_db_con(schemas = c("dev", "public"))
-
 dbExecute(con_dev_public, "CREATE EXTENSION IF NOT EXISTS postgis SCHEMA dev;")
 # dbGetQuery(con_dev_public, "SELECT PostGIS_full_version();")
 
@@ -701,7 +725,7 @@ if (params$do_version_release) {
       "Implement comprehensive metadata management"
     ),
     additional_files = c(
-      "inst/ingest.qmd",
+      "inst/create_db.qmd",
       "inst/schema_version.csv",
       "inst/ingest/swfsc.noaa.gov/calcofi-db/flds_redefine.csv",
       "inst/ingest/swfsc.noaa.gov/calcofi-db/tbls_redefine.csv"
@@ -743,9 +767,9 @@ if (params$do_version_release) {
     "unknown"
   })
 
-  permalink <- glue("https://github.com/CalCOFI/calcofi4db/blob/{git_hash}/inst/ingest.qmd")
+  permalink <- glue("https://github.com/CalCOFI/calcofi4db/blob/{git_hash}/inst/create_db.qmd")
 
-  # dbExecute(con_dev, "TRUNCATE TABLE dev.schema_version")
+  # unlink(here("inst/schema_version.csv")); dbExecute(con_dev, "TRUNCATE TABLE dev.schema_version")
   record_schema_version(
     con              = con_dev,
     schema           = "dev",
@@ -830,17 +854,51 @@ if (params$do_copy_to_prod) {
 }
 ```
 
-## Cleanup
+## Copy to DuckDB
+
+### Load Data from PostgreSQL
+
+```{r pg_to_duckdb}
+#| eval: false
+
+tbls = dbListTables(con_dev)
+#  [1] "cruise"   "egg"      "grid"     "larva"    "net"      "ship"     "site"     "site_seg"
+#  [9] "species"  "tow"      "tow_type"
+
+for (tbl in tbls){
+  if (!(dbExistsTable(con_dk, tbl)))
+    dbReadTable(con_dev, tbl) %>% 
+      dbWriteTable(con_dk, tbl, .)
+}
+```
+
+### Add H3 reference
+
+-   [h3 – DuckDB Community Extensions](https://duckdb.org/community_extensions/extensions/h3.html)
+-   [Tables of Cell Statistics Across Resolutions \| H3](https://h3geo.org/docs/core-library/restable/)
+-   [Terminology](https://h3geo.org/docs/library/terminology/)
+    -   `H3Index`: an unsigned 64-bit integer representing any H3 object (hexagon, pentagon, directed edge ...); often represented as a 15-character (or 16-character) hexadecimal string, like '8928308280fffff'
+-   h3 res 9: sqrt(105332.513): \~324.5 m width
+-   h3 res 10: sqrt( 15047.502): \~122.7 m width
 
 ```{r}
-#| label: cleanup
+dbExecute(con_dk, "INSTALL h3 FROM community; LOAD h3;")
+# test: dbGetQuery(con_dk, "SELECT to_hex(h3_latlng_to_cell(37.7887987, -122.3931578, 10)) AS h3_res10;") # 4
 
-# close database connections
-dbDisconnect(con)
-if (exists("con_dev_public")) {
-  dbDisconnect(con_dev_public)
+for (res in 1:10){
+  fld <- glue("hex_h3res{res}")
+  
+  dbExecute(con_dk, glue(
+    "ALTER TABLE site ADD COLUMN IF NOT EXISTS {fld} BIGINT;"))
+  
+  dbExecute(con_dk, glue(
+    "UPDATE site SET {fld} = h3_latlng_to_cell(latitude, longitude, {res});"))
 }
-message("Database connections closed successfully")
+
+# tbl(con_dk, "site")
+
+# update h3_res10 column with h3 index
+# 61,220 rows affected
 ```
 
 ## Render Summary
@@ -868,10 +926,23 @@ cat("**Render Completed:** ", format(end_time, "%Y-%m-%d %H:%M:%S %Z"), "\n\n")
 cat("**Total Duration:** ", duration_str, "\n\n")
 ```
 
-## R Environment {.unnumbered}
+### Cleanup
+
+```{r}
+#| label: cleanup
+
+# close database connections
+dbDisconnect(con)
+if (exists("con_dev_public")) {
+  dbDisconnect(con_dev_public)
+}
+message("Database connections closed successfully")
+```
+
+### R Environment {.unnumbered}
 
 ::: {.callout-note collapse="true"}
-## Session Info
+#### Session Info
 
 ```{r}
 #| label: session-info

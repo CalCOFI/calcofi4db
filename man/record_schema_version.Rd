@@ -47,7 +47,7 @@ record_schema_version(
   schema = "dev",
   version = "1.0.0",
   description = "Initial ingestion of NOAA CalCOFI Database",
-  script_permalink = "https://github.com/CalCOFI/calcofi4db/blob/abc123/inst/ingest.qmd"
+  script_permalink = "https://github.com/CalCOFI/calcofi4db/blob/abc123/inst/create_db.qmd"
 )
 }
 }

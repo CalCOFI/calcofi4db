@@ -63,7 +63,7 @@ release_result <- complete_version_release(
     "Add synchronized versioning system",
     "Create master ingestion workflow"
   ),
-  additional_files = c("inst/ingest.qmd", "inst/schema_version.csv"),
+  additional_files = c("inst/create_db.qmd", "inst/schema_version.csv"),
   commit = TRUE,
   push = TRUE
 )

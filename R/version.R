@@ -27,7 +27,7 @@
 #'   schema = "dev",
 #'   version = "1.0.0",
 #'   description = "Initial ingestion of NOAA CalCOFI Database",
-#'   script_permalink = "https://github.com/CalCOFI/calcofi4db/blob/abc123/inst/ingest.qmd"
+#'   script_permalink = "https://github.com/CalCOFI/calcofi4db/blob/abc123/inst/create_db.qmd"
 #' )
 #' }
 #' @importFrom DBI dbExecute dbWriteTable dbExistsTable
@@ -71,37 +71,35 @@ record_schema_version <- function(
 
   # read existing versions from CSV if it exists
   if (file.exists(csv_path)) {
-    d_existing <- readr::read_csv(csv_path, show_col_types = FALSE)
+    # version <- "1.0.0"; csv_path <- here::here("inst/schema_version.csv")
+    d_existing <- readr::read_csv(csv_path, show_col_types = FALSE) |>
+      filter(version != !!version)
   } else {
     d_existing <- tibble::tibble(
       version          = character(),
       description      = character(),
       date_created     = lubridate::POSIXct(),
-      script_permalink = character()
-    )
+      script_permalink = character() )
   }
 
   # create new version record
   d_new <- tibble::tibble(
-    version = version,
-    description = description,
-    date_created = lubridate::now(),
-    script_permalink = script_permalink
-  )
+    version          = version,
+    description      = description,
+    date_created     = lubridate::now(),
+    script_permalink = script_permalink )
 
   # check if version already exists
-  if (version %in% d_existing$version) {
+  if (version %in% d_existing$version)
     stop(glue::glue("Version {version} already exists. Please use a new version number."))
-  }
 
   # insert into database
   DBI::dbWriteTable(
     con,
     DBI::Id(schema = schema, table = "schema_version"),
     d_new,
-    append = TRUE,
-    row.names = FALSE
-  )
+    append    = TRUE,
+    row.names = FALSE)
 
   # append to CSV file
   d_all <- dplyr::bind_rows(d_existing, d_new)

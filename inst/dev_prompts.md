@@ -1,6 +1,12 @@
+## TODO
+- [ ] copy prod schema to duckdb
+- [ ] add datestamps to NEWS.md entries
+- [ ] add Getting Started vignette with overview of databases (dev, prod, duckdb)
+- [ ] add Github tags/releases for versions
+
 ## 2025-09-29.g copy to prod
 
-Add a final R chunk to @calcofi4db/inst/ingest.qmd (but before "cleanup"" R
+Add a final R chunk to @calcofi4db/inst/create_db.qmd (but before "cleanup"" R
 chunk) to copy the `dev` schema to a new `prod` schema after recording the
 version in the `schema_version` table.
 

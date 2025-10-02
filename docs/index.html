@@ -86,7 +86,7 @@
 <div class="section level3">
 <h3 id="master-ingestion-workflow">Master ingestion workflow<a class="anchor" aria-label="anchor" href="#master-ingestion-workflow"></a>
 </h3>
-<p>The primary workflow is the master ingestion script <code>inst/ingest.qmd</code> that recreates the <code>dev</code> schema with all datasets:</p>
+<p>The primary workflow is the master ingestion script <code>inst/create_db.qmd</code> that recreates the <code>dev</code> schema with all datasets:</p>
 <ol style="list-style-type: decimal">
 <li>Drops and recreates <code>dev</code> schema</li>
 <li>Ingests multiple datasets from Google Drive</li>
@@ -139,7 +139,7 @@
 <span>  schema <span class="op">=</span> <span class="st">"dev"</span>,</span>
 <span>  version <span class="op">=</span> <span class="st">"1.0.0"</span>,</span>
 <span>  description <span class="op">=</span> <span class="st">"Initial ingestion of NOAA CalCOFI Database"</span>,</span>
-<span>  script_permalink <span class="op">=</span> <span class="st">"https://github.com/CalCOFI/calcofi4db/blob/main/inst/ingest.qmd"</span></span>
+<span>  script_permalink <span class="op">=</span> <span class="st">"https://github.com/CalCOFI/calcofi4db/blob/main/inst/create_db.qmd"</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Disconnect</span></span>

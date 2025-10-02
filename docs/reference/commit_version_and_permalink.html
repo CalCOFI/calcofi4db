@@ -47,7 +47,7 @@ a GitHub permalink to the ingestion script at the committed version.</p>
 <span>  files <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  repo_owner <span class="op">=</span> <span class="st">"CalCOFI"</span>,</span>
 <span>  repo_name <span class="op">=</span> <span class="st">"calcofi4db"</span>,</span>
-<span>  script_path <span class="op">=</span> <span class="st">"inst/ingest.qmd"</span>,</span>
+<span>  script_path <span class="op">=</span> <span class="st">"inst/create_db.qmd"</span>,</span>
 <span>  commit <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  push <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -62,7 +62,7 @@ a GitHub permalink to the ingestion script at the committed version.</p>
 
 
 <dt id="arg-files">files<a class="anchor" aria-label="anchor" href="#arg-files"></a></dt>
-<dd><p>Additional files to commit (e.g., "inst/ingest.qmd")</p></dd>
+<dd><p>Additional files to commit (e.g., "inst/create_db.qmd")</p></dd>
 
 
 <dt id="arg-repo-owner">repo_owner<a class="anchor" aria-label="anchor" href="#arg-repo-owner"></a></dt>
@@ -74,7 +74,7 @@ a GitHub permalink to the ingestion script at the committed version.</p>
 
 
 <dt id="arg-script-path">script_path<a class="anchor" aria-label="anchor" href="#arg-script-path"></a></dt>
-<dd><p>Path to script for permalink (default: "inst/ingest.qmd")</p></dd>
+<dd><p>Path to script for permalink (default: "inst/create_db.qmd")</p></dd>
 
 
 <dt id="arg-commit">commit<a class="anchor" aria-label="anchor" href="#arg-commit"></a></dt>
@@ -96,13 +96,13 @@ a GitHub permalink to the ingestion script at the committed version.</p>
 <span class="r-in"><span><span class="co"># Dry run (no commit)</span></span></span>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">commit_version_and_permalink</span><span class="op">(</span></span></span>
 <span class="r-in"><span>  version <span class="op">=</span> <span class="st">"1.0.0"</span>,</span></span>
-<span class="r-in"><span>  files <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"inst/ingest.qmd"</span>, <span class="st">"inst/schema_version.csv"</span><span class="op">)</span></span></span>
+<span class="r-in"><span>  files <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"inst/create_db.qmd"</span>, <span class="st">"inst/schema_version.csv"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Actually commit and push</span></span></span>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">commit_version_and_permalink</span><span class="op">(</span></span></span>
 <span class="r-in"><span>  version <span class="op">=</span> <span class="st">"1.0.0"</span>,</span></span>
-<span class="r-in"><span>  files <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"inst/ingest.qmd"</span>, <span class="st">"inst/schema_version.csv"</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>  files <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"inst/create_db.qmd"</span>, <span class="st">"inst/schema_version.csv"</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>  commit <span class="op">=</span> <span class="cn">TRUE</span>,</span></span>
 <span class="r-in"><span>  push <span class="op">=</span> <span class="cn">TRUE</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>

@@ -19,6 +19,7 @@ Imports:
     DiagrammeR,
     DiagrammeRsvg,
     dm,
+    duckdb,
     fs,
     glue,
     googledrive,
