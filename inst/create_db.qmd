@@ -970,9 +970,10 @@ if (params$do_copy_to_prod) {
 ```{r pg_to_duckdb}
 #| eval: false
 
-tbls = dbListTables(con_dev)
+tbls = dbListTables(con_dev) |> sort()
 #  [1] "cruise"   "egg"      "grid"     "larva"    "net"      "ship"     "site"     "site_seg"
 #  [9] "species"  "tow"      "tow_type"
+# tbls = dbListTables(con_dev) |> setdiff(dbListTables(con_dk))
 
 for (tbl in tbls){
   if (!(dbExistsTable(con_dk, tbl)))

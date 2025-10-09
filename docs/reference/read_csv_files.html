@@ -11,7 +11,7 @@ ingestion workflow. It performs the following steps:"></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -48,6 +48,7 @@ ingestion workflow. It performs the following steps:</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">read_csv_files</span><span class="op">(</span></span>
 <span>  <span class="va">provider</span>,</span>
 <span>  <span class="va">dataset</span>,</span>
+<span>  subdir <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  dir_data <span class="op">=</span> <span class="st">"~/My Drive/projects/calcofi/data"</span>,</span>
 <span>  url_gdata <span class="op">=</span></span>
 <span>    <span class="st">"https://drive.google.com/drive/u/0/folders/1xxdWa4mWkmfkJUQsHxERTp9eBBXBMbV7"</span>,</span>
@@ -67,6 +68,11 @@ ingestion workflow. It performs the following steps:</p>
 
 <dt id="arg-dataset">dataset<a class="anchor" aria-label="anchor" href="#arg-dataset"></a></dt>
 <dd><p>Dataset name (e.g., "calcofi-db")</p></dd>
+
+
+<dt id="arg-subdir">subdir<a class="anchor" aria-label="anchor" href="#arg-subdir"></a></dt>
+<dd><p>Optional subdirectory (i.e.,
+dir_data/provider/dataset/subdir) for CSV files</p></dd>
 
 
 <dt id="arg-dir-data">dir_data<a class="anchor" aria-label="anchor" href="#arg-dir-data"></a></dt>
