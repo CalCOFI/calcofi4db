@@ -6,7 +6,7 @@
 \alias{calcofi4db-package}
 \title{calcofi4db: CalCOFI Database Tools}
 \description{
-Tools for ingesting datasets into the CalCOFI database with functions to read source CSV files, detect changes in tables and fields, and update the database with proper metadata.
+Tools for ingesting datasets into the CalCOFI database with functions to read source CSV files, detect changes in tables and fields, and update the database with proper metadata. Includes cloud storage (GCS), Parquet, and DuckDB operations for modern data workflows.
 }
 \seealso{
 Useful links:

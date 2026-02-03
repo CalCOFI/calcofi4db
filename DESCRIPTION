@@ -8,17 +8,20 @@ Authors@R:
            comment = c(ORCID = "0000-0002-2686-0784"))
 Description: Tools for ingesting datasets into the CalCOFI database with
     functions to read source CSV files, detect changes in tables and fields,
-    and update the database with proper metadata.
+    and update the database with proper metadata. Includes cloud storage
+    (GCS), Parquet, and DuckDB operations for modern data workflows.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
-Imports: 
+Imports:
+    arrow,
     DBI,
     dbplyr,
     DiagrammeR,
     DiagrammeRsvg,
     dm,
+    dplyr,
     duckdb,
     fs,
     glue,
@@ -35,4 +38,6 @@ Imports:
     tibble,
     tidyr,
     uuid
+Suggests:
+    googleCloudStorageR
 VignetteBuilder: knitr
