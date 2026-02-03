@@ -30,7 +30,7 @@ local_file <- get_gcs_file("gs://calcofi-files/current/bottle.csv")
 # using bucket + relative path
 local_file <- get_gcs_file(
   "current/calcofi.org/bottle-database/bottle.csv",
-  bucket = "calcofi-files")
+  bucket = "calcofi-files-public")
 }
 }
 \concept{cloud}

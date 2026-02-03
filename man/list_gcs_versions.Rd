@@ -4,7 +4,7 @@
 \alias{list_gcs_versions}
 \title{List versions of a file in GCS archive}
 \usage{
-list_gcs_versions(path, bucket = "calcofi-files")
+list_gcs_versions(path, bucket = "calcofi-files-public")
 }
 \arguments{
 \item{path}{Relative path to the file (e.g., "calcofi.org/bottle-database/bottle.csv")}

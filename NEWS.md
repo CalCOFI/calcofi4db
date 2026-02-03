@@ -1,3 +1,7 @@
+# calcofi4db 1.2.0
+
+*Addition of functions for phase 1 of cloud plan*
+
 # calcofi4db 1.1.0
 
 *Addition of CalCOFI Bottle Database*
