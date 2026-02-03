@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -189,6 +189,12 @@
 
       <dl><dt>
 
+          <code><a href="add_parquet_metadata.html">add_parquet_metadata()</a></code>
+
+        </dt>
+        <dd>Add metadata to Parquet file</dd>
+      </dl><dl><dt>
+
           <code><a href="check_data_integrity.html">check_data_integrity()</a></code>
 
         </dt>
@@ -199,6 +205,12 @@
 
         </dt>
         <dd>Check Multiple Datasets for Integrity</dd>
+      </dl><dl><dt>
+
+          <code><a href="close_duckdb.html">close_duckdb()</a></code>
+
+        </dt>
+        <dd>Disconnect from DuckDB and shutdown</dd>
       </dl><dl><dt>
 
           <code><a href="commit_version_and_permalink.html">commit_version_and_permalink()</a></code>
@@ -213,10 +225,82 @@
         <dd>Complete Version Release Workflow</dd>
       </dl><dl><dt>
 
+          <code><a href="create_duckdb_from_parquet.html">create_duckdb_from_parquet()</a></code>
+
+        </dt>
+        <dd>Create DuckDB from Parquet files</dd>
+      </dl><dl><dt>
+
+          <code><a href="create_duckdb_views.html">create_duckdb_views()</a></code>
+
+        </dt>
+        <dd>Create views from a manifest</dd>
+      </dl><dl><dt>
+
+          <code><a href="create_gcs_manifest.html">create_gcs_manifest()</a></code>
+
+        </dt>
+        <dd>Create a manifest of current GCS files</dd>
+      </dl><dl><dt>
+
+          <code><a href="csv_to_parquet.html">csv_to_parquet()</a></code>
+
+        </dt>
+        <dd>Convert CSV file to Parquet format</dd>
+      </dl><dl><dt>
+
+          <code><a href="duckdb_to_parquet.html">duckdb_to_parquet()</a></code>
+
+        </dt>
+        <dd>Export DuckDB table to Parquet</dd>
+      </dl><dl><dt>
+
+          <code><a href="get_calcofi_file.html">get_calcofi_file()</a></code>
+
+        </dt>
+        <dd>Get a CalCOFI file from the immutable archive</dd>
+      </dl><dl><dt>
+
+          <code><a href="get_duckdb_con.html">get_duckdb_con()</a></code>
+
+        </dt>
+        <dd>Get a DuckDB connection</dd>
+      </dl><dl><dt>
+
+          <code><a href="get_duckdb_tables.html">get_duckdb_tables()</a></code>
+
+        </dt>
+        <dd>Get table information from DuckDB</dd>
+      </dl><dl><dt>
+
+          <code><a href="get_gcs_file.html">get_gcs_file()</a></code>
+
+        </dt>
+        <dd>Get a file from Google Cloud Storage</dd>
+      </dl><dl><dt>
+
+          <code><a href="get_historical_file.html">get_historical_file()</a></code>
+
+        </dt>
+        <dd>Get historical file from a specific date</dd>
+      </dl><dl><dt>
+
+          <code><a href="get_manifest.html">get_manifest()</a></code>
+
+        </dt>
+        <dd>Get manifest for a specific date</dd>
+      </dl><dl><dt>
+
           <code><a href="get_package_version.html">get_package_version()</a></code>
 
         </dt>
         <dd>Get Current Package Version</dd>
+      </dl><dl><dt>
+
+          <code><a href="get_parquet_metadata.html">get_parquet_metadata()</a></code>
+
+        </dt>
+        <dd>Get Parquet file metadata</dd>
       </dl><dl><dt>
 
           <code><a href="get_schema_versions.html">get_schema_versions()</a></code>
@@ -231,6 +315,42 @@
         <dd>Initialize Schema Version CSV</dd>
       </dl><dl><dt>
 
+          <code><a href="list_calcofi_files.html">list_calcofi_files()</a></code>
+
+        </dt>
+        <dd>List CalCOFI files from manifest</dd>
+      </dl><dl><dt>
+
+          <code><a href="list_gcs_files.html">list_gcs_files()</a></code>
+
+        </dt>
+        <dd>List files in a GCS bucket/prefix</dd>
+      </dl><dl><dt>
+
+          <code><a href="list_gcs_versions.html">list_gcs_versions()</a></code>
+
+        </dt>
+        <dd>List versions of a file in GCS archive</dd>
+      </dl><dl><dt>
+
+          <code><a href="load_duckdb_extension.html">load_duckdb_extension()</a></code>
+
+        </dt>
+        <dd>Install and load DuckDB extension</dd>
+      </dl><dl><dt>
+
+          <code><a href="put_gcs_file.html">put_gcs_file()</a></code>
+
+        </dt>
+        <dd>Upload a file to Google Cloud Storage</dd>
+      </dl><dl><dt>
+
+          <code><a href="read_parquet_table.html">read_parquet_table()</a></code>
+
+        </dt>
+        <dd>Read a Parquet table</dd>
+      </dl><dl><dt>
+
           <code><a href="record_schema_version.html">record_schema_version()</a></code>
 
         </dt>
@@ -243,6 +363,18 @@
         <dd>Render Data Integrity Check Message</dd>
       </dl><dl><dt>
 
+          <code><a href="save_duckdb_to_gcs.html">save_duckdb_to_gcs()</a></code>
+
+        </dt>
+        <dd>Save DuckDB to GCS</dd>
+      </dl><dl><dt>
+
+          <code><a href="set_duckdb_comments.html">set_duckdb_comments()</a></code>
+
+        </dt>
+        <dd>Set table and column comments in DuckDB</dd>
+      </dl><dl><dt>
+
           <code><a href="suggest_next_version.html">suggest_next_version()</a></code>
 
         </dt>
@@ -253,6 +385,18 @@
 
         </dt>
         <dd>Synchronized Version Management for Package and Database</dd>
+      </dl><dl><dt>
+
+          <code><a href="upload_parquet.html">upload_parquet()</a></code>
+
+        </dt>
+        <dd>Upload Parquet file to GCS</dd>
+      </dl><dl><dt>
+
+          <code><a href="write_parquet_table.html">write_parquet_table()</a></code>
+
+        </dt>
+        <dd>Write data to Parquet format</dd>
       </dl></div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
