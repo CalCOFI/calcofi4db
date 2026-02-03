@@ -2,7 +2,7 @@
 % Please edit documentation in R/ingest.R
 \name{ingest_dataset}
 \alias{ingest_dataset}
-\title{Ingest a Dataset}
+\title{Ingest a Dataset (DEPRECATED)}
 \usage{
 ingest_dataset(
   con,
@@ -36,6 +36,12 @@ ingest_dataset(
 List with ingestion results and statistics
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
+
+This function is deprecated. Please use the targets pipeline with
+\code{\link{ingest_to_working}} instead for ingesting datasets into
+the DuckLake database with automatic provenance tracking.
+
 High-level function to ingest a dataset into the database.
 }
 \examples{

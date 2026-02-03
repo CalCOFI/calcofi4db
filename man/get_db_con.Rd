@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils.R
 \name{get_db_con}
 \alias{get_db_con}
-\title{Get a database connection to the CalCOFI PostgreSQL database}
+\title{Get a database connection to the CalCOFI PostgreSQL database (DEPRECATED)}
 \usage{
 get_db_con(
   schemas = "public",
@@ -30,6 +30,13 @@ get_db_con(
 A database connection object
 }
 \description{
-Get a database connection to the CalCOFI PostgreSQL database
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
+
+This function is deprecated. Please use one of the following alternatives:
+\itemize{
+\item \code{\link{get_working_ducklake}}: For admin/ingest work with the Working DuckLake
+\item \code{\link{get_duckdb_con}}: For DuckDB connections to frozen releases
+\item \code{calcofi4r::cc_get_db}: For end-users accessing frozen CalCOFI data
+}
 }
 \concept{utils}

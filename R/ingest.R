@@ -1,4 +1,10 @@
-#' Ingest CSV data to database
+#' Ingest CSV data to PostgreSQL database (DEPRECATED)
+#'
+#' @description
+#' `r lifecycle::badge("deprecated")`
+#'
+#' This function is deprecated. Please use \code{\link{ingest_to_working}} instead
+#' for ingesting data into the DuckLake database with automatic provenance tracking.
 #'
 #' Loads transformed data into a PostgreSQL database with proper metadata.
 #'
@@ -28,6 +34,13 @@
 ingest_csv_to_db <- function(con, schema, transformed_data, d_flds_rd,
                             d_gdir_data = NULL, workflow_info,
                             overwrite = FALSE) {
+
+  # deprecation warning
+  lifecycle::deprecate_warn(
+    "2.0.0",
+    "ingest_csv_to_db()",
+    "ingest_to_working()",
+    details = "Use DuckLake for ingestion with automatic provenance tracking.")
 
   # Function to load a table to the database
   tbl_to_db <- function(tbl) {
@@ -155,7 +168,14 @@ ingest_csv_to_db <- function(con, schema, transformed_data, d_flds_rd,
   return(tbl_stats)
 }
 
-#' Ingest a Dataset
+#' Ingest a Dataset (DEPRECATED)
+#'
+#' @description
+#' `r lifecycle::badge("deprecated")`
+#'
+#' This function is deprecated. Please use the targets pipeline with
+#' \code{\link{ingest_to_working}} instead for ingesting datasets into
+#' the DuckLake database with automatic provenance tracking.
 #'
 #' High-level function to ingest a dataset into the database.
 #'
@@ -185,6 +205,15 @@ ingest_csv_to_db <- function(con, schema, transformed_data, d_flds_rd,
 ingest_dataset <- function(con, provider, dataset, dir_data,
                           schema = "public", dir_googledata = NULL,
                           email = NULL, overwrite = FALSE) {
+
+  # deprecation warning
+  lifecycle::deprecate_warn(
+    "2.0.0",
+    "ingest_dataset()",
+    details = c(
+      "Use the targets pipeline with ingest_to_working() instead.",
+      "See workflows/README_PLAN.qmd for the new workflow architecture."))
+
   # Load CSV files and metadata
   data_info <- read_csv_files(
     provider = provider,

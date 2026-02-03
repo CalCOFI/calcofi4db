@@ -1,113 +1,250 @@
 # calcofi4db
 
-CalCOFI Database Tools package for ingesting and managing datasets in the CalCOFI database using an integrated schema-based workflow.
+CalCOFI Database Tools package for ingesting and managing datasets using a modern cloud-native data architecture with DuckDB and Parquet files.
 
 ## Overview
 
-This package provides functions for the CalCOFI integrated database ingestion strategy, which uses a two-schema approach:
+This package provides functions for the CalCOFI data workflow, which uses:
 
-- **`dev` schema**: Fresh development schema recreated with each ingestion run for QA/QC
-- **`prod` schema**: Versioned production schema for stable public access
+- **Google Cloud Storage (GCS)**: Versioned data lake with immutable archive snapshots
+- **Apache Parquet**: Efficient columnar storage format for large datasets
+- **DuckDB**: Fast, serverless analytical database
+- **DuckLake**: Lakehouse catalog with time travel and versioning
 
-### Key features:
+### Architecture
 
-- Reading CSV files from Google Drive with metadata extraction
-- Creating and managing redefinition files for tables and fields
-- Transforming data according to redefinition rules
-- Ingesting multiple datasets into a fresh database schema
-- Managing database relationships and indexes
-- Recording schema versions with full provenance
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   Google Drive  │────▶│      GCS        │────▶│  Working        │────▶│    Frozen       │
+│   (raw CSVs)    │     │  (versioned)    │     │  DuckLake       │     │    Releases     │
+└─────────────────┘     └─────────────────┘     └─────────────────┘     └─────────────────┘
+                              rclone                 ingest                  freeze
+```
+
+- **Working DuckLake**: Internal database with full provenance tracking (`_source_file`, `_source_row`, `_source_uuid`, `_ingested_at`)
+- **Frozen DuckLake**: Immutable versioned releases (`v2026.02`, `v2026.03`, ...) for public access
+
+### Key Features
+
+- Reading CSV files from GCS with immutable archive paths
+- Cloud storage operations (upload, download, version listing)
+- Parquet conversion with schema enforcement and metadata
+- DuckDB database creation and management
+- Provenance tracking for data lineage
+- Frozen release creation for reproducible data access
+- Data validation before releases
+- Backward-compatible PostgreSQL support (deprecated)
 
 ## Installation
 
 ```r
-# Install from GitHub
+# install from GitHub
 remotes::install_github("CalCOFI/calcofi4db")
 ```
 
 ## Usage
 
-### Master ingestion workflow
+### Working with the Working DuckLake
 
-The primary workflow is the master ingestion script `inst/create_db.qmd` that recreates the `dev` schema with all datasets:
-
-1. Drops and recreates `dev` schema
-2. Ingests multiple datasets from Google Drive
-3. Applies transformations via redefinition files
-4. Creates relationships (primary/foreign keys, indexes)
-5. Records schema version with metadata
-
-### Individual dataset ingestion
-
-For programmatic control, use the core functions:
+The Working DuckLake is used internally for data ingestion with automatic provenance tracking:
 
 ```r
 library(calcofi4db)
-library(DBI)
-library(RPostgres)
 
-# Connect to database
-con <- dbConnect(
-  Postgres(),
-  dbname = "gis",
-  host = "localhost",
-  port = 5432,
-  user = "admin",
-  password = "postgres"
-)
+# connect to the Working DuckLake
+con <- get_working_ducklake()
 
-# Read CSV files and metadata from Google Drive
-d <- read_csv_files(
-  provider = "swfsc.noaa.gov",
-  dataset = "calcofi-db"
-)
+# read CSV from immutable GCS archive
+csv_path <- get_calcofi_file(
+  "swfsc.noaa.gov/calcofi-db/larva.csv",
+  date = "2026-02-02_121557")  # specific archive snapshot
 
-# Transform data according to redefinitions
-transformed_data <- transform_data(d)
+# read and transform data
+larvae_data <- readr::read_csv(csv_path)
 
-# Ingest into dev schema
-ingest_csv_to_db(
-  con = con,
-  schema = "dev",
-  transformed_data = transformed_data,
-  d_flds_rd = d$d_flds_rd,
-  d_gdata = d$d_gdata,
-  workflow_info = d$workflow_info
-)
+# ingest with automatic provenance columns
+stats <- ingest_to_working(
+ con         = con,
+  data        = larvae_data,
+  table       = "larva",
+  source_file = "archive/2026-02-02_121557/swfsc.noaa.gov/calcofi-db/larva.csv",
+  source_uuid_col = "larva_uuid",
+  mode        = "replace")
 
-# Record schema version
-record_schema_version(
-  con = con,
-  schema = "dev",
-  version = "1.0.0",
-  description = "Initial ingestion of NOAA CalCOFI Database",
-  script_permalink = "https://github.com/CalCOFI/calcofi4db/blob/main/inst/create_db.qmd"
-)
+# save changes to GCS
+save_working_ducklake(con)
 
-# Disconnect
-dbDisconnect(con)
+# close connection
+close_duckdb(con)
 ```
 
-## Schema versioning
+### Creating Frozen Releases
 
-Each successful ingestion records a version in the `schema_version` table with:
+Frozen releases are immutable snapshots for public access:
 
-- **version**: Semantic version (e.g., "1.0.0", "1.1.0")
-- **description**: Changes in this version
-- **date_created**: Ingestion timestamp
-- **script_permalink**: GitHub permalink to ingestion script
+```r
+# connect to Working DuckLake
+con <- get_working_ducklake()
 
-Versions are archived as SQL dumps in Google Drive for reproducibility.
+# validate data quality before freezing
+validation <- validate_for_release(con)
+if (!validation$passed) {
+  print(validation$errors)
+  stop("Validation failed")
+}
+
+# create frozen release
+result <- freeze_release(
+  con           = con,
+  version       = "v2026.02",
+  release_notes = "First release with bottle and larvae data.")
+
+# result contains: version, gcs_path, tables, parquet_files
+print(result$tables)
+
+close_duckdb(con)
+```
+
+### Listing and Comparing Releases
+
+```r
+# list all available frozen releases
+releases <- list_frozen_releases()
+print(releases)
+
+# get metadata for a specific release
+meta <- get_release_metadata("v2026.02")
+print(meta$tables)
+
+# compare two releases
+diff <- compare_releases("v2026.02", "v2026.03")
+print(diff$summary)
+```
+
+### Cloud Storage Operations
+
+```r
+# download file from GCS
+local_file <- get_gcs_file("gs://calcofi-files-public/_sync/bottle.csv")
+
+# upload file to GCS
+put_gcs_file("local/data.parquet", "gs://calcofi-db/parquet/data.parquet")
+
+# list files in bucket
+files <- list_gcs_files("calcofi-files-public", prefix = "_sync/")
+
+# get file from immutable archive snapshot
+file <- get_calcofi_file(
+  "swfsc.noaa.gov/calcofi-db/cruise.csv",
+  date = "latest")  # or specific timestamp
+```
+
+### Parquet Operations
+
+```r
+# convert CSV to Parquet
+csv_to_parquet("data.csv", output = "data.parquet")
+
+# read Parquet file
+data <- read_parquet_table("data.parquet")
+
+# write with partitioning
+write_parquet_table(
+  data,
+  "output/data.parquet",
+  partitions = c("year", "month"))
+
+# add metadata to Parquet file
+add_parquet_metadata(
+  "data.parquet",
+  list(source = "CalCOFI", version = "2026.02"))
+```
+
+### Basic DuckDB Operations
+
+```r
+# create in-memory DuckDB
+con <- get_duckdb_con()
+
+# create from Parquet files
+con <- create_duckdb_from_parquet(
+  c("parquet/bottle.parquet", "parquet/cast.parquet"),
+  db_path = "calcofi.duckdb")
+
+# add documentation comments
+set_duckdb_comments(
+  con,
+  table = "bottle",
+  table_comment = "Bottle sample data",
+  column_comments = list(
+    depth_m = "Sample depth in meters",
+    temp_c  = "Water temperature in Celsius"))
+
+# export to Parquet
+duckdb_to_parquet(con, "bottle", "export/bottle.parquet")
+
+# close connection
+close_duckdb(con)
+```
+
+## For End Users
+
+End users should use the `calcofi4r` package to access CalCOFI data:
+
+```r
+library(calcofi4r)
+
+# connect to latest frozen release
+con <- cc_get_db()
+
+# or specific version
+con <- cc_get_db(version = "v2026.02")
+
+# convenience functions
+larvae <- cc_read_larvae()
+bottles <- cc_read_bottle()
+
+# list available versions
+cc_list_versions()
+```
+
+## Deprecated Functions
+
+The following PostgreSQL-based functions are deprecated and will emit warnings:
+
+| Deprecated | Replacement |
+|------------|-------------|
+| `get_db_con()` | `get_working_ducklake()` or `get_duckdb_con()` |
+| `ingest_csv_to_db()` | `ingest_to_working()` |
+| `ingest_dataset()` | Use targets pipeline with `ingest_to_working()` |
 
 ## Documentation
 
-See the [CalCOFI Database Documentation](https://calcofi.io/docs/db.html) for complete details on:
+- [CalCOFI Data Workflow Plan](https://calcofi.io/workflows/README_PLAN.html) - Full architecture documentation
+- [CalCOFI Database Documentation](https://calcofi.io/docs/db.html) - Database naming conventions and schema
+- [Package Reference](https://calcofi.io/calcofi4db/reference/) - Function documentation
 
-- Database naming conventions
-- Ingestion workflow architecture
-- Schema versioning strategy
-- Metadata management
-- Publishing to data portals
+## GCS Bucket Structure
+
+```
+gs://calcofi-files-public/          # versioned source files
+├── _sync/                          # working directory (rclone target)
+├── archive/                        # immutable snapshots
+│   └── 2026-02-02_121557/         # timestamp directories
+└── manifests/                      # JSON manifests
+
+gs://calcofi-db/                    # integrated database
+├── ducklake/
+│   ├── working/                    # Working DuckLake
+│   │   └── calcofi.duckdb
+│   └── releases/                   # Frozen releases
+│       ├── v2026.02/
+│       │   ├── catalog.json
+│       │   ├── RELEASE_NOTES.md
+│       │   └── parquet/*.parquet
+│       └── latest.txt              # points to current release
+└── parquet/                        # intermediate parquet files
+```
 
 ## License
 

@@ -1,6 +1,16 @@
 # Utility functions for database operations
 
-#' Get a database connection to the CalCOFI PostgreSQL database
+#' Get a database connection to the CalCOFI PostgreSQL database (DEPRECATED)
+#'
+#' @description
+#' `r lifecycle::badge("deprecated")`
+#'
+#' This function is deprecated. Please use one of the following alternatives:
+#' \itemize{
+#'   \item \code{\link{get_working_ducklake}}: For admin/ingest work with the Working DuckLake
+#'   \item \code{\link{get_duckdb_con}}: For DuckDB connections to frozen releases
+#'   \item \code{calcofi4r::cc_get_db}: For end-users accessing frozen CalCOFI data
+#' }
 #'
 #' @param schemas Character vector of schema search paths (default: "public")
 #' @param host Database host (default: automatically detected based on system)
@@ -19,6 +29,15 @@ get_db_con <- function(
     dbname = "gis",
     user = "admin",
     password_file = NULL) {
+
+  # deprecation warning
+  lifecycle::deprecate_warn(
+    "2.0.0",
+    "get_db_con()",
+    details = c(
+      "PostgreSQL is being phased out in favor of DuckDB.",
+      "For admin/ingest work, use `get_working_ducklake()`.",
+      "For reading data, use `get_duckdb_con()` or `calcofi4r::cc_get_db()`."))
 
   # Determine if running on server or local system
   is_server <- Sys.info()[["sysname"]] == "Linux"

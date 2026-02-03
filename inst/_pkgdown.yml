@@ -2,6 +2,26 @@ url: https://calcofi.io/calcofi4db
 template:
   bootstrap: 5
 reference:
+- title: "Cloud Storage (GCS)"
+  desc: functions for Google Cloud Storage operations
+  contents:
+  - has_concept("cloud")
+- title: "Parquet"
+  desc: functions for Apache Parquet file operations
+  contents:
+  - has_concept("parquet")
+- title: "DuckDB"
+  desc: basic DuckDB database operations
+  contents:
+  - has_concept("duckdb")
+- title: "Working DuckLake"
+  desc: functions for the internal Working DuckLake with provenance tracking
+  contents:
+  - has_concept("ducklake")
+- title: "Frozen Releases"
+  desc: functions for creating and managing frozen DuckLake releases
+  contents:
+  - has_concept("freeze")
 - title: "Read"
   desc: functions reading data, particularly from CSV files in the Google Drive CalCOFI data folder
   contents:
@@ -10,12 +30,20 @@ reference:
   desc: functions to transform data, after reading data and before ingesting into the database
   contents:
   - has_concept("transform")
+- title: "Validation"
+  desc: functions for data validation and integrity checking
+  contents:
+  - has_concept("check")
 - title: "Ingest"
-  desc: functions for ingesting data into the database
+  desc: functions for ingesting data into the database (PostgreSQL deprecated, use DuckLake)
   contents:
   - has_concept("ingest")
+- title: "Version"
+  desc: functions for schema and package versioning
+  contents:
+  - has_concept("version")
 - title: "Utilities"
-  desc: utility functions for database operations
+  desc: utility functions for database operations (PostgreSQL deprecated)
   contents:
   - has_concept("utils")
 - title: "Visualize"
@@ -25,4 +53,4 @@ reference:
 - title: "Other"
   desc: check for other functions or datasets not captured by above categories
   contents:
-  - lacks_concepts(c("read", "transform", "ingest", "utils", "viz"))
+  - lacks_concepts(c("cloud", "parquet", "duckdb", "ducklake", "freeze", "read", "transform", "check", "ingest", "version", "utils", "viz"))

@@ -2,7 +2,7 @@
 % Please edit documentation in R/ingest.R
 \name{ingest_csv_to_db}
 \alias{ingest_csv_to_db}
-\title{Ingest CSV data to database}
+\title{Ingest CSV data to PostgreSQL database (DEPRECATED)}
 \usage{
 ingest_csv_to_db(
   con,
@@ -33,6 +33,11 @@ ingest_csv_to_db(
 Data frame with ingestion statistics
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
+
+This function is deprecated. Please use \code{\link{ingest_to_working}} instead
+for ingesting data into the DuckLake database with automatic provenance tracking.
+
 Loads transformed data into a PostgreSQL database with proper metadata.
 }
 \examples{

@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -32,6 +32,277 @@
     </div>
 
     <div class="section level2">
+      <h2 id="cloud-storage-gcs-">Cloud Storage (GCS)<a class="anchor" aria-label="anchor" href="#cloud-storage-gcs-"></a></h2>
+
+      <div class="section-desc"><p>functions for Google Cloud Storage operations</p></div>
+
+
+    </div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="create_gcs_manifest.html">create_gcs_manifest()</a></code>
+
+        </dt>
+        <dd>Create a manifest of current GCS files</dd>
+      </dl><dl><dt>
+
+          <code><a href="get_calcofi_file.html">get_calcofi_file()</a></code>
+
+        </dt>
+        <dd>Get a CalCOFI file from the immutable archive</dd>
+      </dl><dl><dt>
+
+          <code><a href="get_gcs_file.html">get_gcs_file()</a></code>
+
+        </dt>
+        <dd>Get a file from Google Cloud Storage</dd>
+      </dl><dl><dt>
+
+          <code><a href="get_historical_file.html">get_historical_file()</a></code>
+
+        </dt>
+        <dd>Get historical file from a specific date</dd>
+      </dl><dl><dt>
+
+          <code><a href="get_manifest.html">get_manifest()</a></code>
+
+        </dt>
+        <dd>Get manifest for a specific date</dd>
+      </dl><dl><dt>
+
+          <code><a href="list_calcofi_files.html">list_calcofi_files()</a></code>
+
+        </dt>
+        <dd>List CalCOFI files from manifest</dd>
+      </dl><dl><dt>
+
+          <code><a href="list_gcs_files.html">list_gcs_files()</a></code>
+
+        </dt>
+        <dd>List files in a GCS bucket/prefix</dd>
+      </dl><dl><dt>
+
+          <code><a href="list_gcs_versions.html">list_gcs_versions()</a></code>
+
+        </dt>
+        <dd>List versions of a file in GCS archive</dd>
+      </dl><dl><dt>
+
+          <code><a href="put_gcs_file.html">put_gcs_file()</a></code>
+
+        </dt>
+        <dd>Upload a file to Google Cloud Storage</dd>
+      </dl></div><div class="section level2">
+      <h2 id="parquet">Parquet<a class="anchor" aria-label="anchor" href="#parquet"></a></h2>
+
+      <div class="section-desc"><p>functions for Apache Parquet file operations</p></div>
+
+
+    </div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="add_parquet_metadata.html">add_parquet_metadata()</a></code>
+
+        </dt>
+        <dd>Add metadata to Parquet file</dd>
+      </dl><dl><dt>
+
+          <code><a href="csv_to_parquet.html">csv_to_parquet()</a></code>
+
+        </dt>
+        <dd>Convert CSV file to Parquet format</dd>
+      </dl><dl><dt>
+
+          <code><a href="get_parquet_metadata.html">get_parquet_metadata()</a></code>
+
+        </dt>
+        <dd>Get Parquet file metadata</dd>
+      </dl><dl><dt>
+
+          <code><a href="read_parquet_table.html">read_parquet_table()</a></code>
+
+        </dt>
+        <dd>Read a Parquet table</dd>
+      </dl><dl><dt>
+
+          <code><a href="upload_parquet.html">upload_parquet()</a></code>
+
+        </dt>
+        <dd>Upload Parquet file to GCS</dd>
+      </dl><dl><dt>
+
+          <code><a href="write_parquet_table.html">write_parquet_table()</a></code>
+
+        </dt>
+        <dd>Write data to Parquet format</dd>
+      </dl></div><div class="section level2">
+      <h2 id="duckdb">DuckDB<a class="anchor" aria-label="anchor" href="#duckdb"></a></h2>
+
+      <div class="section-desc"><p>basic DuckDB database operations</p></div>
+
+
+    </div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="close_duckdb.html">close_duckdb()</a></code>
+
+        </dt>
+        <dd>Disconnect from DuckDB and shutdown</dd>
+      </dl><dl><dt>
+
+          <code><a href="create_duckdb_from_parquet.html">create_duckdb_from_parquet()</a></code>
+
+        </dt>
+        <dd>Create DuckDB from Parquet files</dd>
+      </dl><dl><dt>
+
+          <code><a href="create_duckdb_views.html">create_duckdb_views()</a></code>
+
+        </dt>
+        <dd>Create views from a manifest</dd>
+      </dl><dl><dt>
+
+          <code><a href="duckdb_to_parquet.html">duckdb_to_parquet()</a></code>
+
+        </dt>
+        <dd>Export DuckDB table to Parquet</dd>
+      </dl><dl><dt>
+
+          <code><a href="get_duckdb_con.html">get_duckdb_con()</a></code>
+
+        </dt>
+        <dd>Get a DuckDB connection</dd>
+      </dl><dl><dt>
+
+          <code><a href="get_duckdb_tables.html">get_duckdb_tables()</a></code>
+
+        </dt>
+        <dd>Get table information from DuckDB</dd>
+      </dl><dl><dt>
+
+          <code><a href="load_duckdb_extension.html">load_duckdb_extension()</a></code>
+
+        </dt>
+        <dd>Install and load DuckDB extension</dd>
+      </dl><dl><dt>
+
+          <code><a href="save_duckdb_to_gcs.html">save_duckdb_to_gcs()</a></code>
+
+        </dt>
+        <dd>Save DuckDB to GCS</dd>
+      </dl><dl><dt>
+
+          <code><a href="set_duckdb_comments.html">set_duckdb_comments()</a></code>
+
+        </dt>
+        <dd>Set table and column comments in DuckDB</dd>
+      </dl></div><div class="section level2">
+      <h2 id="working-ducklake">Working DuckLake<a class="anchor" aria-label="anchor" href="#working-ducklake"></a></h2>
+
+      <div class="section-desc"><p>functions for the internal Working DuckLake with provenance tracking</p></div>
+
+
+    </div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="add_provenance_columns.html">add_provenance_columns()</a></code>
+
+        </dt>
+        <dd>Add provenance columns to a data frame</dd>
+      </dl><dl><dt>
+
+          <code><a href="get_working_ducklake.html">get_working_ducklake()</a></code>
+
+        </dt>
+        <dd>Get Working DuckLake connection</dd>
+      </dl><dl><dt>
+
+          <code><a href="ingest_to_working.html">ingest_to_working()</a></code>
+
+        </dt>
+        <dd>Ingest data to Working DuckLake</dd>
+      </dl><dl><dt>
+
+          <code><a href="list_working_tables.html">list_working_tables()</a></code>
+
+        </dt>
+        <dd>List tables with provenance in Working DuckLake</dd>
+      </dl><dl><dt>
+
+          <code><a href="query_at_time.html">query_at_time()</a></code>
+
+        </dt>
+        <dd>Query Working DuckLake at a point in time</dd>
+      </dl><dl><dt>
+
+          <code><a href="save_working_ducklake.html">save_working_ducklake()</a></code>
+
+        </dt>
+        <dd>Save Working DuckLake to GCS</dd>
+      </dl><dl><dt>
+
+          <code><a href="strip_provenance_columns.html">strip_provenance_columns()</a></code>
+
+        </dt>
+        <dd>Strip provenance columns from data</dd>
+      </dl></div><div class="section level2">
+      <h2 id="frozen-releases">Frozen Releases<a class="anchor" aria-label="anchor" href="#frozen-releases"></a></h2>
+
+      <div class="section-desc"><p>functions for creating and managing frozen DuckLake releases</p></div>
+
+
+    </div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="compare_releases.html">compare_releases()</a></code>
+
+        </dt>
+        <dd>Compare two frozen releases</dd>
+      </dl><dl><dt>
+
+          <code><a href="freeze_release.html">freeze_release()</a></code>
+
+        </dt>
+        <dd>Freeze a release of the DuckLake</dd>
+      </dl><dl><dt>
+
+          <code><a href="get_release_metadata.html">get_release_metadata()</a></code>
+
+        </dt>
+        <dd>Get metadata for a frozen release</dd>
+      </dl><dl><dt>
+
+          <code><a href="list_frozen_releases.html">list_frozen_releases()</a></code>
+
+        </dt>
+        <dd>List available frozen releases</dd>
+      </dl><dl><dt>
+
+          <code><a href="validate_for_release.html">validate_for_release()</a></code>
+
+        </dt>
+        <dd>Validate Working DuckLake for release</dd>
+      </dl></div><div class="section level2">
       <h2 id="read">Read<a class="anchor" aria-label="anchor" href="#read"></a></h2>
 
       <div class="section-desc"><p>functions reading data, particularly from CSV files in the Google Drive CalCOFI data folder</p></div>
@@ -102,9 +373,38 @@
         </dt>
         <dd>Transform Data for Database Ingestion</dd>
       </dl></div><div class="section level2">
+      <h2 id="validation">Validation<a class="anchor" aria-label="anchor" href="#validation"></a></h2>
+
+      <div class="section-desc"><p>functions for data validation and integrity checking</p></div>
+
+
+    </div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="check_data_integrity.html">check_data_integrity()</a></code>
+
+        </dt>
+        <dd>Check Data Integrity for Ingestion</dd>
+      </dl><dl><dt>
+
+          <code><a href="check_multiple_datasets.html">check_multiple_datasets()</a></code>
+
+        </dt>
+        <dd>Check Multiple Datasets for Integrity</dd>
+      </dl><dl><dt>
+
+          <code><a href="render_integrity_message.html">render_integrity_message()</a></code>
+
+        </dt>
+        <dd>Render Data Integrity Check Message</dd>
+      </dl></div><div class="section level2">
       <h2 id="ingest">Ingest<a class="anchor" aria-label="anchor" href="#ingest"></a></h2>
 
-      <div class="section-desc"><p>functions for ingesting data into the database</p></div>
+      <div class="section-desc"><p>functions for ingesting data into the database (PostgreSQL deprecated, use DuckLake)</p></div>
 
 
     </div><div class="section level2">
@@ -115,19 +415,48 @@
       <dl><dt>
 
           <code><a href="ingest_csv_to_db.html">ingest_csv_to_db()</a></code>
-
+          <span class="badge lifecycle lifecycle-deprecated">deprecated</span>
         </dt>
-        <dd>Ingest CSV data to database</dd>
+        <dd>Ingest CSV data to PostgreSQL database (DEPRECATED)</dd>
       </dl><dl><dt>
 
           <code><a href="ingest_dataset.html">ingest_dataset()</a></code>
+          <span class="badge lifecycle lifecycle-deprecated">deprecated</span>
+        </dt>
+        <dd>Ingest a Dataset (DEPRECATED)</dd>
+      </dl></div><div class="section level2">
+      <h2 id="version">Version<a class="anchor" aria-label="anchor" href="#version"></a></h2>
+
+      <div class="section-desc"><p>functions for schema and package versioning</p></div>
+
+
+    </div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="get_schema_versions.html">get_schema_versions()</a></code>
 
         </dt>
-        <dd>Ingest a Dataset</dd>
+        <dd>Get Schema Version History</dd>
+      </dl><dl><dt>
+
+          <code><a href="init_schema_version_csv.html">init_schema_version_csv()</a></code>
+
+        </dt>
+        <dd>Initialize Schema Version CSV</dd>
+      </dl><dl><dt>
+
+          <code><a href="record_schema_version.html">record_schema_version()</a></code>
+
+        </dt>
+        <dd>Record Schema Version</dd>
       </dl></div><div class="section level2">
       <h2 id="utilities">Utilities<a class="anchor" aria-label="anchor" href="#utilities"></a></h2>
 
-      <div class="section-desc"><p>utility functions for database operations</p></div>
+      <div class="section-desc"><p>utility functions for database operations (PostgreSQL deprecated)</p></div>
 
 
     </div><div class="section level2">
@@ -144,9 +473,9 @@
       </dl><dl><dt>
 
           <code><a href="get_db_con.html">get_db_con()</a></code>
-
+          <span class="badge lifecycle lifecycle-deprecated">deprecated</span>
         </dt>
-        <dd>Get a database connection to the CalCOFI PostgreSQL database</dd>
+        <dd>Get a database connection to the CalCOFI PostgreSQL database (DEPRECATED)</dd>
       </dl></div><div class="section level2">
       <h2 id="visualize">Visualize<a class="anchor" aria-label="anchor" href="#visualize"></a></h2>
 
@@ -189,30 +518,6 @@
 
       <dl><dt>
 
-          <code><a href="add_parquet_metadata.html">add_parquet_metadata()</a></code>
-
-        </dt>
-        <dd>Add metadata to Parquet file</dd>
-      </dl><dl><dt>
-
-          <code><a href="check_data_integrity.html">check_data_integrity()</a></code>
-
-        </dt>
-        <dd>Check Data Integrity for Ingestion</dd>
-      </dl><dl><dt>
-
-          <code><a href="check_multiple_datasets.html">check_multiple_datasets()</a></code>
-
-        </dt>
-        <dd>Check Multiple Datasets for Integrity</dd>
-      </dl><dl><dt>
-
-          <code><a href="close_duckdb.html">close_duckdb()</a></code>
-
-        </dt>
-        <dd>Disconnect from DuckDB and shutdown</dd>
-      </dl><dl><dt>
-
           <code><a href="commit_version_and_permalink.html">commit_version_and_permalink()</a></code>
 
         </dt>
@@ -225,154 +530,10 @@
         <dd>Complete Version Release Workflow</dd>
       </dl><dl><dt>
 
-          <code><a href="create_duckdb_from_parquet.html">create_duckdb_from_parquet()</a></code>
-
-        </dt>
-        <dd>Create DuckDB from Parquet files</dd>
-      </dl><dl><dt>
-
-          <code><a href="create_duckdb_views.html">create_duckdb_views()</a></code>
-
-        </dt>
-        <dd>Create views from a manifest</dd>
-      </dl><dl><dt>
-
-          <code><a href="create_gcs_manifest.html">create_gcs_manifest()</a></code>
-
-        </dt>
-        <dd>Create a manifest of current GCS files</dd>
-      </dl><dl><dt>
-
-          <code><a href="csv_to_parquet.html">csv_to_parquet()</a></code>
-
-        </dt>
-        <dd>Convert CSV file to Parquet format</dd>
-      </dl><dl><dt>
-
-          <code><a href="duckdb_to_parquet.html">duckdb_to_parquet()</a></code>
-
-        </dt>
-        <dd>Export DuckDB table to Parquet</dd>
-      </dl><dl><dt>
-
-          <code><a href="get_calcofi_file.html">get_calcofi_file()</a></code>
-
-        </dt>
-        <dd>Get a CalCOFI file from the immutable archive</dd>
-      </dl><dl><dt>
-
-          <code><a href="get_duckdb_con.html">get_duckdb_con()</a></code>
-
-        </dt>
-        <dd>Get a DuckDB connection</dd>
-      </dl><dl><dt>
-
-          <code><a href="get_duckdb_tables.html">get_duckdb_tables()</a></code>
-
-        </dt>
-        <dd>Get table information from DuckDB</dd>
-      </dl><dl><dt>
-
-          <code><a href="get_gcs_file.html">get_gcs_file()</a></code>
-
-        </dt>
-        <dd>Get a file from Google Cloud Storage</dd>
-      </dl><dl><dt>
-
-          <code><a href="get_historical_file.html">get_historical_file()</a></code>
-
-        </dt>
-        <dd>Get historical file from a specific date</dd>
-      </dl><dl><dt>
-
-          <code><a href="get_manifest.html">get_manifest()</a></code>
-
-        </dt>
-        <dd>Get manifest for a specific date</dd>
-      </dl><dl><dt>
-
           <code><a href="get_package_version.html">get_package_version()</a></code>
 
         </dt>
         <dd>Get Current Package Version</dd>
-      </dl><dl><dt>
-
-          <code><a href="get_parquet_metadata.html">get_parquet_metadata()</a></code>
-
-        </dt>
-        <dd>Get Parquet file metadata</dd>
-      </dl><dl><dt>
-
-          <code><a href="get_schema_versions.html">get_schema_versions()</a></code>
-
-        </dt>
-        <dd>Get Schema Version History</dd>
-      </dl><dl><dt>
-
-          <code><a href="init_schema_version_csv.html">init_schema_version_csv()</a></code>
-
-        </dt>
-        <dd>Initialize Schema Version CSV</dd>
-      </dl><dl><dt>
-
-          <code><a href="list_calcofi_files.html">list_calcofi_files()</a></code>
-
-        </dt>
-        <dd>List CalCOFI files from manifest</dd>
-      </dl><dl><dt>
-
-          <code><a href="list_gcs_files.html">list_gcs_files()</a></code>
-
-        </dt>
-        <dd>List files in a GCS bucket/prefix</dd>
-      </dl><dl><dt>
-
-          <code><a href="list_gcs_versions.html">list_gcs_versions()</a></code>
-
-        </dt>
-        <dd>List versions of a file in GCS archive</dd>
-      </dl><dl><dt>
-
-          <code><a href="load_duckdb_extension.html">load_duckdb_extension()</a></code>
-
-        </dt>
-        <dd>Install and load DuckDB extension</dd>
-      </dl><dl><dt>
-
-          <code><a href="put_gcs_file.html">put_gcs_file()</a></code>
-
-        </dt>
-        <dd>Upload a file to Google Cloud Storage</dd>
-      </dl><dl><dt>
-
-          <code><a href="read_parquet_table.html">read_parquet_table()</a></code>
-
-        </dt>
-        <dd>Read a Parquet table</dd>
-      </dl><dl><dt>
-
-          <code><a href="record_schema_version.html">record_schema_version()</a></code>
-
-        </dt>
-        <dd>Record Schema Version</dd>
-      </dl><dl><dt>
-
-          <code><a href="render_integrity_message.html">render_integrity_message()</a></code>
-
-        </dt>
-        <dd>Render Data Integrity Check Message</dd>
-      </dl><dl><dt>
-
-          <code><a href="save_duckdb_to_gcs.html">save_duckdb_to_gcs()</a></code>
-
-        </dt>
-        <dd>Save DuckDB to GCS</dd>
-      </dl><dl><dt>
-
-          <code><a href="set_duckdb_comments.html">set_duckdb_comments()</a></code>
-
-        </dt>
-        <dd>Set table and column comments in DuckDB</dd>
       </dl><dl><dt>
 
           <code><a href="suggest_next_version.html">suggest_next_version()</a></code>
@@ -385,18 +546,6 @@
 
         </dt>
         <dd>Synchronized Version Management for Package and Database</dd>
-      </dl><dl><dt>
-
-          <code><a href="upload_parquet.html">upload_parquet()</a></code>
-
-        </dt>
-        <dd>Upload Parquet file to GCS</dd>
-      </dl><dl><dt>
-
-          <code><a href="write_parquet_table.html">write_parquet_table()</a></code>
-
-        </dt>
-        <dd>Write data to Parquet format</dd>
       </dl></div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

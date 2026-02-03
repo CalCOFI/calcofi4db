@@ -1,3 +1,9 @@
+# calcofi4db 2.1.0
+
+*Addition of functions for phase 2 of cloud plan*
+
+- Added ducklake and freeze functions. Updated documentation with concepts.
+
 # calcofi4db 1.2.0
 
 *Addition of functions for phase 1 of cloud plan*

@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -49,130 +49,283 @@
   <main id="main" class="col-md-9"><div class="section level1">
 <div class="page-header"><h1 id="calcofi4db">calcofi4db<a class="anchor" aria-label="anchor" href="#calcofi4db"></a>
 </h1></div>
-<p>CalCOFI Database Tools package for ingesting and managing datasets in the CalCOFI database using an integrated schema-based workflow.</p>
+<p>CalCOFI Database Tools package for ingesting and managing datasets using a modern cloud-native data architecture with DuckDB and Parquet files.</p>
 <div class="section level2">
 <h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a>
 </h2>
-<p>This package provides functions for the CalCOFI integrated database ingestion strategy, which uses a two-schema approach:</p>
+<p>This package provides functions for the CalCOFI data workflow, which uses:</p>
 <ul>
 <li>
-<strong><code>dev</code> schema</strong>: Fresh development schema recreated with each ingestion run for QA/QC</li>
+<strong>Google Cloud Storage (GCS)</strong>: Versioned data lake with immutable archive snapshots</li>
 <li>
-<strong><code>prod</code> schema</strong>: Versioned production schema for stable public access</li>
+<strong>Apache Parquet</strong>: Efficient columnar storage format for large datasets</li>
+<li>
+<strong>DuckDB</strong>: Fast, serverless analytical database</li>
+<li>
+<strong>DuckLake</strong>: Lakehouse catalog with time travel and versioning</li>
 </ul>
 <div class="section level3">
-<h3 id="key-features">Key features:<a class="anchor" aria-label="anchor" href="#key-features"></a>
+<h3 id="architecture">Architecture<a class="anchor" aria-label="anchor" href="#architecture"></a>
+</h3>
+<pre><code>┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   Google Drive  │────▶│      GCS        │────▶│  Working        │────▶│    Frozen       │
+│   (raw CSVs)    │     │  (versioned)    │     │  DuckLake       │     │    Releases     │
+└─────────────────┘     └─────────────────┘     └─────────────────┘     └─────────────────┘
+                              rclone                 ingest                  freeze</code></pre>
+<ul>
+<li>
+<strong>Working DuckLake</strong>: Internal database with full provenance tracking (<code>_source_file</code>, <code>_source_row</code>, <code>_source_uuid</code>, <code>_ingested_at</code>)</li>
+<li>
+<strong>Frozen DuckLake</strong>: Immutable versioned releases (<code>v2026.02</code>, <code>v2026.03</code>, …) for public access</li>
+</ul>
+</div>
+<div class="section level3">
+<h3 id="key-features">Key Features<a class="anchor" aria-label="anchor" href="#key-features"></a>
 </h3>
 <ul>
-<li>Reading CSV files from Google Drive with metadata extraction</li>
-<li>Creating and managing redefinition files for tables and fields</li>
-<li>Transforming data according to redefinition rules</li>
-<li>Ingesting multiple datasets into a fresh database schema</li>
-<li>Managing database relationships and indexes</li>
-<li>Recording schema versions with full provenance</li>
+<li>Reading CSV files from GCS with immutable archive paths</li>
+<li>Cloud storage operations (upload, download, version listing)</li>
+<li>Parquet conversion with schema enforcement and metadata</li>
+<li>DuckDB database creation and management</li>
+<li>Provenance tracking for data lineage</li>
+<li>Frozen release creation for reproducible data access</li>
+<li>Data validation before releases</li>
+<li>Backward-compatible PostgreSQL support (deprecated)</li>
 </ul>
 </div>
 </div>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
-<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Install from GitHub</span></span>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># install from GitHub</span></span>
 <span><span class="fu">remotes</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"CalCOFI/calcofi4db"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="usage">Usage<a class="anchor" aria-label="anchor" href="#usage"></a>
 </h2>
 <div class="section level3">
-<h3 id="master-ingestion-workflow">Master ingestion workflow<a class="anchor" aria-label="anchor" href="#master-ingestion-workflow"></a>
+<h3 id="working-with-the-working-ducklake">Working with the Working DuckLake<a class="anchor" aria-label="anchor" href="#working-with-the-working-ducklake"></a>
 </h3>
-<p>The primary workflow is the master ingestion script <code>inst/create_db.qmd</code> that recreates the <code>dev</code> schema with all datasets:</p>
-<ol style="list-style-type: decimal">
-<li>Drops and recreates <code>dev</code> schema</li>
-<li>Ingests multiple datasets from Google Drive</li>
-<li>Applies transformations via redefinition files</li>
-<li>Creates relationships (primary/foreign keys, indexes)</li>
-<li>Records schema version with metadata</li>
-</ol>
+<p>The Working DuckLake is used internally for data ingestion with automatic provenance tracking:</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://calcofi.io/calcofi4db">calcofi4db</a></span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># connect to the Working DuckLake</span></span>
+<span><span class="va">con</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/get_working_ducklake.html">get_working_ducklake</a></span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># read CSV from immutable GCS archive</span></span>
+<span><span class="va">csv_path</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/get_calcofi_file.html">get_calcofi_file</a></span><span class="op">(</span></span>
+<span>  <span class="st">"swfsc.noaa.gov/calcofi-db/larva.csv"</span>,</span>
+<span>  date <span class="op">=</span> <span class="st">"2026-02-02_121557"</span><span class="op">)</span>  <span class="co"># specific archive snapshot</span></span>
+<span></span>
+<span><span class="co"># read and transform data</span></span>
+<span><span class="va">larvae_data</span> <span class="op">&lt;-</span> <span class="fu">readr</span><span class="fu">::</span><span class="fu"><a href="https://readr.tidyverse.org/reference/read_delim.html" class="external-link">read_csv</a></span><span class="op">(</span><span class="va">csv_path</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># ingest with automatic provenance columns</span></span>
+<span><span class="va">stats</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/ingest_to_working.html">ingest_to_working</a></span><span class="op">(</span></span>
+<span> con         <span class="op">=</span> <span class="va">con</span>,</span>
+<span>  data        <span class="op">=</span> <span class="va">larvae_data</span>,</span>
+<span>  table       <span class="op">=</span> <span class="st">"larva"</span>,</span>
+<span>  source_file <span class="op">=</span> <span class="st">"archive/2026-02-02_121557/swfsc.noaa.gov/calcofi-db/larva.csv"</span>,</span>
+<span>  source_uuid_col <span class="op">=</span> <span class="st">"larva_uuid"</span>,</span>
+<span>  mode        <span class="op">=</span> <span class="st">"replace"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># save changes to GCS</span></span>
+<span><span class="fu"><a href="reference/save_working_ducklake.html">save_working_ducklake</a></span><span class="op">(</span><span class="va">con</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># close connection</span></span>
+<span><span class="fu"><a href="reference/close_duckdb.html">close_duckdb</a></span><span class="op">(</span><span class="va">con</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
-<h3 id="individual-dataset-ingestion">Individual dataset ingestion<a class="anchor" aria-label="anchor" href="#individual-dataset-ingestion"></a>
+<h3 id="creating-frozen-releases">Creating Frozen Releases<a class="anchor" aria-label="anchor" href="#creating-frozen-releases"></a>
 </h3>
-<p>For programmatic control, use the core functions:</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://calcofi.io/calcofi4db">calcofi4db</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://dbi.r-dbi.org" class="external-link">DBI</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://rpostgres.r-dbi.org" class="external-link">RPostgres</a></span><span class="op">)</span></span>
+<p>Frozen releases are immutable snapshots for public access:</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># connect to Working DuckLake</span></span>
+<span><span class="va">con</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/get_working_ducklake.html">get_working_ducklake</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Connect to database</span></span>
-<span><span class="va">con</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://dbi.r-dbi.org/reference/dbConnect.html" class="external-link">dbConnect</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rpostgres.r-dbi.org/reference/Postgres.html" class="external-link">Postgres</a></span><span class="op">(</span><span class="op">)</span>,</span>
-<span>  dbname <span class="op">=</span> <span class="st">"gis"</span>,</span>
-<span>  host <span class="op">=</span> <span class="st">"localhost"</span>,</span>
-<span>  port <span class="op">=</span> <span class="fl">5432</span>,</span>
-<span>  user <span class="op">=</span> <span class="st">"admin"</span>,</span>
-<span>  password <span class="op">=</span> <span class="st">"postgres"</span></span>
-<span><span class="op">)</span></span>
+<span><span class="co"># validate data quality before freezing</span></span>
+<span><span class="va">validation</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/validate_for_release.html">validate_for_release</a></span><span class="op">(</span><span class="va">con</span><span class="op">)</span></span>
+<span><span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="va">validation</span><span class="op">$</span><span class="va">passed</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">validation</span><span class="op">$</span><span class="va">errors</span><span class="op">)</span></span>
+<span>  <span class="kw"><a href="https://rdrr.io/r/base/stop.html" class="external-link">stop</a></span><span class="op">(</span><span class="st">"Validation failed"</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
 <span></span>
-<span><span class="co"># Read CSV files and metadata from Google Drive</span></span>
-<span><span class="va">d</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/read_csv_files.html">read_csv_files</a></span><span class="op">(</span></span>
-<span>  provider <span class="op">=</span> <span class="st">"swfsc.noaa.gov"</span>,</span>
-<span>  dataset <span class="op">=</span> <span class="st">"calcofi-db"</span></span>
-<span><span class="op">)</span></span>
+<span><span class="co"># create frozen release</span></span>
+<span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/freeze_release.html">freeze_release</a></span><span class="op">(</span></span>
+<span>  con           <span class="op">=</span> <span class="va">con</span>,</span>
+<span>  version       <span class="op">=</span> <span class="st">"v2026.02"</span>,</span>
+<span>  release_notes <span class="op">=</span> <span class="st">"First release with bottle and larvae data."</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Transform data according to redefinitions</span></span>
-<span><span class="va">transformed_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/transform_data.html">transform_data</a></span><span class="op">(</span><span class="va">d</span><span class="op">)</span></span>
+<span><span class="co"># result contains: version, gcs_path, tables, parquet_files</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">tables</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Ingest into dev schema</span></span>
-<span><span class="fu"><a href="reference/ingest_csv_to_db.html">ingest_csv_to_db</a></span><span class="op">(</span></span>
-<span>  con <span class="op">=</span> <span class="va">con</span>,</span>
-<span>  schema <span class="op">=</span> <span class="st">"dev"</span>,</span>
-<span>  transformed_data <span class="op">=</span> <span class="va">transformed_data</span>,</span>
-<span>  d_flds_rd <span class="op">=</span> <span class="va">d</span><span class="op">$</span><span class="va">d_flds_rd</span>,</span>
-<span>  d_gdata <span class="op">=</span> <span class="va">d</span><span class="op">$</span><span class="va">d_gdata</span>,</span>
-<span>  workflow_info <span class="op">=</span> <span class="va">d</span><span class="op">$</span><span class="va">workflow_info</span></span>
-<span><span class="op">)</span></span>
+<span><span class="fu"><a href="reference/close_duckdb.html">close_duckdb</a></span><span class="op">(</span><span class="va">con</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="listing-and-comparing-releases">Listing and Comparing Releases<a class="anchor" aria-label="anchor" href="#listing-and-comparing-releases"></a>
+</h3>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># list all available frozen releases</span></span>
+<span><span class="va">releases</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/list_frozen_releases.html">list_frozen_releases</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">releases</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Record schema version</span></span>
-<span><span class="fu"><a href="reference/record_schema_version.html">record_schema_version</a></span><span class="op">(</span></span>
-<span>  con <span class="op">=</span> <span class="va">con</span>,</span>
-<span>  schema <span class="op">=</span> <span class="st">"dev"</span>,</span>
-<span>  version <span class="op">=</span> <span class="st">"1.0.0"</span>,</span>
-<span>  description <span class="op">=</span> <span class="st">"Initial ingestion of NOAA CalCOFI Database"</span>,</span>
-<span>  script_permalink <span class="op">=</span> <span class="st">"https://github.com/CalCOFI/calcofi4db/blob/main/inst/create_db.qmd"</span></span>
-<span><span class="op">)</span></span>
+<span><span class="co"># get metadata for a specific release</span></span>
+<span><span class="va">meta</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/get_release_metadata.html">get_release_metadata</a></span><span class="op">(</span><span class="st">"v2026.02"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">meta</span><span class="op">$</span><span class="va">tables</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Disconnect</span></span>
-<span><span class="fu"><a href="https://dbi.r-dbi.org/reference/dbDisconnect.html" class="external-link">dbDisconnect</a></span><span class="op">(</span><span class="va">con</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co"># compare two releases</span></span>
+<span><span class="va">diff</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/compare_releases.html">compare_releases</a></span><span class="op">(</span><span class="st">"v2026.02"</span>, <span class="st">"v2026.03"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">diff</span><span class="op">$</span><span class="va">summary</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="cloud-storage-operations">Cloud Storage Operations<a class="anchor" aria-label="anchor" href="#cloud-storage-operations"></a>
+</h3>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># download file from GCS</span></span>
+<span><span class="va">local_file</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/get_gcs_file.html">get_gcs_file</a></span><span class="op">(</span><span class="st">"gs://calcofi-files-public/_sync/bottle.csv"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># upload file to GCS</span></span>
+<span><span class="fu"><a href="reference/put_gcs_file.html">put_gcs_file</a></span><span class="op">(</span><span class="st">"local/data.parquet"</span>, <span class="st">"gs://calcofi-db/parquet/data.parquet"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># list files in bucket</span></span>
+<span><span class="va">files</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/list_gcs_files.html">list_gcs_files</a></span><span class="op">(</span><span class="st">"calcofi-files-public"</span>, prefix <span class="op">=</span> <span class="st">"_sync/"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># get file from immutable archive snapshot</span></span>
+<span><span class="va">file</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/get_calcofi_file.html">get_calcofi_file</a></span><span class="op">(</span></span>
+<span>  <span class="st">"swfsc.noaa.gov/calcofi-db/cruise.csv"</span>,</span>
+<span>  date <span class="op">=</span> <span class="st">"latest"</span><span class="op">)</span>  <span class="co"># or specific timestamp</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="parquet-operations">Parquet Operations<a class="anchor" aria-label="anchor" href="#parquet-operations"></a>
+</h3>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># convert CSV to Parquet</span></span>
+<span><span class="fu"><a href="reference/csv_to_parquet.html">csv_to_parquet</a></span><span class="op">(</span><span class="st">"data.csv"</span>, output <span class="op">=</span> <span class="st">"data.parquet"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># read Parquet file</span></span>
+<span><span class="va">data</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/read_parquet_table.html">read_parquet_table</a></span><span class="op">(</span><span class="st">"data.parquet"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># write with partitioning</span></span>
+<span><span class="fu"><a href="reference/write_parquet_table.html">write_parquet_table</a></span><span class="op">(</span></span>
+<span>  <span class="va">data</span>,</span>
+<span>  <span class="st">"output/data.parquet"</span>,</span>
+<span>  partitions <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"year"</span>, <span class="st">"month"</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># add metadata to Parquet file</span></span>
+<span><span class="fu"><a href="reference/add_parquet_metadata.html">add_parquet_metadata</a></span><span class="op">(</span></span>
+<span>  <span class="st">"data.parquet"</span>,</span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>source <span class="op">=</span> <span class="st">"CalCOFI"</span>, version <span class="op">=</span> <span class="st">"2026.02"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="basic-duckdb-operations">Basic DuckDB Operations<a class="anchor" aria-label="anchor" href="#basic-duckdb-operations"></a>
+</h3>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># create in-memory DuckDB</span></span>
+<span><span class="va">con</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/get_duckdb_con.html">get_duckdb_con</a></span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># create from Parquet files</span></span>
+<span><span class="va">con</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/create_duckdb_from_parquet.html">create_duckdb_from_parquet</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"parquet/bottle.parquet"</span>, <span class="st">"parquet/cast.parquet"</span><span class="op">)</span>,</span>
+<span>  db_path <span class="op">=</span> <span class="st">"calcofi.duckdb"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># add documentation comments</span></span>
+<span><span class="fu"><a href="reference/set_duckdb_comments.html">set_duckdb_comments</a></span><span class="op">(</span></span>
+<span>  <span class="va">con</span>,</span>
+<span>  table <span class="op">=</span> <span class="st">"bottle"</span>,</span>
+<span>  table_comment <span class="op">=</span> <span class="st">"Bottle sample data"</span>,</span>
+<span>  column_comments <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>    depth_m <span class="op">=</span> <span class="st">"Sample depth in meters"</span>,</span>
+<span>    temp_c  <span class="op">=</span> <span class="st">"Water temperature in Celsius"</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># export to Parquet</span></span>
+<span><span class="fu"><a href="reference/duckdb_to_parquet.html">duckdb_to_parquet</a></span><span class="op">(</span><span class="va">con</span>, <span class="st">"bottle"</span>, <span class="st">"export/bottle.parquet"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># close connection</span></span>
+<span><span class="fu"><a href="reference/close_duckdb.html">close_duckdb</a></span><span class="op">(</span><span class="va">con</span><span class="op">)</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
-<h2 id="schema-versioning">Schema versioning<a class="anchor" aria-label="anchor" href="#schema-versioning"></a>
+<h2 id="for-end-users">For End Users<a class="anchor" aria-label="anchor" href="#for-end-users"></a>
 </h2>
-<p>Each successful ingestion records a version in the <code>schema_version</code> table with:</p>
-<ul>
-<li>
-<strong>version</strong>: Semantic version (e.g., “1.0.0”, “1.1.0”)</li>
-<li>
-<strong>description</strong>: Changes in this version</li>
-<li>
-<strong>date_created</strong>: Ingestion timestamp</li>
-<li>
-<strong>script_permalink</strong>: GitHub permalink to ingestion script</li>
-</ul>
-<p>Versions are archived as SQL dumps in Google Drive for reproducibility.</p>
+<p>End users should use the <code>calcofi4r</code> package to access CalCOFI data:</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://calcofi.io/calcofi4r" class="external-link">calcofi4r</a></span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># connect to latest frozen release</span></span>
+<span><span class="va">con</span> <span class="op">&lt;-</span> <span class="fu">cc_get_db</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># or specific version</span></span>
+<span><span class="va">con</span> <span class="op">&lt;-</span> <span class="fu">cc_get_db</span><span class="op">(</span>version <span class="op">=</span> <span class="st">"v2026.02"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># convenience functions</span></span>
+<span><span class="va">larvae</span> <span class="op">&lt;-</span> <span class="fu">cc_read_larvae</span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="va">bottles</span> <span class="op">&lt;-</span> <span class="fu">cc_read_bottle</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># list available versions</span></span>
+<span><span class="fu">cc_list_versions</span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="deprecated-functions">Deprecated Functions<a class="anchor" aria-label="anchor" href="#deprecated-functions"></a>
+</h2>
+<p>The following PostgreSQL-based functions are deprecated and will emit warnings:</p>
+<table class="table">
+<thead><tr>
+<th>Deprecated</th>
+<th>Replacement</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><code><a href="reference/get_db_con.html">get_db_con()</a></code></td>
+<td>
+<code><a href="reference/get_working_ducklake.html">get_working_ducklake()</a></code> or <code><a href="reference/get_duckdb_con.html">get_duckdb_con()</a></code>
+</td>
+</tr>
+<tr>
+<td><code><a href="reference/ingest_csv_to_db.html">ingest_csv_to_db()</a></code></td>
+<td><code><a href="reference/ingest_to_working.html">ingest_to_working()</a></code></td>
+</tr>
+<tr>
+<td><code><a href="reference/ingest_dataset.html">ingest_dataset()</a></code></td>
+<td>Use targets pipeline with <code><a href="reference/ingest_to_working.html">ingest_to_working()</a></code>
+</td>
+</tr>
+</tbody>
+</table>
 </div>
 <div class="section level2">
 <h2 id="documentation">Documentation<a class="anchor" aria-label="anchor" href="#documentation"></a>
 </h2>
-<p>See the <a href="https://calcofi.io/docs/db.html" class="external-link">CalCOFI Database Documentation</a> for complete details on:</p>
 <ul>
-<li>Database naming conventions</li>
-<li>Ingestion workflow architecture</li>
-<li>Schema versioning strategy</li>
-<li>Metadata management</li>
-<li>Publishing to data portals</li>
+<li>
+<a href="https://calcofi.io/workflows/README_PLAN.html" class="external-link">CalCOFI Data Workflow Plan</a> - Full architecture documentation</li>
+<li>
+<a href="https://calcofi.io/docs/db.html" class="external-link">CalCOFI Database Documentation</a> - Database naming conventions and schema</li>
+<li>
+<a href="https://calcofi.io/calcofi4db/reference/">Package Reference</a> - Function documentation</li>
 </ul>
+</div>
+<div class="section level2">
+<h2 id="gcs-bucket-structure">GCS Bucket Structure<a class="anchor" aria-label="anchor" href="#gcs-bucket-structure"></a>
+</h2>
+<pre><code>gs://calcofi-files-public/          # versioned source files
+├── _sync/                          # working directory (rclone target)
+├── archive/                        # immutable snapshots
+│   └── 2026-02-02_121557/         # timestamp directories
+└── manifests/                      # JSON manifests
+
+gs://calcofi-db/                    # integrated database
+├── ducklake/
+│   ├── working/                    # Working DuckLake
+│   │   └── calcofi.duckdb
+│   └── releases/                   # Frozen releases
+│       ├── v2026.02/
+│       │   ├── catalog.json
+│       │   ├── RELEASE_NOTES.md
+│       │   └── parquet/*.parquet
+│       └── latest.txt              # points to current release
+└── parquet/                        # intermediate parquet files</code></pre>
 </div>
 <div class="section level2">
 <h2 id="license">License<a class="anchor" aria-label="anchor" href="#license"></a>
