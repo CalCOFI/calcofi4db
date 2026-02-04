@@ -10,6 +10,7 @@
 #' @return A list with two data frames: tables and fields metadata
 #' @export
 #' @concept read
+#' @importFrom purrr list_c map map_chr map_dbl map_int map2
 #'
 #' @examples
 #' \dontrun{
@@ -31,20 +32,23 @@ read_csv_metadata <- function(dir_csv, dir_ingest, create_dirs = TRUE) {
   tbls_in_csv <- file.path(dir_ingest, "tbls_raw.csv")
   flds_in_csv <- file.path(dir_ingest, "flds_raw.csv")
 
-  # Read data, extract field headers
+  # Read data, extract field headers and file metadata
   d <- tibble::tibble(
     csv = list.files(dir_csv, pattern = "\\.csv$", full.names = TRUE)) |>
     dplyr::mutate(
-      tbl = tools::file_path_sans_ext(basename(csv)),
-      data = purrr::map(csv, readr::read_csv),
-      nrow = purrr::map_int(data, nrow),
-      ncol = purrr::map_int(data, ncol),
-      flds = purrr::map2(tbl, data, \(tbl, data) {
+      tbl           = tools::file_path_sans_ext(basename(csv)),
+      file_info     = purrr::map(csv, file.info),
+      file_size     = purrr::map_dbl(file_info, ~ .x$size),
+      last_modified = purrr::map(file_info, ~ .x$mtime) |> purrr::list_c(),
+      data          = purrr::map(csv, readr::read_csv),
+      nrow          = purrr::map_int(data, nrow),
+      ncol          = purrr::map_int(data, ncol),
+      flds          = purrr::map2(tbl, data, \(tbl, data) {
         tibble::tibble(
-          fld = names(data),
-          type = purrr::map_chr(fld, \(fld) class(data[[fld]])[1])
-        )
+          fld  = names(data),
+          type = purrr::map_chr(fld, \(fld) class(data[[fld]])[1]))
       })) |>
+    dplyr::select(-file_info) |>
     dplyr::relocate(tbl)
 
   # Extract and write tables metadata
@@ -68,52 +72,58 @@ read_csv_metadata <- function(dir_csv, dir_ingest, create_dirs = TRUE) {
 
 #' Read CSV Files and Their Metadata
 #'
-#' Reads CSV files from a directory and prepares them for ingestion into a
-#' database. This function is the primary entry point for the CalCOFI data
-#' ingestion workflow. It performs the following steps:
+#' Reads CSV files from a directory or GCS archive and prepares them for
+#' ingestion into a database. This function is the primary entry point for
+#' the CalCOFI data ingestion workflow. It performs the following steps:
 #'
-#' 1. Reads all CSV files from the specified provider/dataset directory
-#' 2. Extracts metadata about tables and fields from the CSV files
-#' 3. Creates or reads redefinition files for table and field transformations
-#' 4. Optionally queries Google Drive for file metadata (creation dates, etc.)
+#' 1. Reads CSV files from local directory or downloads from GCS archive
+#' 2. If using local files, syncs to GCS archive for immutable provenance
+#' 3. Extracts metadata about tables and fields from the CSV files
+#' 4. Creates or reads redefinition files for table and field transformations
 #'
 #' The function returns a comprehensive data structure containing:
 #' - Raw CSV data and metadata (d_csv)
+#' - Source files with provenance tracking (source_files)
 #' - Table redefinitions (d_tbls_rd) for renaming/describing tables
 #' - Field redefinitions (d_flds_rd) for renaming/typing/transforming fields
-#' - Google Drive metadata if requested (d_gdata)
-#' - Workflow information and file paths
+#' - File paths used in the workflow
 #'
 #' @param provider Data provider (e.g., "swfsc.noaa.gov")
 #' @param dataset Dataset name (e.g., "calcofi-db")
 #' @param subdir Optional subdirectory (i.e.,
-#'   {dir_data}/{provider}/{dataset}/{subdir}) for CSV files
-#' @param dir_data directory path of CalCOFI base data folder available locally,
-#'   with CSVs under {provider}/{dataset} directory. Default: "~/My
-#'   Drive/projects/calcofi/data"
-#' @param url_gdata URL of CalCOFI base data folder in Google Drive (with CSVs
-#'   under {provider}/{dataset} directory) with metadata information on CSVs.
-#'   Default: [data - Google
-#'   Drive](https://drive.google.com/drive/u/0/folders/1xxdWa4mWkmfkJUQsHxERTp9eBBXBMbV7)
-#' @param use_gdrive Whether to query Google Drive for metadata. Default: TRUE
-#' @param email Google Drive authentication email (if use_gdrive=TRUE). Default:
-#'   "ben@ecoquants.com"
+#'   {dir_data}/{provider}/{dataset}/{subdir}) for CSV files. Use for datasets
+#'   organized with `raw/` or `derived/` subdirectories.
+#' @param dir_data Directory path of CalCOFI base data folder available locally,
+#'   with CSVs under {provider}/{dataset} directory. If NULL and gcs_archive
+#'   is also NULL, will error. Set to NULL to use gcs_archive instead.
+#' @param metadata_dir Directory containing redefinition metadata files
+#'   (tbls_redefine.csv, flds_redefine.csv). The directory should be structured
+#'   as {metadata_dir}/{provider}/{dataset}/. If NULL, falls back to the
+#'   legacy location in calcofi4db/inst/ingest/ (deprecated).
+#' @param gcs_archive GCS archive path to read from (for reproducibility).
+#'   Can be either a timestamp (e.g., "2026-02-02_121557") or full path
+#'   (e.g., "gs://calcofi-files-public/archive/2026-02-02_121557").
+#'   If provided, downloads from archive instead of using local files.
+#' @param gcs_bucket GCS bucket for archives (default: "calcofi-files-public")
+#' @param archive_prefix Prefix for archive folder (default: "archive")
+#' @param sync_archive Whether to sync local files to GCS archive (default: TRUE).
+#'   Only applies when using dir_data (local files).
+#' @param verbose Print detailed messages. Default: FALSE
 #'
 #' @return A list containing:
 #'   \describe{
 #'     \item{d_csv}{List with CSV data including:
-#'       - data: tibble with columns (tbl, csv, data, nrow, ncol, flds)
+#'       - data: tibble with columns (tbl, csv, file_size, last_modified,
+#'         data, nrow, ncol, flds, gcs_path)
 #'       - tables: summary of tables (tbl, nrow, ncol)
 #'       - fields: summary of fields (tbl, fld, type)}
-#'     \item{d_gdata}{Google Drive metadata (if use_gdrive=TRUE) including
-#'       file names, IDs, modification times, and web links}
+#'     \item{source_files}{Data frame for provenance tracking with columns:
+#'       table, local_path, gcs_path, file_size, last_modified, nrow, ncol}
 #'     \item{d_tbls_rd}{Table redefinition data frame with columns:
 #'       tbl_old, tbl_new, tbl_description}
 #'     \item{d_flds_rd}{Field redefinition data frame with columns:
 #'       tbl_old, tbl_new, fld_old, fld_new, order_old, order_new,
 #'       type_old, type_new, fld_description, notes, mutation}
-#'     \item{workflow_info}{Information about the workflow including
-#'       workflow name, QMD file path, and URL}
 #'     \item{paths}{List of file paths used in the workflow}
 #'   }
 #' @export
@@ -121,47 +131,124 @@ read_csv_metadata <- function(dir_csv, dir_ingest, create_dirs = TRUE) {
 #'
 #' @examples
 #' \dontrun{
-#' # Basic usage
+#' # Read from local Google Drive mount (syncs to GCS archive)
 #' d <- read_csv_files(
-#'   provider = "swfsc.noaa.gov",
-#'   dataset  = "calcofi-db")
+#'   provider     = "swfsc.noaa.gov",
+#'   dataset      = "calcofi-db",
+#'   dir_data     = "~/My Drive/projects/calcofi/data-public",
+#'   metadata_dir = "metadata")
+#'
+#' # Read from specific GCS archive (for reproducibility)
+#' d <- read_csv_files(
+#'   provider     = "swfsc.noaa.gov",
+#'   dataset      = "calcofi-db",
+#'   gcs_archive  = "2026-02-02_121557",
+#'   metadata_dir = "metadata")
 #'
 #' # Access the raw CSV data
 #' d$d_csv$data
 #'
-#' # Check table redefinitions
-#' d$d_tbls_rd
-#'
-#' # Check field redefinitions
-#' d$d_flds_rd
-#'
-#' # Without Google Drive metadata
-#' d <- read_csv_files(
-#'   provider = "swfsc.noaa.gov",
-#'   dataset  = "calcofi-db",
-#'   use_gdrive = FALSE)
+#' # Check source file provenance
+#' d$source_files
 #' }
+#' @importFrom stringr str_extract
+#' @importFrom glue glue
 read_csv_files <- function(
     provider,
     dataset,
-    subdir      = NULL,
-    dir_data    = "~/My Drive/projects/calcofi/data",
-    url_gdata   = "https://drive.google.com/drive/u/0/folders/1xxdWa4mWkmfkJUQsHxERTp9eBBXBMbV7",
-    use_gdrive  = TRUE,
-    email       = "ben@ecoquants.com",
-    verbose     = F) {
+    subdir         = NULL,
+    dir_data       = NULL,
+    metadata_dir   = NULL,
+    gcs_archive    = NULL,
+    gcs_bucket     = "calcofi-files-public",
+    archive_prefix = "archive",
+    sync_archive   = TRUE,
+    verbose        = FALSE) {
 
-  # define paths
-  dir_csv <- ifelse(
-    is.null(subdir),
-    file.path(dir_data, provider, dataset),
-    file.path(dir_data, provider, dataset, subdir) )
+  # determine source: GCS archive or local
+  archive_info <- NULL
 
-  # check if running from calcofi4db/ or parent directory
-  if (basename(here::here()) == "calcofi4db") {
-    dir_ingest <- file.path(here::here(), "inst", "ingest", provider, dataset)
+  if (!is.null(gcs_archive)) {
+    # extract timestamp from full path if provided
+    if (grepl("^gs://", gcs_archive)) {
+      # extract timestamp from path like gs://bucket/archive/2026-02-02_121557/...
+      archive_timestamp <- stringr::str_extract(
+        gcs_archive,
+        glue::glue("{archive_prefix}/([^/]+)"),
+        group = 1)
+    } else {
+      archive_timestamp <- gcs_archive
+    }
+
+    # download from GCS archive
+    message(glue::glue("Reading from GCS archive: {archive_timestamp}"))
+    dir_csv <- download_archive(
+      archive_timestamp = archive_timestamp,
+      provider          = provider,
+      dataset           = dataset,
+      gcs_bucket        = gcs_bucket,
+      archive_prefix    = archive_prefix)
+
+    archive_info <- list(
+      archive_timestamp = archive_timestamp,
+      archive_path      = glue::glue("gs://{gcs_bucket}/{archive_prefix}/{archive_timestamp}/{provider}/{dataset}"),
+      created_new       = FALSE,
+      source            = "gcs")
+
+  } else if (!is.null(dir_data)) {
+    # use local files
+    dir_csv <- ifelse(
+      is.null(subdir),
+      file.path(dir_data, provider, dataset),
+      file.path(dir_data, provider, dataset, subdir))
+
+    stopifnot(
+      "Local CSV directory does not exist. Check dir_data path." = dir.exists(dir_csv))
+
+    # sync to GCS archive if requested
+    if (sync_archive) {
+      sync_result <- sync_to_gcs_archive(
+        dir_csv        = dir_csv,
+        provider       = provider,
+        dataset        = dataset,
+        gcs_bucket     = gcs_bucket,
+        archive_prefix = archive_prefix)
+
+      archive_info <- list(
+        archive_timestamp = sync_result$archive_timestamp,
+        archive_path      = sync_result$archive_path,
+        created_new       = sync_result$created_new,
+        source            = "local")
+    } else {
+      archive_info <- list(
+        archive_timestamp = NA_character_,
+        archive_path      = NA_character_,
+        created_new       = FALSE,
+        source            = "local")
+    }
+
   } else {
-    dir_ingest <- file.path(here::here(), "calcofi4db", "inst", "ingest", provider, dataset)
+    stop("Either dir_data (local path) or gcs_archive (archive timestamp/path) must be provided")
+  }
+
+  # determine dir_ingest: use metadata_dir if provided, else fall back to legacy path
+  if (!is.null(metadata_dir)) {
+    # new preferred location: workflows/metadata/{provider}/{dataset}
+    dir_ingest <- file.path(metadata_dir, provider, dataset)
+    if (!dir.exists(dir_ingest)) {
+      dir.create(dir_ingest, recursive = TRUE)
+      message(glue::glue("Created metadata directory: {dir_ingest}"))
+    }
+  } else {
+    # legacy location in calcofi4db package (deprecated)
+    warning(
+      "metadata_dir not specified. Using deprecated inst/ingest path. ",
+      "Please migrate metadata to workflows/metadata/{provider}/{dataset}/")
+    if (basename(here::here()) == "calcofi4db") {
+      dir_ingest <- file.path(here::here(), "inst", "ingest", provider, dataset)
+    } else {
+      dir_ingest <- file.path(here::here(), "calcofi4db", "inst", "ingest", provider, dataset)
+    }
   }
 
   stopifnot(dir.exists(dir_csv))
@@ -173,90 +260,30 @@ read_csv_files <- function(
   }
 
   if (verbose) {
-    message(glue::glue("Reading CSV data from dir_csv: {dir_csv}"))
-    message(glue::glue("Reading CSV redefinition from dir_ingest: {dir_ingest}"))
+    message(glue::glue("Reading CSV data from: {dir_csv}"))
+    message(glue::glue("Reading redefinition metadata from: {dir_ingest}"))
   }
 
-  # get workflow info - for master ingestion script, use inst/create_db.qmd
-  # check both possible locations (running from calcofi4db/ or from parent)
-  workflow_qmd_paths <- c(
-    "inst/create_db.qmd",
-    "calcofi4db/inst/create_db.qmd"
-  )
-
-  path_workflow_qmd <- NULL
-  for (path in workflow_qmd_paths) {
-    full_path <- file.path(here::here(), path)
-    if (file.exists(full_path)) {
-      path_workflow_qmd <- full_path
-      workflow_qmd <- path
-      break
-    }
-  }
-
-  if (is.null(path_workflow_qmd)) {
-    stop(glue::glue(
-      "Master ingestion workflow not found. Tried:
-       - {paste(file.path(here::here(), workflow_qmd_paths), collapse = '\n       - ')}
-       This function should be called from inside the master ingestion script."))
-  }
-
-  workflow_info <- list(
-    workflow = "ingest",
-    workflow_qmd = workflow_qmd,
-    workflow_url = "https://github.com/CalCOFI/calcofi4db/blob/main/inst/create_db.qmd"
-  )
-
-  # Input/output tables (version controlled)
+  # metadata file paths
   tbls_in_csv <- file.path(dir_ingest, "tbls_raw.csv")
   flds_in_csv <- file.path(dir_ingest, "flds_raw.csv")
-
-  # redefine tables (version controlled)
   tbls_rd_csv <- file.path(dir_ingest, "tbls_redefine.csv")
   flds_rd_csv <- file.path(dir_ingest, "flds_redefine.csv")
 
-  # Google Drive metadata
-  d_gdir_data <- NULL
+  # read CSV metadata and data
+  d_csv <- read_csv_metadata(dir_csv, dir_ingest)
 
-  # Query Google Drive if requested
-  if (use_gdrive) {
-
-    if (is.null(url_gdata)) {
-      stop("url_gdata must be provided when use_gdrive=TRUE")
-    }
-
-    if (is.null(email)) {
-      stop("email must be provided when use_gdrive=TRUE")
-    }
-
-    # Authenticate with Google Drive
-    googledrive::drive_auth(
-      email  = email,
-      scopes = "drive")
-
-    # check/get Google Drive calcofi/data/provider/dataset folder
-    g_provider <- drive_ls(url_gdata, q = glue::glue("name = '{provider}'"))
-    if (!nrow(g_provider) != 0)
-      stop(glue::glue("No unique folder found in Google Drive url_gdata for provider: {provider}"))
-    g_dataset <- drive_ls(g_provider$id, q = glue::glue("name = '{dataset}'"))
-    if (!nrow(g_dataset) != 0)
-      stop(glue::glue("No unique folder found in Google Drive url_gdata for provider/dataset: {provider}/{dataset}"))
-
-    # get metadata for CSV files in Google Drive calcofi/data/provider/dataset folder
-    d_gdata <- googledrive::drive_ls(g_dataset, q = "name contains '.csv$'") |>
+  # add GCS paths to data tibble for provenance tracking
+  if (!is.na(archive_info$archive_path)) {
+    d_csv$data <- d_csv$data |>
       dplyr::mutate(
-        web_view_link = purrr::map_chr(drive_resource, \(x) x$webViewLink),
-        created_time  = purrr::map_chr(drive_resource, \(x) x$createdTime) |>
-          lubridate::as_datetime())
+        gcs_path = glue::glue("{archive_info$archive_path}/{basename(csv)}"))
+  } else {
+    d_csv$data <- d_csv$data |>
+      dplyr::mutate(gcs_path = NA_character_)
   }
 
-  # Read CSV metadata and data
-  d_csv <- read_csv_metadata(dir_csv, dir_ingest)
-  # New names:
-  # • `stationid` -> `stationid...1`
-  # • `stationid` -> `stationid...7`
-
-  # Determine if redefinition files need to be created
+  # determine if redefinition files need to be created
   if (!file.exists(flds_rd_csv)) {
     # Create redefinition files
     create_redefinition_files(
@@ -271,13 +298,23 @@ read_csv_files <- function(
   d_tbls_rd <- readr::read_csv(tbls_rd_csv)
   d_flds_rd <- readr::read_csv(flds_rd_csv)
 
-  # Return all data and metadata
+  # create source_files dataframe for provenance tracking
+  source_files <- d_csv$data |>
+    dplyr::select(
+      table         = tbl,
+      local_path    = csv,
+      gcs_path,
+      file_size,
+      last_modified,
+      nrow,
+      ncol)
+
+  # return all data and metadata
   list(
-    d_csv         = d_csv,
-    d_gdata       = d_gdata,
-    d_tbls_rd     = d_tbls_rd,
-    d_flds_rd     = d_flds_rd,
-    workflow_info = workflow_info,
+    d_csv        = d_csv,
+    source_files = source_files,
+    d_tbls_rd    = d_tbls_rd,
+    d_flds_rd    = d_flds_rd,
     paths = list(
       dir_csv     = dir_csv,
       dir_ingest  = dir_ingest,

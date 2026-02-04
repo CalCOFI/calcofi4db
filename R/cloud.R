@@ -442,12 +442,47 @@ parse_gcs_path <- function(gcs_uri) {
   list(bucket = bucket, path = path)
 }
 
+#' Find gcloud CLI executable
+#' @noRd
+find_gcloud <- function() {
+  # first check if gcloud is in PATH
+
+  gcloud_path <- Sys.which("gcloud")
+  if (nzchar(gcloud_path)) {
+    return(gcloud_path)
+  }
+
+  # common installation locations
+  common_paths <- c(
+    "~/Downloads/google-cloud-sdk/bin/gcloud",
+    "~/google-cloud-sdk/bin/gcloud",
+    "/usr/local/google-cloud-sdk/bin/gcloud",
+    "/opt/google-cloud-sdk/bin/gcloud",
+    "/usr/local/bin/gcloud",
+    "/opt/homebrew/bin/gcloud",
+    "~/.local/bin/gcloud"
+  )
+
+  for (path in common_paths) {
+    expanded_path <- path.expand(path)
+    if (file.exists(expanded_path)) {
+      return(expanded_path)
+    }
+  }
+
+  stop("gcloud CLI not found. Please install it or add it to your PATH.
+       See: https://cloud.google.com/sdk/docs/install")
+}
+
 #' Download file using gcloud CLI
 #' @noRd
 gcloud_download <- function(bucket, gcs_path, local_path) {
+  gcloud  <- find_gcloud()
   gcs_uri <- glue::glue("gs://{bucket}/{gcs_path}")
-  cmd     <- glue::glue('gcloud storage cp "{gcs_uri}" "{local_path}"')
-  result  <- system(cmd, intern = TRUE)
+  # redirect stderr to suppress gcloud ERROR messages
+  cmd     <- glue::glue('"{gcloud}" storage cp "{gcs_uri}" "{local_path}" 2>/dev/null')
+  # suppress warnings from system() when command fails
+  result  <- suppressWarnings(system(cmd, intern = TRUE, ignore.stderr = TRUE))
 
   if (!file.exists(local_path)) {
     stop(glue::glue("Failed to download from GCS: {gcs_uri}"))
@@ -459,8 +494,9 @@ gcloud_download <- function(bucket, gcs_path, local_path) {
 #' Upload file using gcloud CLI
 #' @noRd
 gcloud_upload <- function(local_path, bucket, gcs_path) {
+  gcloud  <- find_gcloud()
   gcs_uri <- glue::glue("gs://{bucket}/{gcs_path}")
-  cmd     <- glue::glue('gcloud storage cp "{local_path}" "{gcs_uri}"')
+  cmd     <- glue::glue('"{gcloud}" storage cp "{local_path}" "{gcs_uri}"')
   result  <- system(cmd, intern = TRUE)
 
   invisible(gcs_uri)
@@ -470,13 +506,14 @@ gcloud_upload <- function(local_path, bucket, gcs_path) {
 #' @noRd
 #' @importFrom tibble tibble
 gcloud_list <- function(bucket, prefix = NULL) {
+  gcloud  <- find_gcloud()
   gcs_uri <- if (is.null(prefix)) {
     glue::glue("gs://{bucket}/")
   } else {
     glue::glue("gs://{bucket}/{prefix}")
   }
 
-  cmd    <- glue::glue('gcloud storage ls -l "{gcs_uri}" 2>/dev/null')
+  cmd    <- glue::glue('"{gcloud}" storage ls -l "{gcs_uri}" 2>/dev/null')
   result <- system(cmd, intern = TRUE)
 
   # parse gcloud ls output

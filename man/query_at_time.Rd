@@ -29,4 +29,21 @@ This function provides a simple time travel mechanism by filtering on the
 \code{_ingested_at} provenance column. For full DuckLake time travel with
 transactional consistency, use native DuckLake catalog features.
 }
+\examples{
+\dontrun{
+con <- get_working_ducklake(read_only = TRUE)
+
+# query larva table as of january 15th
+old_data <- query_at_time(
+  con       = con,
+  table     = "larva",
+  timestamp = "2026-01-15 00:00:00")
+
+# custom query with time filter
+results <- query_at_time(
+  con       = con,
+  query     = "SELECT species_id, COUNT(*) as n FROM larva GROUP BY species_id",
+  timestamp = "2026-01-15")
+}
+}
 \concept{ducklake}

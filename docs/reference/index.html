@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -233,6 +233,12 @@
         <dd>Get Working DuckLake connection</dd>
       </dl><dl><dt>
 
+          <code><a href="ingest_dataset.html">ingest_dataset()</a></code>
+
+        </dt>
+        <dd>Ingest Dataset into Working DuckLake</dd>
+      </dl><dl><dt>
+
           <code><a href="ingest_to_working.html">ingest_to_working()</a></code>
 
         </dt>
@@ -373,7 +379,7 @@
         </dt>
         <dd>Transform Data for Database Ingestion</dd>
       </dl></div><div class="section level2">
-      <h2 id="validation">Validation<a class="anchor" aria-label="anchor" href="#validation"></a></h2>
+      <h2 id="check">Check<a class="anchor" aria-label="anchor" href="#check"></a></h2>
 
       <div class="section-desc"><p>functions for data validation and integrity checking</p></div>
 
@@ -402,6 +408,53 @@
         </dt>
         <dd>Render Data Integrity Check Message</dd>
       </dl></div><div class="section level2">
+      <h2 id="validate">Validate<a class="anchor" aria-label="anchor" href="#validate"></a></h2>
+
+      <div class="section-desc"><p>functions for referential integrity validation and flagging invalid rows</p></div>
+
+
+    </div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="delete_flagged_rows.html">delete_flagged_rows()</a></code>
+
+        </dt>
+        <dd>Delete Flagged Rows from Database</dd>
+      </dl><dl><dt>
+
+          <code><a href="flag_invalid_rows.html">flag_invalid_rows()</a></code>
+
+        </dt>
+        <dd>Flag and Export Invalid Rows</dd>
+      </dl><dl><dt>
+
+          <code><a href="validate_dataset.html">validate_dataset()</a></code>
+
+        </dt>
+        <dd>Run All Validations for a Dataset</dd>
+      </dl><dl><dt>
+
+          <code><a href="validate_egg_stages.html">validate_egg_stages()</a></code>
+
+        </dt>
+        <dd>Validate Egg Stage Values</dd>
+      </dl><dl><dt>
+
+          <code><a href="validate_fk_references.html">validate_fk_references()</a></code>
+
+        </dt>
+        <dd>Validate Foreign Key References</dd>
+      </dl><dl><dt>
+
+          <code><a href="validate_lookup_values.html">validate_lookup_values()</a></code>
+
+        </dt>
+        <dd>Validate Lookup Values Exist</dd>
+      </dl></div><div class="section level2">
       <h2 id="ingest">Ingest<a class="anchor" aria-label="anchor" href="#ingest"></a></h2>
 
       <div class="section-desc"><p>functions for ingesting data into the database (PostgreSQL deprecated, use DuckLake)</p></div>
@@ -420,10 +473,10 @@
         <dd>Ingest CSV data to PostgreSQL database (DEPRECATED)</dd>
       </dl><dl><dt>
 
-          <code><a href="ingest_dataset.html">ingest_dataset()</a></code>
+          <code><a href="ingest_dataset_pg.html">ingest_dataset_pg()</a></code>
           <span class="badge lifecycle lifecycle-deprecated">deprecated</span>
         </dt>
-        <dd>Ingest a Dataset (DEPRECATED)</dd>
+        <dd>Ingest a Dataset to PostgreSQL (DEPRECATED)</dd>
       </dl></div><div class="section level2">
       <h2 id="version">Version<a class="anchor" aria-label="anchor" href="#version"></a></h2>
 
@@ -477,9 +530,9 @@
         </dt>
         <dd>Get a database connection to the CalCOFI PostgreSQL database (DEPRECATED)</dd>
       </dl></div><div class="section level2">
-      <h2 id="visualize">Visualize<a class="anchor" aria-label="anchor" href="#visualize"></a></h2>
+      <h2 id="wrangle">Wrangle<a class="anchor" aria-label="anchor" href="#wrangle"></a></h2>
 
-      <div class="section-desc"><p>functions visualizing diagnostic outputs, particularly color coded data tables</p></div>
+      <div class="section-desc"><p>functions for local DuckDB wrangling (keys, IDs, table consolidation)</p></div>
 
 
     </div><div class="section level2">
@@ -489,26 +542,173 @@
 
       <dl><dt>
 
-          <code><a href="show_fields_redefine.html">show_fields_redefine()</a></code>
+          <code><a href="apply_data_corrections.html">apply_data_corrections()</a></code>
 
         </dt>
-        <dd>Show fields to redefine</dd>
+        <dd>Apply Data Corrections</dd>
       </dl><dl><dt>
 
-          <code><a href="show_googledrive_files.html">show_googledrive_files()</a></code>
+          <code><a href="assign_sequential_ids.html">assign_sequential_ids()</a></code>
 
         </dt>
-        <dd>Show Google Drive files</dd>
+        <dd>Assign Sequential IDs with Deterministic Sort Order</dd>
       </dl><dl><dt>
 
-          <code><a href="show_tables_redefine.html">show_tables_redefine()</a></code>
+          <code><a href="consolidate_ichthyo_tables.html">consolidate_ichthyo_tables()</a></code>
 
         </dt>
-        <dd>Show tables to redefine</dd>
+        <dd>Consolidate Ichthyoplankton Tables into Tidy Format</dd>
+      </dl><dl><dt>
+
+          <code><a href="create_cruise_key.html">create_cruise_key()</a></code>
+
+        </dt>
+        <dd>Create Cruise Key from Ship Key and Date</dd>
+      </dl><dl><dt>
+
+          <code><a href="create_lookup_table.html">create_lookup_table()</a></code>
+
+        </dt>
+        <dd>Create Lookup Table from Vocabulary Definitions</dd>
+      </dl><dl><dt>
+
+          <code><a href="propagate_natural_key.html">propagate_natural_key()</a></code>
+
+        </dt>
+        <dd>Propagate Key from Parent to Child Table</dd>
+      </dl><dl><dt>
+
+          <code><a href="replace_uuid_with_id.html">replace_uuid_with_id()</a></code>
+
+        </dt>
+        <dd>Replace UUIDs with Integer Foreign Keys</dd>
+      </dl><dl><dt>
+
+          <code><a href="write_parquet_outputs.html">write_parquet_outputs()</a></code>
+
+        </dt>
+        <dd>Write Tables to Parquet Files</dd>
       </dl></div><div class="section level2">
-      <h2 id="other">Other<a class="anchor" aria-label="anchor" href="#other"></a></h2>
+      <h2 id="workflow">Workflow<a class="anchor" aria-label="anchor" href="#workflow"></a></h2>
 
-      <div class="section-desc"><p>check for other functions or datasets not captured by above categories</p></div>
+      <div class="section-desc"><p>functions for orchestrating ingestion workflow steps</p></div>
+
+
+    </div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="integrate_to_working_ducklake.html">integrate_to_working_ducklake()</a></code>
+
+        </dt>
+        <dd>Integrate Ingest Outputs into Working DuckLake</dd>
+      </dl><dl><dt>
+
+          <code><a href="list_ingest_outputs.html">list_ingest_outputs()</a></code>
+
+        </dt>
+        <dd>List Available Ingest Outputs</dd>
+      </dl><dl><dt>
+
+          <code><a href="read_ingest_manifest.html">read_ingest_manifest()</a></code>
+
+        </dt>
+        <dd>Read Ingest Manifest from GCS</dd>
+      </dl><dl><dt>
+
+          <code><a href="read_ingest_parquet.html">read_ingest_parquet()</a></code>
+
+        </dt>
+        <dd>Read Ingest Parquet Table from GCS</dd>
+      </dl><dl><dt>
+
+          <code><a href="write_ingest_outputs.html">write_ingest_outputs()</a></code>
+
+        </dt>
+        <dd>Write Ingest Workflow Outputs to GCS</dd>
+      </dl></div><div class="section level2">
+      <h2 id="display">Display<a class="anchor" aria-label="anchor" href="#display"></a></h2>
+
+      <div class="section-desc"><p>helper functions for workflow display outputs (GitHub links, validation tables)</p></div>
+
+
+    </div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="github_file_link.html">github_file_link()</a></code>
+
+        </dt>
+        <dd>Create GitHub File Link</dd>
+      </dl><dl><dt>
+
+          <code><a href="show_flagged_file.html">show_flagged_file()</a></code>
+
+        </dt>
+        <dd>Show Flagged File Result</dd>
+      </dl><dl><dt>
+
+          <code><a href="show_validation_results.html">show_validation_results()</a></code>
+
+        </dt>
+        <dd>Show Validation Results with GitHub Links</dd>
+      </dl></div><div class="section level2">
+      <h2 id="archive">Archive<a class="anchor" aria-label="anchor" href="#archive"></a></h2>
+
+      <div class="section-desc"><p>functions for archiving and managing historical data snapshots</p></div>
+
+
+    </div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="compare_local_vs_archive.html">compare_local_vs_archive()</a></code>
+
+        </dt>
+        <dd>Compare local files with GCS archive</dd>
+      </dl><dl><dt>
+
+          <code><a href="download_archive.html">download_archive()</a></code>
+
+        </dt>
+        <dd>Download archive to local directory</dd>
+      </dl><dl><dt>
+
+          <code><a href="get_archive_manifest.html">get_archive_manifest()</a></code>
+
+        </dt>
+        <dd>Get archive manifest (file metadata)</dd>
+      </dl><dl><dt>
+
+          <code><a href="get_latest_archive_timestamp.html">get_latest_archive_timestamp()</a></code>
+
+        </dt>
+        <dd>Get latest archive timestamp from GCS</dd>
+      </dl><dl><dt>
+
+          <code><a href="get_local_manifest.html">get_local_manifest()</a></code>
+
+        </dt>
+        <dd>Get local file manifest</dd>
+      </dl><dl><dt>
+
+          <code><a href="sync_to_gcs_archive.html">sync_to_gcs_archive()</a></code>
+
+        </dt>
+        <dd>Sync local files to GCS archive</dd>
+      </dl></div><div class="section level2">
+      <h2 id="version-sync">Version Sync<a class="anchor" aria-label="anchor" href="#version-sync"></a></h2>
+
+      <div class="section-desc"><p>functions for synchronizing schema and package versions</p></div>
 
 
     </div><div class="section level2">
@@ -546,7 +746,48 @@
 
         </dt>
         <dd>Synchronized Version Management for Package and Database</dd>
-      </dl></div>
+      </dl></div><div class="section level2">
+      <h2 id="visualize">Visualize<a class="anchor" aria-label="anchor" href="#visualize"></a></h2>
+
+      <div class="section-desc"><p>functions visualizing diagnostic outputs, particularly color coded data tables</p></div>
+
+
+    </div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="show_fields_redefine.html">show_fields_redefine()</a></code>
+
+        </dt>
+        <dd>Show fields to redefine</dd>
+      </dl><dl><dt>
+
+          <code><a href="show_source_files.html">show_source_files()</a></code>
+
+        </dt>
+        <dd>Show source files</dd>
+      </dl><dl><dt>
+
+          <code><a href="show_tables_redefine.html">show_tables_redefine()</a></code>
+
+        </dt>
+        <dd>Show tables to redefine</dd>
+      </dl></div><div class="section level2">
+      <h2 id="other">Other<a class="anchor" aria-label="anchor" href="#other"></a></h2>
+
+      <div class="section-desc"><p>check for other functions or datasets not captured by above categories</p></div>
+
+
+    </div><div class="section level2">
+
+
+
+
+
+    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

@@ -124,15 +124,18 @@ get_working_ducklake <- function(
     tryCatch({
       message(glue::glue("Downloading Working DuckLake from {gcs_path}..."))
       get_gcs_file(gcs_path, local_path = local_path, overwrite = TRUE)
+      message("Download complete.")
     }, error = function(e) {
       if (!local_exists) {
         message(glue::glue(
-          "No existing Working DuckLake found. Creating new database at {local_path}"))
+          "No existing Working DuckLake found in GCS. Creating new database at {local_path}"))
       } else {
         warning(glue::glue(
           "Failed to refresh from GCS: {e$message}. Using existing local file."))
       }
     })
+  } else {
+    message(glue::glue("Using cached Working DuckLake at {local_path}"))
   }
 
   # create connection
@@ -328,7 +331,7 @@ ingest_to_working <- function(
 #' transactional consistency, use native DuckLake catalog features.
 #'
 #' @examples
-#' \dontrun
+#' \dontrun{
 #' con <- get_working_ducklake(read_only = TRUE)
 #'
 #' # query larva table as of january 15th
@@ -423,6 +426,110 @@ save_working_ducklake <- function(
 
   message("Upload complete")
   return(gcs_path)
+}
+
+#' Ingest Dataset into Working DuckLake
+#'
+#' High-level function to ingest all tables from a dataset into the Working
+#' DuckLake. This wraps `transform_data()` and `ingest_to_working()` into a
+#' single operation with proper provenance tracking.
+#'
+#' @param con DuckDB connection from `get_working_ducklake()`
+#' @param d Data object from `read_csv_files()`
+#' @param mode Insert mode: "replace" (default) or "append"
+#' @param verbose Print progress messages (default: TRUE)
+#'
+#' @return Tibble with ingestion statistics for each table:
+#'   \itemize{
+#'     \item \code{tbl}: Original table name
+#'     \item \code{tbl_new}: New table name after redefinition
+#'     \item \code{gcs_path}: Source file path for provenance
+#'     \item \code{rows_input}: Number of rows ingested
+#'     \item \code{rows_after}: Total rows in table after ingestion
+#'     \item \code{ingested_at}: Timestamp of ingestion
+#'   }
+#'
+#' @export
+#' @concept ducklake
+#'
+#' @examples
+#' \dontrun{
+#' # read and ingest dataset
+#' d <- read_csv_files(
+#'   provider     = "swfsc.noaa.gov",
+#'   dataset      = "calcofi-db",
+#'   dir_data     = "~/My Drive/projects/calcofi/data-public",
+#'   metadata_dir = "metadata")
+#'
+#' con <- get_working_ducklake()
+#' stats <- ingest_dataset(con, d, mode = "replace")
+#' save_working_ducklake(con)
+#' close_duckdb(con)
+#' }
+#' @importFrom dplyr mutate select left_join bind_rows
+#' @importFrom purrr map2
+#' @importFrom stringr str_detect
+#' @importFrom tibble tibble
+ingest_dataset <- function(
+    con,
+    d,
+    mode    = "replace",
+    verbose = TRUE) {
+
+
+  # transform data using redefinitions
+  if (verbose) message("Transforming data...")
+  d_t <- transform_data(d)
+
+  # collect stats for each table
+
+  stats_list <- list()
+
+  for (i in seq_len(nrow(d_t))) {
+    tbl_old  <- d_t$tbl[i]
+    tbl_new  <- d_t$tbl_new[i]
+    data_new <- d_t$data_new[[i]]
+    gcs_path <- d_t$gcs_path[i]
+
+    if (is.null(data_new) || nrow(data_new) == 0) {
+      if (verbose) message(glue::glue("  Skipping empty table: {tbl_new}"))
+      next
+    }
+
+    # find uuid column if present
+    uuid_cols <- names(data_new)[stringr::str_detect(names(data_new), "_uuid$")]
+    uuid_col  <- if (length(uuid_cols) > 0) uuid_cols[1] else NULL
+
+    if (verbose) message(glue::glue("  Ingesting: {tbl_new} ({nrow(data_new)} rows)"))
+
+    # ingest to working ducklake
+    stats <- ingest_to_working(
+      con              = con,
+      data             = data_new,
+      table            = tbl_new,
+      source_file      = gcs_path,
+      source_uuid_col  = uuid_col,
+      source_row_start = 2,  # skip header row
+      mode             = mode)
+
+    # add table mapping info
+    stats$tbl     <- tbl_old
+    stats$tbl_new <- tbl_new
+    stats$gcs_path <- gcs_path
+
+    stats_list[[i]] <- stats
+  }
+
+  # combine all stats
+  result <- dplyr::bind_rows(stats_list) |>
+    dplyr::select(tbl, tbl_new, gcs_path, rows_input, rows_after, ingested_at)
+
+  if (verbose) {
+    message(glue::glue(
+      "Ingested {nrow(result)} tables, {sum(result$rows_input)} total rows"))
+  }
+
+  result
 }
 
 #' Strip provenance columns from data

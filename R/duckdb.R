@@ -7,7 +7,7 @@
 #'
 #' @param path Path to DuckDB file, GCS path, or ":memory:" for in-memory
 #' @param read_only Open database in read-only mode (default: FALSE)
-#' @param config Named list of DuckDB configuration options
+#' @param config Named list of DuckDB configuration options (default: empty list)
 #'
 #' @return DuckDB connection object
 #' @export
@@ -34,7 +34,7 @@
 get_duckdb_con <- function(
     path      = ":memory:",
     read_only = FALSE,
-    config    = NULL) {
+    config    = list()) {
 
   if (!requireNamespace("duckdb", quietly = TRUE)) {
     stop("Package 'duckdb' is required. Install with: install.packages('duckdb')")
@@ -52,6 +52,11 @@ get_duckdb_con <- function(
     if (!dir.exists(db_dir) && db_dir != ".") {
       dir.create(db_dir, recursive = TRUE)
     }
+  }
+
+  # ensure config is a list (duckdb requires this)
+  if (is.null(config)) {
+    config <- list()
   }
 
   # create connection

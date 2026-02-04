@@ -30,10 +30,14 @@ reference:
   desc: functions to transform data, after reading data and before ingesting into the database
   contents:
   - has_concept("transform")
-- title: "Validation"
+- title: "Check"
   desc: functions for data validation and integrity checking
   contents:
   - has_concept("check")
+- title: "Validate"
+  desc: functions for referential integrity validation and flagging invalid rows
+  contents:
+  - has_concept("validate")
 - title: "Ingest"
   desc: functions for ingesting data into the database (PostgreSQL deprecated, use DuckLake)
   contents:
@@ -46,6 +50,26 @@ reference:
   desc: utility functions for database operations (PostgreSQL deprecated)
   contents:
   - has_concept("utils")
+- title: "Wrangle"
+  desc: functions for local DuckDB wrangling (keys, IDs, table consolidation)
+  contents:
+  - has_concept("wrangle")
+- title: "Workflow"
+  desc: functions for orchestrating ingestion workflow steps
+  contents:
+  - has_concept("workflow")
+- title: "Display"
+  desc: helper functions for workflow display outputs (GitHub links, validation tables)
+  contents:
+  - has_concept("display")
+- title: "Archive"
+  desc: functions for archiving and managing historical data snapshots
+  contents:
+  - has_concept("archive")
+- title: "Version Sync"
+  desc: functions for synchronizing schema and package versions
+  contents:
+  - has_concept("version_sync")
 - title: "Visualize"
   desc: functions visualizing diagnostic outputs, particularly color coded data tables
   contents:
@@ -53,4 +77,4 @@ reference:
 - title: "Other"
   desc: check for other functions or datasets not captured by above categories
   contents:
-  - lacks_concepts(c("cloud", "parquet", "duckdb", "ducklake", "freeze", "read", "transform", "check", "ingest", "version", "utils", "viz"))
+  - lacks_concepts(c("cloud", "parquet", "duckdb", "ducklake", "freeze", "read", "transform", "check", "validate", "wrangle", "workflow", "display", "archive", "version_sync", "ingest", "version", "utils", "viz"))

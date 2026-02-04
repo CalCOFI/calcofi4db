@@ -168,23 +168,23 @@ ingest_csv_to_db <- function(con, schema, transformed_data, d_flds_rd,
   return(tbl_stats)
 }
 
-#' Ingest a Dataset (DEPRECATED)
+#' Ingest a Dataset to PostgreSQL (DEPRECATED)
 #'
 #' @description
 #' `r lifecycle::badge("deprecated")`
 #'
-#' This function is deprecated. Please use the targets pipeline with
-#' \code{\link{ingest_to_working}} instead for ingesting datasets into
-#' the DuckLake database with automatic provenance tracking.
+#' This function is deprecated. Please use \code{\link{ingest_dataset}} from
+#' `R/ducklake.R` for DuckLake workflows, or the targets pipeline with
+#' \code{\link{ingest_to_working}} instead.
 #'
-#' High-level function to ingest a dataset into the database.
+#' Legacy function to ingest a dataset into PostgreSQL database.
 #'
 #' @param con Database connection
 #' @param provider Data provider name
 #' @param dataset Dataset name
 #' @param dir_data Base directory for data
 #' @param schema Database schema
-#' @param dir_googledata Google Drive folder URL (optional)
+#' @param url_gdata Google Drive folder URL (optional)
 #' @param email Google Drive authentication email (optional)
 #' @param overwrite Whether to overwrite existing tables
 #'
@@ -194,7 +194,7 @@ ingest_csv_to_db <- function(con, schema, transformed_data, d_flds_rd,
 #'
 #' @examples
 #' \dontrun{
-#' result <- ingest_dataset(
+#' result <- ingest_dataset_pg(
 #'   con = db_connection,
 #'   provider = "swfsc.noaa.gov",
 #'   dataset = "calcofi-db",
@@ -202,38 +202,33 @@ ingest_csv_to_db <- function(con, schema, transformed_data, d_flds_rd,
 #'   schema = "public"
 #' )
 #' }
-ingest_dataset <- function(con, provider, dataset, dir_data,
-                          schema = "public", dir_googledata = NULL,
-                          email = NULL, overwrite = FALSE) {
+ingest_dataset_pg <- function(con, provider, dataset, dir_data,
+                              schema = "public", url_gdata = NULL,
+                              email = NULL, overwrite = FALSE) {
 
   # deprecation warning
   lifecycle::deprecate_warn(
     "2.0.0",
-    "ingest_dataset()",
+    "ingest_dataset_pg()",
     details = c(
-      "Use the targets pipeline with ingest_to_working() instead.",
+      "Use ingest_dataset() for DuckLake workflows instead.",
       "See workflows/README_PLAN.qmd for the new workflow architecture."))
 
   # Load CSV files and metadata
   data_info <- read_csv_files(
-    provider = provider,
-    dataset = dataset,
-    dir_data = dir_data,
-    dir_googledata = dir_googledata,
-    use_gdrive = !is.null(dir_googledata) && !is.null(email),
-    email = email
+    provider   = provider,
+    dataset    = dataset,
+    dir_data   = dir_data,
+    url_gdata  = url_gdata,
+    use_gdrive = !is.null(url_gdata) && !is.null(email),
+    email      = email
   )
 
   # Transform data
   transformed_data <- transform_data(data_info)
 
-  # Detect changes
-  changes <- detect_csv_changes(
-    con = con,
-    schema = schema,
-    transformed_data = transformed_data,
-    d_flds_rd = data_info$d_flds_rd
-  )
+  # Detect changes (takes single d argument, not con/schema/transformed_data)
+  changes <- detect_csv_changes(data_info)
 
   # Ingest data to database
   stats <- ingest_csv_to_db(

@@ -1,3 +1,11 @@
+# calcofi4db 2.2.0
+
+*Improvements to cloud plan functions*
+
+Workflow ingest_swfsc.noaa.gov_calcofi-db.qmd now fully automates ingestion of 
+CalCOFI database from SWFSC NOAA archive to parquet files in Google Cloud Storage.
+Many new functions added.
+
 # calcofi4db 2.1.0
 
 *Addition of functions for phase 2 of cloud plan*

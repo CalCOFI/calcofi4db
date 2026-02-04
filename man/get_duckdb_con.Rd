@@ -4,14 +4,14 @@
 \alias{get_duckdb_con}
 \title{Get a DuckDB connection}
 \usage{
-get_duckdb_con(path = ":memory:", read_only = FALSE, config = NULL)
+get_duckdb_con(path = ":memory:", read_only = FALSE, config = list())
 }
 \arguments{
 \item{path}{Path to DuckDB file, GCS path, or ":memory:" for in-memory}
 
 \item{read_only}{Open database in read-only mode (default: FALSE)}
 
-\item{config}{Named list of DuckDB configuration options}
+\item{config}{Named list of DuckDB configuration options (default: empty list)}
 }
 \value{
 DuckDB connection object

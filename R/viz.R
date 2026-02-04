@@ -1,3 +1,43 @@
+#' @title Show source files
+#' @description Show source CSV files with local and GCS paths for provenance
+#' @param d data object output from `read_csv_files()`
+#' @return DT datatable showing source files with paths and row counts
+#' @export
+#' @importFrom dplyr mutate select
+#' @importFrom DT datatable
+#' @importFrom glue glue
+#' @concept viz
+show_source_files <- function(d) {
+  # use source_files dataframe for provenance display
+  d$source_files |>
+    dplyr::mutate(
+      local_file   = basename(local_path),
+      gcs_file     = ifelse(
+        is.na(gcs_path),
+        NA_character_,
+        glue::glue("<a href='https://storage.googleapis.com/{gsub(\"gs://\", \"\", gcs_path)}' target='_blank'>{basename(gcs_path)}</a>")),
+      file_size_kb = round(file_size / 1024, 1),
+      last_mod     = format(last_modified, "%Y-%m-%d %H:%M")) |>
+    dplyr::select(
+      table,
+      rows         = nrow,
+      cols         = ncol,
+      file_size_kb,
+      last_mod,
+      local_file,
+      gcs_file,
+      local_path,
+      gcs_path) |>
+    DT::datatable(
+      escape   = FALSE,
+      rownames = FALSE,
+      caption  = "Source CSV files with local and GCS paths for provenance.",
+      options  = list(
+        pageLength = 20,
+        columnDefs = list(
+          list(targets = c("local_path", "gcs_path"), visible = FALSE))))
+}
+
 #' @title Show fields to redefine
 #' @description Show tables to redefine
 #' @param d data object output from `read_csv_files()`
@@ -6,7 +46,7 @@
 #' @importFrom dplyr mutate select
 #' @importFrom DT datatable formatStyle
 #' @concept viz
-show_fields_redefine = function(d) {
+show_fields_redefine <- function(d) {
   d$d_flds_rd |>
     mutate(
       tbl_is_equal   = tbl_old   == tbl_new,
@@ -68,26 +108,6 @@ show_fields_redefine = function(d) {
         c("lightgray","lightgreen")),
       valueColumns    = "order_is_equal")
 
-}
-
-#' @title Show Google Drive files
-#' @description Show Google Drive files
-#' @param d data object output from `read_csv_files()`
-#' @return Data frame with Google Drive files
-#' @export
-#' @importFrom dplyr mutate select
-#' @importFrom DT datatable formatDate
-#' @importFrom glue glue
-#' @importFrom here here
-#' @concept viz
-show_googledrive_files = function(d) {
-  # Google Drive files were already loaded in setup
-  d$d_gdata |>
-    dplyr::mutate(
-      csv = glue::glue("<a href='{web_view_link}' target='_blank'>{name}</a>") ) |>
-    dplyr::select(csv = name, created_time) |>
-    DT::datatable(escape = F, caption = "CSV files to ingest.") |>
-    DT::formatDate(~created_time, "toLocaleString")
 }
 
 #' @title Show tables to redefine

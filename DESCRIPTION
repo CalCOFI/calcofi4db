@@ -1,6 +1,6 @@
 Package: calcofi4db
 Title: CalCOFI Database Tools
-Version: 2.1.0
+Version: 2.2.0
 URL: https://calcofi.io/calcofi4db
 BugReports: https://github.com/calcofi/calcofi4db/issues
 Authors@R: 

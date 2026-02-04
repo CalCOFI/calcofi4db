@@ -8,12 +8,13 @@ read_csv_files(
   provider,
   dataset,
   subdir = NULL,
-  dir_data = "~/My Drive/projects/calcofi/data",
-  url_gdata =
-    "https://drive.google.com/drive/u/0/folders/1xxdWa4mWkmfkJUQsHxERTp9eBBXBMbV7",
-  use_gdrive = TRUE,
-  email = "ben@ecoquants.com",
-  verbose = F
+  dir_data = NULL,
+  metadata_dir = NULL,
+  gcs_archive = NULL,
+  gcs_bucket = "calcofi-files-public",
+  archive_prefix = "archive",
+  sync_archive = TRUE,
+  verbose = FALSE
 )
 }
 \arguments{
@@ -22,83 +23,93 @@ read_csv_files(
 \item{dataset}{Dataset name (e.g., "calcofi-db")}
 
 \item{subdir}{Optional subdirectory (i.e.,
-{dir_data}/{provider}/{dataset}/{subdir}) for CSV files}
+{dir_data}/{provider}/{dataset}/{subdir}) for CSV files. Use for datasets
+organized with \verb{raw/} or \verb{derived/} subdirectories.}
 
-\item{dir_data}{directory path of CalCOFI base data folder available locally,
-with CSVs under {provider}/{dataset} directory. Default: "~/My
-Drive/projects/calcofi/data"}
+\item{dir_data}{Directory path of CalCOFI base data folder available locally,
+with CSVs under {provider}/{dataset} directory. If NULL and gcs_archive
+is also NULL, will error. Set to NULL to use gcs_archive instead.}
 
-\item{url_gdata}{URL of CalCOFI base data folder in Google Drive (with CSVs
-under {provider}/{dataset} directory) with metadata information on CSVs.
-Default: \href{https://drive.google.com/drive/u/0/folders/1xxdWa4mWkmfkJUQsHxERTp9eBBXBMbV7}{data - Google Drive}}
+\item{metadata_dir}{Directory containing redefinition metadata files
+(tbls_redefine.csv, flds_redefine.csv). The directory should be structured
+as {metadata_dir}/{provider}/{dataset}/. If NULL, falls back to the
+legacy location in calcofi4db/inst/ingest/ (deprecated).}
 
-\item{use_gdrive}{Whether to query Google Drive for metadata. Default: TRUE}
+\item{gcs_archive}{GCS archive path to read from (for reproducibility).
+Can be either a timestamp (e.g., "2026-02-02_121557") or full path
+(e.g., "gs://calcofi-files-public/archive/2026-02-02_121557").
+If provided, downloads from archive instead of using local files.}
 
-\item{email}{Google Drive authentication email (if use_gdrive=TRUE). Default:
-"ben@ecoquants.com"}
+\item{gcs_bucket}{GCS bucket for archives (default: "calcofi-files-public")}
+
+\item{archive_prefix}{Prefix for archive folder (default: "archive")}
+
+\item{sync_archive}{Whether to sync local files to GCS archive (default: TRUE).
+Only applies when using dir_data (local files).}
+
+\item{verbose}{Print detailed messages. Default: FALSE}
 }
 \value{
 A list containing:
 \describe{
 \item{d_csv}{List with CSV data including:
-- data: tibble with columns (tbl, csv, data, nrow, ncol, flds)
+- data: tibble with columns (tbl, csv, file_size, last_modified,
+data, nrow, ncol, flds, gcs_path)
 - tables: summary of tables (tbl, nrow, ncol)
 - fields: summary of fields (tbl, fld, type)}
-\item{d_gdata}{Google Drive metadata (if use_gdrive=TRUE) including
-file names, IDs, modification times, and web links}
+\item{source_files}{Data frame for provenance tracking with columns:
+table, local_path, gcs_path, file_size, last_modified, nrow, ncol}
 \item{d_tbls_rd}{Table redefinition data frame with columns:
 tbl_old, tbl_new, tbl_description}
 \item{d_flds_rd}{Field redefinition data frame with columns:
 tbl_old, tbl_new, fld_old, fld_new, order_old, order_new,
 type_old, type_new, fld_description, notes, mutation}
-\item{workflow_info}{Information about the workflow including
-workflow name, QMD file path, and URL}
 \item{paths}{List of file paths used in the workflow}
 }
 }
 \description{
-Reads CSV files from a directory and prepares them for ingestion into a
-database. This function is the primary entry point for the CalCOFI data
-ingestion workflow. It performs the following steps:
+Reads CSV files from a directory or GCS archive and prepares them for
+ingestion into a database. This function is the primary entry point for
+the CalCOFI data ingestion workflow. It performs the following steps:
 }
 \details{
 \enumerate{
-\item Reads all CSV files from the specified provider/dataset directory
+\item Reads CSV files from local directory or downloads from GCS archive
+\item If using local files, syncs to GCS archive for immutable provenance
 \item Extracts metadata about tables and fields from the CSV files
 \item Creates or reads redefinition files for table and field transformations
-\item Optionally queries Google Drive for file metadata (creation dates, etc.)
 }
 
 The function returns a comprehensive data structure containing:
 \itemize{
 \item Raw CSV data and metadata (d_csv)
+\item Source files with provenance tracking (source_files)
 \item Table redefinitions (d_tbls_rd) for renaming/describing tables
 \item Field redefinitions (d_flds_rd) for renaming/typing/transforming fields
-\item Google Drive metadata if requested (d_gdata)
-\item Workflow information and file paths
+\item File paths used in the workflow
 }
 }
 \examples{
 \dontrun{
-# Basic usage
+# Read from local Google Drive mount (syncs to GCS archive)
 d <- read_csv_files(
-  provider = "swfsc.noaa.gov",
-  dataset  = "calcofi-db")
+  provider     = "swfsc.noaa.gov",
+  dataset      = "calcofi-db",
+  dir_data     = "~/My Drive/projects/calcofi/data-public",
+  metadata_dir = "metadata")
+
+# Read from specific GCS archive (for reproducibility)
+d <- read_csv_files(
+  provider     = "swfsc.noaa.gov",
+  dataset      = "calcofi-db",
+  gcs_archive  = "2026-02-02_121557",
+  metadata_dir = "metadata")
 
 # Access the raw CSV data
 d$d_csv$data
 
-# Check table redefinitions
-d$d_tbls_rd
-
-# Check field redefinitions
-d$d_flds_rd
-
-# Without Google Drive metadata
-d <- read_csv_files(
-  provider = "swfsc.noaa.gov",
-  dataset  = "calcofi-db",
-  use_gdrive = FALSE)
+# Check source file provenance
+d$source_files
 }
 }
 \concept{read}
