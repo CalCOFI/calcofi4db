@@ -366,6 +366,7 @@ create_redefinition_files <- function(d_tbls_in, d_flds_in, d,
       fld_new = janitor::make_clean_names(fld),
       order = 1:dplyr::n(),
       fld_description = "",
+      units = "",
       notes = "",
       mutation = "",
       type_new = determine_field_types(d, tbl, fld)) |>
@@ -374,7 +375,7 @@ create_redefinition_files <- function(d_tbls_in, d_flds_in, d,
       fld_old = fld, fld_new,
       order_old = order, order_new = order,
       type_old = type, type_new,
-      fld_description, notes, mutation) |>
+      fld_description, units, notes, mutation) |>
     readr::write_csv(flds_rd_csv)
 
   message(glue::glue(

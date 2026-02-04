@@ -772,15 +772,248 @@ write_parquet_outputs <- function(
 
   # write manifest
   manifest <- list(
-    created_at = as.character(Sys.time()),
-    tables     = stats$table,
-    total_rows = sum(stats$rows),
+    created_at       = as.character(Sys.time()),
+    tables           = stats$table,
+    total_rows       = sum(stats$rows),
     total_size_bytes = sum(stats$file_size),
-    files = stats |> as.list())
+    metadata_file    = "metadata.json",
+    files            = stats |> as.list())
 
   manifest_path <- file.path(output_dir, "manifest.json")
   jsonlite::write_json(manifest, manifest_path, auto_unbox = TRUE, pretty = TRUE)
   message(glue::glue("Wrote manifest to {manifest_path}"))
 
   stats
+}
+
+#' Build Metadata JSON for Parquet Outputs
+#'
+#' Creates a sidecar `metadata.json` file alongside parquet outputs that
+#' documents every table and column. DuckDB `COMMENT ON` does not propagate
+#' to parquet via `COPY TO`, so this provides the metadata externally.
+#'
+#' Metadata is assembled from three sources:
+#' 1. Table/field redefinition files (`d_tbls_rd`, `d_flds_rd`)
+#' 2. A derived metadata CSV for workflow-created tables/columns
+#' 3. Auto-generated stubs for any remaining undocumented columns
+#'
+#' Optionally sets DuckDB `COMMENT ON` for tables and columns.
+#'
+#' @param con DuckDB connection
+#' @param d_tbls_rd Table redefinition data frame (with `tbl_new`, `tbl_description`)
+#' @param d_flds_rd Field redefinition data frame (with `tbl_new`, `fld_new`,
+#'   `fld_description`, `units`)
+#' @param metadata_derived_csv Path to CSV with derived table/column metadata
+#'   (columns: table, column, name_long, units, description_md)
+#' @param output_dir Directory to write `metadata.json`
+#' @param tables Character vector of table names to include. If NULL, uses all
+#'   tables from DuckDB.
+#' @param set_comments If TRUE, also sets DuckDB `COMMENT ON` for tables/columns
+#' @param provider Data provider identifier (e.g. "swfsc.noaa.gov")
+#' @param dataset Dataset identifier (e.g. "calcofi-db")
+#' @param workflow_url URL to the rendered workflow page
+#'
+#' @return Path to the created `metadata.json` file
+#' @export
+#' @concept wrangle
+#'
+#' @examples
+#' \dontrun{
+#' build_metadata_json(
+#'   con                  = con,
+#'   d_tbls_rd            = d$d_tbls_rd,
+#'   d_flds_rd            = d$d_flds_rd,
+#'   metadata_derived_csv = "metadata/swfsc.noaa.gov/calcofi-db/metadata_derived.csv",
+#'   output_dir           = "data/parquet/swfsc.noaa.gov_calcofi-db",
+#'   tables               = DBI::dbListTables(con),
+#'   provider             = "swfsc.noaa.gov",
+#'   dataset              = "calcofi-db",
+#'   workflow_url         = "https://calcofi.io/workflows/ingest_swfsc.noaa.gov_calcofi-db.html")
+#' }
+#' @importFrom DBI dbGetQuery dbListTables
+#' @importFrom glue glue
+#' @importFrom jsonlite write_json
+#' @importFrom readr read_csv
+#' @importFrom stringr str_replace_all str_to_title
+build_metadata_json <- function(
+    con,
+    d_tbls_rd,
+    d_flds_rd,
+    metadata_derived_csv = NULL,
+    output_dir,
+    tables        = NULL,
+    set_comments  = TRUE,
+    provider      = NULL,
+    dataset       = NULL,
+    workflow_url  = NULL) {
+
+  # get tables from duckdb if not specified
+  if (is.null(tables)) {
+    tables <- DBI::dbListTables(con)
+  }
+
+  # get all columns from information_schema
+  all_cols <- DBI::dbGetQuery(con, "
+    SELECT table_name, column_name, data_type
+    FROM information_schema.columns
+    WHERE table_schema = 'main'
+    ORDER BY table_name, ordinal_position")
+  all_cols <- all_cols[all_cols$table_name %in% tables, ]
+
+  # helper: convert snake_case to Title Case
+  snake_to_title <- function(x) {
+    x |>
+      stringr::str_replace_all("_", " ") |>
+      stringr::str_to_title()
+  }
+
+  # --- build table metadata ---
+  tables_meta <- list()
+  for (tbl in tables) {
+    # look up description from redefinition file
+    rd_row <- d_tbls_rd[d_tbls_rd$tbl_new == tbl, ]
+    if (nrow(rd_row) > 0 && !is.na(rd_row$tbl_description[1]) && rd_row$tbl_description[1] != "") {
+      desc <- rd_row$tbl_description[1]
+    } else {
+      desc <- ""
+    }
+    tables_meta[[tbl]] <- list(
+      name_long      = snake_to_title(tbl),
+      description_md = desc)
+  }
+
+  # --- build column metadata ---
+  columns_meta <- list()
+  for (i in seq_len(nrow(all_cols))) {
+    tbl <- all_cols$table_name[i]
+    col <- all_cols$column_name[i]
+    key <- paste0(tbl, ".", col)
+
+    # look up from field redefinition
+    rd_row <- d_flds_rd[d_flds_rd$tbl_new == tbl & d_flds_rd$fld_new == col, ]
+
+    if (nrow(rd_row) > 0) {
+      desc  <- if (!is.null(rd_row$fld_description[1]) && !is.na(rd_row$fld_description[1]))
+        rd_row$fld_description[1] else ""
+      units <- if ("units" %in% names(rd_row) && !is.null(rd_row$units[1]) && !is.na(rd_row$units[1]) && rd_row$units[1] != "")
+        rd_row$units[1] else NULL
+    } else {
+      desc  <- ""
+      units <- NULL
+    }
+
+    columns_meta[[key]] <- list(
+      name_long      = snake_to_title(col),
+      units          = units,
+      description_md = desc)
+  }
+
+  # --- overlay with metadata_derived.csv ---
+  if (!is.null(metadata_derived_csv) && file.exists(metadata_derived_csv)) {
+    d_derived <- readr::read_csv(metadata_derived_csv, show_col_types = FALSE)
+
+    for (i in seq_len(nrow(d_derived))) {
+      row <- d_derived[i, ]
+      tbl <- row$table
+
+      if (is.na(row$column) || row$column == "") {
+        # table-level metadata
+        if (tbl %in% names(tables_meta)) {
+          if (!is.na(row$name_long) && row$name_long != "")
+            tables_meta[[tbl]]$name_long <- row$name_long
+          if (!is.na(row$description_md) && row$description_md != "")
+            tables_meta[[tbl]]$description_md <- row$description_md
+        }
+      } else {
+        # column-level metadata
+        key <- paste0(tbl, ".", row$column)
+        if (key %in% names(columns_meta) || paste0(tbl, ".", row$column) %in%
+            paste0(all_cols$table_name, ".", all_cols$column_name)) {
+          entry <- columns_meta[[key]]
+          if (is.null(entry)) entry <- list()
+
+          if (!is.na(row$name_long) && row$name_long != "")
+            entry$name_long <- row$name_long
+          if (!is.na(row$units) && row$units != "")
+            entry$units <- row$units
+          else if (is.null(entry$units))
+            entry$units <- NULL
+          if (!is.na(row$description_md) && row$description_md != "")
+            entry$description_md <- row$description_md
+
+          columns_meta[[key]] <- entry
+        }
+      }
+    }
+  }
+
+  # --- fill stubs for any missing columns ---
+  for (i in seq_len(nrow(all_cols))) {
+    key <- paste0(all_cols$table_name[i], ".", all_cols$column_name[i])
+    if (!key %in% names(columns_meta)) {
+      columns_meta[[key]] <- list(
+        name_long      = snake_to_title(all_cols$column_name[i]),
+        units          = NULL,
+        description_md = "")
+    }
+    # ensure name_long is populated
+    if (is.null(columns_meta[[key]]$name_long) || columns_meta[[key]]$name_long == "") {
+      columns_meta[[key]]$name_long <- snake_to_title(all_cols$column_name[i])
+    }
+  }
+
+  # --- set duckdb comments ---
+  if (set_comments) {
+    for (tbl in names(tables_meta)) {
+      desc <- tables_meta[[tbl]]$description_md
+      if (!is.null(desc) && desc != "") {
+        tryCatch(
+          set_duckdb_comments(con, table = tbl, table_comment = desc),
+          error = function(e) {
+            warning(glue::glue("Failed to set comment on table {tbl}: {e$message}"))
+          })
+      }
+
+      # column comments for this table
+      col_keys <- grep(paste0("^", tbl, "\\."), names(columns_meta), value = TRUE)
+      col_comments <- list()
+      for (ck in col_keys) {
+        col_name <- sub(paste0("^", tbl, "\\."), "", ck)
+        col_desc <- columns_meta[[ck]]$description_md
+        if (!is.null(col_desc) && col_desc != "") {
+          col_comments[[col_name]] <- col_desc
+        }
+      }
+      if (length(col_comments) > 0) {
+        tryCatch(
+          set_duckdb_comments(con, table = tbl, column_comments = col_comments),
+          error = function(e) {
+            warning(glue::glue("Failed to set column comments on {tbl}: {e$message}"))
+          })
+      }
+    }
+    message("Set DuckDB COMMENT ON for tables and columns")
+  }
+
+  # --- assemble metadata json ---
+  metadata <- list(
+    schema_version = "1.0",
+    created_at     = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    provider       = provider,
+    dataset        = dataset,
+    workflow       = workflow_url,
+    tables         = tables_meta,
+    columns        = columns_meta)
+
+  # write json
+  if (!dir.exists(output_dir)) {
+    dir.create(output_dir, recursive = TRUE)
+  }
+  metadata_path <- file.path(output_dir, "metadata.json")
+  jsonlite::write_json(metadata, metadata_path, auto_unbox = TRUE, pretty = TRUE, null = "null")
+
+  message(glue::glue(
+    "Wrote metadata.json: {length(tables_meta)} tables, {length(columns_meta)} columns"))
+
+  metadata_path
 }

@@ -218,16 +218,17 @@ set_duckdb_comments <- function(
 
   # set table comment
   if (!is.null(table_comment)) {
+    safe_comment <- gsub("'", "''", table_comment)
     DBI::dbExecute(con, glue::glue(
-      "COMMENT ON TABLE {table} IS '{table_comment}'"))
+      "COMMENT ON TABLE {table} IS '{safe_comment}'"))
   }
 
   # set column comments
   if (!is.null(column_comments)) {
     for (col in names(column_comments)) {
-      comment <- column_comments[[col]]
+      safe_comment <- gsub("'", "''", column_comments[[col]])
       DBI::dbExecute(con, glue::glue(
-        "COMMENT ON COLUMN {table}.{col} IS '{comment}'"))
+        "COMMENT ON COLUMN {table}.{col} IS '{safe_comment}'"))
     }
   }
 
