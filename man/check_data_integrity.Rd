@@ -10,7 +10,8 @@ check_data_integrity(
   halt_on_fail = TRUE,
   type_exceptions = NULL,
   display_format = "DT",
-  verbose = TRUE
+  verbose = TRUE,
+  header_level = 3
 )
 }
 \arguments{
@@ -27,6 +28,11 @@ patterns (e.g., \code{c("casts.time", "bottle.t_qual")}). Default: NULL (no exce
 \item{display_format}{Format for displaying changes: "DT" (DataTable), "kable", or "print" (default: "DT")}
 
 \item{verbose}{Logical, print detailed messages (default: TRUE)}
+
+\item{header_level}{Integer, markdown header level for output messages (default: 3).
+Controls the top-level header depth; sub-headers use header_level + 1.
+Set to match the parent section level in your Quarto document to keep
+the Table of Contents hierarchy correct.}
 }
 \value{
 List with:
@@ -68,11 +74,11 @@ integrity <- check_data_integrity(
   halt_on_fail    = FALSE,
   type_exceptions = "all")
 
-# accept specific type mismatches
+# use header_level = 2 for top-level sections
 integrity <- check_data_integrity(
-  d               = d,
-  dataset_name    = "CalCOFI Bottle Database",
-  type_exceptions = c("casts.time", "bottle.t_qual"))
+  d            = d,
+  dataset_name = "NOAA CalCOFI Database",
+  header_level = 2)
 }
 }
 \concept{check}

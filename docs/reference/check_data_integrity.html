@@ -11,7 +11,7 @@ will stop notebook execution if mismatches are detected."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.2.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -51,7 +51,8 @@ will stop notebook execution if mismatches are detected.</p>
 <span>  halt_on_fail <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  type_exceptions <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  display_format <span class="op">=</span> <span class="st">"DT"</span>,</span>
-<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  header_level <span class="op">=</span> <span class="fl">3</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -83,6 +84,13 @@ patterns (e.g., <code>c("casts.time", "bottle.t_qual")</code>). Default: NULL (n
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
 <dd><p>Logical, print detailed messages (default: TRUE)</p></dd>
+
+
+<dt id="arg-header-level">header_level<a class="anchor" aria-label="anchor" href="#arg-header-level"></a></dt>
+<dd><p>Integer, markdown header level for output messages (default: 3).
+Controls the top-level header depth; sub-headers use header_level + 1.
+Set to match the parent section level in your Quarto document to keep
+the Table of Contents hierarchy correct.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -117,11 +125,11 @@ will render markdown messages and can control chunk evaluation via knitr options
 <span class="r-in"><span>  halt_on_fail    <span class="op">=</span> <span class="cn">FALSE</span>,</span></span>
 <span class="r-in"><span>  type_exceptions <span class="op">=</span> <span class="st">"all"</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># accept specific type mismatches</span></span></span>
+<span class="r-in"><span><span class="co"># use header_level = 2 for top-level sections</span></span></span>
 <span class="r-in"><span><span class="va">integrity</span> <span class="op">&lt;-</span> <span class="fu">check_data_integrity</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  d               <span class="op">=</span> <span class="va">d</span>,</span></span>
-<span class="r-in"><span>  dataset_name    <span class="op">=</span> <span class="st">"CalCOFI Bottle Database"</span>,</span></span>
-<span class="r-in"><span>  type_exceptions <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"casts.time"</span>, <span class="st">"bottle.t_qual"</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span>  d            <span class="op">=</span> <span class="va">d</span>,</span></span>
+<span class="r-in"><span>  dataset_name <span class="op">=</span> <span class="st">"NOAA CalCOFI Database"</span>,</span></span>
+<span class="r-in"><span>  header_level <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 </code></pre></div>
     </div>

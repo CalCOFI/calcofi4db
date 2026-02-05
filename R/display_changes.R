@@ -196,58 +196,59 @@ print_csv_change_stats <- function(changes, verbose = TRUE) {
     0
   }
 
-  # Print summary
-  cat("CSV Change Summary:\n")
-  cat("==================\n")
-  cat(sprintf("Tables added:    %d\n", n_tables_added))
-  cat(sprintf("Tables removed:  %d\n", n_tables_removed))
-  cat(sprintf("Fields added:    %d (across %d tables)\n", n_fields_added, length(changes$fields_added)))
-  cat(sprintf("Fields removed:  %d (across %d tables)\n", n_fields_removed, length(changes$fields_removed)))
-  cat(sprintf("Type mismatches: %d (across %d tables)\n", n_type_mismatches, length(changes$type_mismatches)))
+  # use message() instead of cat() so output goes to stderr
+  # and does not create setext-style markdown headers in output: asis chunks
+  message("CSV Change Summary:")
+  message("------------------")
+  message(sprintf("Tables added:    %d", n_tables_added))
+  message(sprintf("Tables removed:  %d", n_tables_removed))
+  message(sprintf("Fields added:    %d (across %d tables)", n_fields_added, length(changes$fields_added)))
+  message(sprintf("Fields removed:  %d (across %d tables)", n_fields_removed, length(changes$fields_removed)))
+  message(sprintf("Type mismatches: %d (across %d tables)", n_type_mismatches, length(changes$type_mismatches)))
 
   if (verbose) {
-    # Print detailed information
+    # print detailed information
     if (n_tables_added > 0) {
-      cat("\nTables Added:\n")
+      message("\nTables Added:")
       for (tbl in changes$tables_added) {
-        cat(sprintf("  + %s\n", tbl))
+        message(sprintf("  + %s", tbl))
       }
     }
 
     if (n_tables_removed > 0) {
-      cat("\nTables Removed:\n")
+      message("\nTables Removed:")
       for (tbl in changes$tables_removed) {
-        cat(sprintf("  - %s\n", tbl))
+        message(sprintf("  - %s", tbl))
       }
     }
 
     if (length(changes$fields_added) > 0) {
-      cat("\nFields Added:\n")
+      message("\nFields Added:")
       for (tbl in names(changes$fields_added)) {
-        cat(sprintf("  %s:\n", tbl))
+        message(sprintf("  %s:", tbl))
         for (fld in changes$fields_added[[tbl]]) {
-          cat(sprintf("    + %s\n", fld))
+          message(sprintf("    + %s", fld))
         }
       }
     }
 
     if (length(changes$fields_removed) > 0) {
-      cat("\nFields Removed:\n")
+      message("\nFields Removed:")
       for (tbl in names(changes$fields_removed)) {
-        cat(sprintf("  %s:\n", tbl))
+        message(sprintf("  %s:", tbl))
         for (fld in changes$fields_removed[[tbl]]) {
-          cat(sprintf("    - %s\n", fld))
+          message(sprintf("    - %s", fld))
         }
       }
     }
 
     if (length(changes$type_mismatches) > 0) {
-      cat("\nType Mismatches:\n")
+      message("\nType Mismatches:")
       for (tbl in names(changes$type_mismatches)) {
-        cat(sprintf("  %s:\n", tbl))
+        message(sprintf("  %s:", tbl))
         for (fld in names(changes$type_mismatches[[tbl]])) {
           type_info <- changes$type_mismatches[[tbl]][[fld]]
-          cat(sprintf("    ⚠ %s: %s -> %s\n", fld, type_info$rd_type, type_info$csv_type))
+          message(sprintf("    \u26a0 %s: %s -> %s", fld, type_info$rd_type, type_info$csv_type))
         }
       }
     }

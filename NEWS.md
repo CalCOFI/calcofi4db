@@ -1,3 +1,12 @@
+# calcofi4db 2.3.0
+
+*Addition of ship, taxonomy functions*
+
+Added helper functions for processing:
+
+- ships: `fetch_ship_ices()`, `match_ships()`, `add_ship_info()`.
+- taxonomy: `build_taxon_table()`, `standardize_species()`
+
 # calcofi4db 2.2.1
 
 *Addition of spatial, parquet, viz helper functions*

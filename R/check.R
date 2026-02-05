@@ -22,6 +22,10 @@
 #'   patterns (e.g., `c("casts.time", "bottle.t_qual")`). Default: NULL (no exceptions).
 #' @param display_format Format for displaying changes: "DT" (DataTable), "kable", or "print" (default: "DT")
 #' @param verbose Logical, print detailed messages (default: TRUE)
+#' @param header_level Integer, markdown header level for output messages (default: 3).
+#'   Controls the top-level header depth; sub-headers use header_level + 1.
+#'   Set to match the parent section level in your Quarto document to keep
+#'   the Table of Contents hierarchy correct.
 #'
 #' @return List with:
 #'   - passed: Logical indicating if integrity check passed
@@ -45,11 +49,11 @@
 #'   halt_on_fail    = FALSE,
 #'   type_exceptions = "all")
 #'
-#' # accept specific type mismatches
+#' # use header_level = 2 for top-level sections
 #' integrity <- check_data_integrity(
-#'   d               = d,
-#'   dataset_name    = "CalCOFI Bottle Database",
-#'   type_exceptions = c("casts.time", "bottle.t_qual"))
+#'   d            = d,
+#'   dataset_name = "NOAA CalCOFI Database",
+#'   header_level = 2)
 #' }
 #' @importFrom dplyr filter
 #' @importFrom knitr opts_chunk
@@ -60,7 +64,8 @@ check_data_integrity <- function(
     halt_on_fail    = TRUE,
     type_exceptions = NULL,
     display_format  = "DT",
-    verbose         = TRUE) {
+    verbose         = TRUE,
+    header_level    = 3) {
 
   # detect changes between csv files and redefinitions
   changes <- detect_csv_changes(d)
@@ -163,11 +168,14 @@ check_data_integrity <- function(
   detail_section <- paste(detail_bullets, collapse = "\n")
 
   # -- prepare markdown message ----
+  h1 <- strrep("#", header_level)
+  h2 <- strrep("#", header_level + 1)
+
   if (passed && n_exceptions == 0) {
     msg <- glue::glue("
-## \u2705 Data Integrity Check Passed: {dataset_name}
+{h1} \u2705 Data Integrity Check Passed: {dataset_name}
 
-### All Systems Go
+{h2} All Systems Go
 
 No mismatches were found between the CSV files and redefinition metadata.
 The data structures are properly aligned and ready for database ingestion.
@@ -176,9 +184,9 @@ The data structures are properly aligned and ready for database ingestion.
 ")
   } else if (passed && n_exceptions > 0) {
     msg <- glue::glue("
-## \u2705 Data Integrity Check Passed: {dataset_name}
+{h1} \u2705 Data Integrity Check Passed: {dataset_name}
 
-### Passed with Accepted Exceptions
+{h2} Passed with Accepted Exceptions
 
 {n_exceptions} type mismatch(es) were found but accepted as known exceptions
 (e.g., readr infers types differently from redefinition metadata; resolved
@@ -188,14 +196,14 @@ during ingestion via `flds_redefine.csv` `type_new` column).
 ")
   } else if (!halt_on_fail) {
     msg <- glue::glue("
-## \u26a0\ufe0f Data Integrity Check: {dataset_name}
+{h1} \u26a0\ufe0f Data Integrity Check: {dataset_name}
 
-### Issues Detected (Continuing)
+{h2} Issues Detected (Continuing)
 
 Mismatches have been detected between the CSV files and redefinition metadata.
 The workflow is continuing because `halt_on_fail = FALSE`.
 
-### Detected Issues ({n_changes} remaining)
+{h2} Detected Issues ({n_changes} remaining)
 
 {detail_section}
 
@@ -204,32 +212,32 @@ The workflow is continuing because `halt_on_fail = FALSE`.
 ")
   } else {
     msg <- glue::glue("
-## \u26a0\ufe0f Data Integrity Check Failed: {dataset_name}
+{h1} \u26a0\ufe0f Data Integrity Check Failed: {dataset_name}
 
-### Workflow Halted
+{h2} Workflow Halted
 
 Mismatches have been detected between the CSV files and redefinition metadata.
 These must be resolved before proceeding with database ingestion.
 
-### Detected Issues ({n_changes} total)
+{h2} Detected Issues ({n_changes} total)
 
 {detail_section}
 
-### Required Actions
+{h2} Required Actions
 
 Please review the changes detected above and update the following redefinition files:
 
 - **Tables redefinition**: `{d$paths$tbls_rd_csv}`
 - **Fields redefinition**: `{d$paths$flds_rd_csv}`
 
-### Common Resolutions
+{h2} Common Resolutions
 
 1. **New tables/fields in CSV**: Add them to the appropriate redefinition file
 2. **Removed tables/fields from CSV**: Remove obsolete entries from redefinition files
 3. **Type mismatches**: Update field types in redefinition files to match CSV data types
 4. **Field name changes**: Update `fld_old` entries to match current CSV field names
 
-### Next Steps
+{h2} Next Steps
 
 After updating the redefinition files, re-run this workflow. The remaining code chunks
 have been disabled and will not execute until all mismatches are resolved.

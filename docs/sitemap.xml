@@ -12,6 +12,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/assign_grid_key.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assign_sequential_ids.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_metadata_json.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/build_taxon_table.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/calcofi4db-package.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_data_integrity.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_multiple_datasets.html</loc></url>
@@ -36,6 +37,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/download_archive.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/duckdb_to_parquet.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/enforce_column_types.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/fetch_ship_ices.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/flag_invalid_rows.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/freeze_release.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/get_archive_manifest.html</loc></url>
@@ -70,6 +72,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/load_csv_files.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/load_duckdb_extension.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/load_gcs_parquet_to_duckdb.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/match_ships.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/preview_tables.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/print_csv_change_stats.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/propagate_natural_key.html</loc></url>
@@ -93,6 +96,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/show_source_files.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/show_tables_redefine.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/show_validation_results.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/standardize_species.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/strip_provenance_columns.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/suggest_next_version.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/sync_to_gcs_archive.html</loc></url>
