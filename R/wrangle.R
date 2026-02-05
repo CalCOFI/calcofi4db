@@ -683,6 +683,178 @@ apply_data_corrections <- function(con, verbose = TRUE) {
   invisible(con)
 }
 
+#' Enforce Column Types Before Export
+#'
+#' Runs `ALTER TABLE ... ALTER COLUMN ... TYPE` for every column whose current
+#' DuckDB type differs from the target type. Intended to run right before
+#' `write_parquet_outputs()` so that parquet files carry correct integer/decimal
+#' types instead of DOUBLE from R's default numeric mapping.
+#'
+#' Target types come from two sources:
+#' 1. `d_flds_rd` (field redefinition data frame) — keyed by `tbl_new.fld_new`
+#'    with target in `type_new`
+#' 2. `type_overrides` — named list for derived-table columns not in the
+#'    redefinition file, e.g. `list(ichthyo.species_id = "SMALLINT")`
+#'
+#' @param con DuckDB connection
+#' @param d_flds_rd Field redefinition data frame with columns `tbl_new`,
+#'   `fld_new`, `type_new` (optional; NULL skips this source)
+#' @param type_overrides Named list of `table.column = "SQL_TYPE"` overrides
+#'   for derived-table columns (optional; NULL skips)
+#' @param tables Character vector of tables to enforce. If NULL, uses all
+#'   tables from `DBI::dbListTables(con)`.
+#' @param verbose Print messages for each change (default: TRUE)
+#'
+#' @return Tibble of changes applied (table, column, from_type, to_type, success)
+#' @export
+#' @concept wrangle
+#'
+#' @examples
+#' \dontrun{
+#' changes <- enforce_column_types(
+#'   con            = con,
+#'   d_flds_rd      = d$d_flds_rd,
+#'   type_overrides = list(
+#'     ichthyo.species_id = "SMALLINT",
+#'     ichthyo.tally      = "INTEGER"),
+#'   verbose        = TRUE)
+#' }
+#' @importFrom DBI dbGetQuery dbExecute dbListTables
+#' @importFrom glue glue
+#' @importFrom tibble tibble
+#' @importFrom dplyr bind_rows
+enforce_column_types <- function(
+    con,
+    d_flds_rd      = NULL,
+    type_overrides = NULL,
+    tables         = NULL,
+    verbose        = TRUE) {
+
+  # get table list
+  if (is.null(tables)) {
+    tables <- DBI::dbListTables(con)
+  }
+
+  # query current types for all columns in target tables
+  tbl_list <- paste0("'", tables, "'", collapse = ", ")
+  current_cols <- DBI::dbGetQuery(con, glue::glue("
+    SELECT table_name, column_name, data_type
+    FROM information_schema.columns
+    WHERE table_schema = 'main'
+      AND table_name IN ({tbl_list})
+    ORDER BY table_name, ordinal_position"))
+
+  # map csv type names to DuckDB SQL types
+  type_map <- c(
+    smallint  = "SMALLINT",
+    integer   = "INTEGER",
+    bigint    = "BIGINT",
+    decimal   = "DOUBLE",
+    varchar   = "VARCHAR",
+    uuid      = "UUID",
+    date      = "DATE",
+    timestamp = "TIMESTAMP",
+    text      = "VARCHAR",
+    boolean   = "BOOLEAN")
+
+  # build target type lookup: key = "table.column", value = DuckDB SQL type
+
+  targets <- list()
+
+  # source 1: field redefinition file
+  if (!is.null(d_flds_rd)) {
+    for (i in seq_len(nrow(d_flds_rd))) {
+      tbl_new  <- d_flds_rd$tbl_new[i]
+      fld_new  <- d_flds_rd$fld_new[i]
+      type_new <- d_flds_rd$type_new[i]
+
+      if (is.na(tbl_new) || is.na(fld_new) || is.na(type_new)) next
+
+      # map to DuckDB type
+      type_lower <- tolower(trimws(type_new))
+      duckdb_type <- type_map[type_lower]
+      if (!is.na(duckdb_type)) {
+        targets[[paste0(tbl_new, ".", fld_new)]] <- unname(duckdb_type)
+      }
+    }
+  }
+
+  # source 2: explicit overrides (take precedence)
+  if (!is.null(type_overrides)) {
+    for (key in names(type_overrides)) {
+      targets[[key]] <- toupper(type_overrides[[key]])
+    }
+  }
+
+  # compare current vs target and alter where needed
+  changes <- list()
+
+  for (i in seq_len(nrow(current_cols))) {
+    tbl      <- current_cols$table_name[i]
+    col      <- current_cols$column_name[i]
+    cur_type <- toupper(current_cols$data_type[i])
+    key      <- paste0(tbl, ".", col)
+
+    target_type <- targets[[key]]
+    if (is.null(target_type)) next
+
+    # normalize for comparison (DuckDB reports some types differently)
+    normalize <- function(t) {
+      t <- toupper(t)
+      # DuckDB reports SMALLINT as SMALLINT, INTEGER as INTEGER, etc.
+      # but DOUBLE can show as DOUBLE or FLOAT
+      t
+    }
+
+    if (normalize(cur_type) == normalize(target_type)) next
+
+    # attempt the alter
+    sql <- glue::glue(
+      'ALTER TABLE "{tbl}" ALTER COLUMN "{col}" TYPE {target_type}')
+
+    success <- tryCatch({
+      DBI::dbExecute(con, sql)
+      if (verbose) {
+        message(glue::glue(
+          "  {tbl}.{col}: {cur_type} -> {target_type}"))
+      }
+      TRUE
+    }, error = function(e) {
+      warning(glue::glue(
+        "Failed to alter {tbl}.{col} from {cur_type} to {target_type}: {e$message}"))
+      FALSE
+    })
+
+    changes <- append(changes, list(tibble::tibble(
+      table     = tbl,
+      column    = col,
+      from_type = cur_type,
+      to_type   = target_type,
+      success   = success)))
+  }
+
+  result <- if (length(changes) > 0) {
+    dplyr::bind_rows(changes)
+  } else {
+    tibble::tibble(
+      table     = character(0),
+      column    = character(0),
+      from_type = character(0),
+      to_type   = character(0),
+      success   = logical(0))
+  }
+
+  if (verbose) {
+    n_ok   <- sum(result$success)
+    n_fail <- sum(!result$success)
+    message(glue::glue(
+      "Enforced column types: {n_ok} changed, {n_fail} failed, ",
+      "{nrow(current_cols) - nrow(result)} already correct"))
+  }
+
+  result
+}
+
 #' Write Tables to Parquet Files
 #'
 #' Exports all tables from a DuckDB connection to parquet files.
