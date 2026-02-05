@@ -6,9 +6,12 @@
 <url><loc>https://calcofi.io/calcofi4db/index.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/news/index.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/add_parquet_metadata.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/add_point_geom.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/add_provenance_columns.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/apply_data_corrections.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/assign_grid_key.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assign_sequential_ids.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/build_metadata_json.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/calcofi4db-package.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_data_integrity.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_multiple_datasets.html</loc></url>
@@ -32,6 +35,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/display_csv_changes.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/download_archive.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/duckdb_to_parquet.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/enforce_column_types.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/flag_invalid_rows.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/freeze_release.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/get_archive_manifest.html</loc></url>
@@ -65,6 +69,8 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/list_working_tables.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/load_csv_files.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/load_duckdb_extension.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/load_gcs_parquet_to_duckdb.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/preview_tables.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/print_csv_change_stats.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/propagate_natural_key.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/put_gcs_file.html</loc></url>

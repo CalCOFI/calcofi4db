@@ -8,6 +8,7 @@ check_data_integrity(
   d,
   dataset_name = "Dataset",
   halt_on_fail = TRUE,
+  type_exceptions = NULL,
   display_format = "DT",
   verbose = TRUE
 )
@@ -19,6 +20,10 @@ check_data_integrity(
 
 \item{halt_on_fail}{Logical, whether to set knitr eval=FALSE on failure (default: TRUE)}
 
+\item{type_exceptions}{Character vector of known acceptable type mismatches.
+Use \code{"all"} to accept all type mismatches, or specific \code{"table.field"}
+patterns (e.g., \code{c("casts.time", "bottle.t_qual")}). Default: NULL (no exceptions).}
+
 \item{display_format}{Format for displaying changes: "DT" (DataTable), "kable", or "print" (default: "DT")}
 
 \item{verbose}{Logical, print detailed messages (default: TRUE)}
@@ -28,7 +33,8 @@ List with:
 \itemize{
 \item passed: Logical indicating if integrity check passed
 \item changes: Full changes object from detect_csv_changes()
-\item n_changes: Number of changes detected
+\item n_changes: Number of changes detected (after filtering exceptions)
+\item n_exceptions: Number of type mismatches accepted as exceptions
 \item message: Character string with markdown-formatted message
 }
 }
@@ -41,6 +47,7 @@ will stop notebook execution if mismatches are detected.
 The function:
 \enumerate{
 \item Detects changes between CSV files and redefinitions using detect_csv_changes()
+\item Optionally filters out known acceptable type mismatches via \code{type_exceptions}
 \item Prints summary statistics of detected changes
 \item Displays interactive table of changes if any exist
 \item Returns appropriate status for notebook control flow
@@ -51,17 +58,21 @@ will render markdown messages and can control chunk evaluation via knitr options
 }
 \examples{
 \dontrun{
-# In a Quarto notebook chunk with output: asis
-d_noaa <- read_csv_files("swfsc.noaa.gov", "calcofi-db")
-integrity_check <- check_data_integrity(
-  d = d_noaa,
-  dataset_name = "NOAA CalCOFI Database"
-)
+# strict check — halt on any mismatch
+integrity <- check_data_integrity(d, "NOAA CalCOFI Database")
 
-# Continue only if check passed
-if (!integrity_check$passed) {
-  stop("Data integrity check failed")
-}
+# accept all type mismatches (e.g., readr infers types differently)
+integrity <- check_data_integrity(
+  d               = d,
+  dataset_name    = "CalCOFI Bottle Database",
+  halt_on_fail    = FALSE,
+  type_exceptions = "all")
+
+# accept specific type mismatches
+integrity <- check_data_integrity(
+  d               = d,
+  dataset_name    = "CalCOFI Bottle Database",
+  type_exceptions = c("casts.time", "bottle.t_qual"))
 }
 }
 \concept{check}

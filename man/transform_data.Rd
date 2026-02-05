@@ -4,10 +4,12 @@
 \alias{transform_data}
 \title{Transform Data for Database Ingestion}
 \usage{
-transform_data(data_info)
+transform_data(data_info, verbose = FALSE)
 }
 \arguments{
 \item{data_info}{List containing data and metadata from \code{read_csv_files()}}
+
+\item{verbose}{Print progress messages. Default: FALSE}
 }
 \value{
 List with transformed data ready for database ingestion
@@ -17,7 +19,7 @@ Applies transformations to raw data based on redefinition files.
 }
 \examples{
 \dontrun{
-transformed_data <- transform_data(data_info)
+transformed_data <- transform_data(data_info, verbose = TRUE)
 }
 }
 \concept{transform}

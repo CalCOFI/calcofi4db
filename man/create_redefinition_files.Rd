@@ -4,7 +4,14 @@
 \alias{create_redefinition_files}
 \title{Create Redefinition Files for Tables and Fields}
 \usage{
-create_redefinition_files(d_tbls_in, d_flds_in, d, tbls_rd_csv, flds_rd_csv)
+create_redefinition_files(
+  d_tbls_in,
+  d_flds_in,
+  d,
+  tbls_rd_csv,
+  flds_rd_csv,
+  field_descriptions = NULL
+)
 }
 \arguments{
 \item{d_tbls_in}{Data frame with table metadata}
@@ -16,6 +23,13 @@ create_redefinition_files(d_tbls_in, d_flds_in, d, tbls_rd_csv, flds_rd_csv)
 \item{tbls_rd_csv}{Path to table redefinition CSV file}
 
 \item{flds_rd_csv}{Path to field redefinition CSV file}
+
+\item{field_descriptions}{Named list of CSV file paths containing field
+metadata. Names should match table names in the source data (e.g.
+\code{list("194903-202105_Cast" = "path/to/Cast Field Descriptions.csv")}).
+Each CSV must have columns: \verb{Field Name}, \code{Units}, \code{Description}.
+When provided, auto-populates \code{fld_description} and \code{units} in the
+generated redefinition file. Default: NULL (empty descriptions).}
 }
 \value{
 Invisible NULL (files are written to disk)

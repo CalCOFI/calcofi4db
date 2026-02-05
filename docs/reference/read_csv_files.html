@@ -11,7 +11,7 @@ the CalCOFI data ingestion workflow. It performs the following steps:"></head><b
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.2.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -55,7 +55,8 @@ the CalCOFI data ingestion workflow. It performs the following steps:</p>
 <span>  gcs_bucket <span class="op">=</span> <span class="st">"calcofi-files-public"</span>,</span>
 <span>  archive_prefix <span class="op">=</span> <span class="st">"archive"</span>,</span>
 <span>  sync_archive <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  verbose <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>  verbose <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  field_descriptions <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -112,6 +113,13 @@ Only applies when using dir_data (local files).</p></dd>
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
 <dd><p>Print detailed messages. Default: FALSE</p></dd>
+
+
+<dt id="arg-field-descriptions">field_descriptions<a class="anchor" aria-label="anchor" href="#arg-field-descriptions"></a></dt>
+<dd><p>Named list of CSV file paths containing field
+metadata for auto-populating descriptions and units in the generated
+<code>flds_redefine.csv</code>. See <code><a href="create_redefinition_files.html">create_redefinition_files()</a></code> for details.
+Default: NULL.</p></dd>
 
 </dl></div>
     <div class="section level2">

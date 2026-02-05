@@ -11,7 +11,7 @@ will stop notebook execution if mismatches are detected."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.2.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -49,6 +49,7 @@ will stop notebook execution if mismatches are detected.</p>
 <span>  <span class="va">d</span>,</span>
 <span>  dataset_name <span class="op">=</span> <span class="st">"Dataset"</span>,</span>
 <span>  halt_on_fail <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  type_exceptions <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  display_format <span class="op">=</span> <span class="st">"DT"</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -70,6 +71,12 @@ will stop notebook execution if mismatches are detected.</p>
 <dd><p>Logical, whether to set knitr eval=FALSE on failure (default: TRUE)</p></dd>
 
 
+<dt id="arg-type-exceptions">type_exceptions<a class="anchor" aria-label="anchor" href="#arg-type-exceptions"></a></dt>
+<dd><p>Character vector of known acceptable type mismatches.
+Use <code>"all"</code> to accept all type mismatches, or specific <code>"table.field"</code>
+patterns (e.g., <code>c("casts.time", "bottle.t_qual")</code>). Default: NULL (no exceptions).</p></dd>
+
+
 <dt id="arg-display-format">display_format<a class="anchor" aria-label="anchor" href="#arg-display-format"></a></dt>
 <dd><p>Format for displaying changes: "DT" (DataTable), "kable", or "print" (default: "DT")</p></dd>
 
@@ -82,12 +89,14 @@ will stop notebook execution if mismatches are detected.</p>
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>List with:</p><ul><li><p>passed: Logical indicating if integrity check passed</p></li>
 <li><p>changes: Full changes object from detect_csv_changes()</p></li>
-<li><p>n_changes: Number of changes detected</p></li>
+<li><p>n_changes: Number of changes detected (after filtering exceptions)</p></li>
+<li><p>n_exceptions: Number of type mismatches accepted as exceptions</p></li>
 <li><p>message: Character string with markdown-formatted message</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>The function:</p><ol><li><p>Detects changes between CSV files and redefinitions using detect_csv_changes()</p></li>
+<li><p>Optionally filters out known acceptable type mismatches via <code>type_exceptions</code></p></li>
 <li><p>Prints summary statistics of detected changes</p></li>
 <li><p>Displays interactive table of changes if any exist</p></li>
 <li><p>Returns appropriate status for notebook control flow</p></li>
@@ -98,17 +107,21 @@ will render markdown messages and can control chunk evaluation via knitr options
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="co"># In a Quarto notebook chunk with output: asis</span></span></span>
-<span class="r-in"><span><span class="va">d_noaa</span> <span class="op">&lt;-</span> <span class="fu"><a href="read_csv_files.html">read_csv_files</a></span><span class="op">(</span><span class="st">"swfsc.noaa.gov"</span>, <span class="st">"calcofi-db"</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">integrity_check</span> <span class="op">&lt;-</span> <span class="fu">check_data_integrity</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  d <span class="op">=</span> <span class="va">d_noaa</span>,</span></span>
-<span class="r-in"><span>  dataset_name <span class="op">=</span> <span class="st">"NOAA CalCOFI Database"</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="co"># strict check — halt on any mismatch</span></span></span>
+<span class="r-in"><span><span class="va">integrity</span> <span class="op">&lt;-</span> <span class="fu">check_data_integrity</span><span class="op">(</span><span class="va">d</span>, <span class="st">"NOAA CalCOFI Database"</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Continue only if check passed</span></span></span>
-<span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="va">integrity_check</span><span class="op">$</span><span class="va">passed</span><span class="op">)</span> <span class="op">{</span></span></span>
-<span class="r-in"><span>  <span class="kw"><a href="https://rdrr.io/r/base/stop.html" class="external-link">stop</a></span><span class="op">(</span><span class="st">"Data integrity check failed"</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">}</span></span></span>
+<span class="r-in"><span><span class="co"># accept all type mismatches (e.g., readr infers types differently)</span></span></span>
+<span class="r-in"><span><span class="va">integrity</span> <span class="op">&lt;-</span> <span class="fu">check_data_integrity</span><span class="op">(</span></span></span>
+<span class="r-in"><span>  d               <span class="op">=</span> <span class="va">d</span>,</span></span>
+<span class="r-in"><span>  dataset_name    <span class="op">=</span> <span class="st">"CalCOFI Bottle Database"</span>,</span></span>
+<span class="r-in"><span>  halt_on_fail    <span class="op">=</span> <span class="cn">FALSE</span>,</span></span>
+<span class="r-in"><span>  type_exceptions <span class="op">=</span> <span class="st">"all"</span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># accept specific type mismatches</span></span></span>
+<span class="r-in"><span><span class="va">integrity</span> <span class="op">&lt;-</span> <span class="fu">check_data_integrity</span><span class="op">(</span></span></span>
+<span class="r-in"><span>  d               <span class="op">=</span> <span class="va">d</span>,</span></span>
+<span class="r-in"><span>  dataset_name    <span class="op">=</span> <span class="st">"CalCOFI Bottle Database"</span>,</span></span>
+<span class="r-in"><span>  type_exceptions <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"casts.time"</span>, <span class="st">"bottle.t_qual"</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 </code></pre></div>
     </div>

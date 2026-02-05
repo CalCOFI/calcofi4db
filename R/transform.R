@@ -3,6 +3,7 @@
 #' Applies transformations to raw data based on redefinition files.
 #'
 #' @param data_info List containing data and metadata from `read_csv_files()`
+#' @param verbose Print progress messages. Default: FALSE
 #'
 #' @return List with transformed data ready for database ingestion
 #' @export
@@ -10,9 +11,9 @@
 #'
 #' @examples
 #' \dontrun{
-#' transformed_data <- transform_data(data_info)
+#' transformed_data <- transform_data(data_info, verbose = TRUE)
 #' }
-transform_data <- function(data_info) {
+transform_data <- function(data_info, verbose = FALSE) {
   # data_info <- d
 
   d <- data_info$d_csv$data
@@ -24,21 +25,51 @@ transform_data <- function(data_info) {
     d_f <- d_flds_rd |>
       dplyr::filter(tbl_old == tbl)
 
+    if (verbose) message(glue::glue(
+      "  Transforming: {tbl} ({nrow(data)} rows, {ncol(data)} cols, ",
+      "{nrow(d_f)} field redefinitions)"))
+
     # redefine fields
     f_rd <- d_f |>
       dplyr::select(fld_old, fld_new) |>
       tibble::deframe()
 
+    # fix non-UTF-8 column names (e.g. µ from Latin-1 encoded CSVs)
+    nms <- names(data)
+    bad <- !validUTF8(nms)
+    if (any(bad)) {
+      if (verbose) message(glue::glue(
+        "    Fixing {sum(bad)} non-UTF-8 column name(s): ",
+        "{paste(nms[bad], collapse = ', ')}"))
+      Encoding(nms[bad]) <- "latin1"
+      nms[bad] <- enc2utf8(nms[bad])
+      names(data) <- nms
+    }
+
+    # check for unmatched columns before renaming
+    unmatched <- setdiff(names(data), names(f_rd))
+    if (length(unmatched) > 0) {
+      stop(glue::glue(
+        "Table '{tbl}': {length(unmatched)} column(s) in data but not ",
+        "in flds_redefine.csv: {paste(unmatched, collapse = ', ')}"))
+    }
+
+    if (verbose) message("    Renaming fields...")
     y <- dplyr::rename_with(data, ~ f_rd[.x])
 
-    # Mutate fields
+    # mutate fields
     d_m <- d_f |>
       dplyr::select(fld_new, mutation) |>
       dplyr::filter(!is.na(mutation))
 
+    if (nrow(d_m) > 0 && verbose) message(glue::glue(
+      "    Applying {nrow(d_m)} mutation(s)"))
+
     for (i in seq_len(nrow(d_m))) { # i = 1
       fld <- d_m$fld_new[i]
       mx <- d_m$mutation[i]
+
+      if (verbose) message(glue::glue("      {fld} = {mx}"))
 
       fld_sym <- rlang::sym(fld)
       mx_expr <- rlang::parse_expr(mx)
@@ -47,7 +78,7 @@ transform_data <- function(data_info) {
         dplyr::mutate(!!fld_sym := eval(mx_expr, envir = y))
     }
 
-    # Order fields
+    # order fields
     flds_ordered <- d_f |>
       dplyr::arrange(order_new) |>
       dplyr::pull(fld_new)

@@ -245,7 +245,7 @@ ingest_to_working <- function(
   if (mode == "replace") {
     # drop and recreate table
     tryCatch(
-      DBI::dbExecute(con, glue::glue("DROP TABLE IF EXISTS {table}")),
+      DBI::dbExecute(con, glue::glue('DROP TABLE IF EXISTS "{table}"')),
       error = function(e) NULL)
 
     DBI::dbWriteTable(con, table, data_prov, overwrite = FALSE, append = FALSE)
@@ -279,18 +279,18 @@ ingest_to_working <- function(
     tables <- DBI::dbListTables(con)
     if (!table %in% tables) {
       # just rename temp table
-      DBI::dbExecute(con, glue::glue("ALTER TABLE {temp_table} RENAME TO {table}"))
+      DBI::dbExecute(con, glue::glue('ALTER TABLE "{temp_table}" RENAME TO "{table}"'))
       message(glue::glue("Created table '{table}' with {rows_input} rows"))
     } else {
       # perform upsert
       insert_cols <- paste(all_cols, collapse = ", ")
-      DBI::dbExecute(con, glue::glue("
-        INSERT INTO {table} ({insert_cols})
-        SELECT {insert_cols} FROM {temp_table}
-        ON CONFLICT ({key_cols}) DO UPDATE SET {update_set}"))
+      DBI::dbExecute(con, glue::glue('
+        INSERT INTO "{table}" ({insert_cols})
+        SELECT {insert_cols} FROM "{temp_table}"
+        ON CONFLICT ({key_cols}) DO UPDATE SET {update_set}'))
 
       # drop temp table
-      DBI::dbExecute(con, glue::glue("DROP TABLE {temp_table}"))
+      DBI::dbExecute(con, glue::glue('DROP TABLE "{temp_table}"'))
       message(glue::glue("Upserted {rows_input} rows to table '{table}'"))
     }
   }
@@ -298,7 +298,7 @@ ingest_to_working <- function(
   # get final row count
   rows_after <- DBI::dbGetQuery(
     con,
-    glue::glue("SELECT COUNT(*) as n FROM {table}"))$n
+    glue::glue('SELECT COUNT(*) as n FROM "{table}"'))$n
 
   # return statistics
   tibble::tibble(
@@ -479,7 +479,7 @@ ingest_dataset <- function(
 
   # transform data using redefinitions
   if (verbose) message("Transforming data...")
-  d_t <- transform_data(d)
+  d_t <- transform_data(d, verbose = verbose)
 
   # collect stats for each table
 

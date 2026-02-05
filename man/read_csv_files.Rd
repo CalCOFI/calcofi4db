@@ -14,7 +14,8 @@ read_csv_files(
   gcs_bucket = "calcofi-files-public",
   archive_prefix = "archive",
   sync_archive = TRUE,
-  verbose = FALSE
+  verbose = FALSE,
+  field_descriptions = NULL
 )
 }
 \arguments{
@@ -48,6 +49,11 @@ If provided, downloads from archive instead of using local files.}
 Only applies when using dir_data (local files).}
 
 \item{verbose}{Print detailed messages. Default: FALSE}
+
+\item{field_descriptions}{Named list of CSV file paths containing field
+metadata for auto-populating descriptions and units in the generated
+\code{flds_redefine.csv}. See \code{\link[=create_redefinition_files]{create_redefinition_files()}} for details.
+Default: NULL.}
 }
 \value{
 A list containing:

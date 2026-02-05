@@ -129,3 +129,94 @@ show_flagged_file <- function(
   htmltools::HTML(glue::glue(
     "<p><strong>{description}</strong>: {format(n_rows, big.mark = ',')} rows flagged → {link}</p>"))
 }
+
+#' Preview Tables with Head and Tail Rows
+#'
+#' For each table, emits a markdown header and shows the first and last
+#' `n` rows as DT datatables. Small tables (≤ 2n rows) are shown in
+#' full. Geometry columns are excluded from display since they render
+#' as unreadable binary.
+#'
+#' Use in a chunk with `#| results: asis` so the markdown headers
+#' render correctly.
+#'
+#' @param con DBI connection to DuckDB
+#' @param tables Character vector of table names to preview.
+#' @param n Integer. Number of rows for head and tail (default: 100).
+#' @param table_header_level Integer. Markdown heading level for each
+#'   table (default: 3, i.e. `###`).
+#'
+#' @return Invisible NULL. Side effect: prints markdown headers and
+#'   DT datatable widgets for Quarto/knitr output.
+#' @export
+#' @concept display
+#'
+#' @examples
+#' \dontrun{
+#' # in a chunk with `#| results: asis`
+#' preview_tables(con, c("casts", "bottle", "grid"))
+#' }
+#' @importFrom DBI dbGetQuery
+#' @importFrom DT datatable
+#' @importFrom glue glue
+#' @importFrom knitr knit_print
+preview_tables <- function(con, tables, n = 100, table_header_level = 3) {
+
+  hashes <- strrep("#", table_header_level)
+
+  for (tbl_name in tables) {
+
+    # get row count
+    total <- DBI::dbGetQuery(con, glue::glue(
+      "SELECT COUNT(*) AS n FROM {tbl_name}"))$n
+
+    # detect and exclude geometry columns
+    col_info <- DBI::dbGetQuery(con, glue::glue(
+      "SELECT column_name, data_type FROM information_schema.columns
+       WHERE table_name = '{tbl_name}'"))
+    geom_cols   <- col_info$column_name[col_info$data_type == "GEOMETRY"]
+    select_cols <- setdiff(col_info$column_name, geom_cols)
+
+    if (length(select_cols) == 0) next
+
+    cols_sql <- paste(select_cols, collapse = ", ")
+
+    # emit markdown header
+    cat(glue::glue(
+      "\n\n{hashes} `{tbl_name}` ({format(total, big.mark = ',')} rows)\n\n"))
+
+    if (total <= 2 * n) {
+      # small table — show all rows
+      df <- DBI::dbGetQuery(con, glue::glue(
+        "SELECT {cols_sql} FROM {tbl_name}"))
+      caption <- glue::glue(
+        "{tbl_name} — all {format(total, big.mark = ',')} rows")
+      dt <- DT::datatable(
+        df, caption = caption, rownames = FALSE, filter = "top")
+      cat(knitr::knit_print(dt))
+    } else {
+      # head
+      df_head <- DBI::dbGetQuery(con, glue::glue(
+        "SELECT {cols_sql} FROM {tbl_name} LIMIT {n}"))
+      caption_head <- glue::glue(
+        "{tbl_name} — first {n} of {format(total, big.mark = ',')} rows")
+      dt_head <- DT::datatable(
+        df_head, caption = caption_head, rownames = FALSE, filter = "top")
+      cat(knitr::knit_print(dt_head))
+
+      cat("\n\n")
+
+      # tail
+      offset <- total - n
+      df_tail <- DBI::dbGetQuery(con, glue::glue(
+        "SELECT {cols_sql} FROM {tbl_name} OFFSET {offset} LIMIT {n}"))
+      caption_tail <- glue::glue(
+        "{tbl_name} — last {n} of {format(total, big.mark = ',')} rows")
+      dt_tail <- DT::datatable(
+        df_tail, caption = caption_tail, rownames = FALSE, filter = "top")
+      cat(knitr::knit_print(dt_tail))
+    }
+  }
+
+  invisible(NULL)
+}

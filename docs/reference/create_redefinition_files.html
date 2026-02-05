@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.2.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -39,7 +39,14 @@
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">create_redefinition_files</span><span class="op">(</span><span class="va">d_tbls_in</span>, <span class="va">d_flds_in</span>, <span class="va">d</span>, <span class="va">tbls_rd_csv</span>, <span class="va">flds_rd_csv</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">create_redefinition_files</span><span class="op">(</span></span>
+<span>  <span class="va">d_tbls_in</span>,</span>
+<span>  <span class="va">d_flds_in</span>,</span>
+<span>  <span class="va">d</span>,</span>
+<span>  <span class="va">tbls_rd_csv</span>,</span>
+<span>  <span class="va">flds_rd_csv</span>,</span>
+<span>  field_descriptions <span class="op">=</span> <span class="cn">NULL</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -64,6 +71,15 @@
 
 <dt id="arg-flds-rd-csv">flds_rd_csv<a class="anchor" aria-label="anchor" href="#arg-flds-rd-csv"></a></dt>
 <dd><p>Path to field redefinition CSV file</p></dd>
+
+
+<dt id="arg-field-descriptions">field_descriptions<a class="anchor" aria-label="anchor" href="#arg-field-descriptions"></a></dt>
+<dd><p>Named list of CSV file paths containing field
+metadata. Names should match table names in the source data (e.g.
+<code>list("194903-202105_Cast" = "path/to/Cast Field Descriptions.csv")</code>).
+Each CSV must have columns: <code>Field Name</code>, <code>Units</code>, <code>Description</code>.
+When provided, auto-populates <code>fld_description</code> and <code>units</code> in the
+generated redefinition file. Default: NULL (empty descriptions).</p></dd>
 
 </dl></div>
     <div class="section level2">

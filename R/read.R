@@ -40,7 +40,18 @@ read_csv_metadata <- function(dir_csv, dir_ingest, create_dirs = TRUE) {
       file_info     = purrr::map(csv, file.info),
       file_size     = purrr::map_dbl(file_info, ~ .x$size),
       last_modified = purrr::map(file_info, ~ .x$mtime) |> purrr::list_c(),
-      data          = purrr::map(csv, readr::read_csv),
+      data          = purrr::map(csv, \(f) {
+        d <- readr::read_csv(f, show_col_types = FALSE)
+        # fix non-UTF-8 column names (e.g. µ from Latin-1 encoded CSVs)
+        # by re-reading with Latin-1 locale so readr converts to UTF-8
+        if (any(!validUTF8(names(d)))) {
+          d <- readr::read_csv(
+            f,
+            locale         = readr::locale(encoding = "Latin1"),
+            show_col_types = FALSE)
+        }
+        d
+      }),
       nrow          = purrr::map_int(data, nrow),
       ncol          = purrr::map_int(data, ncol),
       flds          = purrr::map2(tbl, data, \(tbl, data) {
@@ -109,6 +120,10 @@ read_csv_metadata <- function(dir_csv, dir_ingest, create_dirs = TRUE) {
 #' @param sync_archive Whether to sync local files to GCS archive (default: TRUE).
 #'   Only applies when using dir_data (local files).
 #' @param verbose Print detailed messages. Default: FALSE
+#' @param field_descriptions Named list of CSV file paths containing field
+#'   metadata for auto-populating descriptions and units in the generated
+#'   `flds_redefine.csv`. See [create_redefinition_files()] for details.
+#'   Default: NULL.
 #'
 #' @return A list containing:
 #'   \describe{
@@ -156,14 +171,15 @@ read_csv_metadata <- function(dir_csv, dir_ingest, create_dirs = TRUE) {
 read_csv_files <- function(
     provider,
     dataset,
-    subdir         = NULL,
-    dir_data       = NULL,
-    metadata_dir   = NULL,
-    gcs_archive    = NULL,
-    gcs_bucket     = "calcofi-files-public",
-    archive_prefix = "archive",
-    sync_archive   = TRUE,
-    verbose        = FALSE) {
+    subdir             = NULL,
+    dir_data           = NULL,
+    metadata_dir       = NULL,
+    gcs_archive        = NULL,
+    gcs_bucket         = "calcofi-files-public",
+    archive_prefix     = "archive",
+    sync_archive       = TRUE,
+    verbose            = FALSE,
+    field_descriptions = NULL) {
 
   # determine source: GCS archive or local
   archive_info <- NULL
@@ -287,11 +303,12 @@ read_csv_files <- function(
   if (!file.exists(flds_rd_csv)) {
     # Create redefinition files
     create_redefinition_files(
-      d_tbls_in   = d_csv$tables,
-      d_flds_in   = d_csv$fields,
-      d           = d_csv$data,
-      tbls_rd_csv = tbls_rd_csv,
-      flds_rd_csv = flds_rd_csv)
+      d_tbls_in          = d_csv$tables,
+      d_flds_in          = d_csv$fields,
+      d                  = d_csv$data,
+      tbls_rd_csv        = tbls_rd_csv,
+      flds_rd_csv        = flds_rd_csv,
+      field_descriptions = field_descriptions)
   }
 
   # Read redefinition files
@@ -333,10 +350,17 @@ read_csv_files <- function(
 #' @param d Data frame with raw data
 #' @param tbls_rd_csv Path to table redefinition CSV file
 #' @param flds_rd_csv Path to field redefinition CSV file
+#' @param field_descriptions Named list of CSV file paths containing field
+#'   metadata. Names should match table names in the source data (e.g.
+#'   `list("194903-202105_Cast" = "path/to/Cast Field Descriptions.csv")`).
+#'   Each CSV must have columns: `Field Name`, `Units`, `Description`.
+#'   When provided, auto-populates `fld_description` and `units` in the
+#'   generated redefinition file. Default: NULL (empty descriptions).
 #'
 #' @return Invisible NULL (files are written to disk)
 #' @export
 #' @concept read
+#' @importFrom purrr imap_dfr
 #'
 #' @examples
 #' \dontrun{
@@ -349,7 +373,8 @@ read_csv_files <- function(
 #' )
 #' }
 create_redefinition_files <- function(d_tbls_in, d_flds_in, d,
-                                     tbls_rd_csv, flds_rd_csv) {
+                                     tbls_rd_csv, flds_rd_csv,
+                                     field_descriptions = NULL) {
   # Create table redefinition file
   d_tbls_in |>
     dplyr::select(
@@ -359,17 +384,48 @@ create_redefinition_files <- function(d_tbls_in, d_flds_in, d,
       tbl_description = "") |>
     readr::write_csv(tbls_rd_csv)
 
-  # Create field redefinition file
-  d_flds_in |>
+  # if field_descriptions provided, read and combine into lookup
+  if (!is.null(field_descriptions)) {
+    d_fld_desc <- purrr::imap_dfr(field_descriptions, \(csv_path, tbl_name) {
+      readr::read_csv(csv_path, show_col_types = FALSE) |>
+        janitor::clean_names() |>
+        dplyr::transmute(
+          tbl             = tbl_name,
+          fld             = field_name,
+          fld_description = description,
+          units           = dplyr::if_else(
+            is.na(units) | units == "n.a.", "", units))
+    })
+  } else {
+    d_fld_desc <- NULL
+  }
+
+  # create field redefinition file
+  d_flds_out <- d_flds_in |>
     dplyr::group_by(tbl) |>
     dplyr::mutate(
-      fld_new = janitor::make_clean_names(fld),
-      order = 1:dplyr::n(),
-      fld_description = "",
-      units = "",
-      notes = "",
+      fld_new  = janitor::make_clean_names(fld),
+      order    = 1:dplyr::n(),
+      notes    = "",
       mutation = "",
       type_new = determine_field_types(d, tbl, fld)) |>
+    dplyr::ungroup()
+
+  # join field descriptions if provided, otherwise use empty strings
+  if (!is.null(d_fld_desc)) {
+    d_flds_out <- d_flds_out |>
+      dplyr::left_join(d_fld_desc, by = c("tbl", "fld")) |>
+      dplyr::mutate(
+        fld_description = dplyr::coalesce(fld_description, ""),
+        units           = dplyr::coalesce(units, ""))
+  } else {
+    d_flds_out <- d_flds_out |>
+      dplyr::mutate(
+        fld_description = "",
+        units           = "")
+  }
+
+  d_flds_out |>
     dplyr::select(
       tbl_old = tbl, tbl_new = tbl,
       fld_old = fld, fld_new,

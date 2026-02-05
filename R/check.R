@@ -6,9 +6,10 @@
 #'
 #' The function:
 #' 1. Detects changes between CSV files and redefinitions using detect_csv_changes()
-#' 2. Prints summary statistics of detected changes
-#' 3. Displays interactive table of changes if any exist
-#' 4. Returns appropriate status for notebook control flow
+#' 2. Optionally filters out known acceptable type mismatches via `type_exceptions`
+#' 3. Prints summary statistics of detected changes
+#' 4. Displays interactive table of changes if any exist
+#' 5. Returns appropriate status for notebook control flow
 #'
 #' When called from a Quarto notebook in an output: asis chunk, this function
 #' will render markdown messages and can control chunk evaluation via knitr options.
@@ -16,13 +17,17 @@
 #' @param d List output from read_csv_files() containing CSV and redefinition data
 #' @param dataset_name Name of dataset for display purposes (e.g., "NOAA CalCOFI Database")
 #' @param halt_on_fail Logical, whether to set knitr eval=FALSE on failure (default: TRUE)
+#' @param type_exceptions Character vector of known acceptable type mismatches.
+#'   Use `"all"` to accept all type mismatches, or specific `"table.field"`
+#'   patterns (e.g., `c("casts.time", "bottle.t_qual")`). Default: NULL (no exceptions).
 #' @param display_format Format for displaying changes: "DT" (DataTable), "kable", or "print" (default: "DT")
 #' @param verbose Logical, print detailed messages (default: TRUE)
 #'
 #' @return List with:
 #'   - passed: Logical indicating if integrity check passed
 #'   - changes: Full changes object from detect_csv_changes()
-#'   - n_changes: Number of changes detected
+#'   - n_changes: Number of changes detected (after filtering exceptions)
+#'   - n_exceptions: Number of type mismatches accepted as exceptions
 #'   - message: Character string with markdown-formatted message
 #'
 #' @export
@@ -30,26 +35,32 @@
 #'
 #' @examples
 #' \dontrun{
-#' # In a Quarto notebook chunk with output: asis
-#' d_noaa <- read_csv_files("swfsc.noaa.gov", "calcofi-db")
-#' integrity_check <- check_data_integrity(
-#'   d = d_noaa,
-#'   dataset_name = "NOAA CalCOFI Database"
-#' )
+#' # strict check — halt on any mismatch
+#' integrity <- check_data_integrity(d, "NOAA CalCOFI Database")
 #'
-#' # Continue only if check passed
-#' if (!integrity_check$passed) {
-#'   stop("Data integrity check failed")
+#' # accept all type mismatches (e.g., readr infers types differently)
+#' integrity <- check_data_integrity(
+#'   d               = d,
+#'   dataset_name    = "CalCOFI Bottle Database",
+#'   halt_on_fail    = FALSE,
+#'   type_exceptions = "all")
+#'
+#' # accept specific type mismatches
+#' integrity <- check_data_integrity(
+#'   d               = d,
+#'   dataset_name    = "CalCOFI Bottle Database",
+#'   type_exceptions = c("casts.time", "bottle.t_qual"))
 #' }
-#' }
+#' @importFrom dplyr filter
 #' @importFrom knitr opts_chunk
 #' @importFrom glue glue
 check_data_integrity <- function(
     d,
-    dataset_name = "Dataset",
-    halt_on_fail = TRUE,
-    display_format = "DT",
-    verbose = TRUE) {
+    dataset_name    = "Dataset",
+    halt_on_fail    = TRUE,
+    type_exceptions = NULL,
+    display_format  = "DT",
+    verbose         = TRUE) {
 
   # detect changes between csv files and redefinitions
   changes <- detect_csv_changes(d)
@@ -59,16 +70,102 @@ check_data_integrity <- function(
     print_csv_change_stats(changes, verbose = TRUE)
   }
 
-  # count total changes
+  # -- apply type_exceptions ----
+  n_exceptions     <- 0
+  exception_detail <- character(0)
+
+  if (!is.null(type_exceptions) && length(changes$type_mismatches) > 0) {
+    # count original type mismatches
+    n_type_orig <- sum(sapply(changes$type_mismatches, length))
+
+    if (identical(type_exceptions, "all")) {
+      # accept all type mismatches
+      exception_detail <- unlist(lapply(
+        names(changes$type_mismatches), function(tbl) {
+          paste0(tbl, ".", names(changes$type_mismatches[[tbl]]))
+        }))
+      changes$type_mismatches <- list()
+    } else {
+      # filter specific table.field patterns
+      for (tbl in names(changes$type_mismatches)) {
+        flds <- names(changes$type_mismatches[[tbl]])
+        matched <- paste0(tbl, ".", flds) %in% type_exceptions
+        if (any(matched)) {
+          exception_detail <- c(
+            exception_detail, paste0(tbl, ".", flds[matched]))
+          changes$type_mismatches[[tbl]][flds[matched]] <- NULL
+        }
+        if (length(changes$type_mismatches[[tbl]]) == 0) {
+          changes$type_mismatches[[tbl]] <- NULL
+        }
+      }
+    }
+
+    n_exceptions <- length(exception_detail)
+
+    # rebuild summary removing excepted type mismatches
+    if (n_exceptions > 0) {
+      changes$summary <- changes$summary |>
+        dplyr::filter(
+          !(change_type == "type_mismatch" &
+              paste0(table, ".", field) %in% exception_detail))
+
+      if (verbose && n_exceptions > 0) {
+        message(glue::glue(
+          "\nType exceptions accepted: {n_exceptions} mismatch(es) ",
+          "treated as known/acceptable"))
+      }
+    }
+  }
+
+  # count changes after filtering exceptions
   n_changes <- nrow(changes$summary)
 
   # determine if check passed
   passed <- n_changes == 0
 
-  # prepare markdown message
-  if (passed) {
+  # -- build detail bullets for detected issues ----
+  detail_bullets <- character(0)
+
+  if (length(changes$tables_added) > 0)
+    detail_bullets <- c(detail_bullets, glue::glue(
+      "- **Tables added**: {paste(changes$tables_added, collapse = ', ')}"))
+
+  if (length(changes$tables_removed) > 0)
+    detail_bullets <- c(detail_bullets, glue::glue(
+      "- **Tables removed**: {paste(changes$tables_removed, collapse = ', ')}"))
+
+  if (length(changes$fields_added) > 0) {
+    fld_detail <- paste(sapply(names(changes$fields_added), function(tbl) {
+      glue::glue("{tbl} ({length(changes$fields_added[[tbl]])} fields)")
+    }), collapse = ", ")
+    detail_bullets <- c(detail_bullets, glue::glue(
+      "- **Fields added**: {fld_detail}"))
+  }
+
+  if (length(changes$fields_removed) > 0) {
+    fld_detail <- paste(sapply(names(changes$fields_removed), function(tbl) {
+      glue::glue("{tbl} ({length(changes$fields_removed[[tbl]])} fields)")
+    }), collapse = ", ")
+    detail_bullets <- c(detail_bullets, glue::glue(
+      "- **Fields removed**: {fld_detail}"))
+  }
+
+  if (length(changes$type_mismatches) > 0) {
+    n_remaining <- sum(sapply(changes$type_mismatches, length))
+    type_detail <- paste(sapply(names(changes$type_mismatches), function(tbl) {
+      glue::glue("{tbl} ({length(changes$type_mismatches[[tbl]])} fields)")
+    }), collapse = ", ")
+    detail_bullets <- c(detail_bullets, glue::glue(
+      "- **Type mismatches**: {n_remaining} in {type_detail}"))
+  }
+
+  detail_section <- paste(detail_bullets, collapse = "\n")
+
+  # -- prepare markdown message ----
+  if (passed && n_exceptions == 0) {
     msg <- glue::glue("
-## ✅ Data Integrity Check Passed: {dataset_name}
+## \u2705 Data Integrity Check Passed: {dataset_name}
 
 ### All Systems Go
 
@@ -77,23 +174,46 @@ The data structures are properly aligned and ready for database ingestion.
 
 ---
 ")
+  } else if (passed && n_exceptions > 0) {
+    msg <- glue::glue("
+## \u2705 Data Integrity Check Passed: {dataset_name}
+
+### Passed with Accepted Exceptions
+
+{n_exceptions} type mismatch(es) were found but accepted as known exceptions
+(e.g., readr infers types differently from redefinition metadata; resolved
+during ingestion via `flds_redefine.csv` `type_new` column).
+
+---
+")
+  } else if (!halt_on_fail) {
+    msg <- glue::glue("
+## \u26a0\ufe0f Data Integrity Check: {dataset_name}
+
+### Issues Detected (Continuing)
+
+Mismatches have been detected between the CSV files and redefinition metadata.
+The workflow is continuing because `halt_on_fail = FALSE`.
+
+### Detected Issues ({n_changes} remaining)
+
+{detail_section}
+
+{if (n_exceptions > 0) glue::glue('*{n_exceptions} type mismatch(es) accepted as known exceptions.*\n') else ''}
+---
+")
   } else {
     msg <- glue::glue("
-## ⚠️ Data Integrity Check Failed: {dataset_name}
+## \u26a0\ufe0f Data Integrity Check Failed: {dataset_name}
 
 ### Workflow Halted
 
 Mismatches have been detected between the CSV files and redefinition metadata.
-These must be resolved before proceeding with database ingestion to ensure data integrity.
+These must be resolved before proceeding with database ingestion.
 
-### Detected Issues
+### Detected Issues ({n_changes} total)
 
-- **Total changes**: {n_changes}
-- **Tables added**: {length(changes$tables_added)}
-- **Tables removed**: {length(changes$tables_removed)}
-- **Fields added**: {length(changes$fields_added)} table(s)
-- **Fields removed**: {length(changes$fields_removed)} table(s)
-- **Type mismatches**: {length(changes$type_mismatches)} table(s)
+{detail_section}
 
 ### Required Actions
 
@@ -127,8 +247,7 @@ data integrity issues.*
     display_csv_changes(
       changes,
       format = display_format,
-      title = glue::glue("{dataset_name}: CSV vs Redefinition Mismatches")
-    )
+      title = glue::glue("{dataset_name}: CSV vs Redefinition Mismatches"))
   }
 
   # control notebook execution via knitr options
@@ -142,10 +261,11 @@ data integrity issues.*
 
   # return results
   invisible(list(
-    passed = passed,
-    changes = changes,
-    n_changes = n_changes,
-    message = msg
+    passed       = passed,
+    changes      = changes,
+    n_changes    = n_changes,
+    n_exceptions = n_exceptions,
+    message      = msg
   ))
 }
 

@@ -1,3 +1,11 @@
+# calcofi4db 2.2.1
+
+*Addition of spatial, parquet, viz helper functions*
+
+- Added functions to help with spatial data processing including: `add_point_geom()`, `assign_grid_key()`.
+- Added parquet helper function: `load_gcs_parquet_to_duckdb()`.
+- Added ingest workflow helper visualzation of table function: `preview_tables()`.
+
 # calcofi4db 2.2.0
 
 *Improvements to cloud plan functions*
