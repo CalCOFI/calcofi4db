@@ -645,6 +645,142 @@ compare_releases <- function(v1, v2, bucket = "calcofi-db") {
     v2_metadata    = meta2)
 }
 
+#' Upload Frozen Release to GCS
+#'
+#' Uploads a frozen release directory to GCS, creating required metadata files
+#' (catalog.json, versions.json, latest.txt) and making files publicly accessible.
+#'
+#' @param release_dir Path to local release directory (contains parquet/ subdirectory)
+#' @param version Version string (e.g., "v2026.02")
+#' @param bucket GCS bucket name (default: "calcofi-db")
+#' @param set_latest Logical, update latest.txt to point to this version (default: TRUE)
+#'
+#' @return List with upload statistics (files uploaded, total size)
+#'
+#' @export
+#' @concept freeze
+#'
+#' @examples
+#' \dontrun{
+#' upload_frozen_release(
+#'   release_dir = "data/releases/v2026.02",
+#'   version     = "v2026.02")
+#' }
+#' @importFrom jsonlite toJSON fromJSON
+#' @importFrom glue glue
+#' @importFrom tibble tibble
+upload_frozen_release <- function(
+    release_dir,
+    version,
+    bucket     = "calcofi-db",
+    set_latest = TRUE) {
+
+  stopifnot(
+    dir.exists(release_dir),
+    grepl("^v\\d{4}\\.\\d{2}$", version))
+
+  parquet_dir <- file.path(release_dir, "parquet")
+  stopifnot(dir.exists(parquet_dir))
+
+  gcs_base <- glue::glue("gs://{bucket}/ducklake/releases/{version}")
+  message(glue::glue("Uploading frozen release {version} to {gcs_base}..."))
+
+  # read manifest to get table info
+  manifest_path <- file.path(parquet_dir, "manifest.json")
+  if (!file.exists(manifest_path)) {
+    stop("manifest.json not found in parquet directory")
+  }
+  manifest <- jsonlite::fromJSON(manifest_path)
+
+  # create catalog.json (format expected by cc_get_db())
+  tables_df <- tibble::tibble(
+    name = manifest$tables,
+    rows = as.integer(manifest$files$rows))
+
+  catalog <- list(
+    version      = version,
+    release_date = as.character(Sys.Date()),
+    total_rows   = sum(tables_df$rows),
+    total_size   = manifest$total_size_bytes,
+    tables       = tables_df)
+
+  catalog_path <- file.path(release_dir, "catalog.json")
+  jsonlite::write_json(catalog, catalog_path, auto_unbox = TRUE, pretty = TRUE)
+  message(glue::glue("Created catalog.json with {nrow(tables_df)} tables"))
+
+  # upload parquet files
+  parquet_files <- list.files(parquet_dir, pattern = "\\.parquet$", full.names = TRUE)
+  message(glue::glue("Uploading {length(parquet_files)} parquet files..."))
+
+  for (pf in parquet_files) {
+    gcs_path <- glue::glue("{gcs_base}/parquet/{basename(pf)}")
+    put_gcs_file(pf, gcs_path)
+  }
+
+  # upload catalog.json
+  put_gcs_file(catalog_path, glue::glue("{gcs_base}/catalog.json"))
+
+  # upload RELEASE_NOTES.md if exists
+  notes_path <- file.path(release_dir, "RELEASE_NOTES.md")
+  if (file.exists(notes_path)) {
+    put_gcs_file(notes_path, glue::glue("{gcs_base}/RELEASE_NOTES.md"))
+    message("Uploaded RELEASE_NOTES.md")
+  }
+
+  # update versions.json
+  versions_gcs <- glue::glue("gs://{bucket}/ducklake/releases/versions.json")
+  versions_local <- tempfile(fileext = ".json")
+
+  existing_versions <- tryCatch({
+    get_gcs_file(versions_gcs, versions_local)
+    jsonlite::fromJSON(versions_local)
+  }, error = function(e) {
+    list(versions = list())
+  })
+
+  # add/update this version
+  new_version <- list(
+    version      = version,
+    release_date = as.character(Sys.Date()),
+    tables       = nrow(tables_df),
+    total_rows   = sum(tables_df$rows),
+    size_mb      = round(manifest$total_size_bytes / 1024 / 1024, 1))
+
+  # remove existing entry for this version if present
+  if (length(existing_versions$versions) > 0) {
+    existing_versions$versions <- Filter(
+      function(v) v$version != version,
+      existing_versions$versions)
+  }
+
+  # add new version at the beginning
+  existing_versions$versions <- c(list(new_version), existing_versions$versions)
+
+  # write and upload
+  jsonlite::write_json(existing_versions, versions_local, auto_unbox = TRUE, pretty = TRUE)
+  put_gcs_file(versions_local, versions_gcs)
+  message("Updated versions.json")
+
+  # update latest.txt
+  if (set_latest) {
+    latest_local <- tempfile()
+    writeLines(version, latest_local)
+    put_gcs_file(latest_local, glue::glue("gs://{bucket}/ducklake/releases/latest.txt"))
+    message(glue::glue("Set latest.txt to {version}"))
+  }
+
+  message(glue::glue(
+    "Release {version} uploaded successfully: ",
+    "{length(parquet_files)} files, ",
+    "{round(manifest$total_size_bytes / 1024 / 1024, 1)} MB"))
+
+  invisible(list(
+    version     = version,
+    files       = length(parquet_files),
+    total_bytes = manifest$total_size_bytes,
+    gcs_path    = gcs_base))
+}
+
 # internal helper: null coalescing operator
 `%||%` <- function(x, y) {
   if (is.null(x)) y else x
