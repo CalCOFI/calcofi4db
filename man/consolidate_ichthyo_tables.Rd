@@ -44,8 +44,9 @@ larvasize) into a single tidy table with columns: net_uuid, species_id, life_sta
 measurement_type, measurement_value, tally.
 }
 \details{
-After calling this function, use \code{replace_uuid_with_id()} to convert net_uuid
-to net_id, then \code{assign_sequential_ids()} to add ichthyo_id.
+The output retains \code{net_uuid} as the foreign key to the net table (source UUIDs
+are kept as primary identifiers). Use \code{assign_deterministic_uuids()} to add an
+\code{ichthyo_uuid} primary key column derived from the composite natural key.
 }
 \examples{
 \dontrun{
@@ -57,15 +58,13 @@ consolidate_ichthyo_tables(
   con               = con,
   larva_stage_vocab = larva_vocab)
 
-# then convert net_uuid to net_id
-replace_uuid_with_id(
-  con          = con,
-  table_name   = "ichthyo",
-  uuid_col     = "net_uuid",
-  new_id_col   = "net_id",
-  ref_table    = "net",
-  ref_uuid_col = "net_uuid",
-  ref_id_col   = "net_id")
+# assign ichthyo_uuid — deterministic UUID v5 from composite natural key
+assign_deterministic_uuids(
+  con        = con,
+  table_name = "ichthyo",
+  id_col     = "ichthyo_uuid",
+  key_cols   = c("net_uuid", "species_id", "life_stage",
+                 "measurement_type", "measurement_value"))
 }
 }
 \concept{wrangle}

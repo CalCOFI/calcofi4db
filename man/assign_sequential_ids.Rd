@@ -36,13 +36,12 @@ assign_sequential_ids(
   id_col     = "site_id",
   sort_cols  = c("cruise_key", "orderocc"))
 
-# assign ichthyo_id with multi-column sort
+# assign lookup_id with multi-column sort
 assign_sequential_ids(
   con        = con,
-  table_name = "ichthyo",
-  id_col     = "ichthyo_id",
-  sort_cols  = c("net_id", "species_id", "life_stage",
-                 "measurement_type", "measurement_value"))
+  table_name = "lookup",
+  id_col     = "lookup_id",
+  sort_cols  = c("lookup_type", "lookup_num"))
 }
 }
 \concept{wrangle}

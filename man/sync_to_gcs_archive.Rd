@@ -38,6 +38,9 @@ List with:
 \description{
 Creates a new timestamped archive in GCS from local files.
 Only creates a new archive if local files differ from the latest archive.
+The archive timestamp is derived from the maximum file modification time
+(not render/wall-clock time), so re-rendering with unchanged files produces
+the same timestamp and skips upload.
 }
 \examples{
 \dontrun{

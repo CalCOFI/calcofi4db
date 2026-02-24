@@ -10,10 +10,12 @@ get_local_manifest(dir_csv)
 \item{dir_csv}{Local directory containing CSV files}
 }
 \value{
-Tibble with columns: name, size, local_path
+Tibble with columns: name, size, mtime, md5, local_path
 }
 \description{
-Retrieves metadata (size, path) for all CSV files in a local directory.
+Retrieves metadata (size, mtime, md5, path) for all CSV files in a local
+directory. Uses \code{tools::md5sum()} for content hashing and
+\code{file.mtime()} for modification timestamps.
 }
 \examples{
 \dontrun{

@@ -193,13 +193,12 @@ propagate_natural_key <- function(
 #'   id_col     = "site_id",
 #'   sort_cols  = c("cruise_key", "orderocc"))
 #'
-#' # assign ichthyo_id with multi-column sort
+#' # assign lookup_id with multi-column sort
 #' assign_sequential_ids(
 #'   con        = con,
-#'   table_name = "ichthyo",
-#'   id_col     = "ichthyo_id",
-#'   sort_cols  = c("net_id", "species_id", "life_stage",
-#'                  "measurement_type", "measurement_value"))
+#'   table_name = "lookup",
+#'   id_col     = "lookup_id",
+#'   sort_cols  = c("lookup_type", "lookup_num"))
 #' }
 #' @importFrom DBI dbExecute dbGetQuery
 #' @importFrom glue glue
@@ -254,6 +253,70 @@ assign_sequential_ids <- function(
   message(glue::glue(
     "Assigned {id_col} to {n_rows} rows in {table_name} ",
     "(sorted by: {paste(sort_cols, collapse = ', ')})"))
+
+  invisible(con)
+}
+
+#' Assign deterministic UUIDs from composite key columns
+#'
+#' Generates UUID v5 (name-based SHA-1) identifiers from a composite key.
+#' The same key values always produce the same UUID, making IDs stable
+#' across re-ingestion regardless of row order.
+#'
+#' @param con DuckDB connection
+#' @param table_name Name of table to assign UUIDs to
+#' @param id_col Name of UUID column to create
+#' @param key_cols Character vector of columns forming the composite key
+#' @param namespace_uuid Fixed namespace UUID for deterministic generation
+#'
+#' @return Invisibly returns the connection after adding UUID column
+#' @export
+#' @concept wrangle
+#' @importFrom DBI dbGetQuery dbExecute dbWriteTable
+#' @importFrom glue glue
+#' @importFrom uuid UUIDfromName
+assign_deterministic_uuids <- function(
+    con,
+    table_name,
+    id_col,
+    key_cols,
+    namespace_uuid = "c0f1ca00-ca1c-5000-b000-1c4790000000") {
+
+  # read table into R
+  data <- DBI::dbGetQuery(con, glue::glue("SELECT * FROM {table_name}"))
+
+  # build composite key string per row (NAs rendered as empty strings)
+  key_strings <- do.call(paste, c(
+    lapply(key_cols, function(col) {
+      ifelse(is.na(data[[col]]), "", as.character(data[[col]]))
+    }),
+    sep = "|"))
+
+  # generate UUID v5 for each row
+  data[[id_col]] <- uuid::UUIDfromName(
+    namespace = namespace_uuid,
+    name      = key_strings,
+    type      = "sha1")
+
+  # rewrite table with UUID column first
+  col_order <- c(id_col, setdiff(names(data), id_col))
+  data      <- data[, col_order]
+
+  DBI::dbExecute(con, glue::glue("DROP TABLE IF EXISTS {table_name}"))
+  DBI::dbWriteTable(con, table_name, data, overwrite = TRUE)
+
+  n_rows   <- nrow(data)
+  n_unique <- length(unique(data[[id_col]]))
+
+  message(glue::glue(
+    "Assigned {id_col} to {n_rows} rows in {table_name} ",
+    "({n_unique} unique UUIDs from: {paste(key_cols, collapse = ', ')})"))
+
+  if (n_unique != n_rows) {
+    warning(glue::glue(
+      "Non-unique UUIDs detected: {n_rows} rows but {n_unique} unique values. ",
+      "Check that key_cols form a true composite key."))
+  }
 
   invisible(con)
 }
@@ -373,8 +436,9 @@ create_lookup_table <- function(
 #' larvasize) into a single tidy table with columns: net_uuid, species_id, life_stage,
 #' measurement_type, measurement_value, tally.
 #'
-#' After calling this function, use `replace_uuid_with_id()` to convert net_uuid
-#' to net_id, then `assign_sequential_ids()` to add ichthyo_id.
+#' The output retains `net_uuid` as the foreign key to the net table (source UUIDs
+#' are kept as primary identifiers). Use `assign_deterministic_uuids()` to add an
+#' `ichthyo_uuid` primary key column derived from the composite natural key.
 #'
 #' @param con DuckDB connection
 #' @param output_tbl Name of output table (default: "ichthyo")
@@ -400,15 +464,13 @@ create_lookup_table <- function(
 #'   con               = con,
 #'   larva_stage_vocab = larva_vocab)
 #'
-#' # then convert net_uuid to net_id
-#' replace_uuid_with_id(
-#'   con          = con,
-#'   table_name   = "ichthyo",
-#'   uuid_col     = "net_uuid",
-#'   new_id_col   = "net_id",
-#'   ref_table    = "net",
-#'   ref_uuid_col = "net_uuid",
-#'   ref_id_col   = "net_id")
+#' # assign ichthyo_uuid — deterministic UUID v5 from composite natural key
+#' assign_deterministic_uuids(
+#'   con        = con,
+#'   table_name = "ichthyo",
+#'   id_col     = "ichthyo_uuid",
+#'   key_cols   = c("net_uuid", "species_id", "life_stage",
+#'                  "measurement_type", "measurement_value"))
 #' }
 #' @importFrom DBI dbExecute dbGetQuery dbWriteTable
 #' @importFrom dplyr tbl collect mutate select bind_rows left_join

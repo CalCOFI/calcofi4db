@@ -34,11 +34,13 @@ List with:
 \item \code{archive_manifest}: Tibble of archive files
 \item \code{added}: Files in local but not archive
 \item \code{removed}: Files in archive but not local
-\item \code{changed}: Files with different sizes
+\item \code{changed}: Files with different content (md5) or size
 }
 }
 \description{
 Compares local CSV files with a GCS archive to detect changes.
+Uses md5 hash as primary comparison when available, with file size as
+fallback when md5 is unavailable (e.g., gcloud CLI fallback).
 }
 \examples{
 \dontrun{

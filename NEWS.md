@@ -1,3 +1,10 @@
+# calcofi4db 2.4.0
+
+*Use _uuid over _id, smarter sync with GCS*
+
+* Revert from int `_id` to `_uuid` preferred unique identifiers for SWFSC icthyo db
+* Use smarter synchronizing with GCS using md5 hash checks and modified time filenaming
+
 # calcofi4db 2.3.0
 
 *Addition of ship, taxonomy functions*

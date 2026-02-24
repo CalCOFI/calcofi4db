@@ -24,10 +24,12 @@ get_archive_manifest(
 \item{archive_prefix}{Archive folder prefix}
 }
 \value{
-Tibble with columns: name, size, gcs_path
+Tibble with columns: name, size, md5, gcs_path
 }
 \description{
-Retrieves metadata (size, path) for all files in a GCS archive.
+Retrieves metadata (size, md5, path) for all CSV files in a GCS archive.
+The md5 hash is converted from GCS base64 encoding to hex for comparison
+with \code{tools::md5sum()}.
 }
 \examples{
 \dontrun{

@@ -130,6 +130,114 @@ put_gcs_file <- function(
   return(glue::glue("gs://{bucket}/{gcs_path}"))
 }
 
+#' Sync local files to GCS, skipping unchanged files
+#'
+#' Compares local files against GCS using MD5 hashes (with file-size
+#' fallback when MD5 is unavailable from the CLI). Only uploads files
+#' that are new or changed, skipping identical files.
+#'
+#' @param local_dir Directory containing files to upload
+#' @param gcs_prefix GCS destination prefix (e.g. "ingest/swfsc.noaa.gov_calcofi-db")
+#' @param bucket GCS bucket name
+#' @param pattern Regex to filter local files (default: NULL = all files)
+#' @param verbose Print per-file status messages (default: TRUE)
+#'
+#' @return Tibble with columns: file, action (uploaded/skipped), local_md5
+#' @export
+#' @concept cloud
+#'
+#' @examples
+#' \dontrun{
+#' sync_to_gcs(
+#'   local_dir  = "data/parquet/swfsc.noaa.gov_calcofi-db",
+#'   gcs_prefix = "ingest/swfsc.noaa.gov_calcofi-db",
+#'   bucket     = "calcofi-db")
+#' }
+#' @importFrom tibble tibble
+#' @importFrom purrr map_dfr
+#' @importFrom glue glue
+sync_to_gcs <- function(
+    local_dir,
+    gcs_prefix,
+    bucket,
+    pattern = NULL,
+    verbose = TRUE) {
+
+  # list local files
+  local_files <- list.files(local_dir, full.names = TRUE, pattern = pattern)
+  if (length(local_files) == 0) {
+    message("No local files found to sync.")
+    return(tibble::tibble(
+      file = character(), action = character(), local_md5 = character()))
+  }
+
+  # build local manifest with MD5
+  local_manifest <- tibble::tibble(
+    name       = basename(local_files),
+    size       = file.size(local_files),
+    md5        = unname(tools::md5sum(local_files)),
+    local_path = local_files)
+
+  # get GCS manifest
+  gcs_manifest <- tryCatch(
+    list_gcs_files(bucket, prefix = paste0(gcs_prefix, "/")),
+    error = function(e) {
+      tibble::tibble(
+        name = character(), size = numeric(), md5 = character())
+    })
+
+  # normalize GCS manifest names to basenames and convert md5
+  if (nrow(gcs_manifest) > 0) {
+    gcs_manifest <- gcs_manifest |>
+      dplyr::mutate(
+        name = basename(name),
+        md5  = md5_base64_to_hex(md5))
+  }
+
+  # compare and decide per file
+  results <- purrr::map_dfr(seq_len(nrow(local_manifest)), function(i) {
+    f         <- local_manifest$name[i]
+    local_md5 <- local_manifest$md5[i]
+    local_sz  <- local_manifest$size[i]
+
+    gcs_row <- gcs_manifest[gcs_manifest$name == f, ]
+
+    skip <- FALSE
+    if (nrow(gcs_row) == 1) {
+      gcs_md5 <- gcs_row$md5
+      gcs_sz  <- gcs_row$size
+      # md5 match (definitive); size fallback when md5 unavailable
+      if (!is.na(local_md5) && !is.na(gcs_md5)) {
+        skip <- (local_md5 == gcs_md5)
+      } else {
+        skip <- (local_sz == gcs_sz)
+      }
+    }
+
+    if (skip) {
+      if (verbose) message(glue::glue("  Skipped {f} (unchanged)"))
+      action <- "skipped"
+    } else {
+      gcs_path <- glue::glue("gs://{bucket}/{gcs_prefix}/{f}")
+      put_gcs_file(local_manifest$local_path[i], gcs_path)
+      if (verbose) message(glue::glue("  Uploaded {f}"))
+      action <- "uploaded"
+    }
+
+    tibble::tibble(
+      file      = f,
+      action    = action,
+      local_md5 = local_md5)
+  })
+
+  n_up   <- sum(results$action == "uploaded")
+  n_skip <- sum(results$action == "skipped")
+  message(glue::glue(
+    "Sync complete: {n_up} uploaded, {n_skip} skipped (unchanged)"))
+
+  results
+}
+
 #' List files in a GCS bucket/prefix
 #'
 #' Lists objects in a GCS bucket with optional prefix filter.
