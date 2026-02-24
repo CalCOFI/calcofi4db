@@ -11,7 +11,7 @@ measurement_type, measurement_value, tally."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.3.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -104,8 +104,9 @@ measurement_type, measurement_value, tally.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>After calling this function, use <code><a href="replace_uuid_with_id.html">replace_uuid_with_id()</a></code> to convert net_uuid
-to net_id, then <code><a href="assign_sequential_ids.html">assign_sequential_ids()</a></code> to add ichthyo_id.</p>
+    <p>The output retains <code>net_uuid</code> as the foreign key to the net table (source UUIDs
+are kept as primary identifiers). Use <code><a href="assign_deterministic_uuids.html">assign_deterministic_uuids()</a></code> to add an
+<code>ichthyo_uuid</code> primary key column derived from the composite natural key.</p>
     </div>
 
     <div class="section level2">
@@ -119,15 +120,13 @@ to net_id, then <code><a href="assign_sequential_ids.html">assign_sequential_ids
 <span class="r-in"><span>  con               <span class="op">=</span> <span class="va">con</span>,</span></span>
 <span class="r-in"><span>  larva_stage_vocab <span class="op">=</span> <span class="va">larva_vocab</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># then convert net_uuid to net_id</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="replace_uuid_with_id.html">replace_uuid_with_id</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>  con          <span class="op">=</span> <span class="va">con</span>,</span></span>
-<span class="r-in"><span>  table_name   <span class="op">=</span> <span class="st">"ichthyo"</span>,</span></span>
-<span class="r-in"><span>  uuid_col     <span class="op">=</span> <span class="st">"net_uuid"</span>,</span></span>
-<span class="r-in"><span>  new_id_col   <span class="op">=</span> <span class="st">"net_id"</span>,</span></span>
-<span class="r-in"><span>  ref_table    <span class="op">=</span> <span class="st">"net"</span>,</span></span>
-<span class="r-in"><span>  ref_uuid_col <span class="op">=</span> <span class="st">"net_uuid"</span>,</span></span>
-<span class="r-in"><span>  ref_id_col   <span class="op">=</span> <span class="st">"net_id"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="co"># assign ichthyo_uuid — deterministic UUID v5 from composite natural key</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="assign_deterministic_uuids.html">assign_deterministic_uuids</a></span><span class="op">(</span></span></span>
+<span class="r-in"><span>  con        <span class="op">=</span> <span class="va">con</span>,</span></span>
+<span class="r-in"><span>  table_name <span class="op">=</span> <span class="st">"ichthyo"</span>,</span></span>
+<span class="r-in"><span>  id_col     <span class="op">=</span> <span class="st">"ichthyo_uuid"</span>,</span></span>
+<span class="r-in"><span>  key_cols   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"net_uuid"</span>, <span class="st">"species_id"</span>, <span class="st">"life_stage"</span>,</span></span>
+<span class="r-in"><span>                 <span class="st">"measurement_type"</span>, <span class="st">"measurement_value"</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 </code></pre></div>
     </div>

@@ -9,6 +9,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/add_point_geom.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/add_provenance_columns.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/apply_data_corrections.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/assign_deterministic_uuids.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assign_grid_key.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assign_sequential_ids.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_metadata_json.html</loc></url>
@@ -16,6 +17,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/calcofi4db-package.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_data_integrity.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_multiple_datasets.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/cleanup_duplicate_archives.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/close_duckdb.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/commit_version_and_permalink.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/compare_local_vs_archive.html</loc></url>
@@ -99,9 +101,11 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/standardize_species.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/strip_provenance_columns.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/suggest_next_version.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/sync_to_gcs.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/sync_to_gcs_archive.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/transform_data.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/update_package_version.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/upload_frozen_release.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/upload_parquet.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/validate_dataset.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/validate_egg_stages.html</loc></url>
