@@ -70,7 +70,7 @@ fetch_ship_ices <- function(
 #' provided via a CSV file.
 #'
 #' Adapted from the ship reconciliation pattern in
-#' `workflows/ingest_calcofi.org_bottle-database_0.qmd` (lines 117-260).
+#' `workflows/ingest_calcofi_bottle.qmd` (lines 117-260).
 #'
 #' @param unmatched_ships tibble with columns: ship_code, ship_name
 #'   (ships needing reconciliation from bottle casts)
@@ -393,4 +393,237 @@ match_ships <- function(
     "{nrow(result)} ships"))
 
   result
+}
+
+#' Derive Cruise Key on Bottle Casts via Ship Matching
+#'
+#' Full pipeline to link bottle \code{casts} to the SWFSC \code{cruise} table
+#' by: (1) finding unmatched ship codes, (2) running \code{match_ships()} for
+#' fuzzy matching, (3) adding \code{ship_key} and \code{cruise_key} columns
+#' to casts, (4) validating against the cruise table.
+#'
+#' The cruise_key format is YYYY-MM-NODC (4-digit year, 2-digit month,
+#' NODC ship code), e.g. "1998-02-33JD".
+#'
+#' Requires that \code{ship} and \code{cruise} tables are already loaded in
+#' the DuckDB connection (e.g., via \code{load_prior_tables()}).
+#'
+#' @param con DBI connection to DuckDB with casts, ship, and cruise tables
+#' @param ship_renames_csv Optional path to manual ship overrides CSV
+#' @param fetch_ices Logical; if TRUE, also query ICES ship API (default TRUE)
+#'
+#' @return List with components:
+#'   \itemize{
+#'     \item \code{ship_matches}: tibble of ship match results
+#'     \item \code{cruise_stats}: tibble of cruise bridge match statistics
+#'     \item \code{unmatched_report}: tibble of unmatched ship codes
+#'   }
+#' @export
+#' @concept ship
+#'
+#' @examples
+#' \dontrun{
+#' # after loading casts, ship, cruise tables
+#' result <- derive_cruise_key_on_casts(
+#'   con              = con,
+#'   ship_renames_csv = here("metadata/calcofi/bottle/ship_renames.csv"))
+#' result$cruise_stats
+#' }
+#' @importFrom DBI dbExecute dbGetQuery dbReadTable dbListFields
+#' @importFrom glue glue
+#' @importFrom dplyr filter
+derive_cruise_key_on_casts <- function(
+    con,
+    ship_renames_csv = NULL,
+    fetch_ices       = TRUE) {
+
+  # verify required tables exist
+  tbls <- DBI::dbListTables(con)
+  stopifnot(
+    "casts table required"  = "casts"  %in% tbls,
+    "ship table required"   = "ship"   %in% tbls,
+    "cruise table required" = "cruise" %in% tbls)
+
+  # step 1: find unmatched ships ----
+  unmatched <- DBI::dbGetQuery(con, "
+    SELECT DISTINCT c.ship_code, c.ship_name
+    FROM casts c
+    LEFT JOIN ship s ON c.ship_code = s.ship_nodc
+    WHERE s.ship_key IS NULL")
+
+  message(glue::glue("{nrow(unmatched)} unmatched ship codes in casts"))
+
+  # step 2: run fuzzy matching ----
+  ship_matches <- match_ships(
+    unmatched_ships  = unmatched,
+    reference_ships  = DBI::dbReadTable(con, "ship"),
+    ship_renames_csv = ship_renames_csv,
+    fetch_ices       = fetch_ices)
+
+  # step 3: add ship_key to casts ----
+  DBI::dbExecute(con, "ALTER TABLE casts ADD COLUMN IF NOT EXISTS ship_key TEXT")
+
+  # exact match: casts.ship_code = ship.ship_nodc
+  DBI::dbExecute(con, "
+    UPDATE casts SET ship_key = (
+      SELECT s.ship_key FROM ship s
+      WHERE s.ship_nodc = casts.ship_code
+      LIMIT 1)")
+
+  n_exact <- DBI::dbGetQuery(con,
+    "SELECT COUNT(*) AS n FROM casts WHERE ship_key IS NOT NULL")$n
+  message(glue::glue("Exact ship_nodc match: {n_exact} casts"))
+
+  # apply fuzzy match results
+  matched_ships <- ship_matches |>
+    dplyr::filter(match_type != "unmatched", !is.na(matched_ship_key))
+
+  if (nrow(matched_ships) > 0) {
+    for (i in seq_len(nrow(matched_ships))) {
+      m <- matched_ships[i, ]
+      DBI::dbExecute(con, glue::glue("
+        UPDATE casts SET ship_key = '{m$matched_ship_key}'
+        WHERE ship_code = '{m$ship_code}'
+          AND ship_key IS NULL"))
+    }
+    n_fuzzy <- DBI::dbGetQuery(con,
+      "SELECT COUNT(*) AS n FROM casts WHERE ship_key IS NOT NULL")$n - n_exact
+    message(glue::glue("Fuzzy/manual match: {n_fuzzy} additional casts"))
+  }
+
+  # step 4: derive cruise_key as YYYY-MM-NODC ----
+  DBI::dbExecute(con, "ALTER TABLE casts ADD COLUMN IF NOT EXISTS cruise_key TEXT")
+
+  DBI::dbExecute(con, "
+    UPDATE casts SET cruise_key = CONCAT(
+      CAST(EXTRACT(YEAR FROM datetime_utc) AS VARCHAR),
+      '-',
+      LPAD(CAST(EXTRACT(MONTH FROM datetime_utc) AS VARCHAR), 2, '0'),
+      '-',
+      (SELECT s.ship_nodc FROM ship s
+       WHERE s.ship_key = casts.ship_key LIMIT 1))
+    WHERE ship_key IS NOT NULL")
+
+  n_cruise <- DBI::dbGetQuery(con,
+    "SELECT COUNT(*) AS n FROM casts WHERE cruise_key IS NOT NULL")$n
+  message(glue::glue("Derived cruise_key for {n_cruise} casts"))
+
+  # step 5: validate against cruise table ----
+  cruise_stats <- DBI::dbGetQuery(con, "
+    SELECT
+      CASE
+        WHEN c.ship_key IS NULL THEN 'no_ship_match'
+        WHEN c.cruise_key IS NULL THEN 'no_cruise_key'
+        WHEN cr.cruise_key IS NULL THEN 'no_cruise_match'
+        ELSE 'matched'
+      END AS status,
+      COUNT(*) AS n_casts
+    FROM casts c
+    LEFT JOIN cruise cr ON c.cruise_key = cr.cruise_key
+    GROUP BY status
+    ORDER BY status")
+
+  # step 6: report unmatched ships ----
+  unmatched_report <- DBI::dbGetQuery(con, "
+    SELECT DISTINCT
+      c.ship_code, c.ship_name,
+      COUNT(*) AS n_casts,
+      MIN(c.datetime_utc) AS first_cast,
+      MAX(c.datetime_utc) AS last_cast
+    FROM casts c
+    WHERE c.ship_key IS NULL
+    GROUP BY c.ship_code, c.ship_name
+    ORDER BY n_casts DESC")
+
+  if (nrow(unmatched_report) > 0) {
+    message(glue::glue("{nrow(unmatched_report)} ship codes still unmatched"))
+  } else {
+    message("All ship codes matched!")
+  }
+
+  list(
+    ship_matches     = ship_matches,
+    cruise_stats     = cruise_stats,
+    unmatched_report = unmatched_report)
+}
+
+#' Report Ship Matching Status for a Dataset
+#'
+#' Summarizes ship matching results for a given dataset table: how many rows
+#' have matched ship_key, how many are unmatched, and lists any new ships
+#' not yet in the reference table.
+#'
+#' @param con DBI connection to DuckDB
+#' @param dataset_label Character label for the dataset (e.g., "ichthyo", "bottle")
+#' @param table Name of table to check (default: auto-detect from dataset_label)
+#' @param ship_tbl Name of ship reference table (default: "ship")
+#'
+#' @return Tibble with columns: ship_key, ship_nodc, ship_name, n_rows, status
+#' @export
+#' @concept ship
+#'
+#' @examples
+#' \dontrun{
+#' report_ship_matches(con, "bottle")
+#' report_ship_matches(con, "ichthyo", table = "cruise")
+#' }
+#' @importFrom DBI dbGetQuery
+#' @importFrom glue glue
+report_ship_matches <- function(
+    con,
+    dataset_label,
+    table    = NULL,
+    ship_tbl = "ship") {
+
+  # auto-detect table from dataset label
+  if (is.null(table)) {
+    table <- switch(dataset_label,
+      "ichthyo"  = "cruise",
+      "bottle"   = "casts",
+      "ctd-cast" = "ctd_cast",
+      "dic"      = "dic_sample",
+      stop(glue::glue("Unknown dataset_label: {dataset_label}")))
+  }
+
+  # check which column links to ship
+  cols <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT column_name FROM information_schema.columns
+     WHERE table_name = '{table}'"))$column_name
+
+  if ("ship_key" %in% cols) {
+    report <- DBI::dbGetQuery(con, glue::glue("
+      SELECT
+        t.ship_key,
+        s.ship_nodc,
+        s.ship_name,
+        COUNT(*) AS n_rows,
+        CASE
+          WHEN t.ship_key IS NULL THEN 'unmatched'
+          WHEN s.ship_key IS NULL THEN 'new_ship'
+          ELSE 'matched'
+        END AS status
+      FROM {table} t
+      LEFT JOIN {ship_tbl} s ON t.ship_key = s.ship_key
+      GROUP BY t.ship_key, s.ship_nodc, s.ship_name, status
+      ORDER BY status, n_rows DESC"))
+  } else {
+    report <- DBI::dbGetQuery(con, glue::glue("
+      SELECT
+        'no ship_key column' AS ship_key,
+        NULL AS ship_nodc,
+        NULL AS ship_name,
+        COUNT(*) AS n_rows,
+        'no_ship_col' AS status
+      FROM {table}"))
+  }
+
+  n_matched   <- sum(report$n_rows[report$status == "matched"])
+  n_unmatched <- sum(report$n_rows[report$status == "unmatched"])
+  n_new       <- sum(report$n_rows[report$status == "new_ship"])
+
+  message(glue::glue(
+    "Ship report for {dataset_label} ({table}): ",
+    "{n_matched} matched, {n_unmatched} unmatched, {n_new} new ships"))
+
+  report
 }

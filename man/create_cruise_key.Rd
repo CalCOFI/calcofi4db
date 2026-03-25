@@ -2,7 +2,7 @@
 % Please edit documentation in R/wrangle.R
 \name{create_cruise_key}
 \alias{create_cruise_key}
-\title{Create Cruise Key from Ship Key and Date}
+\title{Create Cruise Key from Ship NODC Code and Date}
 \usage{
 create_cruise_key(
   con,
@@ -24,17 +24,18 @@ create_cruise_key(
 Invisibly returns the connection after adding cruise_key column
 }
 \description{
-Creates a natural key for cruises in format YYMMKK where:
+Creates a natural key for cruises in format YYYY-MM-NODC where:
 \itemize{
-\item YY = 2-digit year
-\item MM = 2-digit month
-\item KK = 2-letter ship key
+\item YYYY = 4-digit year
+\item MM   = 2-digit month
+\item NODC = NODC ship code (from ship table's ship_nodc column)
 }
 }
 \examples{
 \dontrun{
 con <- get_duckdb_con()
 create_cruise_key(con)
+# produces keys like "1998-02-33JD", "2024-01-33UD"
 }
 }
 \concept{wrangle}

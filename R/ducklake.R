@@ -1,6 +1,330 @@
 # ducklake operations for calcofi data workflow
 # Working DuckLake with provenance tracking
 
+#' Load Tables from a Prior Ingest's Parquet Directory
+#'
+#' Reads parquet files from another ingest workflow's output directory
+#' into the current wrangling DuckDB. Handles WKB->GEOMETRY conversion for
+#' spatial tables and hive-partitioned subdirectories automatically.
+#'
+#' When \code{tables = NULL} (default), auto-discovers all parquet sources
+#' in the directory: single \code{.parquet} files and subdirectories containing
+#' \code{.parquet} files (hive-partitioned tables).
+#'
+#' @param con DBI connection to DuckDB
+#' @param tables Character vector of table names to load (without .parquet
+#'   extension). If NULL (default), auto-discovers all parquet in the directory.
+#' @param parquet_dir Path to directory containing parquet files
+#' @param gcs_prefix Optional GCS prefix (e.g., "ingest/swfsc_ichthyo") to use
+#'   as fallback when \code{parquet_dir} doesn't exist or is empty. Reads from
+#'   \code{https://storage.googleapis.com/calcofi-db/{gcs_prefix}/}. Requires
+#'   the httpfs DuckDB extension.
+#' @param geom_tables Character vector of table names that contain WKB geometry
+#'   columns needing conversion (default: c("grid", "site", "segment"))
+#' @param overwrite If TRUE, replace existing tables (default: TRUE)
+#'
+#' @return Tibble with columns: table, rows, has_geom
+#' @export
+#' @concept ducklake
+#'
+#' @examples
+#' \dontrun{
+#' # load grid from ichthyo workflow
+#' load_prior_tables(
+#'   con         = con,
+#'   tables      = "grid",
+#'   parquet_dir = here("data/parquet/swfsc_ichthyo"))
+#'
+#' # load all tables from a dataset (auto-discover)
+#' load_prior_tables(
+#'   con         = con,
+#'   parquet_dir = here("data/parquet/swfsc_ichthyo"))
+#'
+#' # fallback to GCS if local dir doesn't exist
+#' load_prior_tables(
+#'   con         = con,
+#'   parquet_dir = here("data/parquet/swfsc_ichthyo"),
+#'   gcs_prefix  = "ingest/swfsc_ichthyo")
+#' }
+#' @importFrom DBI dbExecute dbGetQuery
+#' @importFrom glue glue
+#' @importFrom jsonlite read_json
+#' @importFrom tibble tibble
+#' @importFrom purrr map_dfr
+load_prior_tables <- function(
+    con,
+    parquet_dir,
+    tables      = NULL,
+    gcs_prefix  = NULL,
+    geom_tables = c("grid", "site", "segment"),
+    overwrite   = TRUE) {
+
+  # determine if we should use local dir or GCS fallback
+  use_gcs <- !dir.exists(parquet_dir) ||
+    length(list.files(parquet_dir, pattern = "\\.parquet$", recursive = TRUE)) == 0
+
+  if (use_gcs && is.null(gcs_prefix)) {
+    stop(glue::glue(
+      "Local parquet dir does not exist or is empty: {parquet_dir}\n",
+      "Provide gcs_prefix for GCS fallback."))
+  }
+
+  if (use_gcs) {
+    return(.load_prior_tables_gcs(
+      con         = con,
+      parquet_dir = parquet_dir,
+      gcs_prefix  = gcs_prefix,
+      tables      = tables,
+      geom_tables = geom_tables,
+      overwrite   = overwrite))
+  }
+
+  # discover parquet sources if tables not specified
+  sources <- .discover_parquet_sources(parquet_dir, tables)
+
+  if (length(sources) == 0) {
+    message(glue::glue("No parquet files found in: {parquet_dir}"))
+    return(tibble::tibble(table = character(), rows = integer(), has_geom = logical()))
+  }
+
+  or_replace <- if (overwrite) "OR REPLACE " else ""
+
+  purrr::map_dfr(sources, function(src) {
+    tbl_name <- src$name
+
+    # build read expression based on single file vs partitioned dir
+    if (src$partitioned) {
+      read_expr <- glue::glue(
+        "read_parquet('{src$path}/**/*.parquet', hive_partitioning = true)")
+    } else {
+      read_expr <- glue::glue("read_parquet('{src$path}')")
+    }
+
+    # create table from parquet; for spatial tables, strip CRS from GEOMETRY
+    # columns to avoid storage version issues with file-backed DuckDB
+    if (tbl_name %in% geom_tables) {
+      # probe parquet schema via temp view to detect CRS-tagged GEOMETRY columns
+      DBI::dbExecute(con, glue::glue(
+        "CREATE OR REPLACE VIEW _lpt_probe AS SELECT * FROM {read_expr} LIMIT 0"))
+      geom_cols <- DBI::dbGetQuery(con,
+        "SELECT column_name, data_type FROM information_schema.columns
+         WHERE table_name = '_lpt_probe'
+           AND data_type LIKE 'GEOMETRY%'")
+      all_col_names <- DBI::dbGetQuery(con,
+        "SELECT column_name FROM information_schema.columns
+         WHERE table_name = '_lpt_probe'
+         ORDER BY ordinal_position")$column_name
+      DBI::dbExecute(con, "DROP VIEW IF EXISTS _lpt_probe")
+
+      if (nrow(geom_cols) > 0) {
+        # build SELECT that strips CRS from geometry columns
+        select_exprs <- sapply(all_col_names, function(col) {
+          if (col %in% geom_cols$column_name) {
+            glue::glue("ST_GeomFromWKB(ST_AsWKB({col})) AS {col}")
+          } else {
+            col
+          }
+        })
+        DBI::dbExecute(con, glue::glue(
+          "CREATE {or_replace}TABLE {tbl_name} AS
+           SELECT {paste(select_exprs, collapse = ', ')}
+           FROM {read_expr}"))
+      } else {
+        DBI::dbExecute(con, glue::glue(
+          "CREATE {or_replace}TABLE {tbl_name} AS
+           SELECT * FROM {read_expr}"))
+      }
+    } else {
+      DBI::dbExecute(con, glue::glue(
+        "CREATE {or_replace}TABLE {tbl_name} AS
+         SELECT * FROM {read_expr}"))
+    }
+
+    # convert WKB BLOB columns to GEOMETRY for spatial tables
+    has_geom <- .convert_wkb_to_geometry(con, tbl_name, geom_tables)
+
+    n <- DBI::dbGetQuery(con, glue::glue(
+      "SELECT COUNT(*) AS n FROM {tbl_name}"))$n
+    suffix <- if (src$partitioned) " (partitioned)" else ""
+    suffix <- paste0(suffix, if (has_geom) " (WKB->GEOMETRY)" else "")
+    message(glue::glue("Loaded {tbl_name}: {n} rows{suffix}"))
+
+    tibble::tibble(table = tbl_name, rows = n, has_geom = has_geom)
+  })
+}
+
+#' Discover parquet sources in a directory
+#'
+#' @param parquet_dir Path to directory
+#' @param tables Optional character vector to filter by table name
+#' @return List of list(name, path, partitioned)
+#' @keywords internal
+.discover_parquet_sources <- function(parquet_dir, tables = NULL) {
+  # single .parquet files
+  pqt_files <- list.files(parquet_dir, pattern = "\\.parquet$", full.names = TRUE)
+  # subdirectories containing .parquet files (hive-partitioned)
+  pqt_dirs <- list.dirs(parquet_dir, recursive = FALSE, full.names = TRUE)
+  pqt_dirs <- pqt_dirs[
+    vapply(pqt_dirs, function(d)
+      length(list.files(d, pattern = "\\.parquet$", recursive = TRUE)) > 0,
+      logical(1))
+  ]
+
+  sources <- c(
+    lapply(pqt_files, function(f) list(
+      name        = tools::file_path_sans_ext(basename(f)),
+      path        = f,
+      partitioned = FALSE)),
+    lapply(pqt_dirs, function(d) list(
+      name        = basename(d),
+      path        = d,
+      partitioned = TRUE))
+  )
+
+  # filter to requested tables
+  if (!is.null(tables)) {
+    sources <- sources[vapply(sources, function(s) s$name %in% tables, logical(1))]
+  }
+
+  sources
+}
+
+#' Convert WKB BLOB columns to GEOMETRY for spatial tables
+#'
+#' @param con DBI connection
+#' @param tbl_name Table name
+#' @param geom_tables Character vector of table names with geometry columns
+#' @return logical TRUE if geometry conversion was performed
+#' @keywords internal
+.convert_wkb_to_geometry <- function(con, tbl_name, geom_tables) {
+  if (!tbl_name %in% geom_tables) return(FALSE)
+
+  blob_cols <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT column_name FROM information_schema.columns
+     WHERE table_name = '{tbl_name}'
+       AND data_type = 'BLOB'
+       AND column_name LIKE '%geom%'"))$column_name
+
+  if (length(blob_cols) == 0) return(FALSE)
+
+  for (gc in blob_cols) {
+    tmp_col <- paste0(gc, "_tmp")
+    # check if column already has GEOMETRY type with CRS (e.g., from parquet)
+    col_type <- DBI::dbGetQuery(con, glue::glue(
+      "SELECT data_type FROM information_schema.columns
+       WHERE table_name = '{tbl_name}' AND column_name = '{gc}'"))$data_type
+    if (grepl("^GEOMETRY", col_type)) {
+      # already GEOMETRY (possibly with CRS); strip CRS to avoid storage issues
+      DBI::dbExecute(con, glue::glue(
+        'ALTER TABLE {tbl_name} ADD COLUMN {tmp_col} GEOMETRY'))
+      DBI::dbExecute(con, glue::glue(
+        'UPDATE {tbl_name} SET {tmp_col} = ST_GeomFromWKB(ST_AsWKB({gc}))'))
+      DBI::dbExecute(con, glue::glue(
+        'ALTER TABLE {tbl_name} DROP COLUMN {gc}'))
+      DBI::dbExecute(con, glue::glue(
+        'ALTER TABLE {tbl_name} RENAME COLUMN {tmp_col} TO {gc}'))
+    } else {
+      # WKB BLOB -> GEOMETRY
+      DBI::dbExecute(con, glue::glue(
+        'ALTER TABLE {tbl_name} ADD COLUMN {tmp_col} GEOMETRY'))
+      DBI::dbExecute(con, glue::glue(
+        'UPDATE {tbl_name} SET {tmp_col} = ST_GeomFromWKB({gc})'))
+      DBI::dbExecute(con, glue::glue(
+        'ALTER TABLE {tbl_name} DROP COLUMN {gc}'))
+      DBI::dbExecute(con, glue::glue(
+        'ALTER TABLE {tbl_name} RENAME COLUMN {tmp_col} TO {gc}'))
+    }
+  }
+
+  TRUE
+}
+
+#' Load prior tables from GCS (fallback when local parquet missing)
+#'
+#' @param con DBI connection
+#' @param parquet_dir Local parquet dir (used to find manifest.json)
+#' @param gcs_prefix GCS prefix under calcofi-db bucket
+#' @param tables Optional table filter
+#' @param geom_tables Spatial table names
+#' @param overwrite Replace existing tables
+#' @return Tibble with table, rows, has_geom
+#' @keywords internal
+#' @importFrom jsonlite read_json
+.load_prior_tables_gcs <- function(
+    con,
+    parquet_dir,
+    gcs_prefix,
+    tables      = NULL,
+    geom_tables = c("grid", "site", "segment"),
+    overwrite   = TRUE) {
+
+  gcs_base <- glue::glue(
+    "https://storage.googleapis.com/calcofi-db/{gcs_prefix}")
+
+  # try to load manifest for table discovery and partitioning info
+  manifest_path <- file.path(parquet_dir, "manifest.json")
+  if (file.exists(manifest_path)) {
+    manifest <- jsonlite::read_json(manifest_path)
+  } else {
+    # try downloading manifest from GCS
+    manifest_url <- glue::glue("{gcs_base}/manifest.json")
+    manifest <- tryCatch(
+      jsonlite::read_json(manifest_url),
+      error = function(e) NULL)
+  }
+
+  if (is.null(manifest)) {
+    stop(glue::glue(
+      "Cannot discover tables: no local dir and no manifest at GCS.\n",
+      "parquet_dir: {parquet_dir}\n",
+      "gcs_prefix: {gcs_prefix}"))
+  }
+
+  all_tables   <- unlist(manifest$tables)
+  partitioned  <- unlist(manifest$partitioned %||% list())
+
+  if (!is.null(tables)) {
+    all_tables <- intersect(all_tables, tables)
+  }
+
+  # load httpfs extension
+  load_duckdb_extension(con, "httpfs")
+
+  or_replace <- if (overwrite) "OR REPLACE " else ""
+
+  purrr::map_dfr(all_tables, function(tbl_name) {
+    is_part <- tbl_name %in% partitioned
+
+    if (is_part) {
+      read_expr <- glue::glue(
+        "read_parquet('{gcs_base}/{tbl_name}/**/*.parquet', ",
+        "hive_partitioning = true)")
+    } else {
+      read_expr <- glue::glue(
+        "read_parquet('{gcs_base}/{tbl_name}.parquet')")
+    }
+
+    tryCatch({
+      DBI::dbExecute(con, glue::glue(
+        "CREATE {or_replace}TABLE {tbl_name} AS
+         SELECT * FROM {read_expr}"))
+
+      has_geom <- .convert_wkb_to_geometry(con, tbl_name, geom_tables)
+
+      n <- DBI::dbGetQuery(con, glue::glue(
+        "SELECT COUNT(*) AS n FROM {tbl_name}"))$n
+      suffix <- if (is_part) " (partitioned)" else ""
+      suffix <- paste0(suffix, if (has_geom) " (WKB->GEOMETRY)" else "")
+      message(glue::glue("Loaded {tbl_name} from GCS: {n} rows{suffix}"))
+
+      tibble::tibble(table = tbl_name, rows = n, has_geom = has_geom)
+    }, error = function(e) {
+      warning(glue::glue("Failed to load {tbl_name} from GCS: {e$message}"))
+      tibble::tibble(table = tbl_name, rows = NA_integer_, has_geom = FALSE)
+    })
+  })
+}
+
 #' Add provenance columns to a data frame
 #'
 #' Helper function to add provenance tracking columns to a data frame
@@ -8,7 +332,7 @@
 #'
 #' @param data Data frame to modify
 #' @param source_file Path to original CSV file in archive
-#'   (e.g., "archive/2026-02-02_121557/swfsc.noaa.gov/calcofi-db/larva.csv")
+#'   (e.g., "archive/2026-02-02_121557/swfsc/ichthyo/larva.csv")
 #' @param source_row_start Starting row number (default: 1, typically 2 to skip header)
 #' @param source_uuid_col Column name containing original UUIDs (optional).
 #'   If provided, values are copied to `_source_uuid` column.
@@ -29,7 +353,7 @@
 #' data <- tibble::tibble(x = 1:3, y = letters[1:3])
 #' data_prov <- add_provenance_columns(
 #'   data        = data,
-#'   source_file = "archive/2026-02-02_121557/swfsc.noaa.gov/calcofi-db/test.csv",
+#'   source_file = "archive/2026-02-02_121557/swfsc/ichthyo/test.csv",
 #'   source_row_start = 2)  # skip header
 #'
 #' # with source uuid column
@@ -165,7 +489,7 @@ get_working_ducklake <- function(
 #' @param table Target table name
 #' @param source_file Path to original CSV file in Archive (for provenance).
 #'   Should be the full path including archive timestamp
-#'   (e.g., "archive/2026-02-02_121557/swfsc.noaa.gov/calcofi-db/larva.csv")
+#'   (e.g., "archive/2026-02-02_121557/swfsc/ichthyo/larva.csv")
 #' @param source_uuid_col Column name containing original UUIDs (optional).
 #'   If provided, values are stored in \code{_source_uuid} for tracing back
 #'   to source records.
@@ -199,7 +523,7 @@ get_working_ducklake <- function(
 #'   con         = con,
 #'   data        = larvae_data,
 #'   table       = "larva",
-#'   source_file = "archive/2026-02-02_121557/swfsc.noaa.gov/calcofi-db/larva.csv",
+#'   source_file = "archive/2026-02-02_121557/swfsc/ichthyo/larva.csv",
 #'   source_uuid_col = "larva_uuid",
 #'   mode        = "replace")
 #'
@@ -209,7 +533,7 @@ get_working_ducklake <- function(
 #'   con         = con,
 #'   data        = new_data,
 #'   table       = "larva",
-#'   source_file = "archive/2026-03-01_121557/swfsc.noaa.gov/calcofi-db/larva.csv",
+#'   source_file = "archive/2026-03-01_121557/swfsc/ichthyo/larva.csv",
 #'   mode        = "append")
 #' }
 #' @importFrom DBI dbWriteTable dbGetQuery dbExecute
@@ -456,8 +780,8 @@ save_working_ducklake <- function(
 #' \dontrun{
 #' # read and ingest dataset
 #' d <- read_csv_files(
-#'   provider     = "swfsc.noaa.gov",
-#'   dataset      = "calcofi-db",
+#'   provider     = "swfsc",
+#'   dataset      = "ichthyo",
 #'   dir_data     = "~/My Drive/projects/calcofi/data-public",
 #'   metadata_dir = "metadata")
 #'
@@ -637,8 +961,8 @@ list_working_tables <- function(con) {
       tibble::tibble(
         table          = tbl,
         rows           = row_count,
-        first_ingested = NA_POSIXct_,
-        last_ingested  = NA_POSIXct_,
+        first_ingested = as.POSIXct(NA),
+        last_ingested  = as.POSIXct(NA),
         source_files   = NA_integer_)
     }
   })

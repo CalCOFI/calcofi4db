@@ -1,12 +1,12 @@
 # wrangling functions for calcofi data restructuring
 # handles intermediate transformations in local duckdb before output
 
-#' Create Cruise Key from Ship Key and Date
+#' Create Cruise Key from Ship NODC Code and Date
 #'
-#' Creates a natural key for cruises in format YYMMKK where:
-#' - YY = 2-digit year
-#' - MM = 2-digit month
-#' - KK = 2-letter ship key
+#' Creates a natural key for cruises in format YYYY-MM-NODC where:
+#' - YYYY = 4-digit year
+#' - MM   = 2-digit month
+#' - NODC = NODC ship code (from ship table's ship_nodc column)
 #'
 #' @param con DuckDB connection
 #' @param cruise_tbl Name of cruise table (default: "cruise")
@@ -21,6 +21,7 @@
 #' \dontrun{
 #' con <- get_duckdb_con()
 #' create_cruise_key(con)
+#' # produces keys like "1998-02-33JD", "2024-01-33UD"
 #' }
 #' @importFrom DBI dbExecute dbGetQuery
 #' @importFrom glue glue
@@ -40,13 +41,17 @@ create_cruise_key <- function(
       "ALTER TABLE {cruise_tbl} ADD COLUMN cruise_key TEXT"))
   }
 
-  # populate cruise_key as YYMMKK (2-digit year + 2-digit month + ship_key)
+  # populate cruise_key as YYYY-MM-NODC (4-digit year + 2-digit month + NODC ship code)
   DBI::dbExecute(con, glue::glue("
-    UPDATE {cruise_tbl}
+    UPDATE {cruise_tbl} AS cr
     SET cruise_key = CONCAT(
-      LPAD(CAST(EXTRACT(YEAR FROM {date_col}) % 100 AS VARCHAR), 2, '0'),
-      LPAD(CAST(EXTRACT(MONTH FROM {date_col}) AS VARCHAR), 2, '0'),
-      ship_key)"))
+      CAST(EXTRACT(YEAR FROM cr.{date_col}) AS VARCHAR),
+      '-',
+      LPAD(CAST(EXTRACT(MONTH FROM cr.{date_col}) AS VARCHAR), 2, '0'),
+      '-',
+      s.ship_nodc)
+    FROM {ship_tbl} s
+    WHERE cr.ship_key = s.ship_key"))
 
   # verify uniqueness
   dups <- DBI::dbGetQuery(con, glue::glue("
@@ -60,7 +65,127 @@ create_cruise_key <- function(
       "cruise_key is not unique! Found {nrow(dups)} duplicate keys"))
   }
 
+  # check for NULLs (ships without NODC codes)
+  nulls <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT COUNT(*) AS n FROM {cruise_tbl} WHERE cruise_key IS NULL"))$n
+  if (nulls > 0) {
+    warning(glue::glue(
+      "{nulls} cruises have NULL cruise_key (ship_key not found in {ship_tbl} or missing ship_nodc)"))
+  }
+
   message(glue::glue("Created cruise_key column in {cruise_tbl}"))
+  invisible(con)
+}
+
+#' Convert Old YYMMKK Cruise Key to YYYY-MM-NODC Format
+#'
+#' Converts legacy cruise key format (YYMMKK: 2-digit year + 2-digit month +
+#' 2-letter ship_key) to the new format (YYYY-MM-NODC: 4-digit year + 2-digit
+#' month + NODC ship code). Requires the ship table for KK → NODC mapping.
+#'
+#' Century disambiguation: YY >= 49 → 19YY, YY < 49 → 20YY
+#' (CalCOFI data spans 1949-present).
+#'
+#' @param con DuckDB connection
+#' @param table Name of table containing old cruise keys
+#' @param old_key_col Name of column with old YYMMKK keys (default: "cruise_key")
+#' @param ship_tbl Name of ship table (default: "ship")
+#'
+#' @return Invisibly returns the connection after updating cruise_key column
+#' @export
+#' @concept wrangle
+#'
+#' @examples
+#' \dontrun{
+#' # convert CTD cruise keys extracted from filenames
+#' convert_cruise_key_format(con, "ctd_cast", "cruise_key_old")
+#' }
+#' @importFrom DBI dbExecute dbGetQuery
+#' @importFrom glue glue
+convert_cruise_key_format <- function(
+    con,
+    table,
+    old_key_col = "cruise_key",
+    ship_tbl    = "ship") {
+
+  # add new column if updating in-place
+  DBI::dbExecute(con, glue::glue(
+    "ALTER TABLE {table} ADD COLUMN IF NOT EXISTS cruise_key_new TEXT"))
+
+  # convert: extract YY, MM, KK from old format, look up ship_nodc
+  DBI::dbExecute(con, glue::glue("
+    UPDATE {table} AS t
+    SET cruise_key_new = CONCAT(
+      CASE
+        WHEN CAST(LEFT(t.{old_key_col}, 2) AS INTEGER) >= 49 THEN '19'
+        ELSE '20'
+      END,
+      LEFT(t.{old_key_col}, 2),
+      '-',
+      SUBSTR(t.{old_key_col}, 3, 2),
+      '-',
+      s.ship_nodc)
+    FROM {ship_tbl} s
+    WHERE s.ship_key = RIGHT(t.{old_key_col}, LENGTH(t.{old_key_col}) - 4)"))
+
+  n_converted <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT COUNT(*) AS n FROM {table} WHERE cruise_key_new IS NOT NULL"))$n
+  n_total <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT COUNT(*) AS n FROM {table} WHERE {old_key_col} IS NOT NULL"))$n
+
+  message(glue::glue(
+    "Converted {n_converted}/{n_total} cruise keys from YYMMKK to YYYY-MM-NODC"))
+
+  invisible(con)
+}
+
+#' Standardize Site Key from Line and Station Columns
+#'
+#' Creates a `site_key` column formatted as `NNN.N NNN.N` (0-padded, 1 decimal)
+#' from line and station columns. This ensures consistent site identification
+#' across all datasets.
+#'
+#' @param con DuckDB connection
+#' @param table Name of table to update
+#' @param line_col Name of line column (default: "line")
+#' @param station_col Name of station column (default: "station")
+#' @param site_key_col Name of site key column to create (default: "site_key")
+#'
+#' @return Invisibly returns the connection after adding site_key column
+#' @export
+#' @concept wrangle
+#'
+#' @examples
+#' \dontrun{
+#' standardize_site_key(con, "site", "line", "station")
+#' # line=90.0, station=62.0 → "090.0 062.0"
+#' # line=93.3, station=110.0 → "093.3 110.0"
+#' }
+#' @importFrom DBI dbExecute dbGetQuery
+#' @importFrom glue glue
+standardize_site_key <- function(
+    con,
+    table,
+    line_col     = "line",
+    station_col  = "station",
+    site_key_col = "site_key") {
+
+  DBI::dbExecute(con, glue::glue(
+    "ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {site_key_col} TEXT"))
+
+  DBI::dbExecute(con, glue::glue("
+    UPDATE {table}
+    SET {site_key_col} = PRINTF('%05.1f %05.1f', {line_col}, {station_col})"))
+
+  n_set <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT COUNT(*) AS n FROM {table} WHERE {site_key_col} IS NOT NULL"))$n
+  n_null <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT COUNT(*) AS n FROM {table}
+     WHERE {site_key_col} IS NULL AND {line_col} IS NOT NULL"))$n
+
+  message(glue::glue(
+    "Standardized {site_key_col} in {table}: {n_set} rows set, {n_null} NULL (with non-NULL line)"))
+
   invisible(con)
 }
 
@@ -263,11 +388,16 @@ assign_sequential_ids <- function(
 #' The same key values always produce the same UUID, making IDs stable
 #' across re-ingestion regardless of row order.
 #'
+#' For large tables (over `chunk_size` rows), processes in chunks to avoid
+#' exceeding R memory limits. Only key columns are read per chunk, and UUIDs
+#' are written back via temp table UPDATE joins.
+#'
 #' @param con DuckDB connection
 #' @param table_name Name of table to assign UUIDs to
 #' @param id_col Name of UUID column to create
 #' @param key_cols Character vector of columns forming the composite key
 #' @param namespace_uuid Fixed namespace UUID for deterministic generation
+#' @param chunk_size Number of rows per chunk for large tables (default: 5e6)
 #'
 #' @return Invisibly returns the connection after adding UUID column
 #' @export
@@ -280,33 +410,100 @@ assign_deterministic_uuids <- function(
     table_name,
     id_col,
     key_cols,
-    namespace_uuid = "c0f1ca00-ca1c-5000-b000-1c4790000000") {
+    namespace_uuid = "c0f1ca00-ca1c-5000-b000-1c4790000000",
+    chunk_size     = 5e6) {
 
-  # read table into R
-  data <- DBI::dbGetQuery(con, glue::glue("SELECT * FROM {table_name}"))
+  n_rows <- DBI::dbGetQuery(
+    con, glue::glue("SELECT COUNT(*) AS n FROM {table_name}"))$n
 
-  # build composite key string per row (NAs rendered as empty strings)
-  key_strings <- do.call(paste, c(
-    lapply(key_cols, function(col) {
-      ifelse(is.na(data[[col]]), "", as.character(data[[col]]))
-    }),
-    sep = "|"))
+  if (n_rows <= chunk_size) {
+    # small table: original in-memory approach
+    data <- DBI::dbGetQuery(con, glue::glue("SELECT * FROM {table_name}"))
 
-  # generate UUID v5 for each row
-  data[[id_col]] <- uuid::UUIDfromName(
-    namespace = namespace_uuid,
-    name      = key_strings,
-    type      = "sha1")
+    key_strings <- do.call(paste, c(
+      lapply(key_cols, function(col) {
+        ifelse(is.na(data[[col]]), "", as.character(data[[col]]))
+      }),
+      sep = "|"))
 
-  # rewrite table with UUID column first
-  col_order <- c(id_col, setdiff(names(data), id_col))
-  data      <- data[, col_order]
+    data[[id_col]] <- uuid::UUIDfromName(
+      namespace = namespace_uuid,
+      name      = key_strings,
+      type      = "sha1")
 
-  DBI::dbExecute(con, glue::glue("DROP TABLE IF EXISTS {table_name}"))
-  DBI::dbWriteTable(con, table_name, data, overwrite = TRUE)
+    col_order <- c(id_col, setdiff(names(data), id_col))
+    data      <- data[, col_order]
 
-  n_rows   <- nrow(data)
-  n_unique <- length(unique(data[[id_col]]))
+    DBI::dbExecute(con, glue::glue("DROP TABLE IF EXISTS {table_name}"))
+    DBI::dbWriteTable(con, table_name, data, overwrite = TRUE)
+
+    n_unique <- length(unique(data[[id_col]]))
+  } else {
+    # large table: chunked processing to avoid OOM
+    message(glue::glue(
+      "Large table ({n_rows} rows) — using chunked UUID assignment"))
+
+    # add uuid column and rownum for stable chunking
+    DBI::dbExecute(con, glue::glue(
+      "ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {id_col} VARCHAR"))
+    DBI::dbExecute(con, glue::glue(
+      "ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS _rownum BIGINT"))
+    DBI::dbExecute(con, glue::glue(
+      "UPDATE {table_name} SET _rownum = rowid"))
+
+    n_chunks <- ceiling(n_rows / chunk_size)
+    key_sel  <- paste(c("_rownum", key_cols), collapse = ", ")
+
+    for (i in seq_len(n_chunks)) {
+      offset <- (i - 1) * chunk_size
+
+      # read only key_cols + _rownum for this chunk
+      chunk <- DBI::dbGetQuery(con, glue::glue(
+        "SELECT {key_sel} FROM {table_name}
+         ORDER BY _rownum
+         LIMIT {chunk_size} OFFSET {offset}"))
+
+      # generate UUIDs
+      key_strings <- do.call(paste, c(
+        lapply(key_cols, function(col) {
+          ifelse(is.na(chunk[[col]]), "", as.character(chunk[[col]]))
+        }),
+        sep = "|"))
+
+      chunk$uuid_val <- uuid::UUIDfromName(
+        namespace = namespace_uuid,
+        name      = key_strings,
+        type      = "sha1")
+
+      # write back via temp table + UPDATE join
+      DBI::dbWriteTable(
+        con, "_uuid_tmp", chunk[, c("_rownum", "uuid_val")], overwrite = TRUE)
+      DBI::dbExecute(con, glue::glue("
+        UPDATE {table_name} AS t
+        SET {id_col} = u.uuid_val
+        FROM _uuid_tmp AS u
+        WHERE t._rownum = u._rownum"))
+      DBI::dbExecute(con, "DROP TABLE IF EXISTS _uuid_tmp")
+
+      message(glue::glue("  chunk {i}/{n_chunks}: {nrow(chunk)} rows"))
+      rm(chunk, key_strings)
+      gc()
+    }
+
+    # cleanup helper column
+    DBI::dbExecute(con, glue::glue(
+      "ALTER TABLE {table_name} DROP COLUMN _rownum"))
+
+    # reorder columns to put id_col first
+    all_cols  <- DBI::dbListFields(con, table_name)
+    col_order <- c(id_col, setdiff(all_cols, id_col))
+    DBI::dbExecute(con, glue::glue("
+      CREATE OR REPLACE TABLE {table_name} AS
+      SELECT {paste(col_order, collapse = ', ')} FROM {table_name}"))
+
+    n_unique <- DBI::dbGetQuery(con, glue::glue(
+      "SELECT COUNT(DISTINCT {id_col}) AS n FROM {table_name}"))$n
+  }
 
   message(glue::glue(
     "Assigned {id_col} to {n_rows} rows in {table_name} ",
@@ -317,6 +514,104 @@ assign_deterministic_uuids <- function(
       "Non-unique UUIDs detected: {n_rows} rows but {n_unique} unique values. ",
       "Check that key_cols form a true composite key."))
   }
+
+  invisible(con)
+}
+
+#' Assign deterministic UUIDs using DuckDB-native md5
+#'
+#' Generates UUID-style identifiers from a composite key entirely inside
+#' DuckDB using `md5()`. Unlike `assign_deterministic_uuids()` which pulls
+#' data into R and uses UUID v5 (SHA-1), this runs as a single SQL statement
+#' with zero R data transfer — orders of magnitude faster on large tables.
+#'
+#' The 32-char md5 hex is formatted as 8-4-4-4-12 to resemble a UUID string.
+#' These are **not** RFC 4122 UUIDs — they are md5-based internal identifiers.
+#' Use this for internal-only IDs on large tables (e.g., ctd_measurement).
+#' Use `assign_deterministic_uuids()` when RFC 4122 UUID v5 compatibility
+#' is needed (e.g., ichthyo tables shared with external systems).
+#'
+#' @param con DuckDB connection
+#' @param table_name Name of table to assign UUIDs to
+#' @param id_col Name of UUID column to create
+#' @param key_cols Character vector of columns forming the composite key
+#' @param namespace Optional namespace string prepended to keys for domain
+#'   separation (default: NULL)
+#'
+#' @return Invisibly returns the connection after adding UUID column
+#' @export
+#' @concept wrangle
+#' @importFrom DBI dbGetQuery dbExecute dbListFields
+#' @importFrom glue glue
+assign_deterministic_uuids_md5 <- function(
+    con,
+    table_name,
+    id_col,
+    key_cols,
+    namespace = NULL) {
+
+  # build COALESCE(CAST(col AS VARCHAR), '') for each key col
+  key_expr <- paste(
+    sapply(key_cols, function(col)
+      glue::glue("COALESCE(CAST({col} AS VARCHAR), '')")),
+    collapse = ", ")
+
+  # optionally prepend namespace for domain separation
+  if (!is.null(namespace))
+    key_expr <- paste0("'", namespace, "', ", key_expr)
+
+  concat_expr <- glue::glue("concat_ws('|', {key_expr})")
+
+  # pre-check: verify composite key uniqueness before generating UUIDs
+  key_cols_sql <- paste(key_cols, collapse = ", ")
+  pre_stats <- DBI::dbGetQuery(con, glue::glue("
+    SELECT COUNT(*) AS n_rows,
+           COUNT(DISTINCT {concat_expr}) AS n_unique
+    FROM {table_name}"))
+
+  message(glue::glue(
+    "Pre-check {table_name}: {format(pre_stats$n_rows, big.mark = ',')} rows, ",
+    "{format(pre_stats$n_unique, big.mark = ',')} unique keys ",
+    "from ({paste(key_cols, collapse = ', ')})"))
+
+  if (pre_stats$n_unique != pre_stats$n_rows) {
+    n_dups <- pre_stats$n_rows - pre_stats$n_unique
+    warning(glue::glue(
+      "Composite key is NOT unique: {format(n_dups, big.mark = ',')} ",
+      "duplicate rows detected in {table_name} for key_cols ",
+      "({paste(key_cols, collapse = ', ')}). ",
+      "Generated UUIDs will NOT be unique."))
+  }
+
+  # generate UUIDs via md5
+  md5_expr <- glue::glue("md5({concat_expr})")
+
+  # format as UUID string: 8-4-4-4-12
+  uuid_expr <- glue::glue(
+    "substr(_h, 1, 8) || '-' || substr(_h, 9, 4) || '-' || ",
+    "substr(_h, 13, 4) || '-' || substr(_h, 17, 4) || '-' || ",
+    "substr(_h, 21, 12)")
+
+  # get existing columns (exclude id_col if it already exists)
+  cols <- DBI::dbListFields(con, table_name)
+  other_cols <- setdiff(cols, id_col)
+  select_clause <- paste(other_cols, collapse = ", ")
+
+  # single SQL: rebuild table with UUID column first
+  DBI::dbExecute(con, glue::glue("
+    CREATE OR REPLACE TABLE {table_name} AS
+    SELECT
+      {uuid_expr} AS {id_col},
+      {select_clause}
+    FROM (
+      SELECT *, {md5_expr} AS _h
+      FROM {table_name}
+    ) _sub"))
+
+  message(glue::glue(
+    "Assigned {id_col} to {format(pre_stats$n_rows, big.mark = ',')} rows ",
+    "in {table_name} ({format(pre_stats$n_unique, big.mark = ',')} unique ",
+    "from: {paste(key_cols, collapse = ', ')})"))
 
   invisible(con)
 }
@@ -825,6 +1120,16 @@ enforce_column_types <- function(
 
   # source 1: field redefinition file
   if (!is.null(d_flds_rd)) {
+    required_cols <- c("tbl_new", "fld_new", "type_new")
+    missing_cols  <- setdiff(required_cols, names(d_flds_rd))
+    if (length(missing_cols) > 0) {
+      stop(
+        "d_flds_rd is missing required column(s): ",
+        paste(missing_cols, collapse = ", "),
+        "\n  Found columns: ", paste(names(d_flds_rd), collapse = ", "),
+        call. = FALSE)
+    }
+
     for (i in seq_len(nrow(d_flds_rd))) {
       tbl_new  <- d_flds_rd$tbl_new[i]
       fld_new  <- d_flds_rd$fld_new[i]
@@ -945,6 +1250,7 @@ write_parquet_outputs <- function(
     con,
     output_dir,
     tables           = NULL,
+    partition_by     = NULL,
     strip_provenance = TRUE,
     compression      = "snappy") {
 
@@ -960,12 +1266,22 @@ write_parquet_outputs <- function(
     tables <- tables[!grepl("^_", tables)]
   }
 
+  # normalize partition_by to named list: table -> partition column(s)
+  if (is.null(partition_by)) {
+    part_map <- list()
+  } else if (is.character(partition_by) && is.null(names(partition_by))) {
+    # unnamed character vector: applies to all tables that have that column
+    part_map <- stats::setNames(
+      rep(list(partition_by), length(tables)), tables)
+  } else {
+    part_map <- as.list(partition_by)
+  }
+
   # provenance columns to strip
   prov_cols <- c("_source_file", "_source_row", "_source_uuid", "_ingested_at")
 
   # export each table
   stats <- purrr::map_dfr(tables, function(tbl) {
-    output_path <- file.path(output_dir, paste0(tbl, ".parquet"))
 
     # get column list
     cols <- DBI::dbGetQuery(con, glue::glue(
@@ -979,39 +1295,104 @@ write_parquet_outputs <- function(
       export_cols <- cols
     }
 
-    # build select clause
     select_clause <- paste(export_cols, collapse = ", ")
 
-    # export to parquet
-    DBI::dbExecute(con, glue::glue("
-      COPY (SELECT {select_clause} FROM {tbl})
-      TO '{output_path}'
-      (FORMAT PARQUET, COMPRESSION '{compression}')"))
-
-    # get file size
-    file_size <- file.info(output_path)$size
+    # check if this table should be partitioned
+    part_cols <- part_map[[tbl]]
+    is_partitioned <- !is.null(part_cols) && all(part_cols %in% cols)
 
     # get row count
     n_rows <- DBI::dbGetQuery(con, glue::glue(
-      "SELECT COUNT(*) as n FROM {tbl}"))$n
+      "SELECT COUNT(*) AS n FROM {tbl}"))$n
 
-    message(glue::glue("Exported {tbl}: {n_rows} rows, {round(file_size/1024/1024, 2)} MB"))
+    # determine output path
+    if (is_partitioned) {
+      output_path <- file.path(output_dir, tbl)
+    } else {
+      output_path <- file.path(output_dir, paste0(tbl, ".parquet"))
+    }
+
+    # check if we can skip this table (output exists with same row count)
+    skip <- FALSE
+    if (is_partitioned && dir.exists(output_path)) {
+      existing_n <- tryCatch(
+        DBI::dbGetQuery(con, glue::glue(
+          "SELECT COUNT(*) AS n
+           FROM read_parquet('{output_path}/**/*.parquet')"))$n,
+        error = function(e) -1)
+      skip <- (existing_n == n_rows)
+    } else if (!is_partitioned && file.exists(output_path)) {
+      existing_n <- tryCatch(
+        DBI::dbGetQuery(con, glue::glue(
+          "SELECT COUNT(*) AS n FROM read_parquet('{output_path}')"))$n,
+        error = function(e) -1)
+      skip <- (existing_n == n_rows)
+    }
+
+    if (skip) {
+      file_size <- if (is_partitioned) {
+        part_files <- list.files(output_path, "\\.parquet$",
+                                 recursive = TRUE, full.names = TRUE)
+        sum(file.info(part_files)$size)
+      } else {
+        file.info(output_path)$size
+      }
+      message(glue::glue(
+        "Skipped {tbl}: {format(n_rows, big.mark = ',')} rows unchanged"))
+      return(tibble::tibble(
+        table = tbl, rows = n_rows, file_size = file_size,
+        path = output_path, partitioned = is_partitioned))
+    }
+
+    if (is_partitioned) {
+      # hive-partitioned output to subdirectory
+      if (dir.exists(output_path)) unlink(output_path, recursive = TRUE)
+      part_clause <- paste(part_cols, collapse = ", ")
+
+      DBI::dbExecute(con, glue::glue("
+        COPY (SELECT {select_clause} FROM {tbl})
+        TO '{output_path}'
+        (FORMAT PARQUET, PARTITION_BY ({part_clause}),
+         COMPRESSION '{compression}', OVERWRITE_OR_IGNORE)"))
+
+      # sum file sizes across partition files
+      part_files <- list.files(output_path, pattern = "\\.parquet$",
+                               recursive = TRUE, full.names = TRUE)
+      file_size <- sum(file.info(part_files)$size)
+    } else {
+      # single parquet file
+      DBI::dbExecute(con, glue::glue("
+        COPY (SELECT {select_clause} FROM {tbl})
+        TO '{output_path}'
+        (FORMAT PARQUET, COMPRESSION '{compression}')"))
+
+      file_size <- file.info(output_path)$size
+    }
+
+    size_label <- if (file_size > 1024^3) {
+      paste0(round(file_size / 1024^3, 2), " GB")
+    } else {
+      paste0(round(file_size / 1024^2, 2), " MB")
+    }
+    part_label <- if (is_partitioned) " (partitioned)" else ""
+    message(glue::glue("Exported {tbl}: {n_rows} rows, {size_label}{part_label}"))
 
     tibble::tibble(
-      table     = tbl,
-      rows      = n_rows,
-      file_size = file_size,
-      path      = output_path)
+      table       = tbl,
+      rows        = n_rows,
+      file_size   = file_size,
+      path        = output_path,
+      partitioned = is_partitioned)
   })
 
   # write manifest
   manifest <- list(
-    created_at       = as.character(Sys.time()),
     tables           = stats$table,
     total_rows       = sum(stats$rows),
     total_size_bytes = sum(stats$file_size),
     metadata_file    = "metadata.json",
-    files            = stats |> as.list())
+    partitioned      = stats$table[stats$partitioned],
+    files            = stats |> dplyr::select(-partitioned) |> as.list())
 
   manifest_path <- file.path(output_dir, "manifest.json")
   jsonlite::write_json(manifest, manifest_path, auto_unbox = TRUE, pretty = TRUE)
@@ -1043,8 +1424,8 @@ write_parquet_outputs <- function(
 #' @param tables Character vector of table names to include. If NULL, uses all
 #'   tables from DuckDB.
 #' @param set_comments If TRUE, also sets DuckDB `COMMENT ON` for tables/columns
-#' @param provider Data provider identifier (e.g. "swfsc.noaa.gov")
-#' @param dataset Dataset identifier (e.g. "calcofi-db")
+#' @param provider Data provider identifier (e.g. "swfsc")
+#' @param dataset Dataset identifier (e.g. "ichthyo")
 #' @param workflow_url URL to the rendered workflow page
 #'
 #' @return Path to the created `metadata.json` file
@@ -1057,12 +1438,12 @@ write_parquet_outputs <- function(
 #'   con                  = con,
 #'   d_tbls_rd            = d$d_tbls_rd,
 #'   d_flds_rd            = d$d_flds_rd,
-#'   metadata_derived_csv = "metadata/swfsc.noaa.gov/calcofi-db/metadata_derived.csv",
-#'   output_dir           = "data/parquet/swfsc.noaa.gov_calcofi-db",
+#'   metadata_derived_csv = "metadata/swfsc/ichthyo/metadata_derived.csv",
+#'   output_dir           = "data/parquet/swfsc_ichthyo",
 #'   tables               = DBI::dbListTables(con),
-#'   provider             = "swfsc.noaa.gov",
-#'   dataset              = "calcofi-db",
-#'   workflow_url         = "https://calcofi.io/workflows/ingest_swfsc.noaa.gov_calcofi-db.html")
+#'   provider             = "swfsc",
+#'   dataset              = "ichthyo",
+#'   workflow_url         = "https://calcofi.io/workflows/ingest_swfsc_ichthyo.html")
 #' }
 #' @importFrom DBI dbGetQuery dbListTables
 #' @importFrom glue glue
@@ -1232,7 +1613,6 @@ build_metadata_json <- function(
   # --- assemble metadata json ---
   metadata <- list(
     schema_version = "1.0",
-    created_at     = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
     provider       = provider,
     dataset        = dataset,
     workflow       = workflow_url,
@@ -1250,4 +1630,206 @@ build_metadata_json <- function(
     "Wrote metadata.json: {length(tables_meta)} tables, {length(columns_meta)} columns"))
 
   metadata_path
+}
+
+#' Build Relationships JSON from dm Object
+#'
+#' Extracts primary keys and foreign keys from a \code{dm} object and writes
+#' a \code{relationships.json} sidecar file alongside parquet outputs. Since
+#' parquet files cannot store table relationships natively, this provides a
+#' machine-readable source of truth for PKs and FKs.
+#'
+#' @param dm A \code{dm} object with PKs and FKs defined
+#' @param output_dir Directory to write \code{relationships.json}
+#' @param provider Data provider identifier (e.g. "swfsc")
+#' @param dataset Dataset identifier (e.g. "ichthyo")
+#'
+#' @return Path to the created \code{relationships.json} file
+#' @export
+#' @concept wrangle
+#'
+#' @examples
+#' \dontrun{
+#' dm_all <- dm::dm_from_con(con, learn_keys = FALSE) |>
+#'   add_cc_keys()
+#' build_relationships_json(
+#'   dm         = dm_all,
+#'   output_dir = "data/parquet/swfsc_ichthyo",
+#'   provider   = "swfsc",
+#'   dataset    = "ichthyo")
+#' }
+#' @importFrom dm dm_get_all_pks dm_get_all_fks
+#' @importFrom jsonlite write_json
+#' @importFrom glue glue
+build_relationships_json <- function(
+    dm,
+    output_dir,
+    provider = NULL,
+    dataset  = NULL) {
+
+  # extract primary keys
+  pks_df <- dm::dm_get_all_pks(dm)
+  primary_keys <- list()
+  for (i in seq_len(nrow(pks_df))) {
+    tbl <- as.character(pks_df$table[i])
+    col <- as.character(pks_df$pk_col[[i]])
+    primary_keys[[tbl]] <- col
+  }
+
+  # extract foreign keys
+  fks_df <- dm::dm_get_all_fks(dm)
+  foreign_keys <- list()
+  for (i in seq_len(nrow(fks_df))) {
+    foreign_keys[[i]] <- list(
+      table      = as.character(fks_df$child_table[i]),
+      column     = as.character(fks_df$child_fk_cols[[i]]),
+      ref_table  = as.character(fks_df$parent_table[i]),
+      ref_column = as.character(fks_df$parent_key_cols[[i]]))
+  }
+
+  # assemble json structure
+  relationships <- list(
+    schema_version = "1.0",
+    provider       = provider,
+    dataset        = dataset,
+    primary_keys   = primary_keys,
+    foreign_keys   = foreign_keys)
+
+  if (!dir.exists(output_dir)) {
+    dir.create(output_dir, recursive = TRUE)
+  }
+  out_path <- file.path(output_dir, "relationships.json")
+  jsonlite::write_json(
+    relationships, out_path,
+    auto_unbox = TRUE, pretty = TRUE, null = "null")
+
+  message(glue::glue(
+    "Wrote relationships.json: {length(primary_keys)} PKs, ",
+    "{length(foreign_keys)} FKs"))
+
+  out_path
+}
+
+#' Read Relationships JSON and Optionally Apply to dm
+#'
+#' Reads a \code{relationships.json} file. If a \code{dm} object is provided,
+#' applies the PKs and FKs from the JSON to it. Otherwise returns the parsed
+#' list.
+#'
+#' @param path Path to \code{relationships.json} file
+#' @param dm Optional \code{dm} object to apply relationships to
+#'
+#' @return If \code{dm} is provided, returns the dm with PKs/FKs applied.
+#'   Otherwise returns the parsed JSON as a list.
+#' @export
+#' @concept wrangle
+#'
+#' @examples
+#' \dontrun{
+#' # read and apply to dm
+#' d <- dm::dm_from_con(con, learn_keys = FALSE)
+#' d <- read_relationships_json("relationships.json", dm = d)
+#' dm::dm_draw(d)
+#'
+#' # read as raw list
+#' rels <- read_relationships_json("relationships.json")
+#' }
+#' @importFrom jsonlite fromJSON
+#' @importFrom dm dm_add_pk dm_add_fk
+read_relationships_json <- function(path, dm = NULL) {
+  rels <- jsonlite::fromJSON(path, simplifyVector = FALSE)
+
+  if (is.null(dm)) {
+    return(rels)
+  }
+
+  # get tables present in dm
+
+  dm_tables <- dm::dm_get_tables(dm) |> names()
+
+  # apply primary keys
+  for (tbl in names(rels$primary_keys)) {
+    if (tbl %in% dm_tables) {
+      col <- rels$primary_keys[[tbl]]
+      dm <- tryCatch(
+        dm::dm_add_pk(dm, !!tbl, !!col),
+        error = function(e) dm)
+    }
+  }
+
+  # apply foreign keys
+  for (fk in rels$foreign_keys) {
+    if (fk$table %in% dm_tables && fk$ref_table %in% dm_tables) {
+      dm <- tryCatch(
+        dm::dm_add_fk(dm, !!fk$table, !!fk$column, !!fk$ref_table, !!fk$ref_column),
+        error = function(e) dm)
+    }
+  }
+
+  dm
+}
+
+#' Merge Multiple Relationships JSON Files
+#'
+#' Combines primary keys and foreign keys from multiple per-dataset
+#' \code{relationships.json} files into a single merged file. PKs use
+#' last-writer-wins for shared tables; FKs are concatenated and deduplicated.
+#'
+#' @param paths Character vector of paths to \code{relationships.json} files
+#' @param output_path Path for the merged output file
+#'
+#' @return Path to the merged \code{relationships.json} file
+#' @export
+#' @concept wrangle
+#'
+#' @examples
+#' \dontrun{
+#' merge_relationships_json(
+#'   paths = c(
+#'     "data/parquet/swfsc_ichthyo/relationships.json",
+#'     "data/parquet/calcofi_bottle/relationships.json"),
+#'   output_path = "data/releases/v2026.03/relationships.json")
+#' }
+#' @importFrom jsonlite fromJSON write_json
+merge_relationships_json <- function(paths, output_path) {
+  merged_pks <- list()
+  all_fks    <- list()
+
+  for (path in paths) {
+    rels <- jsonlite::fromJSON(path, simplifyVector = FALSE)
+
+    # merge PKs (last-writer-wins for shared tables)
+    for (tbl in names(rels$primary_keys)) {
+      merged_pks[[tbl]] <- rels$primary_keys[[tbl]]
+    }
+
+    # collect FKs
+    for (fk in rels$foreign_keys) {
+      all_fks <- append(all_fks, list(fk))
+    }
+  }
+
+  # deduplicate FKs by (table, column, ref_table, ref_column)
+  fk_keys <- vapply(all_fks, function(fk) {
+    paste(fk$table, fk$column, fk$ref_table, fk$ref_column, sep = "|")
+  }, character(1))
+  all_fks <- all_fks[!duplicated(fk_keys)]
+
+  merged <- list(
+    schema_version = "1.0",
+    provider       = "calcofi",
+    dataset        = "calcofi-db-release",
+    primary_keys   = merged_pks,
+    foreign_keys   = all_fks)
+
+  dir.create(dirname(output_path), recursive = TRUE, showWarnings = FALSE)
+  jsonlite::write_json(
+    merged, output_path,
+    auto_unbox = TRUE, pretty = TRUE, null = "null")
+
+  message(glue::glue(
+    "Merged relationships.json: {length(merged_pks)} PKs, ",
+    "{length(all_fks)} FKs from {length(paths)} files"))
+
+  output_path
 }
