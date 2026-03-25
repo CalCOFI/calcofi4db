@@ -108,7 +108,7 @@ assign_grid_key <- function(
 #' \dontrun{
 #' load_gcs_parquet_to_duckdb(
 #'   con        = con,
-#'   gcs_path   = "gs://calcofi-db/ingest/swfsc.noaa.gov_calcofi-db/grid.parquet",
+#'   gcs_path   = "gs://calcofi-db/ingest/swfsc_ichthyo/grid.parquet",
 #'   table_name = "grid")
 #' }
 #' @importFrom DBI dbExecute dbGetQuery dbListFields

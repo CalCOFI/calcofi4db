@@ -25,7 +25,7 @@ Retrieves a file as it existed on a specific date from the archive.
 \dontrun{
 # get bottle.csv as it was on 2026-01-15
 file <- get_historical_file(
-  "calcofi.org/bottle-database/bottle.csv",
+  "calcofi/bottle/bottle.csv",
   date = "2026-01-15")
 }
 }

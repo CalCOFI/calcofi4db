@@ -46,8 +46,8 @@ the same timestamp and skips upload.
 \dontrun{
 result <- sync_to_gcs_archive(
   dir_csv  = "/path/to/csv",
-  provider = "swfsc.noaa.gov",
-  dataset  = "calcofi-db")
+  provider = "swfsc",
+  dataset  = "ichthyo")
 
 message(glue("Using archive: {result$archive_timestamp}"))
 }

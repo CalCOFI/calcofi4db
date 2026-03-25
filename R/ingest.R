@@ -196,8 +196,8 @@ ingest_csv_to_db <- function(con, schema, transformed_data, d_flds_rd,
 #' \dontrun{
 #' result <- ingest_dataset_pg(
 #'   con = db_connection,
-#'   provider = "swfsc.noaa.gov",
-#'   dataset = "calcofi-db",
+#'   provider = "swfsc",
+#'   dataset = "ichthyo",
 #'   dir_data = "/path/to/data",
 #'   schema = "public"
 #' )

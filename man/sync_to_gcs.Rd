@@ -9,7 +9,7 @@ sync_to_gcs(local_dir, gcs_prefix, bucket, pattern = NULL, verbose = TRUE)
 \arguments{
 \item{local_dir}{Directory containing files to upload}
 
-\item{gcs_prefix}{GCS destination prefix (e.g. "ingest/swfsc.noaa.gov_calcofi-db")}
+\item{gcs_prefix}{GCS destination prefix (e.g. "ingest/swfsc_ichthyo")}
 
 \item{bucket}{GCS bucket name}
 
@@ -28,8 +28,8 @@ that are new or changed, skipping identical files.
 \examples{
 \dontrun{
 sync_to_gcs(
-  local_dir  = "data/parquet/swfsc.noaa.gov_calcofi-db",
-  gcs_prefix = "ingest/swfsc.noaa.gov_calcofi-db",
+  local_dir  = "data/parquet/swfsc_ichthyo",
+  gcs_prefix = "ingest/swfsc_ichthyo",
   bucket     = "calcofi-db")
 }
 }

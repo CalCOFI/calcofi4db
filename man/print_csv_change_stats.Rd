@@ -19,7 +19,7 @@ Prints a summary of change statistics from detect_csv_changes() output.
 }
 \examples{
 \dontrun{
-d <- read_csv_files("swfsc.noaa.gov", "calcofi-db")
+d <- read_csv_files("swfsc", "ichthyo")
 changes <- detect_csv_changes(d)
 print_csv_change_stats(changes)
 }

@@ -15,9 +15,9 @@ write_ingest_outputs(
 \arguments{
 \item{data_info}{Output from \code{read_csv_files()}}
 
-\item{provider}{Data provider (e.g., "swfsc.noaa.gov")}
+\item{provider}{Data provider (e.g., "swfsc")}
 
-\item{dataset}{Dataset name (e.g., "calcofi-db")}
+\item{dataset}{Dataset name (e.g., "ichthyo")}
 
 \item{gcs_bucket}{GCS bucket for ingest outputs (default: "calcofi-db")}
 
@@ -40,14 +40,14 @@ tracking provenance back to the source archive.
 \examples{
 \dontrun{
 d <- read_csv_files(
-  provider     = "swfsc.noaa.gov",
-  dataset      = "calcofi-db",
+  provider     = "swfsc",
+  dataset      = "ichthyo",
   metadata_dir = "metadata")
 
 result <- write_ingest_outputs(
   data_info  = d,
-  provider   = "swfsc.noaa.gov",
-  dataset    = "calcofi-db")
+  provider   = "swfsc",
+  dataset    = "ichthyo")
 
 # check manifest
 result$manifest$tables

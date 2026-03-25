@@ -11,7 +11,7 @@ list_calcofi_files(date = "latest", bucket = "public", path = NULL)
 
 \item{bucket}{Bucket type: "public" or "private" (default: "public")}
 
-\item{path}{Optional path filter (e.g., "swfsc.noaa.gov/calcofi-db")}
+\item{path}{Optional path filter (e.g., "swfsc/ichthyo")}
 }
 \value{
 Data frame of files from the manifest
@@ -23,7 +23,7 @@ This provides immutable, reproducible file references.
 \examples{
 \dontrun{
 files <- list_calcofi_files()
-files <- list_calcofi_files(path = "swfsc.noaa.gov/calcofi-db")
+files <- list_calcofi_files(path = "swfsc/ichthyo")
 files <- list_calcofi_files("2026-02-01_143059", "public")
 }
 }

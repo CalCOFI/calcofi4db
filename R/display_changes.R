@@ -16,7 +16,7 @@
 #' @examples
 #' \dontrun{
 #' # Read CSV files and detect changes
-#' d <- read_csv_files("swfsc.noaa.gov", "calcofi-db")
+#' d <- read_csv_files("swfsc", "ichthyo")
 #' changes <- detect_csv_changes(d)
 #'
 #' # Display interactive table
@@ -168,7 +168,7 @@ display_csv_changes <- function(changes, format = "DT", title = NULL) {
 #'
 #' @examples
 #' \dontrun{
-#' d <- read_csv_files("swfsc.noaa.gov", "calcofi-db")
+#' d <- read_csv_files("swfsc", "ichthyo")
 #' changes <- detect_csv_changes(d)
 #' print_csv_change_stats(changes)
 #' }

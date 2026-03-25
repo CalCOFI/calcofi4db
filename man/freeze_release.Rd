@@ -17,7 +17,7 @@ freeze_release(
 \arguments{
 \item{con}{DuckDB connection from \code{get_working_ducklake()}}
 
-\item{version}{Version string in format "vYYYY.MM" (e.g., "v2026.02")}
+\item{version}{Version string in format "vYYYY.MM.DD" (e.g., "v2026.03.14")}
 
 \item{release_notes}{Character string with release notes, or path to markdown file}
 
@@ -48,7 +48,7 @@ and uploads to \code{gs://calcofi-db/ducklake/releases/{version}/}.
 con <- get_working_ducklake()
 result <- freeze_release(
   con           = con,
-  version       = "v2026.02",
+  version       = "v2026.03.14",
   release_notes = "First release with bottle and larvae data.")
 }
 }

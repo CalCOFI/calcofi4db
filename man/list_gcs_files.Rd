@@ -24,10 +24,10 @@ Lists objects in a GCS bucket with optional prefix filter.
 # list all files in current/
 files <- list_gcs_files("calcofi-files", prefix = "current/")
 
-# list bottle-database files
+# list bottle files
 files <- list_gcs_files(
   "calcofi-files",
-  prefix = "current/calcofi.org/bottle-database/")
+  prefix = "current/calcofi/bottle/")
 }
 }
 \concept{cloud}

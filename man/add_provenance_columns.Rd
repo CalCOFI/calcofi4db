@@ -15,7 +15,7 @@ add_provenance_columns(
 \item{data}{Data frame to modify}
 
 \item{source_file}{Path to original CSV file in archive
-(e.g., "archive/2026-02-02_121557/swfsc.noaa.gov/calcofi-db/larva.csv")}
+(e.g., "archive/2026-02-02_121557/swfsc/ichthyo/larva.csv")}
 
 \item{source_row_start}{Starting row number (default: 1, typically 2 to skip header)}
 
@@ -40,7 +40,7 @@ before ingestion. Called internally by \code{ingest_to_working()}.
 data <- tibble::tibble(x = 1:3, y = letters[1:3])
 data_prov <- add_provenance_columns(
   data        = data,
-  source_file = "archive/2026-02-02_121557/swfsc.noaa.gov/calcofi-db/test.csv",
+  source_file = "archive/2026-02-02_121557/swfsc/ichthyo/test.csv",
   source_row_start = 2)  # skip header
 
 # with source uuid column

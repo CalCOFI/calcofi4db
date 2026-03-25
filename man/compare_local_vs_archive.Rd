@@ -47,8 +47,8 @@ fallback when md5 is unavailable (e.g., gcloud CLI fallback).
 comparison <- compare_local_vs_archive(
   dir_csv = "/path/to/csv",
   archive_timestamp = "2026-02-02_121557",
-  provider = "swfsc.noaa.gov",
-  dataset = "calcofi-db")
+  provider = "swfsc",
+  dataset = "ichthyo")
 
 if (!comparison$matches) {
   message("Local files have changed since archive")

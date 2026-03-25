@@ -7,9 +7,9 @@
 read_ingest_manifest(provider, dataset, gcs_bucket = "calcofi-db")
 }
 \arguments{
-\item{provider}{Data provider (e.g., "swfsc.noaa.gov")}
+\item{provider}{Data provider (e.g., "swfsc")}
 
-\item{dataset}{Dataset name (e.g., "calcofi-db")}
+\item{dataset}{Dataset name (e.g., "ichthyo")}
 
 \item{gcs_bucket}{GCS bucket (default: "calcofi-db")}
 }
@@ -22,8 +22,8 @@ Retrieves the manifest.json for a specific ingest workflow output.
 \examples{
 \dontrun{
 manifest <- read_ingest_manifest(
-  provider = "swfsc.noaa.gov",
-  dataset  = "calcofi-db")
+  provider = "swfsc",
+  dataset  = "ichthyo")
 
 manifest$source_files
 manifest$tables

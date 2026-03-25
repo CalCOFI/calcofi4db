@@ -13,9 +13,9 @@ cleanup_duplicate_archives(
 )
 }
 \arguments{
-\item{provider}{Data provider (e.g., "swfsc.noaa.gov")}
+\item{provider}{Data provider (e.g., "swfsc")}
 
-\item{dataset}{Dataset name (e.g., "calcofi-db")}
+\item{dataset}{Dataset name (e.g., "ichthyo")}
 
 \item{gcs_bucket}{GCS bucket name}
 
@@ -34,10 +34,10 @@ removes the rest.
 \examples{
 \dontrun{
 # preview what would be removed
-cleanup_duplicate_archives("swfsc.noaa.gov", "calcofi-db")
+cleanup_duplicate_archives("swfsc", "ichthyo")
 
 # actually remove duplicates
-cleanup_duplicate_archives("swfsc.noaa.gov", "calcofi-db", dry_run = FALSE)
+cleanup_duplicate_archives("swfsc", "ichthyo", dry_run = FALSE)
 }
 }
 \concept{archive}

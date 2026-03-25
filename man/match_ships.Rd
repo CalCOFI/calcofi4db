@@ -35,7 +35,7 @@ provided via a CSV file.
 }
 \details{
 Adapted from the ship reconciliation pattern in
-\code{workflows/ingest_calcofi.org_bottle-database_0.qmd} (lines 117-260).
+\code{workflows/ingest_calcofi_bottle.qmd} (lines 117-260).
 }
 \examples{
 \dontrun{

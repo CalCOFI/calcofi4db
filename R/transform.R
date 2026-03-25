@@ -126,7 +126,7 @@ transform_data <- function(data_info, verbose = FALSE) {
 #' @examples
 #' \dontrun{
 #' # Read CSV files and metadata
-#' d <- read_csv_files("swfsc.noaa.gov", "calcofi-db")
+#' d <- read_csv_files("swfsc", "ichthyo")
 #'
 #' # Detect changes between CSV files and redefinitions
 #' changes <- detect_csv_changes(d)

@@ -7,7 +7,7 @@
 get_calcofi_file(path, date = "latest", bucket = "public", local_path = NULL)
 }
 \arguments{
-\item{path}{Relative path within archive (e.g., "swfsc.noaa.gov/calcofi-db/cruise.csv")}
+\item{path}{Relative path within archive (e.g., "swfsc/ichthyo/cruise.csv")}
 
 \item{date}{Date string in format "YYYY-MM-DD_HHMMSS" or "latest" (default)}
 
@@ -25,11 +25,11 @@ reproducible data access by referencing specific archive timestamps.
 \examples{
 \dontrun{
 # get latest version
-cruise_csv <- get_calcofi_file("swfsc.noaa.gov/calcofi-db/cruise.csv")
+cruise_csv <- get_calcofi_file("swfsc/ichthyo/cruise.csv")
 
 # get specific version for reproducibility
 cruise_csv <- get_calcofi_file(
-  "swfsc.noaa.gov/calcofi-db/cruise.csv",
+  "swfsc/ichthyo/cruise.csv",
   date = "2026-02-01_143059")
 }
 }

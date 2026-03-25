@@ -24,7 +24,7 @@ Reads a Parquet file, adds custom metadata, and rewrites it.
 add_parquet_metadata(
   "parquet/bottle.parquet",
   metadata = list(
-    source     = "calcofi.org",
+    source     = "calcofi",
     version    = "2026.01.31",
     created_by = "calcofi4db"))
 }

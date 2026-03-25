@@ -99,8 +99,8 @@ read_csv_metadata <- function(dir_csv, dir_ingest, create_dirs = TRUE) {
 #' - Field redefinitions (d_flds_rd) for renaming/typing/transforming fields
 #' - File paths used in the workflow
 #'
-#' @param provider Data provider (e.g., "swfsc.noaa.gov")
-#' @param dataset Dataset name (e.g., "calcofi-db")
+#' @param provider Data provider (e.g., "swfsc")
+#' @param dataset Dataset name (e.g., "ichthyo")
 #' @param subdir Optional subdirectory (i.e.,
 #'   {dir_data}/{provider}/{dataset}/{subdir}) for CSV files. Use for datasets
 #'   organized with `raw/` or `derived/` subdirectories.
@@ -148,15 +148,15 @@ read_csv_metadata <- function(dir_csv, dir_ingest, create_dirs = TRUE) {
 #' \dontrun{
 #' # Read from local Google Drive mount (syncs to GCS archive)
 #' d <- read_csv_files(
-#'   provider     = "swfsc.noaa.gov",
-#'   dataset      = "calcofi-db",
+#'   provider     = "swfsc",
+#'   dataset      = "ichthyo",
 #'   dir_data     = "~/My Drive/projects/calcofi/data-public",
 #'   metadata_dir = "metadata")
 #'
 #' # Read from specific GCS archive (for reproducibility)
 #' d <- read_csv_files(
-#'   provider     = "swfsc.noaa.gov",
-#'   dataset      = "calcofi-db",
+#'   provider     = "swfsc",
+#'   dataset      = "ichthyo",
 #'   gcs_archive  = "2026-02-02_121557",
 #'   metadata_dir = "metadata")
 #'

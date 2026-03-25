@@ -7,7 +7,7 @@
 list_gcs_versions(path, bucket = "calcofi-files-public")
 }
 \arguments{
-\item{path}{Relative path to the file (e.g., "calcofi.org/bottle-database/bottle.csv")}
+\item{path}{Relative path to the file (e.g., "calcofi/bottle/bottle.csv")}
 
 \item{bucket}{GCS bucket name (default: "calcofi-files")}
 }
@@ -19,7 +19,7 @@ Finds all archived versions of a file in the calcofi-files bucket.
 }
 \examples{
 \dontrun{
-versions <- list_gcs_versions("calcofi.org/bottle-database/bottle.csv")
+versions <- list_gcs_versions("calcofi/bottle/bottle.csv")
 }
 }
 \concept{cloud}

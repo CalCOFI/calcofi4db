@@ -14,7 +14,7 @@ upload_frozen_release(
 \arguments{
 \item{release_dir}{Path to local release directory (contains parquet/ subdirectory)}
 
-\item{version}{Version string (e.g., "v2026.02")}
+\item{version}{Version string in format "vYYYY.MM.DD" (e.g., "v2026.03.14")}
 
 \item{bucket}{GCS bucket name (default: "calcofi-db")}
 
@@ -30,8 +30,8 @@ Uploads a frozen release directory to GCS, creating required metadata files
 \examples{
 \dontrun{
 upload_frozen_release(
-  release_dir = "data/releases/v2026.02",
-  version     = "v2026.02")
+  release_dir = "data/releases/v2026.03.14",
+  version     = "v2026.03.14")
 }
 }
 \concept{freeze}

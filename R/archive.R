@@ -65,8 +65,8 @@ get_latest_archive_timestamp <- function(
 #' with \code{tools::md5sum()}.
 #'
 #' @param archive_timestamp Archive timestamp (e.g., "2026-02-02_121557")
-#' @param provider Data provider (e.g., "swfsc.noaa.gov")
-#' @param dataset Dataset name (e.g., "calcofi-db")
+#' @param provider Data provider (e.g., "swfsc")
+#' @param dataset Dataset name (e.g., "ichthyo")
 #' @param gcs_bucket GCS bucket name
 #' @param archive_prefix Archive folder prefix
 #'
@@ -78,8 +78,8 @@ get_latest_archive_timestamp <- function(
 #' \dontrun{
 #' manifest <- get_archive_manifest(
 #'   archive_timestamp = "2026-02-02_121557",
-#'   provider = "swfsc.noaa.gov",
-#'   dataset = "calcofi-db")
+#'   provider = "swfsc",
+#'   dataset = "ichthyo")
 #' }
 #' @importFrom tibble tibble
 #' @importFrom dplyr filter mutate select
@@ -184,8 +184,8 @@ get_local_manifest <- function(dir_csv) {
 #' comparison <- compare_local_vs_archive(
 #'   dir_csv = "/path/to/csv",
 #'   archive_timestamp = "2026-02-02_121557",
-#'   provider = "swfsc.noaa.gov",
-#'   dataset = "calcofi-db")
+#'   provider = "swfsc",
+#'   dataset = "ichthyo")
 #'
 #' if (!comparison$matches) {
 #'   message("Local files have changed since archive")
@@ -268,8 +268,8 @@ compare_local_vs_archive <- function(
 #' \dontrun{
 #' result <- sync_to_gcs_archive(
 #'   dir_csv  = "/path/to/csv",
-#'   provider = "swfsc.noaa.gov",
-#'   dataset  = "calcofi-db")
+#'   provider = "swfsc",
+#'   dataset  = "ichthyo")
 #'
 #' message(glue("Using archive: {result$archive_timestamp}"))
 #' }
@@ -399,8 +399,8 @@ sync_to_gcs_archive <- function(
 #' \dontrun{
 #' local_dir <- download_archive(
 #'   archive_timestamp = "2026-02-02_121557",
-#'   provider = "swfsc.noaa.gov",
-#'   dataset = "calcofi-db")
+#'   provider = "swfsc",
+#'   dataset = "ichthyo")
 #' }
 #' @importFrom glue glue
 download_archive <- function(
@@ -463,8 +463,8 @@ download_archive <- function(
 #' When multiple archives have identical content, keeps the earliest and
 #' removes the rest.
 #'
-#' @param provider Data provider (e.g., "swfsc.noaa.gov")
-#' @param dataset Dataset name (e.g., "calcofi-db")
+#' @param provider Data provider (e.g., "swfsc")
+#' @param dataset Dataset name (e.g., "ichthyo")
 #' @param gcs_bucket GCS bucket name
 #' @param archive_prefix Archive folder prefix
 #' @param dry_run If TRUE (default), only report what would be removed
@@ -476,10 +476,10 @@ download_archive <- function(
 #' @examples
 #' \dontrun{
 #' # preview what would be removed
-#' cleanup_duplicate_archives("swfsc.noaa.gov", "calcofi-db")
+#' cleanup_duplicate_archives("swfsc", "ichthyo")
 #'
 #' # actually remove duplicates
-#' cleanup_duplicate_archives("swfsc.noaa.gov", "calcofi-db", dry_run = FALSE)
+#' cleanup_duplicate_archives("swfsc", "ichthyo", dry_run = FALSE)
 #' }
 #' @importFrom purrr map map_chr
 #' @importFrom dplyr group_by filter slice ungroup mutate n

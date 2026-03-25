@@ -24,7 +24,7 @@ ingest_to_working(
 
 \item{source_file}{Path to original CSV file in Archive (for provenance).
 Should be the full path including archive timestamp
-(e.g., "archive/2026-02-02_121557/swfsc.noaa.gov/calcofi-db/larva.csv")}
+(e.g., "archive/2026-02-02_121557/swfsc/ichthyo/larva.csv")}
 
 \item{source_uuid_col}{Column name containing original UUIDs (optional).
 If provided, values are stored in \code{_source_uuid} for tracing back
@@ -65,7 +65,7 @@ stats <- ingest_to_working(
   con         = con,
   data        = larvae_data,
   table       = "larva",
-  source_file = "archive/2026-02-02_121557/swfsc.noaa.gov/calcofi-db/larva.csv",
+  source_file = "archive/2026-02-02_121557/swfsc/ichthyo/larva.csv",
   source_uuid_col = "larva_uuid",
   mode        = "replace")
 
@@ -75,7 +75,7 @@ stats <- ingest_to_working(
   con         = con,
   data        = new_data,
   table       = "larva",
-  source_file = "archive/2026-03-01_121557/swfsc.noaa.gov/calcofi-db/larva.csv",
+  source_file = "archive/2026-03-01_121557/swfsc/ichthyo/larva.csv",
   mode        = "append")
 }
 }

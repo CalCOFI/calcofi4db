@@ -48,8 +48,8 @@ Legacy function to ingest a dataset into PostgreSQL database.
 \dontrun{
 result <- ingest_dataset_pg(
   con = db_connection,
-  provider = "swfsc.noaa.gov",
-  dataset = "calcofi-db",
+  provider = "swfsc",
+  dataset = "ichthyo",
   dir_data = "/path/to/data",
   schema = "public"
 )

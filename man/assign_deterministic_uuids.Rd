@@ -9,7 +9,8 @@ assign_deterministic_uuids(
   table_name,
   id_col,
   key_cols,
-  namespace_uuid = "c0f1ca00-ca1c-5000-b000-1c4790000000"
+  namespace_uuid = "c0f1ca00-ca1c-5000-b000-1c4790000000",
+  chunk_size = 5e+06
 )
 }
 \arguments{
@@ -22,6 +23,8 @@ assign_deterministic_uuids(
 \item{key_cols}{Character vector of columns forming the composite key}
 
 \item{namespace_uuid}{Fixed namespace UUID for deterministic generation}
+
+\item{chunk_size}{Number of rows per chunk for large tables (default: 5e6)}
 }
 \value{
 Invisibly returns the connection after adding UUID column
@@ -30,5 +33,10 @@ Invisibly returns the connection after adding UUID column
 Generates UUID v5 (name-based SHA-1) identifiers from a composite key.
 The same key values always produce the same UUID, making IDs stable
 across re-ingestion regardless of row order.
+}
+\details{
+For large tables (over \code{chunk_size} rows), processes in chunks to avoid
+exceeding R memory limits. Only key columns are read per chunk, and UUIDs
+are written back via temp table UPDATE joins.
 }
 \concept{wrangle}

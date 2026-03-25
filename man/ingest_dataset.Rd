@@ -35,8 +35,8 @@ single operation with proper provenance tracking.
 \dontrun{
 # read and ingest dataset
 d <- read_csv_files(
-  provider     = "swfsc.noaa.gov",
-  dataset      = "calcofi-db",
+  provider     = "swfsc",
+  dataset      = "ichthyo",
   dir_data     = "~/My Drive/projects/calcofi/data-public",
   metadata_dir = "metadata")
 

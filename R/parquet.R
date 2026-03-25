@@ -253,7 +253,7 @@ get_parquet_metadata <- function(path) {
 #' add_parquet_metadata(
 #'   "parquet/bottle.parquet",
 #'   metadata = list(
-#'     source     = "calcofi.org",
+#'     source     = "calcofi",
 #'     version    = "2026.01.31",
 #'     created_by = "calcofi4db"))
 #' }

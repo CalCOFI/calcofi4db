@@ -36,8 +36,8 @@ Downloads CSV files from a GCS archive to a local directory.
 \dontrun{
 local_dir <- download_archive(
   archive_timestamp = "2026-02-02_121557",
-  provider = "swfsc.noaa.gov",
-  dataset = "calcofi-db")
+  provider = "swfsc",
+  dataset = "ichthyo")
 }
 }
 \concept{archive}

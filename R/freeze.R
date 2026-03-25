@@ -87,7 +87,7 @@ get_release_metadata <- function(version = "latest", bucket = "calcofi-db") {
 
   list(
     version       = version,
-    release_date  = catalog$release_date %||% NA_POSIXct_,
+    release_date  = catalog$release_date %||% as.POSIXct(NA),
     release_notes = release_notes,
     tables        = tables,
     gcs_path      = gcs_base)
@@ -176,7 +176,7 @@ list_frozen_releases <- function(bucket = "calcofi-db") {
 
     tibble::tibble(
       version      = v,
-      release_date = catalog$release_date %||% NA_POSIXct_,
+      release_date = catalog$release_date %||% as.POSIXct(NA),
       tables       = nrow(parquet_files),
       total_rows   = catalog$total_rows %||% NA_integer_,
       size_mb      = sum(v_files$size, na.rm = TRUE) / 1e6)
@@ -398,7 +398,7 @@ validate_for_release <- function(
 #' and uploads to \code{gs://calcofi-db/ducklake/releases/{version}/}.
 #'
 #' @param con DuckDB connection from \code{get_working_ducklake()}
-#' @param version Version string in format "vYYYY.MM" (e.g., "v2026.02")
+#' @param version Version string in format "vYYYY.MM.DD" (e.g., "v2026.03.14")
 #' @param release_notes Character string with release notes, or path to markdown file
 #' @param validate Run validation checks before freezing (default: TRUE)
 #' @param tables Character vector of tables to include (default: all non-system tables)
@@ -421,7 +421,7 @@ validate_for_release <- function(
 #' con <- get_working_ducklake()
 #' result <- freeze_release(
 #'   con           = con,
-#'   version       = "v2026.02",
+#'   version       = "v2026.03.14",
 #'   release_notes = "First release with bottle and larvae data.")
 #' }
 #' @importFrom DBI dbListTables dbGetQuery dbExecute
@@ -439,8 +439,8 @@ freeze_release <- function(
     bucket        = "calcofi-db") {
 
   # validate version format
-  if (!grepl("^v\\d{4}\\.\\d{2}(\\.\\d+)?$", version)) {
-    stop("Version must be in format vYYYY.MM or vYYYY.MM.patch (e.g., 'v2026.02' or 'v2026.02.1')")
+  if (!grepl("^v\\d{4}\\.\\d{2}\\.\\d{2}$", version)) {
+    stop("Version must be in format vYYYY.MM.DD (e.g., 'v2026.03.14')")
   }
 
   # check if version already exists
@@ -651,7 +651,7 @@ compare_releases <- function(v1, v2, bucket = "calcofi-db") {
 #' (catalog.json, versions.json, latest.txt) and making files publicly accessible.
 #'
 #' @param release_dir Path to local release directory (contains parquet/ subdirectory)
-#' @param version Version string (e.g., "v2026.02")
+#' @param version Version string in format "vYYYY.MM.DD" (e.g., "v2026.03.14")
 #' @param bucket GCS bucket name (default: "calcofi-db")
 #' @param set_latest Logical, update latest.txt to point to this version (default: TRUE)
 #'
@@ -663,8 +663,8 @@ compare_releases <- function(v1, v2, bucket = "calcofi-db") {
 #' @examples
 #' \dontrun{
 #' upload_frozen_release(
-#'   release_dir = "data/releases/v2026.02",
-#'   version     = "v2026.02")
+#'   release_dir = "data/releases/v2026.03.14",
+#'   version     = "v2026.03.14")
 #' }
 #' @importFrom jsonlite toJSON fromJSON
 #' @importFrom glue glue
@@ -677,7 +677,7 @@ upload_frozen_release <- function(
 
   stopifnot(
     dir.exists(release_dir),
-    grepl("^v\\d{4}\\.\\d{2}$", version))
+    grepl("^v\\d{4}\\.\\d{2}\\.\\d{2}$", version))
 
   parquet_dir <- file.path(release_dir, "parquet")
   stopifnot(dir.exists(parquet_dir))
@@ -693,9 +693,16 @@ upload_frozen_release <- function(
   manifest <- jsonlite::fromJSON(manifest_path)
 
   # create catalog.json (format expected by cc_get_db())
+  partitioned_tables <- if (!is.null(manifest$partitioned)) {
+    as.character(manifest$partitioned)
+  } else {
+    character(0)
+  }
+
   tables_df <- tibble::tibble(
-    name = manifest$tables,
-    rows = as.integer(manifest$files$rows))
+    name        = manifest$tables,
+    rows        = as.integer(manifest$files$rows),
+    partitioned = manifest$tables %in% partitioned_tables)
 
   catalog <- list(
     version      = version,
@@ -708,12 +715,18 @@ upload_frozen_release <- function(
   jsonlite::write_json(catalog, catalog_path, auto_unbox = TRUE, pretty = TRUE)
   message(glue::glue("Created catalog.json with {nrow(tables_df)} tables"))
 
-  # upload parquet files
-  parquet_files <- list.files(parquet_dir, pattern = "\\.parquet$", full.names = TRUE)
+  # upload parquet files (single files + partitioned directories)
+  parquet_files <- list.files(
+    parquet_dir, pattern = "\\.parquet$",
+    recursive = TRUE, full.names = TRUE)
   message(glue::glue("Uploading {length(parquet_files)} parquet files..."))
 
   for (pf in parquet_files) {
-    gcs_path <- glue::glue("{gcs_base}/parquet/{basename(pf)}")
+    # preserve relative path from parquet_dir (handles hive subdirs)
+    rel_path <- sub(
+      paste0("^", normalizePath(parquet_dir, mustWork = FALSE), "/?"), "",
+      normalizePath(pf, mustWork = FALSE))
+    gcs_path <- glue::glue("{gcs_base}/parquet/{rel_path}")
     put_gcs_file(pf, gcs_path)
   }
 
@@ -725,6 +738,13 @@ upload_frozen_release <- function(
   if (file.exists(notes_path)) {
     put_gcs_file(notes_path, glue::glue("{gcs_base}/RELEASE_NOTES.md"))
     message("Uploaded RELEASE_NOTES.md")
+  }
+
+  # upload relationships.json if exists
+  rels_path <- file.path(release_dir, "relationships.json")
+  if (file.exists(rels_path)) {
+    put_gcs_file(rels_path, glue::glue("{gcs_base}/relationships.json"))
+    message("Uploaded relationships.json")
   }
 
   # update versions.json

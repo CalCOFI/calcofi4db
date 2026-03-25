@@ -1,5 +1,40 @@
 # display helper functions for workflow outputs
 
+#' Create Interactive Data Table with CSV Export
+#'
+#' Wrapper around DT::datatable() with sensible defaults for workflow
+#' output tables: CSV download button, top filters, horizontal scroll,
+#' and adaptive page lengths.
+#'
+#' @param d Data frame to display
+#' @param fname Filename for CSV export (without extension)
+#' @param n_page Number of rows per page (default: 10)
+#' @param ... Additional arguments passed to DT::datatable()
+#'
+#' @return A DT::datatable widget
+#' @export
+#' @concept display
+#' @importFrom DT datatable
+dt <- function(d, fname, n_page = 10, ...) {
+  lengths <- c(5, 10, 25, 50, 100, 1000)
+  lengths <- c(lengths[lengths < nrow(d)], nrow(d)) |> unique()
+
+  DT::datatable(
+    d,
+    extensions = "Buttons",
+    options = list(
+      dom        = "Blfrtpi",
+      buttons    = list(
+        list(
+          extend   = "csv",
+          filename = fname)),
+      pageLength = min(n_page, nrow(d)),
+      lengthMenu = lengths,
+      scrollX    = TRUE),
+    filter = "top",
+    ...)
+}
+
 #' Create GitHub File Link
 #'
 #' Converts a local file path to a GitHub repository link. Extracts the relative

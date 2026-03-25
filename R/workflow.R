@@ -8,8 +8,8 @@
 #' tracking provenance back to the source archive.
 #'
 #' @param data_info Output from `read_csv_files()`
-#' @param provider Data provider (e.g., "swfsc.noaa.gov")
-#' @param dataset Dataset name (e.g., "calcofi-db")
+#' @param provider Data provider (e.g., "swfsc")
+#' @param dataset Dataset name (e.g., "ichthyo")
 #' @param gcs_bucket GCS bucket for ingest outputs (default: "calcofi-db")
 #' @param compression Parquet compression method (default: "snappy")
 #'
@@ -26,14 +26,14 @@
 #' @examples
 #' \dontrun{
 #' d <- read_csv_files(
-#'   provider     = "swfsc.noaa.gov",
-#'   dataset      = "calcofi-db",
+#'   provider     = "swfsc",
+#'   dataset      = "ichthyo",
 #'   metadata_dir = "metadata")
 #'
 #' result <- write_ingest_outputs(
 #'   data_info  = d,
-#'   provider   = "swfsc.noaa.gov",
-#'   dataset    = "calcofi-db")
+#'   provider   = "swfsc",
+#'   dataset    = "ichthyo")
 #'
 #' # check manifest
 #' result$manifest$tables
@@ -114,8 +114,8 @@ write_ingest_outputs <- function(
 #'
 #' Retrieves the manifest.json for a specific ingest workflow output.
 #'
-#' @param provider Data provider (e.g., "swfsc.noaa.gov")
-#' @param dataset Dataset name (e.g., "calcofi-db")
+#' @param provider Data provider (e.g., "swfsc")
+#' @param dataset Dataset name (e.g., "ichthyo")
 #' @param gcs_bucket GCS bucket (default: "calcofi-db")
 #'
 #' @return List containing manifest data
@@ -125,8 +125,8 @@ write_ingest_outputs <- function(
 #' @examples
 #' \dontrun{
 #' manifest <- read_ingest_manifest(
-#'   provider = "swfsc.noaa.gov",
-#'   dataset  = "calcofi-db")
+#'   provider = "swfsc",
+#'   dataset  = "ichthyo")
 #'
 #' manifest$source_files
 #' manifest$tables
@@ -147,8 +147,8 @@ read_ingest_manifest <- function(
 #'
 #' Downloads and reads a parquet table from an ingest output.
 #'
-#' @param provider Data provider (e.g., "swfsc.noaa.gov")
-#' @param dataset Dataset name (e.g., "calcofi-db")
+#' @param provider Data provider (e.g., "swfsc")
+#' @param dataset Dataset name (e.g., "ichthyo")
 #' @param table Table name (e.g., "cruise")
 #' @param gcs_bucket GCS bucket (default: "calcofi-db")
 #'
@@ -159,8 +159,8 @@ read_ingest_manifest <- function(
 #' @examples
 #' \dontrun{
 #' cruise <- read_ingest_parquet(
-#'   provider = "swfsc.noaa.gov",
-#'   dataset  = "calcofi-db",
+#'   provider = "swfsc",
+#'   dataset  = "ichthyo",
 #'   table    = "cruise")
 #' }
 #' @importFrom glue glue
@@ -213,6 +213,185 @@ list_ingest_outputs <- function(gcs_bucket = "calcofi-db") {
     dplyr::select(provider, dataset, manifest_path)
 
   manifests
+}
+
+#' Finalize Ingest — Push Parquet Tables to Working DuckLake
+#'
+#' High-level function each ingest notebook calls at the end to push all
+#' parquet tables to the Working DuckLake. Downloads (or creates) the Working
+#' DuckLake, ingests each parquet file with provenance, saves back to GCS,
+#' and returns ingestion statistics.
+#'
+#' @param parquet_dir Path to directory containing parquet files to ingest
+#' @param source_label Label for provenance tracking (default: basename of parquet_dir)
+#' @param tables Optional character vector of table names to ingest. If NULL,
+#'   all .parquet files in the directory are ingested.
+#' @param geom_tables Character vector of table names with WKB geometry columns
+#'   (default: c("grid", "site", "segment")). These are skipped during
+#'   ingest_to_working() since geometry columns don't survive dbWriteTable().
+#'   Instead they are loaded directly from parquet.
+#'
+#' @return Tibble with ingestion statistics per table
+#' @export
+#' @concept workflow
+#'
+#' @examples
+#' \dontrun{
+#' # at the end of ingest_swfsc_ichthyo.qmd
+#' finalize_ingest(
+#'   parquet_dir  = here("data/parquet/swfsc_ichthyo"),
+#'   source_label = "swfsc_ichthyo")
+#' }
+#' @importFrom glue glue
+#' @importFrom purrr map_dfr
+#' @importFrom tibble tibble
+#' @importFrom arrow read_parquet
+finalize_ingest <- function(
+    parquet_dir,
+    source_label = basename(parquet_dir),
+    tables       = NULL,
+    geom_tables  = c("grid", "site", "segment")) {
+
+  stopifnot(dir.exists(parquet_dir))
+
+  # discover parquet sources: single .parquet files + hive-partitioned directories
+  pqt_files <- list.files(parquet_dir, pattern = "\\.parquet$", full.names = TRUE)
+  pqt_dirs  <- list.dirs(parquet_dir, recursive = FALSE, full.names = TRUE)
+  pqt_dirs  <- pqt_dirs[
+    vapply(pqt_dirs, function(d)
+      length(list.files(d, pattern = "\\.parquet$", recursive = TRUE)) > 0,
+      logical(1))
+  ]
+
+  # build unified list: list of list(name, path, partitioned)
+  sources <- c(
+    lapply(pqt_files, function(f) list(
+      name        = tools::file_path_sans_ext(basename(f)),
+      path        = f,
+      partitioned = FALSE)),
+    lapply(pqt_dirs, function(d) list(
+      name        = basename(d),
+      path        = d,
+      partitioned = TRUE))
+  )
+
+  if (!is.null(tables)) {
+    sources <- sources[vapply(sources, function(s) s$name %in% tables, logical(1))]
+  }
+
+  if (length(sources) == 0) {
+    message("No parquet files found to ingest")
+    return(tibble::tibble())
+  }
+
+  # open Working DuckLake
+  con_wdl <- get_working_ducklake()
+  load_duckdb_extension(con_wdl, "spatial")
+
+  # ingest each parquet source
+  stats <- purrr::map_dfr(sources, function(src) {
+    tbl_name <- src$name
+    prov_label <- glue::glue("parquet/{source_label}/{tbl_name}")
+
+    # build read expression
+    if (src$partitioned) {
+      read_expr <- glue::glue(
+        "read_parquet('{src$path}/**/*.parquet', hive_partitioning = true)")
+    } else {
+      read_expr <- glue::glue("read_parquet('{src$path}')")
+    }
+
+    # spatial tables: load from parquet with geometry conversion
+    if (tbl_name %in% geom_tables) {
+      tryCatch({
+        DBI::dbExecute(con_wdl, glue::glue(
+          "CREATE OR REPLACE TABLE {tbl_name} AS
+           SELECT * FROM {read_expr}"))
+
+        # convert WKB BLOB -> GEOMETRY
+        blob_cols <- DBI::dbGetQuery(con_wdl, glue::glue(
+          "SELECT column_name FROM information_schema.columns
+           WHERE table_name = '{tbl_name}'
+             AND data_type = 'BLOB'
+             AND column_name LIKE '%geom%'"))$column_name
+
+        for (gc in blob_cols) {
+          tmp_col <- paste0(gc, "_tmp")
+          DBI::dbExecute(con_wdl, glue::glue(
+            'ALTER TABLE {tbl_name} ADD COLUMN {tmp_col} GEOMETRY'))
+          DBI::dbExecute(con_wdl, glue::glue(
+            'UPDATE {tbl_name} SET {tmp_col} = ST_GeomFromWKB({gc})'))
+          DBI::dbExecute(con_wdl, glue::glue(
+            'ALTER TABLE {tbl_name} DROP COLUMN {gc}'))
+          DBI::dbExecute(con_wdl, glue::glue(
+            'ALTER TABLE {tbl_name} RENAME COLUMN {tmp_col} TO {gc}'))
+        }
+
+        n <- DBI::dbGetQuery(con_wdl, glue::glue(
+          "SELECT COUNT(*) AS n FROM {tbl_name}"))$n
+        message(glue::glue("Loaded {tbl_name} (spatial): {n} rows"))
+
+        tibble::tibble(
+          table       = tbl_name,
+          mode        = "replace",
+          rows_input  = n,
+          rows_after  = n,
+          ingested_at = Sys.time())
+      }, error = function(e) {
+        warning(glue::glue("Failed to load spatial table {tbl_name}: {e$message}"))
+        tibble::tibble(
+          table = tbl_name, mode = "error",
+          rows_input = 0L, rows_after = 0L, ingested_at = Sys.time())
+      })
+    } else if (src$partitioned) {
+      # partitioned tables: use DuckDB SQL to read (avoids loading all into R memory)
+      tryCatch({
+        DBI::dbExecute(con_wdl, glue::glue(
+          "CREATE OR REPLACE TABLE {tbl_name} AS
+           SELECT * FROM {read_expr}"))
+
+        n <- DBI::dbGetQuery(con_wdl, glue::glue(
+          "SELECT COUNT(*) AS n FROM {tbl_name}"))$n
+        message(glue::glue("Loaded {tbl_name} (partitioned): {n} rows"))
+
+        tibble::tibble(
+          table       = tbl_name,
+          mode        = "replace",
+          rows_input  = n,
+          rows_after  = n,
+          ingested_at = Sys.time())
+      }, error = function(e) {
+        warning(glue::glue("Failed to load partitioned table {tbl_name}: {e$message}"))
+        tibble::tibble(
+          table = tbl_name, mode = "error",
+          rows_input = 0L, rows_after = 0L, ingested_at = Sys.time())
+      })
+    } else {
+      # non-spatial single-file tables: read and ingest with provenance
+      data <- arrow::read_parquet(src$path)
+
+      ingest_to_working(
+        con         = con_wdl,
+        data        = data,
+        table       = tbl_name,
+        source_file = prov_label,
+        mode        = "replace")
+    }
+  })
+
+  # list final tables
+  working_tables <- list_working_tables(con_wdl)
+  message(glue::glue(
+    "\nWorking DuckLake: {nrow(working_tables)} tables, ",
+    "{sum(working_tables$rows)} total rows"))
+
+  # save to GCS
+  save_working_ducklake(con_wdl)
+
+  # close
+  close_duckdb(con_wdl)
+
+  stats
 }
 
 #' Integrate Ingest Outputs into Working DuckLake

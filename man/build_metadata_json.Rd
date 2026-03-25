@@ -35,9 +35,9 @@ tables from DuckDB.}
 
 \item{set_comments}{If TRUE, also sets DuckDB \verb{COMMENT ON} for tables/columns}
 
-\item{provider}{Data provider identifier (e.g. "swfsc.noaa.gov")}
+\item{provider}{Data provider identifier (e.g. "swfsc")}
 
-\item{dataset}{Dataset identifier (e.g. "calcofi-db")}
+\item{dataset}{Dataset identifier (e.g. "ichthyo")}
 
 \item{workflow_url}{URL to the rendered workflow page}
 }
@@ -65,12 +65,12 @@ build_metadata_json(
   con                  = con,
   d_tbls_rd            = d$d_tbls_rd,
   d_flds_rd            = d$d_flds_rd,
-  metadata_derived_csv = "metadata/swfsc.noaa.gov/calcofi-db/metadata_derived.csv",
-  output_dir           = "data/parquet/swfsc.noaa.gov_calcofi-db",
+  metadata_derived_csv = "metadata/swfsc/ichthyo/metadata_derived.csv",
+  output_dir           = "data/parquet/swfsc_ichthyo",
   tables               = DBI::dbListTables(con),
-  provider             = "swfsc.noaa.gov",
-  dataset              = "calcofi-db",
-  workflow_url         = "https://calcofi.io/workflows/ingest_swfsc.noaa.gov_calcofi-db.html")
+  provider             = "swfsc",
+  dataset              = "ichthyo",
+  workflow_url         = "https://calcofi.io/workflows/ingest_swfsc_ichthyo.html")
 }
 }
 \concept{wrangle}

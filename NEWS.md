@@ -1,3 +1,17 @@
+# calcofi4db 2.5.0
+
+*Simplified provider/dataset naming, taxonomy & workflow improvements*
+
+- Renamed dataset providers from URL-style to short names (e.g., `swfsc.noaa.gov/calcofi-db` -> `swfsc/ichthyo`, `calcofi.org/bottle-database` -> `calcofi/bottle`); moved corresponding `inst/ingest/` config files to match.
+- Added `standardize_species_local()` for fast local species standardization via `spp.duckdb` with optional WoRMS API fallback.
+- Added `build_taxon_hierarchy()` to build taxonomic hierarchies from local `spp.duckdb` using recursive CTEs.
+- Added `finalize_ingest()` high-level function to push parquet tables to Working DuckLake with provenance tracking.
+- Added GCS cleanup helpers: `delete_gcs_prefix()`, `cleanup_gcs_obsolete()`.
+- Added `dt()` display helper for interactive DataTables with CSV export.
+- Added relationship JSON helpers: `build_relationships_json()`, `merge_relationships_json()`, `read_relationships_json()`.
+- Added `assign_deterministic_uuids_md5()` using DuckDB-native md5.
+- Improved `sync_to_gcs()` to support recursive/hive-partitioned subdirectories.
+
 # calcofi4db 2.4.0
 
 *Use _uuid over _id, smarter sync with GCS*

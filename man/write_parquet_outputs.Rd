@@ -8,6 +8,7 @@ write_parquet_outputs(
   con,
   output_dir,
   tables = NULL,
+  partition_by = NULL,
   strip_provenance = TRUE,
   compression = "snappy"
 )

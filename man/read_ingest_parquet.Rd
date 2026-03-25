@@ -7,9 +7,9 @@
 read_ingest_parquet(provider, dataset, table, gcs_bucket = "calcofi-db")
 }
 \arguments{
-\item{provider}{Data provider (e.g., "swfsc.noaa.gov")}
+\item{provider}{Data provider (e.g., "swfsc")}
 
-\item{dataset}{Dataset name (e.g., "calcofi-db")}
+\item{dataset}{Dataset name (e.g., "ichthyo")}
 
 \item{table}{Table name (e.g., "cruise")}
 
@@ -24,8 +24,8 @@ Downloads and reads a parquet table from an ingest output.
 \examples{
 \dontrun{
 cruise <- read_ingest_parquet(
-  provider = "swfsc.noaa.gov",
-  dataset  = "calcofi-db",
+  provider = "swfsc",
+  dataset  = "ichthyo",
   table    = "cruise")
 }
 }

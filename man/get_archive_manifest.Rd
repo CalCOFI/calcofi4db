@@ -15,9 +15,9 @@ get_archive_manifest(
 \arguments{
 \item{archive_timestamp}{Archive timestamp (e.g., "2026-02-02_121557")}
 
-\item{provider}{Data provider (e.g., "swfsc.noaa.gov")}
+\item{provider}{Data provider (e.g., "swfsc")}
 
-\item{dataset}{Dataset name (e.g., "calcofi-db")}
+\item{dataset}{Dataset name (e.g., "ichthyo")}
 
 \item{gcs_bucket}{GCS bucket name}
 
@@ -35,8 +35,8 @@ with \code{tools::md5sum()}.
 \dontrun{
 manifest <- get_archive_manifest(
   archive_timestamp = "2026-02-02_121557",
-  provider = "swfsc.noaa.gov",
-  dataset = "calcofi-db")
+  provider = "swfsc",
+  dataset = "ichthyo")
 }
 }
 \concept{archive}

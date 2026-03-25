@@ -1,4 +1,376 @@
 # taxonomy standardization using WoRMS and ITIS APIs
+# includes both API-based and local spp.duckdb-based approaches
+
+#' Standardize Species Using Local spp.duckdb Lookups
+#'
+#' Updates the species table with WoRMS AphiaID, ITIS TSN, and GBIF backbone
+#' key using fast SQL joins against a local MarineSensitivity species database
+#' (\code{spp.duckdb}). Falls back to the WoRMS API only for species not found
+#' locally.
+#'
+#' This is much faster than \code{standardize_species()} which queries external
+#' APIs for every species. Intended for use in ingest workflows where the local
+#' spp.duckdb is available.
+#'
+#' @param con DBI connection to DuckDB with a species table
+#' @param spp_db_path Path to the MarineSensitivity spp.duckdb file
+#' @param species_tbl Character; name of species table (default "species")
+#' @param overwrite Logical; if TRUE, re-standardize even if columns already
+#'   populated (default FALSE)
+#' @param api_fallback Logical; if TRUE, query WoRMS API for species not found
+#'   locally (default TRUE)
+#'
+#' @return Tibble with species_id, scientific_name, worms_id, itis_id, gbif_id
+#' @export
+#' @concept taxonomy
+#'
+#' @examples
+#' \dontrun{
+#' con <- get_duckdb_con("calcofi.duckdb")
+#' sp <- standardize_species_local(
+#'   con         = con,
+#'   spp_db_path = "/path/to/spp.duckdb")
+#' }
+#' @importFrom DBI dbGetQuery dbExecute
+#' @importFrom glue glue
+standardize_species_local <- function(
+    con,
+    spp_db_path,
+    species_tbl = "species",
+    overwrite   = FALSE,
+    api_fallback = TRUE) {
+
+  stopifnot(file.exists(spp_db_path))
+
+  # check if species already standardized
+  sp_cols <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT column_name FROM information_schema.columns
+     WHERE table_name = '{species_tbl}'"))$column_name
+
+  sp_standardized <- all(c("worms_id", "itis_id", "gbif_id") %in% sp_cols) &&
+    DBI::dbGetQuery(con, glue::glue(
+      "SELECT COUNT(*) AS n FROM {species_tbl} WHERE gbif_id IS NOT NULL"))$n > 0
+
+  if (sp_standardized && !overwrite) {
+    message("Species already standardized, skipping")
+    return(DBI::dbGetQuery(con, glue::glue(
+      "SELECT species_id, scientific_name, worms_id, itis_id, gbif_id
+       FROM {species_tbl}")))
+  }
+
+  # add missing columns
+  for (col in c("worms_id", "itis_id", "gbif_id")) {
+    if (!col %in% sp_cols) {
+      DBI::dbExecute(con, glue::glue(
+        "ALTER TABLE {species_tbl} ADD COLUMN {col} INTEGER"))
+    }
+  }
+
+  # attach spp.duckdb
+  tryCatch(
+    DBI::dbExecute(con, glue::glue("ATTACH '{spp_db_path}' AS spp (READ_ONLY)")),
+    error = function(e) NULL)
+
+  # worms: validate existing worms_id and resolve synonyms
+  n_worms_before <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT COUNT(*) AS n FROM {species_tbl} WHERE worms_id IS NOT NULL"))$n
+
+  DBI::dbExecute(con, glue::glue("
+    UPDATE {species_tbl} SET worms_id = (
+      SELECT CASE
+        WHEN w.taxonomicStatus = 'accepted' THEN w.taxonID
+        ELSE COALESCE(w.acceptedNameUsageID, w.taxonID)
+      END
+      FROM spp.worms w
+      WHERE w.taxonID = {species_tbl}.worms_id
+      LIMIT 1)
+    WHERE worms_id IS NOT NULL"))
+
+  n_worms <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT COUNT(*) AS n FROM {species_tbl} WHERE worms_id IS NOT NULL"))$n
+  message(glue::glue("WoRMS: {n_worms} species with validated worms_id (was {n_worms_before})"))
+
+  # worms: name match for any still missing
+  DBI::dbExecute(con, glue::glue("
+    UPDATE {species_tbl} SET worms_id = (
+      SELECT CASE
+        WHEN w.taxonomicStatus = 'accepted' THEN w.taxonID
+        ELSE COALESCE(w.acceptedNameUsageID, w.taxonID)
+      END
+      FROM spp.worms w
+      WHERE w.scientificName = {species_tbl}.scientific_name
+        AND w.taxonRank = 'Species'
+      ORDER BY CASE WHEN w.taxonomicStatus = 'accepted' THEN 0 ELSE 1 END
+      LIMIT 1)
+    WHERE worms_id IS NULL"))
+
+  n_worms2 <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT COUNT(*) AS n FROM {species_tbl} WHERE worms_id IS NOT NULL"))$n
+  message(glue::glue("WoRMS name match: {n_worms2 - n_worms} additional species"))
+
+  # itis: match by scientific_name
+  DBI::dbExecute(con, glue::glue("
+    UPDATE {species_tbl} SET itis_id = (
+      SELECT COALESCE(i.acceptedNameUsageID, i.taxonID)
+      FROM spp.itis i
+      WHERE i.scientificName = {species_tbl}.scientific_name
+      ORDER BY CASE WHEN i.taxonomicStatus = 'valid' THEN 0 ELSE 1 END
+      LIMIT 1)
+    WHERE itis_id IS NULL"))
+
+  n_itis <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT COUNT(*) AS n FROM {species_tbl} WHERE itis_id IS NOT NULL"))$n
+  message(glue::glue("ITIS: {n_itis} species matched"))
+
+  # gbif: match by canonicalName
+  DBI::dbExecute(con, glue::glue("
+    UPDATE {species_tbl} SET gbif_id = (
+      SELECT COALESCE(
+        TRY_CAST(NULLIF(g.acceptedNameUsageID, '') AS INTEGER),
+        g.taxonID)
+      FROM spp.gbif g
+      WHERE g.canonicalName = {species_tbl}.scientific_name
+      ORDER BY CASE WHEN g.taxonomicStatus = 'accepted' THEN 0 ELSE 1 END
+      LIMIT 1)
+    WHERE gbif_id IS NULL"))
+
+  n_gbif <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT COUNT(*) AS n FROM {species_tbl} WHERE gbif_id IS NOT NULL"))$n
+  message(glue::glue("GBIF: {n_gbif} species matched"))
+
+  # API fallback for species still missing worms_id
+  if (api_fallback) {
+    missing_worms <- DBI::dbGetQuery(con, glue::glue(
+      "SELECT species_id, scientific_name
+       FROM {species_tbl} WHERE worms_id IS NULL"))
+
+    if (nrow(missing_worms) > 0) {
+      if (!requireNamespace("worrms", quietly = TRUE))
+        stop("Package 'worrms' is required for API fallback")
+
+      message(glue::glue(
+        "API fallback for {nrow(missing_worms)} species missing worms_id"))
+
+      for (i in seq_len(nrow(missing_worms))) {
+        sp_name <- missing_worms$scientific_name[i]
+        sp_id   <- missing_worms$species_id[i]
+
+        worms_id <- tryCatch({
+          records <- worrms::wm_records_name(sp_name, fuzzy = TRUE)
+          if (!is.null(records) && nrow(records) > 0) {
+            rec <- records[1, ]
+            if (!is.na(rec$valid_AphiaID)) as.integer(rec$valid_AphiaID)
+            else as.integer(rec$AphiaID)
+          } else {
+            NA_integer_
+          }
+        }, error = function(e) NA_integer_)
+
+        if (!is.na(worms_id)) {
+          DBI::dbExecute(con, glue::glue(
+            "UPDATE {species_tbl} SET worms_id = {worms_id}
+             WHERE species_id = {sp_id}"))
+        }
+        Sys.sleep(0.5)
+      }
+      message("API fallback complete")
+    } else {
+      message("All species matched locally, no API fallback needed")
+    }
+  }
+
+  # detach spp.duckdb
+  tryCatch(DBI::dbExecute(con, "DETACH spp"), error = function(e) NULL)
+
+  DBI::dbGetQuery(con, glue::glue(
+    "SELECT species_id, scientific_name, worms_id, itis_id, gbif_id
+     FROM {species_tbl}"))
+}
+
+#' Build Taxon Hierarchy from Local spp.duckdb via Recursive CTEs
+#'
+#' Builds the \code{taxon} and \code{taxa_rank} tables using recursive CTEs
+#' against the local MarineSensitivity species database (\code{spp.duckdb}).
+#' This is much faster than \code{build_taxon_table()} which queries WoRMS/ITIS
+#' APIs for each species.
+#'
+#' Creates both WoRMS and ITIS hierarchies by walking up the
+#' \code{parentNameUsageID} chain from each species' WoRMS/ITIS ID.
+#'
+#' @param con DBI connection to DuckDB with a species table containing
+#'   worms_id and itis_id columns
+#' @param spp_db_path Path to the MarineSensitivity spp.duckdb file
+#' @param species_tbl Character; name of species table (default "species")
+#' @param overwrite Logical; if TRUE, rebuild even if taxon table exists
+#'   (default FALSE)
+#'
+#' @return Tibble of taxon hierarchy rows written to con
+#' @export
+#' @concept taxonomy
+#'
+#' @examples
+#' \dontrun{
+#' con <- get_duckdb_con("calcofi.duckdb")
+#' taxon <- build_taxon_hierarchy(
+#'   con         = con,
+#'   spp_db_path = "/path/to/spp.duckdb")
+#' }
+#' @importFrom DBI dbGetQuery dbWriteTable dbExecute dbListTables
+#' @importFrom glue glue
+#' @importFrom dplyr distinct bind_rows
+#' @importFrom tibble tibble
+build_taxon_hierarchy <- function(
+    con,
+    spp_db_path,
+    species_tbl = "species",
+    overwrite   = FALSE) {
+
+  # check if taxon table already exists
+  existing <- DBI::dbListTables(con)
+  taxon_exists <- "taxon" %in% existing &&
+    DBI::dbGetQuery(con, "SELECT COUNT(*) AS n FROM taxon")$n > 0
+
+  if (taxon_exists && !overwrite) {
+    message("Taxon table already exists, skipping")
+    return(DBI::dbGetQuery(con, "SELECT * FROM taxon"))
+  }
+
+  stopifnot(file.exists(spp_db_path))
+
+  # ensure spp.duckdb is attached
+  spp_attached <- tryCatch({
+    DBI::dbGetQuery(con, "SELECT 1 FROM spp.worms LIMIT 1")
+    TRUE
+  }, error = function(e) FALSE)
+
+  if (!spp_attached) {
+    DBI::dbExecute(con, glue::glue(
+      "ATTACH '{spp_db_path}' AS spp (READ_ONLY)"))
+  }
+
+  # build WoRMS hierarchy via recursive CTE
+  worms_taxon <- DBI::dbGetQuery(con, glue::glue("
+    WITH RECURSIVE hierarchy AS (
+      SELECT
+        w.taxonID,
+        w.parentNameUsageID,
+        w.scientificName,
+        w.taxonRank,
+        w.taxonID AS leaf_taxonID
+      FROM spp.worms w
+      WHERE w.taxonID IN (
+        SELECT DISTINCT worms_id FROM {species_tbl}
+        WHERE worms_id IS NOT NULL)
+
+      UNION ALL
+
+      SELECT
+        p.taxonID,
+        p.parentNameUsageID,
+        p.scientificName,
+        p.taxonRank,
+        h.leaf_taxonID
+      FROM spp.worms p
+      JOIN hierarchy h ON p.taxonID = h.parentNameUsageID
+      WHERE h.parentNameUsageID IS NOT NULL
+        AND h.parentNameUsageID != h.taxonID
+    )
+    SELECT DISTINCT
+      'WoRMS'                        AS authority,
+      taxonID                        AS taxonID,
+      leaf_taxonID                   AS acceptedNameUsageID,
+      parentNameUsageID              AS parentNameUsageID,
+      scientificName                 AS scientificName,
+      taxonRank                      AS taxonRank,
+      'accepted'                     AS taxonomicStatus,
+      CAST(NULL AS VARCHAR)          AS scientificNameAuthorship
+    FROM hierarchy
+    WHERE taxonRank IS NOT NULL"))
+
+  worms_taxon <- worms_taxon |>
+    dplyr::distinct(authority, taxonID, .keep_all = TRUE)
+  message(glue::glue("WoRMS hierarchy: {nrow(worms_taxon)} rows"))
+
+  # build ITIS hierarchy via recursive CTE
+  itis_taxon <- DBI::dbGetQuery(con, glue::glue("
+    WITH RECURSIVE hierarchy AS (
+      SELECT
+        i.taxonID,
+        i.parentNameUsageID,
+        i.scientificName,
+        i.taxonRank,
+        i.taxonID AS leaf_taxonID
+      FROM spp.itis i
+      WHERE i.taxonID IN (
+        SELECT DISTINCT itis_id FROM {species_tbl}
+        WHERE itis_id IS NOT NULL)
+
+      UNION ALL
+
+      SELECT
+        p.taxonID,
+        p.parentNameUsageID,
+        p.scientificName,
+        p.taxonRank,
+        h.leaf_taxonID
+      FROM spp.itis p
+      JOIN hierarchy h ON p.taxonID = h.parentNameUsageID
+      WHERE h.parentNameUsageID IS NOT NULL
+        AND h.parentNameUsageID != h.taxonID
+    )
+    SELECT DISTINCT
+      'ITIS'                         AS authority,
+      taxonID                        AS taxonID,
+      leaf_taxonID                   AS acceptedNameUsageID,
+      parentNameUsageID              AS parentNameUsageID,
+      scientificName                 AS scientificName,
+      taxonRank                      AS taxonRank,
+      'accepted'                     AS taxonomicStatus,
+      CAST(NULL AS VARCHAR)          AS scientificNameAuthorship
+    FROM hierarchy
+    WHERE taxonRank IS NOT NULL"))
+
+  itis_taxon <- itis_taxon |>
+    dplyr::distinct(authority, taxonID, .keep_all = TRUE)
+  message(glue::glue("ITIS hierarchy: {nrow(itis_taxon)} rows"))
+
+  # combine and write
+  taxon_rows <- dplyr::bind_rows(worms_taxon, itis_taxon)
+
+  DBI::dbExecute(con, "DROP TABLE IF EXISTS taxon")
+  DBI::dbWriteTable(con, "taxon", taxon_rows)
+  message(glue::glue("Created taxon table: {nrow(taxon_rows)} rows"))
+
+  # create taxa_rank lookup table
+  taxa_ranks_chr <- c(
+    "Kingdom", "Subkingdom",
+    "Phylum", "Subphylum", "Infraphylum",
+    "Superclass", "Class", "Subclass", "Infraclass", "Megacohort",
+    "Supercohort", "Cohort", "Subcohort", "Infracohort",
+    "Superorder", "Order", "Suborder", "Infraorder", "Parvorder",
+    "Superfamily", "Family", "Subfamily",
+    "Supertribe", "Tribe", "Subtribe",
+    "Genus", "Subgenus",
+    "Series", "Subseries",
+    "Species", "Subspecies",
+    "Natio", "Mutatio",
+    "Form", "Forma", "Subform", "Subforma",
+    "Variety", "Subvariety",
+    "Coll. sp.", "Aggr.")
+
+  d_taxa_rank <- tibble::tibble(
+    taxonRank  = taxa_ranks_chr,
+    rank_order = seq_along(taxa_ranks_chr))
+
+  DBI::dbExecute(con, "DROP TABLE IF EXISTS taxa_rank")
+  DBI::dbWriteTable(con, "taxa_rank", d_taxa_rank)
+  message(glue::glue("Created taxa_rank table: {nrow(d_taxa_rank)} rank levels"))
+
+  # detach spp.duckdb
+  tryCatch(DBI::dbExecute(con, "DETACH spp"), error = function(e) NULL)
+
+  taxon_rows
+}
 
 #' Standardize Species Identifiers Using WoRMS/ITIS/GBIF APIs
 #'

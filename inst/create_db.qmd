@@ -135,8 +135,8 @@ See also [Integrated database ingestion strategy – Database – CalCOFI.io Doc
 #| label: noaa-setup
 
 # define paths
-provider <- "swfsc.noaa.gov"
-dataset  <- "calcofi-db"
+provider <- "swfsc"
+dataset  <- "ichthyo"
 
 # load data using calcofi4db package
 d_noaa <- read_csv_files(provider, dataset)
@@ -724,8 +724,8 @@ Source: [Bottle Database | CalCOFI.org](https://calcofi.org/data/oceanographic-d
 # paths ---
 
 # dataset with external data folder
-provider     <- "calcofi.org"
-dataset      <- "bottle-database"
+provider     <- "calcofi"
+dataset      <- "bottle"
 subdir       <- "CalCOFI_Database_194903-202105_csv_16October2023"
   
 dir_dataset  <- glue("{dir_data}/{provider}/{dataset}")
@@ -847,8 +847,8 @@ if (params$do_version_release) {
     additional_files = c(
       "inst/create_db.qmd",
       "inst/schema_version.csv",
-      "inst/ingest/swfsc.noaa.gov/calcofi-db/flds_redefine.csv",
-      "inst/ingest/swfsc.noaa.gov/calcofi-db/tbls_redefine.csv"
+      "inst/ingest/swfsc/ichthyo/flds_redefine.csv",
+      "inst/ingest/swfsc/ichthyo/tbls_redefine.csv"
     ),
     commit = params$do_git_commit,
     push = params$do_git_push,

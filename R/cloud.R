@@ -21,7 +21,7 @@
 #'
 #' # using bucket + relative path
 #' local_file <- get_gcs_file(
-#'   "current/calcofi.org/bottle-database/bottle.csv",
+#'   "current/calcofi/bottle/bottle.csv",
 #'   bucket = "calcofi-files-public")
 #' }
 #' @importFrom glue glue
@@ -137,7 +137,7 @@ put_gcs_file <- function(
 #' that are new or changed, skipping identical files.
 #'
 #' @param local_dir Directory containing files to upload
-#' @param gcs_prefix GCS destination prefix (e.g. "ingest/swfsc.noaa.gov_calcofi-db")
+#' @param gcs_prefix GCS destination prefix (e.g. "ingest/swfsc_ichthyo")
 #' @param bucket GCS bucket name
 #' @param pattern Regex to filter local files (default: NULL = all files)
 #' @param verbose Print per-file status messages (default: TRUE)
@@ -149,8 +149,8 @@ put_gcs_file <- function(
 #' @examples
 #' \dontrun{
 #' sync_to_gcs(
-#'   local_dir  = "data/parquet/swfsc.noaa.gov_calcofi-db",
-#'   gcs_prefix = "ingest/swfsc.noaa.gov_calcofi-db",
+#'   local_dir  = "data/parquet/swfsc_ichthyo",
+#'   gcs_prefix = "ingest/swfsc_ichthyo",
 #'   bucket     = "calcofi-db")
 #' }
 #' @importFrom tibble tibble
@@ -163,17 +163,22 @@ sync_to_gcs <- function(
     pattern = NULL,
     verbose = TRUE) {
 
-  # list local files
-  local_files <- list.files(local_dir, full.names = TRUE, pattern = pattern)
+  # list local files recursively (supports hive-partitioned subdirectories)
+  local_files <- list.files(
+    local_dir, full.names = TRUE, pattern = pattern, recursive = TRUE)
+  # exclude directories themselves
+  local_files <- local_files[!file.info(local_files)$isdir]
   if (length(local_files) == 0) {
     message("No local files found to sync.")
     return(tibble::tibble(
       file = character(), action = character(), local_md5 = character()))
   }
 
-  # build local manifest with MD5
+  # build local manifest with MD5; preserve relative path from local_dir
+  rel_paths <- sub(paste0("^", normalizePath(local_dir, mustWork = FALSE), "/?"), "",
+                   normalizePath(local_files, mustWork = FALSE))
   local_manifest <- tibble::tibble(
-    name       = basename(local_files),
+    name       = rel_paths,
     size       = file.size(local_files),
     md5        = unname(tools::md5sum(local_files)),
     local_path = local_files)
@@ -186,11 +191,12 @@ sync_to_gcs <- function(
         name = character(), size = numeric(), md5 = character())
     })
 
-  # normalize GCS manifest names to basenames and convert md5
+  # normalize GCS manifest: strip prefix to get relative path, convert md5
   if (nrow(gcs_manifest) > 0) {
+    prefix_pat <- paste0("^", gcs_prefix, "/?")
     gcs_manifest <- gcs_manifest |>
       dplyr::mutate(
-        name = basename(name),
+        name = sub(prefix_pat, "", name),
         md5  = md5_base64_to_hex(md5))
   }
 
@@ -255,10 +261,10 @@ sync_to_gcs <- function(
 #' # list all files in current/
 #' files <- list_gcs_files("calcofi-files", prefix = "current/")
 #'
-#' # list bottle-database files
+#' # list bottle files
 #' files <- list_gcs_files(
 #'   "calcofi-files",
-#'   prefix = "current/calcofi.org/bottle-database/")
+#'   prefix = "current/calcofi/bottle/")
 #' }
 #' @importFrom tibble tibble
 list_gcs_files <- function(bucket, prefix = NULL, recursive = TRUE) {
@@ -287,7 +293,7 @@ list_gcs_files <- function(bucket, prefix = NULL, recursive = TRUE) {
 #'
 #' Finds all archived versions of a file in the calcofi-files bucket.
 #'
-#' @param path Relative path to the file (e.g., "calcofi.org/bottle-database/bottle.csv")
+#' @param path Relative path to the file (e.g., "calcofi/bottle/bottle.csv")
 #' @param bucket GCS bucket name (default: "calcofi-files")
 #'
 #' @return Data frame with columns: version_date, gcs_path, size, updated
@@ -296,7 +302,7 @@ list_gcs_files <- function(bucket, prefix = NULL, recursive = TRUE) {
 #'
 #' @examples
 #' \dontrun{
-#' versions <- list_gcs_versions("calcofi.org/bottle-database/bottle.csv")
+#' versions <- list_gcs_versions("calcofi/bottle/bottle.csv")
 #' }
 #' @importFrom tibble tibble
 #' @importFrom stringr str_extract
@@ -344,7 +350,7 @@ list_gcs_versions <- function(path, bucket = "calcofi-files-public") {
 #' \dontrun{
 #' # get bottle.csv as it was on 2026-01-15
 #' file <- get_historical_file(
-#'   "calcofi.org/bottle-database/bottle.csv",
+#'   "calcofi/bottle/bottle.csv",
 #'   date = "2026-01-15")
 #' }
 get_historical_file <- function(
@@ -469,7 +475,7 @@ get_manifest <- function(date = "latest", bucket = "public") {
 #'
 #' @param date Date string in format "YYYY-MM-DD_HHMMSS" or "latest" (default)
 #' @param bucket Bucket type: "public" or "private" (default: "public")
-#' @param path Optional path filter (e.g., "swfsc.noaa.gov/calcofi-db")
+#' @param path Optional path filter (e.g., "swfsc/ichthyo")
 #'
 #' @return Data frame of files from the manifest
 #' @export
@@ -478,7 +484,7 @@ get_manifest <- function(date = "latest", bucket = "public") {
 #' @examples
 #' \dontrun{
 #' files <- list_calcofi_files()
-#' files <- list_calcofi_files(path = "swfsc.noaa.gov/calcofi-db")
+#' files <- list_calcofi_files(path = "swfsc/ichthyo")
 #' files <- list_calcofi_files("2026-02-01_143059", "public")
 #' }
 list_calcofi_files <- function(date = "latest", bucket = "public", path = NULL) {
@@ -500,7 +506,7 @@ list_calcofi_files <- function(date = "latest", bucket = "public", path = NULL) 
 #' Downloads a file from the immutable archive snapshot. This ensures
 #' reproducible data access by referencing specific archive timestamps.
 #'
-#' @param path Relative path within archive (e.g., "swfsc.noaa.gov/calcofi-db/cruise.csv")
+#' @param path Relative path within archive (e.g., "swfsc/ichthyo/cruise.csv")
 #' @param date Date string in format "YYYY-MM-DD_HHMMSS" or "latest" (default)
 #' @param bucket Bucket type: "public" or "private" (default: "public")
 #' @param local_path Local path to save file (default: temp file)
@@ -512,11 +518,11 @@ list_calcofi_files <- function(date = "latest", bucket = "public", path = NULL) 
 #' @examples
 #' \dontrun{
 #' # get latest version
-#' cruise_csv <- get_calcofi_file("swfsc.noaa.gov/calcofi-db/cruise.csv")
+#' cruise_csv <- get_calcofi_file("swfsc/ichthyo/cruise.csv")
 #'
 #' # get specific version for reproducibility
 #' cruise_csv <- get_calcofi_file(
-#'   "swfsc.noaa.gov/calcofi-db/cruise.csv",
+#'   "swfsc/ichthyo/cruise.csv",
 #'   date = "2026-02-01_143059")
 #' }
 #' @importFrom glue glue
@@ -532,6 +538,74 @@ get_calcofi_file <- function(
 
   gcs_path <- glue::glue("gs://{bucket_name}/{archive_path}/{path}")
   get_gcs_file(gcs_path, local_path = local_path)
+}
+
+# ─── gcs cleanup ─────────────────────────────────────────────────────────────
+
+#' Delete all objects under a GCS prefix
+#'
+#' Recursively deletes all objects matching the given prefix in a GCS bucket.
+#' Uses \code{gcloud storage rm -r} under the hood. Always requires explicit
+#' confirmation via \code{dry_run = FALSE}.
+#'
+#' @param prefix GCS prefix to delete (e.g., "ingest/old_dataset/")
+#' @param bucket GCS bucket name (default: "calcofi-db")
+#' @param dry_run If TRUE (default), only list what would be deleted
+#' @return Tibble with prefix and action (would_delete / deleted)
+#' @export
+#' @concept cloud
+#' @importFrom glue glue
+#' @importFrom tibble tibble
+delete_gcs_prefix <- function(
+    prefix,
+    bucket  = "calcofi-db",
+    dry_run = TRUE) {
+
+  gcs_uri <- glue::glue("gs://{bucket}/{prefix}")
+
+  if (dry_run) {
+    # list what's there
+    files <- list_gcs_files(bucket, prefix = prefix)
+    message(glue::glue(
+      "DRY RUN: would delete {nrow(files)} objects under {gcs_uri}"))
+    return(tibble::tibble(
+      prefix = prefix, n_objects = nrow(files), action = "would_delete"))
+  }
+
+  gcloud <- find_gcloud()
+  cmd    <- glue::glue('"{gcloud}" storage rm -r "{gcs_uri}"')
+  message(glue::glue("Deleting: {gcs_uri}"))
+  system(cmd, intern = TRUE)
+
+  tibble::tibble(prefix = prefix, n_objects = NA_integer_, action = "deleted")
+}
+
+#' Clean up obsolete GCS directories from dataset renames
+#'
+#' Removes known-obsolete GCS prefixes left over from dataset renames
+#' and the retired Working DuckLake monolith.
+#'
+#' @param bucket GCS bucket name (default: "calcofi-db")
+#' @param dry_run If TRUE (default), only list what would be deleted
+#' @return Tibble with prefix and action
+#' @export
+#' @concept cloud
+#' @importFrom purrr map_dfr
+cleanup_gcs_obsolete <- function(
+    bucket  = "calcofi-db",
+    dry_run = TRUE) {
+
+  obsolete_prefixes <- c(
+    "ducklake/working/",
+    "ingest/calcofi.org_bottle-database/",
+    "ingest/calcofi.org_ctd-cast/",
+    "ingest/swfsc.noaa.gov_calcofi-db/",
+    "publish/ichthyo_bottle/",
+    "publish/ichthyoplankton/")
+
+  purrr::map_dfr(obsolete_prefixes, function(pfx) {
+    delete_gcs_prefix(prefix = pfx, bucket = bucket, dry_run = dry_run)
+  })
 }
 
 # ─── helper functions (not exported) ──────────────────────────────────────────
@@ -649,7 +723,7 @@ gcloud_list <- function(bucket, prefix = NULL) {
       size    = as.numeric(stringr::str_extract(raw, "^\\s*\\d+")),
       name    = stringr::str_extract(raw, "gs://[^\\s]+") |>
                   gsub(glue::glue("^gs://{bucket}/"), "", x = _),
-      updated = NA_POSIXct_,
+      updated = as.POSIXct(NA),
       md5     = NA_character_) |>
     dplyr::select(name, size, updated, md5)
 }

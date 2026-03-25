@@ -25,7 +25,7 @@ and type mismatches in orange.
 \examples{
 \dontrun{
 # Read CSV files and detect changes
-d <- read_csv_files("swfsc.noaa.gov", "calcofi-db")
+d <- read_csv_files("swfsc", "ichthyo")
 changes <- detect_csv_changes(d)
 
 # Display interactive table
