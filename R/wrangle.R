@@ -1232,6 +1232,14 @@ enforce_column_types <- function(
 #' @param tables Optional vector of table names to export. If NULL, exports all tables.
 #' @param strip_provenance Remove provenance columns (_source_*, _ingested_at) (default: TRUE)
 #' @param compression Parquet compression codec (default: "snappy")
+#' @param mismatches Optional named list of mismatch tibbles to include in
+#'   manifest.json. Expected names: `ships`, `measurement_types`, `cruise_keys`.
+#'   Each element should be a tibble (or data frame) describing unresolved
+#'   entities. Zero-row tibbles are recorded as empty arrays.
+#' @param supplemental Character vector of table names that are supplemental
+#'   outputs (e.g. wide-format tables for ERDDAP). These are written to parquet
+#'   and listed in manifest.json under `"supplemental"`, but are excluded by
+#'   default from downstream database loading via [load_prior_tables()].
 #'
 #' @return Tibble with export statistics (table, rows, file_size, path)
 #' @export
@@ -1252,7 +1260,9 @@ write_parquet_outputs <- function(
     tables           = NULL,
     partition_by     = NULL,
     strip_provenance = TRUE,
-    compression      = "snappy") {
+    compression      = "snappy",
+    mismatches       = NULL,
+    supplemental     = NULL) {
 
   # ensure output directory exists
   if (!dir.exists(output_dir)) {
@@ -1329,6 +1339,21 @@ write_parquet_outputs <- function(
       skip <- (existing_n == n_rows)
     }
 
+    # for partitioned tables, also check partition directory names match
+    if (skip && is_partitioned && dir.exists(output_path)) {
+      existing_parts <- list.dirs(output_path, recursive = FALSE,
+                                  full.names = FALSE)
+      existing_parts <- existing_parts[grepl("=", existing_parts)]
+      existing_vals  <- sort(gsub("^[^=]+=", "", existing_parts))
+      current_vals   <- sort(as.character(DBI::dbGetQuery(con, glue::glue(
+        "SELECT DISTINCT {part_cols[1]} FROM {tbl}"))[[1]]))
+      if (!identical(existing_vals, current_vals)) {
+        skip <- FALSE
+        message(glue::glue(
+          "Partition values changed for {tbl} — forcing re-write"))
+      }
+    }
+
     if (skip) {
       file_size <- if (is_partitioned) {
         part_files <- list.files(output_path, "\\.parquet$",
@@ -1392,7 +1417,26 @@ write_parquet_outputs <- function(
     total_size_bytes = sum(stats$file_size),
     metadata_file    = "metadata.json",
     partitioned      = stats$table[stats$partitioned],
+    supplemental     = if (!is.null(supplemental))
+      intersect(supplemental, stats$table) else list(),
     files            = stats |> dplyr::select(-partitioned) |> as.list())
+
+  # append mismatches if provided
+
+  if (!is.null(mismatches)) {
+    # convert tibbles to list-of-lists for JSON
+    manifest$mismatches <- lapply(mismatches, function(mm) {
+      if (is.data.frame(mm) && nrow(mm) > 0) {
+        lapply(seq_len(nrow(mm)), function(i) as.list(mm[i, ]))
+      } else {
+        list()
+      }
+    })
+    n_issues <- sum(vapply(manifest$mismatches, length, integer(1)))
+    if (n_issues > 0) {
+      message(glue::glue("Manifest includes {n_issues} mismatch(es) for resolution"))
+    }
+  }
 
   manifest_path <- file.path(output_dir, "manifest.json")
   jsonlite::write_json(manifest, manifest_path, auto_unbox = TRUE, pretty = TRUE)
@@ -1639,7 +1683,11 @@ build_metadata_json <- function(
 #' parquet files cannot store table relationships natively, this provides a
 #' machine-readable source of truth for PKs and FKs.
 #'
-#' @param dm A \code{dm} object with PKs and FKs defined
+#' @param dm A \code{dm} object with PKs and FKs defined. Deprecated in
+#'   favour of \code{rels}; kept for backward compatibility.
+#' @param rels A list with \code{primary_keys} (named list: table → column)
+#'   and \code{foreign_keys} (list of lists with \code{table}, \code{column},
+#'   \code{ref_table}, \code{ref_column}). Takes precedence over \code{dm}.
 #' @param output_dir Directory to write \code{relationships.json}
 #' @param provider Data provider identifier (e.g. "swfsc")
 #' @param dataset Dataset identifier (e.g. "ichthyo")
@@ -1650,41 +1698,52 @@ build_metadata_json <- function(
 #'
 #' @examples
 #' \dontrun{
-#' dm_all <- dm::dm_from_con(con, learn_keys = FALSE) |>
-#'   add_cc_keys()
+#' # preferred: pass relationships as a list
+#' rels <- list(
+#'   primary_keys = list(cruise = "cruise_key", ship = "ship_key"),
+#'   foreign_keys = list(
+#'     list(table = "cruise", column = "ship_key",
+#'          ref_table = "ship", ref_column = "ship_key")))
 #' build_relationships_json(
-#'   dm         = dm_all,
+#'   rels       = rels,
 #'   output_dir = "data/parquet/swfsc_ichthyo",
 #'   provider   = "swfsc",
 #'   dataset    = "ichthyo")
 #' }
-#' @importFrom dm dm_get_all_pks dm_get_all_fks
 #' @importFrom jsonlite write_json
 #' @importFrom glue glue
 build_relationships_json <- function(
-    dm,
+    dm         = NULL,
+    rels       = NULL,
     output_dir,
-    provider = NULL,
-    dataset  = NULL) {
+    provider   = NULL,
+    dataset    = NULL) {
 
-  # extract primary keys
-  pks_df <- dm::dm_get_all_pks(dm)
-  primary_keys <- list()
-  for (i in seq_len(nrow(pks_df))) {
-    tbl <- as.character(pks_df$table[i])
-    col <- as.character(pks_df$pk_col[[i]])
-    primary_keys[[tbl]] <- col
-  }
+  if (!is.null(rels)) {
+    # list-based path (preferred)
+    primary_keys <- rels$primary_keys %||% list()
+    foreign_keys <- rels$foreign_keys %||% list()
+  } else if (!is.null(dm)) {
+    # dm-based path (backward compat)
+    pks_df <- dm::dm_get_all_pks(dm)
+    primary_keys <- list()
+    for (i in seq_len(nrow(pks_df))) {
+      tbl <- as.character(pks_df$table[i])
+      col <- as.character(pks_df$pk_col[[i]])
+      primary_keys[[tbl]] <- col
+    }
 
-  # extract foreign keys
-  fks_df <- dm::dm_get_all_fks(dm)
-  foreign_keys <- list()
-  for (i in seq_len(nrow(fks_df))) {
-    foreign_keys[[i]] <- list(
-      table      = as.character(fks_df$child_table[i]),
-      column     = as.character(fks_df$child_fk_cols[[i]]),
-      ref_table  = as.character(fks_df$parent_table[i]),
-      ref_column = as.character(fks_df$parent_key_cols[[i]]))
+    fks_df <- dm::dm_get_all_fks(dm)
+    foreign_keys <- list()
+    for (i in seq_len(nrow(fks_df))) {
+      foreign_keys[[i]] <- list(
+        table      = as.character(fks_df$child_table[i]),
+        column     = as.character(fks_df$child_fk_cols[[i]]),
+        ref_table  = as.character(fks_df$parent_table[i]),
+        ref_column = as.character(fks_df$parent_key_cols[[i]]))
+    }
+  } else {
+    stop("Either 'dm' or 'rels' must be provided")
   }
 
   # assemble json structure
@@ -1832,4 +1891,215 @@ merge_relationships_json <- function(paths, output_path) {
     "{length(all_fks)} FKs from {length(paths)} files"))
 
   output_path
+}
+
+# mismatch collection & spatial manifest ----
+
+#' Collect Ship Mismatches
+#'
+#' Finds ships in a table with placeholder `ship_nodc` values (containing `"?"`)
+#' or NULL ship_key, indicating unresolved matches. Used to populate the
+#' `mismatches$ships` section of `manifest.json`.
+#'
+#' @param con DBI connection to DuckDB
+#' @param table Table to check for ship mismatches
+#' @param ship_tbl Ship reference table (default: `"ship"`)
+#'
+#' @return Tibble with columns: ship_key, ship_nodc, ship_name, n_rows
+#' @export
+#' @concept wrangle
+#'
+#' @examples
+#' \dontrun{
+#' collect_ship_mismatches(con, "ctd_cast")
+#' }
+#' @importFrom DBI dbGetQuery
+#' @importFrom glue glue
+collect_ship_mismatches <- function(con, table, ship_tbl = "ship") {
+
+  cols <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT column_name FROM information_schema.columns
+     WHERE table_name = '{table}'"))$column_name
+
+  if (!"ship_key" %in% cols) {
+    return(tibble::tibble(
+      ship_key  = character(),
+      ship_nodc = character(),
+      ship_name = character(),
+      n_rows    = integer()))
+  }
+
+  DBI::dbGetQuery(con, glue::glue(
+    "SELECT t.ship_key, s.ship_nodc, s.ship_name, COUNT(*) AS n_rows
+     FROM {table} t
+     LEFT JOIN {ship_tbl} s ON t.ship_key = s.ship_key
+     WHERE t.ship_key IS NULL
+        OR s.ship_nodc LIKE '%?%'
+     GROUP BY t.ship_key, s.ship_nodc, s.ship_name
+     ORDER BY n_rows DESC"))
+}
+
+#' Collect Measurement Type Mismatches
+#'
+#' Finds measurement types present in the DuckDB `measurement_type` table but
+#' not registered in the central `measurement_type.csv` registry. Used to
+#' populate the `mismatches$measurement_types` section of `manifest.json`.
+#'
+#' @param con DBI connection to DuckDB with a `measurement_type` table
+#' @param measurement_type_csv Path to `metadata/measurement_type.csv`
+#'
+#' @return Tibble with columns: measurement_type, source (value: "db_only")
+#' @export
+#' @concept wrangle
+#'
+#' @examples
+#' \dontrun{
+#' collect_measurement_type_mismatches(con, "metadata/measurement_type.csv")
+#' }
+#' @importFrom DBI dbGetQuery
+#' @importFrom readr read_csv
+collect_measurement_type_mismatches <- function(con, measurement_type_csv) {
+
+  tbls <- DBI::dbListTables(con)
+  if (!"measurement_type" %in% tbls) {
+    return(tibble::tibble(
+      measurement_type = character(),
+      source           = character()))
+  }
+
+  db_types <- DBI::dbGetQuery(con,
+    "SELECT DISTINCT measurement_type FROM measurement_type")$measurement_type
+
+  csv_types <- readr::read_csv(
+    measurement_type_csv, show_col_types = FALSE)$measurement_type
+
+  new_types <- setdiff(db_types, csv_types)
+
+  if (length(new_types) == 0) {
+    return(tibble::tibble(
+      measurement_type = character(),
+      source           = character()))
+  }
+
+  message(glue::glue(
+    "{length(new_types)} measurement type(s) in DB but not in CSV: ",
+    "{paste(new_types, collapse = ', ')}"))
+
+  tibble::tibble(
+    measurement_type = new_types,
+    source           = "db_only")
+}
+
+#' Collect Cruise Key Mismatches
+#'
+#' Finds cruise keys that are malformed (do not match `YYYY-MM-NODC` pattern)
+#' or contain placeholder `"?"` characters from interim ship entries. Used to
+#' populate the `mismatches$cruise_keys` section of `manifest.json`.
+#'
+#' @param con DBI connection to DuckDB
+#' @param table Table to check for cruise_key mismatches
+#'
+#' @return Tibble with columns: cruise_key, status, n_rows
+#' @export
+#' @concept wrangle
+#'
+#' @examples
+#' \dontrun{
+#' collect_cruise_key_mismatches(con, "ctd_cast")
+#' }
+#' @importFrom DBI dbGetQuery
+#' @importFrom glue glue
+collect_cruise_key_mismatches <- function(con, table) {
+
+  cols <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT column_name FROM information_schema.columns
+     WHERE table_name = '{table}'"))$column_name
+
+  if (!"cruise_key" %in% cols) {
+    return(tibble::tibble(
+      cruise_key = character(),
+      status     = character(),
+      n_rows     = integer()))
+  }
+
+  DBI::dbGetQuery(con, glue::glue(
+    "SELECT cruise_key,
+            CASE
+              WHEN cruise_key IS NULL THEN 'null'
+              WHEN cruise_key LIKE '%?%' THEN 'interim_ship'
+              WHEN NOT regexp_matches(cruise_key, '^\\d{{4}}-\\d{{2}}-.+$')
+                THEN 'malformed'
+              ELSE 'ok'
+            END AS status,
+            COUNT(*) AS n_rows
+     FROM {table}
+     WHERE cruise_key IS NULL
+        OR cruise_key LIKE '%?%'
+        OR NOT regexp_matches(cruise_key, '^\\d{{4}}-\\d{{2}}-.+$')
+     GROUP BY cruise_key, status
+     ORDER BY n_rows DESC"))
+}
+
+#' Write Spatial Manifest
+#'
+#' Generates a `manifest.json` for spatial parquet outputs that do not use
+#' `write_parquet_outputs()`. Inventories all `.parquet` files in a directory,
+#' reads row counts via a transient DuckDB connection, and writes a manifest
+#' in the same format as [write_parquet_outputs()].
+#'
+#' @param parquet_dir Directory containing `.parquet` files
+#'
+#' @return Invisible path to the written `manifest.json`
+#' @export
+#' @concept wrangle
+#'
+#' @examples
+#' \dontrun{
+#' write_spatial_manifest("data/parquet/spatial")
+#' }
+#' @importFrom DBI dbConnect dbDisconnect dbGetQuery
+#' @importFrom duckdb duckdb
+#' @importFrom tibble tibble
+#' @importFrom jsonlite write_json
+#' @importFrom glue glue
+write_spatial_manifest <- function(parquet_dir) {
+
+  pq_files <- list.files(parquet_dir, pattern = "\\.parquet$",
+                          full.names = TRUE)
+
+  if (length(pq_files) == 0) {
+    warning("No .parquet files found in ", parquet_dir)
+    return(invisible(NULL))
+  }
+
+  # transient DuckDB for row counts
+  con <- DBI::dbConnect(duckdb::duckdb(), ":memory:")
+  on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
+
+  stats <- tibble::tibble(
+    table     = tools::file_path_sans_ext(basename(pq_files)),
+    rows      = vapply(pq_files, function(f) {
+      DBI::dbGetQuery(con, glue::glue(
+        "SELECT COUNT(*) AS n FROM read_parquet('{f}')"))$n
+    }, numeric(1)),
+    file_size = file.info(pq_files)$size,
+    path      = pq_files)
+
+  manifest <- list(
+    tables           = stats$table,
+    total_rows       = sum(stats$rows),
+    total_size_bytes = sum(stats$file_size),
+    metadata_file    = "metadata.json",
+    partitioned      = character(0),
+    files            = as.list(stats))
+
+  manifest_path <- file.path(parquet_dir, "manifest.json")
+  jsonlite::write_json(
+    manifest, manifest_path,
+    auto_unbox = TRUE, pretty = TRUE)
+  message(glue::glue(
+    "Wrote spatial manifest: {nrow(stats)} tables, ",
+    "{format(sum(stats$rows), big.mark = ',')} rows -> {manifest_path}"))
+
+  invisible(manifest_path)
 }

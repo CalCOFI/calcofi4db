@@ -185,7 +185,7 @@ print_csv_change_stats <- function(changes, verbose = TRUE) {
     0,
     sum(sapply(changes$fields_added, length)))
   n_fields_removed <- ifelse(
-    length(changes$fields_added) == 0,
+    length(changes$fields_removed) == 0,
     0,
     sum(sapply(changes$fields_removed, length)))
 

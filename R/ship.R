@@ -627,3 +627,71 @@ report_ship_matches <- function(
 
   report
 }
+
+#' Ensure Interim Ship Entries for Unmatched Ships
+#'
+#' For any ship codes that remain unmatched after [match_ships()], inserts
+#' interim placeholder rows into the `ship` table with `ship_nodc = "?SK?"`
+#' (where `SK` is the 2-letter ship_key). This allows downstream operations
+#' (cruise_key derivation, FK joins) to proceed without errors. Placeholder
+#' ships are flagged via the `"?"` markers for later resolution via
+#' `metadata/ship_renames.csv`.
+#'
+#' @param con DBI connection to DuckDB with a `ship` table
+#' @param match_result Tibble from [match_ships()] with `match_type` and
+#'   `ship_code` columns. Rows with `match_type == "unmatched"` get interim
+#'   entries.
+#' @param ship_tbl Name of ship table (default: `"ship"`)
+#'
+#' @return Integer count of interim ships inserted
+#' @export
+#' @concept ship
+#'
+#' @examples
+#' \dontrun{
+#' result <- match_ships(unmatched, reference)
+#' n_interim <- ensure_interim_ships(con, result)
+#' }
+#' @importFrom DBI dbExecute dbGetQuery
+#' @importFrom glue glue
+#' @importFrom dplyr filter distinct pull
+ensure_interim_ships <- function(
+    con,
+    match_result,
+    ship_tbl = "ship") {
+
+  unmatched_codes <- match_result |>
+    dplyr::filter(match_type == "unmatched") |>
+    dplyr::distinct(ship_code) |>
+    dplyr::pull(ship_code)
+
+  if (length(unmatched_codes) == 0) {
+    message("No unmatched ships — no interim entries needed")
+    return(0L)
+  }
+
+  # check which codes already have entries (avoid duplicates)
+  existing <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT ship_key FROM {ship_tbl}
+     WHERE ship_key IN ({paste(shQuote(unmatched_codes, type = 'sh'), collapse = ', ')})"))$ship_key
+
+  new_codes <- setdiff(unmatched_codes, existing)
+
+  if (length(new_codes) == 0) {
+    message("All unmatched ship codes already have interim entries")
+    return(0L)
+  }
+
+  for (code in new_codes) {
+    placeholder_nodc <- paste0("?", code, "?")
+    DBI::dbExecute(con, glue::glue(
+      "INSERT INTO {ship_tbl} (ship_key, ship_nodc, ship_name)
+       VALUES ('{code}', '{placeholder_nodc}', NULL)"))
+  }
+
+  message(glue::glue(
+    "Created {length(new_codes)} interim ship(s): ",
+    "{paste(new_codes, collapse = ', ')} (ship_nodc = ?XX?)"))
+
+  length(new_codes)
+}

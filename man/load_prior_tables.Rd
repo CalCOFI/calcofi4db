@@ -10,7 +10,8 @@ load_prior_tables(
   tables = NULL,
   gcs_prefix = NULL,
   geom_tables = c("grid", "site", "segment"),
-  overwrite = TRUE
+  overwrite = TRUE,
+  include_supplemental = FALSE
 )
 }
 \arguments{
@@ -30,6 +31,11 @@ the httpfs DuckDB extension.}
 columns needing conversion (default: c("grid", "site", "segment"))}
 
 \item{overwrite}{If TRUE, replace existing tables (default: TRUE)}
+
+\item{include_supplemental}{If FALSE (default), tables listed under
+\code{"supplemental"} in the directory's manifest.json are excluded from
+auto-discovery. Set to TRUE to load all tables including supplemental
+(e.g. wide-format ERDDAP outputs).}
 }
 \value{
 Tibble with columns: table, rows, has_geom

@@ -230,6 +230,9 @@ list_ingest_outputs <- function(gcs_bucket = "calcofi-db") {
 #'   (default: c("grid", "site", "segment")). These are skipped during
 #'   ingest_to_working() since geometry columns don't survive dbWriteTable().
 #'   Instead they are loaded directly from parquet.
+#' @param include_supplemental If FALSE (default), tables listed under
+#'   `"supplemental"` in manifest.json are excluded. Set to TRUE to push all
+#'   tables including supplemental outputs (e.g. wide-format for ERDDAP).
 #'
 #' @return Tibble with ingestion statistics per table
 #' @export
@@ -248,9 +251,10 @@ list_ingest_outputs <- function(gcs_bucket = "calcofi-db") {
 #' @importFrom arrow read_parquet
 finalize_ingest <- function(
     parquet_dir,
-    source_label = basename(parquet_dir),
-    tables       = NULL,
-    geom_tables  = c("grid", "site", "segment")) {
+    source_label         = basename(parquet_dir),
+    tables               = NULL,
+    geom_tables          = c("grid", "site", "segment"),
+    include_supplemental = FALSE) {
 
   stopifnot(dir.exists(parquet_dir))
 
@@ -277,6 +281,22 @@ finalize_ingest <- function(
 
   if (!is.null(tables)) {
     sources <- sources[vapply(sources, function(s) s$name %in% tables, logical(1))]
+  }
+
+  # exclude supplemental tables unless requested
+  if (!include_supplemental && is.null(tables)) {
+    manifest_path <- file.path(parquet_dir, "manifest.json")
+    if (file.exists(manifest_path)) {
+      manifest <- jsonlite::read_json(manifest_path)
+      supp <- unlist(manifest$supplemental)
+      if (length(supp) > 0) {
+        sources <- sources[
+          !vapply(sources, function(s) s$name %in% supp, logical(1))]
+        message(glue::glue(
+          "Excluding {length(supp)} supplemental table(s): ",
+          "{paste(supp, collapse = ', ')}"))
+      }
+    }
   }
 
   if (length(sources) == 0) {
@@ -508,4 +528,194 @@ integrate_to_working_ducklake <- function(
     ducklake_path = glue::glue("gs://{gcs_bucket}/{ducklake_path}"),
     duckdb_path   = gcs_db_path,
     tables        = table_info)
+}
+
+#' Parse YAML Frontmatter from Quarto Notebooks
+#'
+#' Reads each `.qmd` file in a directory and extracts the `calcofi:` block
+#' from the YAML frontmatter. Returns a tibble describing each workflow's
+#' target name, type, dependencies, and output path.
+#'
+#' @param workflows_dir Path to the directory containing `.qmd` files
+#'   (default: current directory via `here::here()`)
+#' @param pattern Glob pattern for `.qmd` files (default: `"*.qmd"`)
+#'
+#' @return Tibble with columns: `qmd_file`, `target_name`, `workflow_type`,
+#'   `dependency` (list column), `output`
+#' @export
+#' @concept workflow
+#'
+#' @examples
+#' \dontrun{
+#' wf <- parse_qmd_frontmatter("workflows/")
+#' wf |> dplyr::filter(workflow_type == "ingest")
+#' }
+#' @importFrom yaml yaml.load
+#' @importFrom tibble tibble
+#' @importFrom purrr map_chr map compact
+parse_qmd_frontmatter <- function(
+    workflows_dir = here::here(),
+    pattern       = "*.qmd") {
+
+  qmd_files <- Sys.glob(file.path(workflows_dir, pattern))
+
+  results <- purrr::compact(lapply(qmd_files, function(f) {
+    lines <- readLines(f, n = 50, warn = FALSE)
+
+    # find first and second --- delimiters
+    delims <- which(trimws(lines) == "---")
+    if (length(delims) < 2) return(NULL)
+
+    yaml_text <- paste(lines[(delims[1] + 1):(delims[2] - 1)], collapse = "\n")
+    meta <- tryCatch(
+      yaml::yaml.load(yaml_text),
+      error = function(e) NULL)
+    if (is.null(meta) || is.null(meta$calcofi)) return(NULL)
+
+    cc <- meta$calcofi
+    tibble::tibble(
+      qmd_file      = basename(f),
+      target_name   = cc$target_name   %||% NA_character_,
+      workflow_type = cc$workflow_type  %||% NA_character_,
+      dependency    = list(cc$dependency %||% character(0)),
+      output        = cc$output        %||% NA_character_)
+  }))
+
+  if (length(results) == 0) {
+    return(tibble::tibble(
+      qmd_file      = character(),
+      target_name   = character(),
+      workflow_type = character(),
+      dependency    = list(),
+      output        = character()))
+  }
+
+  dplyr::bind_rows(results)
+}
+
+#' Build Targets List from Quarto Frontmatter
+#'
+#' Reads `calcofi:` YAML frontmatter from all `.qmd` files in the workflows
+#' directory and returns a `list()` of `targets::tar_target()` calls suitable
+#' for use as the body of `_targets.R`. Includes a `corrections_csv` target
+#' that tracks `metadata/ship_renames.csv` and `metadata/measurement_type.csv`,
+#' so any edit to those files forces re-run of dependent ingest targets.
+#'
+#' Workflows with `dependency: [auto]` (typically `release_database`) auto-
+#' depend on all targets whose `workflow_type` is `"ingest"` or `"spatial"`.
+#'
+#' @param workflows_dir Path to workflows directory (default: `here::here()`)
+#' @param corrections Character vector of correction file paths relative to
+#'   `workflows_dir` (default: `c("metadata/ship_renames.csv",
+#'   "metadata/measurement_type.csv")`)
+#' @param verbose Print parsed workflow table (default: TRUE)
+#'
+#' @return A `list()` of `tar_target()` objects ready for `_targets.R`
+#' @export
+#' @concept workflow
+#'
+#' @examples
+#' \dontrun{
+#' # in _targets.R:
+#' library(targets)
+#' devtools::load_all(here::here("../calcofi4db"))
+#' build_targets_list()
+#' }
+#' @importFrom glue glue
+build_targets_list <- function(
+    workflows_dir = here::here(),
+    corrections   = c("metadata/ship_renames.csv",
+                       "metadata/measurement_type.csv"),
+    verbose       = TRUE) {
+
+  if (!requireNamespace("targets", quietly = TRUE)) {
+    stop("Package 'targets' is required. Install with: install.packages('targets')")
+  }
+
+  wf <- parse_qmd_frontmatter(workflows_dir)
+
+  if (nrow(wf) == 0) {
+    stop("No .qmd files with calcofi: frontmatter found in ", workflows_dir)
+  }
+
+  if (verbose) {
+    message("Parsed ", nrow(wf), " pipeline workflows:")
+    for (i in seq_len(nrow(wf))) {
+      deps <- paste(wf$dependency[[i]], collapse = ", ")
+      message(glue::glue(
+        "  {wf$target_name[i]} ({wf$workflow_type[i]}) -> {wf$output[i]}",
+        "{if (nchar(deps) > 0) paste0(' [deps: ', deps, ']') else ''}"))
+    }
+  }
+
+  # resolve [auto] dependencies → all ingest + spatial targets
+  auto_targets <- wf$target_name[wf$workflow_type %in% c("ingest", "spatial")]
+
+  # build corrections_csv target
+  correction_paths <- file.path(workflows_dir, corrections)
+  correction_paths <- correction_paths[file.exists(correction_paths)]
+
+  target_list <- list()
+
+  if (length(correction_paths) > 0) {
+    # build c("path1", "path2") expression for targets
+    paths_expr <- as.call(c(list(as.symbol("c")),
+                             as.list(correction_paths)))
+    target_list <- c(target_list, list(
+      targets::tar_target_raw(
+        "corrections_csv",
+        paths_expr,
+        format = "file")
+    ))
+  }
+
+  # build a target for each workflow
+  for (i in seq_len(nrow(wf))) {
+    row <- wf[i, ]
+    deps <- row$dependency[[1]]
+
+    # resolve [auto]
+    if (length(deps) == 1 && deps == "auto") {
+      deps <- auto_targets
+    }
+
+    # build the body expression
+    body_parts <- list()
+
+    # add dependency symbols (bare references that targets uses for DAG)
+    for (dep in deps) {
+      body_parts <- c(body_parts, list(as.symbol(dep)))
+    }
+
+    # add corrections_csv dependency for ingest/spatial workflows
+    if (row$workflow_type %in% c("ingest", "spatial") &&
+        length(correction_paths) > 0) {
+      body_parts <- c(body_parts, list(as.symbol("corrections_csv")))
+    }
+
+    # add quarto render call
+    body_parts <- c(body_parts, list(
+      bquote(quarto::quarto_render(.(row$qmd_file)))))
+
+    # add output expression
+    if (grepl("\\*", row$output)) {
+      # glob pattern (e.g., data/darwincore/ichthyo_*.zip)
+      body_parts <- c(body_parts, list(
+        bquote(Sys.glob(.(row$output)))))
+    } else {
+      body_parts <- c(body_parts, list(row$output))
+    }
+
+    # wrap in braces
+    body_expr <- as.call(c(list(as.symbol("{")), body_parts))
+
+    target_list <- c(target_list, list(
+      targets::tar_target_raw(
+        row$target_name,
+        body_expr,
+        format = "file")
+    ))
+  }
+
+  target_list
 }

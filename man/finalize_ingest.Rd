@@ -8,7 +8,8 @@ finalize_ingest(
   parquet_dir,
   source_label = basename(parquet_dir),
   tables = NULL,
-  geom_tables = c("grid", "site", "segment")
+  geom_tables = c("grid", "site", "segment"),
+  include_supplemental = FALSE
 )
 }
 \arguments{
@@ -23,6 +24,10 @@ all .parquet files in the directory are ingested.}
 (default: c("grid", "site", "segment")). These are skipped during
 ingest_to_working() since geometry columns don't survive dbWriteTable().
 Instead they are loaded directly from parquet.}
+
+\item{include_supplemental}{If FALSE (default), tables listed under
+\code{"supplemental"} in manifest.json are excluded. Set to TRUE to push all
+tables including supplemental outputs (e.g. wide-format for ERDDAP).}
 }
 \value{
 Tibble with ingestion statistics per table

@@ -22,6 +22,10 @@
 #' @param geom_tables Character vector of table names that contain WKB geometry
 #'   columns needing conversion (default: c("grid", "site", "segment"))
 #' @param overwrite If TRUE, replace existing tables (default: TRUE)
+#' @param include_supplemental If FALSE (default), tables listed under
+#'   `"supplemental"` in the directory's manifest.json are excluded from
+#'   auto-discovery. Set to TRUE to load all tables including supplemental
+#'   (e.g. wide-format ERDDAP outputs).
 #'
 #' @return Tibble with columns: table, rows, has_geom
 #' @export
@@ -54,10 +58,11 @@
 load_prior_tables <- function(
     con,
     parquet_dir,
-    tables      = NULL,
-    gcs_prefix  = NULL,
-    geom_tables = c("grid", "site", "segment"),
-    overwrite   = TRUE) {
+    tables                = NULL,
+    gcs_prefix            = NULL,
+    geom_tables           = c("grid", "site", "segment"),
+    overwrite             = TRUE,
+    include_supplemental  = FALSE) {
 
   # determine if we should use local dir or GCS fallback
   use_gcs <- !dir.exists(parquet_dir) ||
@@ -81,6 +86,23 @@ load_prior_tables <- function(
 
   # discover parquet sources if tables not specified
   sources <- .discover_parquet_sources(parquet_dir, tables)
+
+  # exclude supplemental tables unless requested
+
+  if (!include_supplemental && is.null(tables)) {
+    manifest_path <- file.path(parquet_dir, "manifest.json")
+    if (file.exists(manifest_path)) {
+      manifest <- jsonlite::read_json(manifest_path)
+      supp <- unlist(manifest$supplemental)
+      if (length(supp) > 0) {
+        sources <- sources[
+          !vapply(sources, function(s) s$name %in% supp, logical(1))]
+        message(glue::glue(
+          "Excluding {length(supp)} supplemental table(s): ",
+          "{paste(supp, collapse = ', ')}"))
+      }
+    }
+  }
 
   if (length(sources) == 0) {
     message(glue::glue("No parquet files found in: {parquet_dir}"))
