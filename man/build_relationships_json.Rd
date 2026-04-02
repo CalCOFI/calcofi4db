@@ -4,10 +4,21 @@
 \alias{build_relationships_json}
 \title{Build Relationships JSON from dm Object}
 \usage{
-build_relationships_json(dm, output_dir, provider = NULL, dataset = NULL)
+build_relationships_json(
+  dm = NULL,
+  rels = NULL,
+  output_dir,
+  provider = NULL,
+  dataset = NULL
+)
 }
 \arguments{
-\item{dm}{A \code{dm} object with PKs and FKs defined}
+\item{dm}{A \code{dm} object with PKs and FKs defined. Deprecated in
+favour of \code{rels}; kept for backward compatibility.}
+
+\item{rels}{A list with \code{primary_keys} (named list: table → column)
+and \code{foreign_keys} (list of lists with \code{table}, \code{column},
+\code{ref_table}, \code{ref_column}). Takes precedence over \code{dm}.}
 
 \item{output_dir}{Directory to write \code{relationships.json}}
 
@@ -26,10 +37,14 @@ machine-readable source of truth for PKs and FKs.
 }
 \examples{
 \dontrun{
-dm_all <- dm::dm_from_con(con, learn_keys = FALSE) |>
-  add_cc_keys()
+# preferred: pass relationships as a list
+rels <- list(
+  primary_keys = list(cruise = "cruise_key", ship = "ship_key"),
+  foreign_keys = list(
+    list(table = "cruise", column = "ship_key",
+         ref_table = "ship", ref_column = "ship_key")))
 build_relationships_json(
-  dm         = dm_all,
+  rels       = rels,
   output_dir = "data/parquet/swfsc_ichthyo",
   provider   = "swfsc",
   dataset    = "ichthyo")
