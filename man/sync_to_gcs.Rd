@@ -4,7 +4,14 @@
 \alias{sync_to_gcs}
 \title{Sync local files to GCS, skipping unchanged files}
 \usage{
-sync_to_gcs(local_dir, gcs_prefix, bucket, pattern = NULL, verbose = TRUE)
+sync_to_gcs(
+  local_dir,
+  gcs_prefix,
+  bucket,
+  pattern = NULL,
+  delete_stale = FALSE,
+  verbose = TRUE
+)
 }
 \arguments{
 \item{local_dir}{Directory containing files to upload}
@@ -15,10 +22,13 @@ sync_to_gcs(local_dir, gcs_prefix, bucket, pattern = NULL, verbose = TRUE)
 
 \item{pattern}{Regex to filter local files (default: NULL = all files)}
 
+\item{delete_stale}{If TRUE, delete GCS files that no longer exist locally
+(e.g. after renaming partitions or tables). Default FALSE.}
+
 \item{verbose}{Print per-file status messages (default: TRUE)}
 }
 \value{
-Tibble with columns: file, action (uploaded/skipped), local_md5
+Tibble with columns: file, action (uploaded/skipped/deleted), local_md5
 }
 \description{
 Compares local files against GCS using MD5 hashes (with file-size
@@ -31,6 +41,13 @@ sync_to_gcs(
   local_dir  = "data/parquet/swfsc_ichthyo",
   gcs_prefix = "ingest/swfsc_ichthyo",
   bucket     = "calcofi-db")
+
+# clean up stale GCS files after partition key change
+sync_to_gcs(
+  local_dir    = "data/parquet/calcofi_ctd-cast",
+  gcs_prefix   = "ingest/calcofi_ctd-cast",
+  bucket       = "calcofi-db",
+  delete_stale = TRUE)
 }
 }
 \concept{cloud}

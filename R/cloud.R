@@ -140,9 +140,11 @@ put_gcs_file <- function(
 #' @param gcs_prefix GCS destination prefix (e.g. "ingest/swfsc_ichthyo")
 #' @param bucket GCS bucket name
 #' @param pattern Regex to filter local files (default: NULL = all files)
+#' @param delete_stale If TRUE, delete GCS files that no longer exist locally
+#'   (e.g. after renaming partitions or tables). Default FALSE.
 #' @param verbose Print per-file status messages (default: TRUE)
 #'
-#' @return Tibble with columns: file, action (uploaded/skipped), local_md5
+#' @return Tibble with columns: file, action (uploaded/skipped/deleted), local_md5
 #' @export
 #' @concept cloud
 #'
@@ -152,6 +154,13 @@ put_gcs_file <- function(
 #'   local_dir  = "data/parquet/swfsc_ichthyo",
 #'   gcs_prefix = "ingest/swfsc_ichthyo",
 #'   bucket     = "calcofi-db")
+#'
+#' # clean up stale GCS files after partition key change
+#' sync_to_gcs(
+#'   local_dir    = "data/parquet/calcofi_ctd-cast",
+#'   gcs_prefix   = "ingest/calcofi_ctd-cast",
+#'   bucket       = "calcofi-db",
+#'   delete_stale = TRUE)
 #' }
 #' @importFrom tibble tibble
 #' @importFrom purrr map_dfr
@@ -160,8 +169,9 @@ sync_to_gcs <- function(
     local_dir,
     gcs_prefix,
     bucket,
-    pattern = NULL,
-    verbose = TRUE) {
+    pattern      = NULL,
+    delete_stale = FALSE,
+    verbose      = TRUE) {
 
   # list local files recursively (supports hive-partitioned subdirectories)
   local_files <- list.files(
@@ -236,10 +246,30 @@ sync_to_gcs <- function(
       local_md5 = local_md5)
   })
 
+  # delete GCS files not present locally
+  if (delete_stale && nrow(gcs_manifest) > 0) {
+    stale_files <- setdiff(gcs_manifest$name, local_manifest$name)
+    if (length(stale_files) > 0) {
+      gcloud <- find_gcloud()
+      stale_results <- purrr::map_dfr(stale_files, function(f) {
+        gcs_path <- glue::glue("gs://{bucket}/{gcs_prefix}/{f}")
+        cmd <- glue::glue('"{gcloud}" storage rm "{gcs_path}"')
+        system(cmd, intern = TRUE, ignore.stderr = TRUE)
+        if (verbose) message(glue::glue("  Deleted {f} (stale)"))
+        tibble::tibble(file = f, action = "deleted", local_md5 = NA_character_)
+      })
+      results <- dplyr::bind_rows(results, stale_results)
+    }
+  }
+
   n_up   <- sum(results$action == "uploaded")
   n_skip <- sum(results$action == "skipped")
-  message(glue::glue(
-    "Sync complete: {n_up} uploaded, {n_skip} skipped (unchanged)"))
+  n_del  <- sum(results$action == "deleted")
+  parts  <- c(
+    glue::glue("{n_up} uploaded"),
+    glue::glue("{n_skip} skipped (unchanged)"))
+  if (n_del > 0) parts <- c(parts, glue::glue("{n_del} deleted (stale)"))
+  message(glue::glue("Sync complete: {paste(parts, collapse = ', ')}"))
 
   results
 }
