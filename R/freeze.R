@@ -747,18 +747,38 @@ upload_frozen_release <- function(
     message("Uploaded relationships.json")
   }
 
-  # update versions.json
+  # update versions.json — discover all releases from GCS bucket
   versions_gcs <- glue::glue("gs://{bucket}/ducklake/releases/versions.json")
   versions_local <- tempfile(fileext = ".json")
 
-  existing_versions <- tryCatch({
-    get_gcs_file(versions_gcs, versions_local)
-    jsonlite::fromJSON(versions_local)
-  }, error = function(e) {
-    list(versions = list())
-  })
+  # scan GCS for release directories via gcloud CLI (more reliable than API for deep listing)
+  gcloud <- find_gcloud()
+  ls_out <- tryCatch(
+    system2(gcloud, c("storage", "ls",
+      glue::glue("gs://{bucket}/ducklake/releases/")),
+      stdout = TRUE, stderr = TRUE),
+    error = function(e) character())
+  release_dirs <- grep("^gs://.*/v\\d{4}[.]\\d{2}", ls_out, value = TRUE)
+  release_dirs <- sub("/$", "", release_dirs)
 
-  # add/update this version
+  # read catalog.json from each release via public HTTPS (avoids gcloud binary encoding issues)
+  https_base <- glue::glue("https://storage.googleapis.com/{bucket}/ducklake/releases")
+  discovered <- lapply(release_dirs, function(rd) {
+    ver <- basename(rd)
+    tryCatch({
+      cat_data <- jsonlite::fromJSON(glue::glue("{https_base}/{ver}/catalog.json"))
+      list(
+        version      = cat_data$version,
+        release_date = cat_data$release_date %||% NA_character_,
+        tables       = if (is.data.frame(cat_data$tables)) nrow(cat_data$tables)
+                       else length(cat_data$tables),
+        total_rows   = as.integer(cat_data$total_rows %||% 0),
+        size_mb      = round((cat_data$total_size %||% 0) / 1024 / 1024, 1))
+    }, error = function(e) NULL)
+  })
+  discovered <- purrr::compact(discovered)
+
+  # build/update current version entry
   new_version <- list(
     version      = version,
     release_date = as.character(Sys.Date()),
@@ -766,20 +786,28 @@ upload_frozen_release <- function(
     total_rows   = sum(tables_df$rows),
     size_mb      = round(manifest$total_size_bytes / 1024 / 1024, 1))
 
-  # remove existing entry for this version if present
-  if (length(existing_versions$versions) > 0) {
-    existing_versions$versions <- Filter(
-      function(v) v$version != version,
-      existing_versions$versions)
+  # merge: current version takes precedence, then discovered
+  all_versions <- c(list(new_version), discovered)
+  seen <- character()
+  deduped <- list()
+  for (v in all_versions) {
+    if (!v$version %in% seen) {
+      seen <- c(seen, v$version)
+      deduped <- c(deduped, list(v))
+    }
   }
 
-  # add new version at the beginning
-  existing_versions$versions <- c(list(new_version), existing_versions$versions)
+  # sort descending by version string
+  ver_strings <- sapply(deduped, `[[`, "version")
+  deduped <- deduped[order(ver_strings, decreasing = TRUE)]
 
   # write and upload
-  jsonlite::write_json(existing_versions, versions_local, auto_unbox = TRUE, pretty = TRUE)
+  jsonlite::write_json(
+    list(versions = deduped), versions_local,
+    auto_unbox = TRUE, pretty = TRUE)
   put_gcs_file(versions_local, versions_gcs)
-  message("Updated versions.json")
+  message(glue::glue(
+    "Updated versions.json ({length(deduped)} release(s))"))
 
   # update latest.txt
   if (set_latest) {
