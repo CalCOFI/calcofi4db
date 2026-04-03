@@ -144,7 +144,7 @@ put_gcs_file <- function(
 #'   (e.g. after renaming partitions or tables). Default FALSE.
 #' @param verbose Print per-file status messages (default: TRUE)
 #'
-#' @return Tibble with columns: file, action (uploaded/skipped/deleted), local_md5
+#' @return Tibble with columns: file, action (uploaded/skipped/deleted)
 #' @export
 #' @concept cloud
 #'
@@ -181,50 +181,73 @@ sync_to_gcs <- function(
   if (length(local_files) == 0) {
     message("No local files found to sync.")
     return(tibble::tibble(
-      file = character(), action = character(), local_md5 = character()))
+      file = character(), action = character()))
   }
 
-  # build local manifest with MD5; preserve relative path from local_dir
+  # build local manifest; preserve relative path from local_dir
   rel_paths <- sub(paste0("^", normalizePath(local_dir, mustWork = FALSE), "/?"), "",
                    normalizePath(local_files, mustWork = FALSE))
   local_manifest <- tibble::tibble(
     name       = rel_paths,
     size       = file.size(local_files),
-    md5        = unname(tools::md5sum(local_files)),
     local_path = local_files)
 
-  # get GCS manifest
+  # get GCS manifest (includes crc32c, md5, size)
   gcs_manifest <- tryCatch(
     list_gcs_files(bucket, prefix = paste0(gcs_prefix, "/")),
     error = function(e) {
       tibble::tibble(
-        name = character(), size = numeric(), md5 = character())
+        name = character(), size = numeric(),
+        md5 = character(), crc32c = character())
     })
 
-  # normalize GCS manifest: strip prefix to get relative path, convert md5
+  # normalize GCS manifest: strip prefix to get relative path
   if (nrow(gcs_manifest) > 0) {
     prefix_pat <- paste0("^", gcs_prefix, "/?")
     gcs_manifest <- gcs_manifest |>
-      dplyr::mutate(
-        name = sub(prefix_pat, "", name),
-        md5  = md5_base64_to_hex(md5))
+      dplyr::mutate(name = sub(prefix_pat, "", name))
+  }
+
+  # ensure crc32c column exists
+  if (!"crc32c" %in% names(gcs_manifest)) {
+    gcs_manifest$crc32c <- NA_character_
   }
 
   # compare and decide per file
+  # priority: crc32c (always available on GCS) > md5 > size
   results <- purrr::map_dfr(seq_len(nrow(local_manifest)), function(i) {
-    f         <- local_manifest$name[i]
-    local_md5 <- local_manifest$md5[i]
-    local_sz  <- local_manifest$size[i]
+    f        <- local_manifest$name[i]
+    local_sz <- local_manifest$size[i]
 
     gcs_row <- gcs_manifest[gcs_manifest$name == f, ]
 
     skip <- FALSE
     if (nrow(gcs_row) == 1) {
-      gcs_md5 <- gcs_row$md5
-      gcs_sz  <- gcs_row$size
-      # md5 match (definitive); size fallback when md5 unavailable
-      if (!is.na(local_md5) && !is.na(gcs_md5)) {
-        skip <- (local_md5 == gcs_md5)
+      gcs_sz     <- gcs_row$size
+      gcs_crc32c <- gcs_row$crc32c
+      gcs_md5    <- gcs_row$md5
+
+      if (!is.na(gcs_crc32c) && nchar(gcs_crc32c) > 0) {
+        # compute local crc32c via gcloud (base64-encoded, matches GCS format)
+        gcloud <- find_gcloud()
+        hash_out <- tryCatch(
+          system2(gcloud, c("storage", "hash", "--crc32c",
+            local_manifest$local_path[i]),
+            stdout = TRUE, stderr = TRUE),
+          error = function(e) "")
+        local_crc <- stringr::str_extract(
+          paste(hash_out, collapse = " "),
+          "crc32c_hash:\\s*([^\\s]+)", group = 1)
+        if (!is.na(local_crc)) {
+          skip <- (local_crc == gcs_crc32c)
+        } else {
+          skip <- (local_sz == gcs_sz)
+        }
+      } else if (!is.na(gcs_md5) && nchar(gcs_md5) > 0) {
+        local_md5 <- unname(tools::md5sum(local_manifest$local_path[i]))
+        gcs_md5_hex <- md5_base64_to_hex(gcs_md5)
+        skip <- (!is.na(local_md5) && !is.na(gcs_md5_hex) &&
+                   local_md5 == gcs_md5_hex)
       } else {
         skip <- (local_sz == gcs_sz)
       }
@@ -240,10 +263,7 @@ sync_to_gcs <- function(
       action <- "uploaded"
     }
 
-    tibble::tibble(
-      file      = f,
-      action    = action,
-      local_md5 = local_md5)
+    tibble::tibble(file = f, action = action)
   })
 
   # delete GCS files not present locally
@@ -256,7 +276,7 @@ sync_to_gcs <- function(
         cmd <- glue::glue('"{gcloud}" storage rm "{gcs_path}"')
         system(cmd, intern = TRUE, ignore.stderr = TRUE)
         if (verbose) message(glue::glue("  Deleted {f} (stale)"))
-        tibble::tibble(file = f, action = "deleted", local_md5 = NA_character_)
+        tibble::tibble(file = f, action = "deleted")
       })
       results <- dplyr::bind_rows(results, stale_results)
     }
@@ -298,25 +318,33 @@ sync_to_gcs <- function(
 #' }
 #' @importFrom tibble tibble
 list_gcs_files <- function(bucket, prefix = NULL, recursive = TRUE) {
-  # try googleCloudStorageR first
-  tryCatch({
+  # try googleCloudStorageR first (detail="full" includes md5Hash + crc32c)
+  result <- tryCatch({
     if (requireNamespace("googleCloudStorageR", quietly = TRUE)) {
       objs <- googleCloudStorageR::gcs_list_objects(
         bucket    = bucket,
         prefix    = prefix,
+        detail    = "full",
         delimiter = if (!recursive) "/" else NULL)
 
       tibble::tibble(
         name    = objs$name,
         size    = as.numeric(objs$size),
         updated = lubridate::as_datetime(objs$updated),
-        md5     = objs$md5Hash)
+        md5     = objs$md5Hash,
+        crc32c  = objs$crc32c %||% NA_character_)
     } else {
-      gcloud_list(bucket, prefix)
+      gcloud_list(bucket, prefix, recursive = recursive)
     }
   }, error = function(e) {
-    gcloud_list(bucket, prefix)
+    gcloud_list(bucket, prefix, recursive = recursive)
   })
+
+  # filter out directory entries (trailing /) — only return actual files
+  if (nrow(result) > 0) {
+    result <- result[!grepl("/$", result$name), ]
+  }
+  result
 }
 
 #' List versions of a file in GCS archive
@@ -717,7 +745,7 @@ gcloud_upload <- function(local_path, bucket, gcs_path) {
 #' List files using gcloud CLI
 #' @noRd
 #' @importFrom tibble tibble
-gcloud_list <- function(bucket, prefix = NULL) {
+gcloud_list <- function(bucket, prefix = NULL, recursive = TRUE) {
   gcloud  <- find_gcloud()
   gcs_uri <- if (is.null(prefix)) {
     glue::glue("gs://{bucket}/")
@@ -725,35 +753,51 @@ gcloud_list <- function(bucket, prefix = NULL) {
     glue::glue("gs://{bucket}/{prefix}")
   }
 
-  cmd    <- glue::glue('"{gcloud}" storage ls -l "{gcs_uri}" 2>/dev/null')
-  result <- system(cmd, intern = TRUE)
+  r_flag <- if (recursive) " -r" else ""
 
-  # parse gcloud ls output
-  if (length(result) == 0) {
+  # use --json for structured output with md5Hash and crc32c
+  cmd <- glue::glue('"{gcloud}" storage ls{r_flag} --json "{gcs_uri}" 2>/dev/null')
+  json_out <- tryCatch(
+    system(cmd, intern = TRUE),
+    error = function(e) character())
+
+  if (length(json_out) == 0 || all(nchar(json_out) == 0)) {
     return(tibble::tibble(
-      name    = character(),
-      size    = numeric(),
-      updated = as.POSIXct(character()),
-      md5     = character()))
+      name = character(), size = numeric(),
+      updated = as.POSIXct(character()), md5 = character()))
   }
 
-  # gcloud ls -l format: size  date  time  gs://bucket/path
-  lines <- result[!grepl("^TOTAL:", result) & nchar(result) > 0]
+  objs <- tryCatch(
+    jsonlite::fromJSON(paste(json_out, collapse = "\n")),
+    error = function(e) NULL)
 
-  if (length(lines) == 0) {
+  if (is.null(objs) || length(objs) == 0) {
     return(tibble::tibble(
-      name    = character(),
-      size    = numeric(),
-      updated = as.POSIXct(character()),
-      md5     = character()))
+      name = character(), size = numeric(),
+      updated = as.POSIXct(character()), md5 = character()))
   }
 
-  tibble::tibble(raw = lines) |>
-    dplyr::mutate(
-      size    = as.numeric(stringr::str_extract(raw, "^\\s*\\d+")),
-      name    = stringr::str_extract(raw, "gs://[^\\s]+") |>
-                  gsub(glue::glue("^gs://{bucket}/"), "", x = _),
-      updated = as.POSIXct(NA),
-      md5     = NA_character_) |>
-    dplyr::select(name, size, updated, md5)
+  # extract metadata from JSON objects
+  # gcloud --json returns: type, metadata.{name, size, crc32c, md5Hash, ...}
+  if (is.data.frame(objs)) {
+    obj_type <- objs$type
+    meta <- if ("metadata" %in% names(objs)) objs$metadata else objs
+  } else if (is.list(objs) && "metadata" %in% names(objs[[1]])) {
+    obj_type <- sapply(objs, function(x) x$type %||% "cloud_object")
+    meta <- dplyr::bind_rows(lapply(objs, function(x) x$metadata))
+  } else {
+    obj_type <- rep("cloud_object", length(objs))
+    meta <- dplyr::bind_rows(objs)
+  }
+
+  # filter to actual objects (exclude "prefix" directory entries)
+  is_obj <- obj_type == "cloud_object"
+
+  prefix_pat <- glue::glue("^{bucket}/")
+  tibble::tibble(
+    name    = gsub(prefix_pat, "", meta$name[is_obj] %||% ""),
+    size    = as.numeric(meta$size[is_obj] %||% NA),
+    updated = as.POSIXct(meta$timeCreated[is_obj] %||% NA),
+    md5     = meta$md5Hash[is_obj] %||% NA_character_,
+    crc32c  = meta$crc32c[is_obj] %||% NA_character_)
 }

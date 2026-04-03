@@ -30,9 +30,9 @@ add_point_geom <- function(
     geom_col = "geom") {
 
   DBI::dbExecute(con, glue::glue(
-    'ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {geom_col} GEOMETRY'))
+    "ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {geom_col} GEOMETRY"))
   DBI::dbExecute(con, glue::glue(
-    'UPDATE {table} SET {geom_col} = ST_Point({lon_col}, {lat_col})'))
+    "UPDATE {table} SET {geom_col} = ST_Point({lon_col}, {lat_col})"))
   message(glue::glue("Added {geom_col} column to {table} table"))
   invisible(NULL)
 }

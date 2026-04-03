@@ -28,7 +28,7 @@ sync_to_gcs(
 \item{verbose}{Print per-file status messages (default: TRUE)}
 }
 \value{
-Tibble with columns: file, action (uploaded/skipped/deleted), local_md5
+Tibble with columns: file, action (uploaded/skipped/deleted)
 }
 \description{
 Compares local files against GCS using MD5 hashes (with file-size

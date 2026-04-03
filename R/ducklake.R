@@ -26,6 +26,10 @@
 #'   `"supplemental"` in the directory's manifest.json are excluded from
 #'   auto-discovery. Set to TRUE to load all tables including supplemental
 #'   (e.g. wide-format ERDDAP outputs).
+#' @param as_view If TRUE, create VIEWs instead of TABLEs (zero-copy,
+#'   reads directly from parquet on disk). Use for dependency tables that
+#'   don't need to be modified or re-exported. Default FALSE for backward
+#'   compatibility.
 #'
 #' @return Tibble with columns: table, rows, has_geom
 #' @export
@@ -62,7 +66,8 @@ load_prior_tables <- function(
     gcs_prefix            = NULL,
     geom_tables           = c("grid", "site", "segment"),
     overwrite             = TRUE,
-    include_supplemental  = FALSE) {
+    include_supplemental  = FALSE,
+    as_view               = FALSE) {
 
   # determine if we should use local dir or GCS fallback
   use_gcs <- !dir.exists(parquet_dir) ||
@@ -110,6 +115,7 @@ load_prior_tables <- function(
   }
 
   or_replace <- if (overwrite) "OR REPLACE " else ""
+  obj_type   <- if (as_view) "VIEW" else "TABLE"
 
   purrr::map_dfr(sources, function(src) {
     tbl_name <- src$name
@@ -122,53 +128,95 @@ load_prior_tables <- function(
       read_expr <- glue::glue("read_parquet('{src$path}')")
     }
 
-    # create table from parquet; for spatial tables, strip CRS from GEOMETRY
-    # columns to avoid storage version issues with file-backed DuckDB
-    if (tbl_name %in% geom_tables) {
-      # probe parquet schema via temp view to detect CRS-tagged GEOMETRY columns
-      DBI::dbExecute(con, glue::glue(
-        "CREATE OR REPLACE VIEW _lpt_probe AS SELECT * FROM {read_expr} LIMIT 0"))
-      geom_cols <- DBI::dbGetQuery(con,
-        "SELECT column_name, data_type FROM information_schema.columns
-         WHERE table_name = '_lpt_probe'
-           AND data_type LIKE 'GEOMETRY%'")
-      all_col_names <- DBI::dbGetQuery(con,
-        "SELECT column_name FROM information_schema.columns
-         WHERE table_name = '_lpt_probe'
-         ORDER BY ordinal_position")$column_name
-      DBI::dbExecute(con, "DROP VIEW IF EXISTS _lpt_probe")
+    has_geom <- FALSE
 
-      if (nrow(geom_cols) > 0) {
-        # build SELECT that strips CRS from geometry columns
-        select_exprs <- sapply(all_col_names, function(col) {
-          if (col %in% geom_cols$column_name) {
-            glue::glue("ST_GeomFromWKB(ST_AsWKB({col})) AS {col}")
-          } else {
-            col
-          }
-        })
+    if (as_view) {
+      # VIEW: zero-copy reference to parquet on disk
+      # geometry handling happens at query time, not at load time
+      if (tbl_name %in% geom_tables) {
+        # probe schema to build geometry-normalizing SELECT
         DBI::dbExecute(con, glue::glue(
-          "CREATE {or_replace}TABLE {tbl_name} AS
-           SELECT {paste(select_exprs, collapse = ', ')}
-           FROM {read_expr}"))
+          "CREATE OR REPLACE VIEW _lpt_probe AS SELECT * FROM {read_expr} LIMIT 0"))
+        geom_cols <- DBI::dbGetQuery(con,
+          "SELECT column_name FROM information_schema.columns
+           WHERE table_name = '_lpt_probe'
+             AND data_type LIKE 'GEOMETRY%'")$column_name
+        all_col_names <- DBI::dbGetQuery(con,
+          "SELECT column_name FROM information_schema.columns
+           WHERE table_name = '_lpt_probe'
+           ORDER BY ordinal_position")$column_name
+        DBI::dbExecute(con, "DROP VIEW IF EXISTS _lpt_probe")
+
+        if (length(geom_cols) > 0) {
+          select_exprs <- sapply(all_col_names, function(col) {
+            if (col %in% geom_cols) {
+              glue::glue("ST_GeomFromWKB(ST_AsWKB({col})) AS {col}")
+            } else {
+              col
+            }
+          })
+          DBI::dbExecute(con, glue::glue(
+            "CREATE {or_replace}VIEW {tbl_name} AS
+             SELECT {paste(select_exprs, collapse = ', ')}
+             FROM {read_expr}"))
+          has_geom <- TRUE
+        } else {
+          DBI::dbExecute(con, glue::glue(
+            "CREATE {or_replace}VIEW {tbl_name} AS
+             SELECT * FROM {read_expr}"))
+        }
+      } else {
+        DBI::dbExecute(con, glue::glue(
+          "CREATE {or_replace}VIEW {tbl_name} AS
+           SELECT * FROM {read_expr}"))
+      }
+    } else {
+      # TABLE: copy data into DuckDB (original behavior)
+      if (tbl_name %in% geom_tables) {
+        DBI::dbExecute(con, glue::glue(
+          "CREATE OR REPLACE VIEW _lpt_probe AS SELECT * FROM {read_expr} LIMIT 0"))
+        geom_cols <- DBI::dbGetQuery(con,
+          "SELECT column_name, data_type FROM information_schema.columns
+           WHERE table_name = '_lpt_probe'
+             AND data_type LIKE 'GEOMETRY%'")
+        all_col_names <- DBI::dbGetQuery(con,
+          "SELECT column_name FROM information_schema.columns
+           WHERE table_name = '_lpt_probe'
+           ORDER BY ordinal_position")$column_name
+        DBI::dbExecute(con, "DROP VIEW IF EXISTS _lpt_probe")
+
+        if (nrow(geom_cols) > 0) {
+          select_exprs <- sapply(all_col_names, function(col) {
+            if (col %in% geom_cols$column_name) {
+              glue::glue("ST_GeomFromWKB(ST_AsWKB({col})) AS {col}")
+            } else {
+              col
+            }
+          })
+          DBI::dbExecute(con, glue::glue(
+            "CREATE {or_replace}TABLE {tbl_name} AS
+             SELECT {paste(select_exprs, collapse = ', ')}
+             FROM {read_expr}"))
+        } else {
+          DBI::dbExecute(con, glue::glue(
+            "CREATE {or_replace}TABLE {tbl_name} AS
+             SELECT * FROM {read_expr}"))
+        }
       } else {
         DBI::dbExecute(con, glue::glue(
           "CREATE {or_replace}TABLE {tbl_name} AS
            SELECT * FROM {read_expr}"))
       }
-    } else {
-      DBI::dbExecute(con, glue::glue(
-        "CREATE {or_replace}TABLE {tbl_name} AS
-         SELECT * FROM {read_expr}"))
-    }
 
-    # convert WKB BLOB columns to GEOMETRY for spatial tables
-    has_geom <- .convert_wkb_to_geometry(con, tbl_name, geom_tables)
+      # convert WKB BLOB columns to GEOMETRY for spatial tables
+      has_geom <- .convert_wkb_to_geometry(con, tbl_name, geom_tables)
+    }
 
     n <- DBI::dbGetQuery(con, glue::glue(
       "SELECT COUNT(*) AS n FROM {tbl_name}"))$n
     suffix <- if (src$partitioned) " (partitioned)" else ""
-    suffix <- paste0(suffix, if (has_geom) " (WKB->GEOMETRY)" else "")
+    suffix <- paste0(suffix, if (as_view) " (VIEW)" else "")
+    suffix <- paste0(suffix, if (has_geom) " (GEOMETRY)" else "")
     message(glue::glue("Loaded {tbl_name}: {n} rows{suffix}"))
 
     tibble::tibble(table = tbl_name, rows = n, has_geom = has_geom)
@@ -236,25 +284,25 @@ load_prior_tables <- function(
       "SELECT data_type FROM information_schema.columns
        WHERE table_name = '{tbl_name}' AND column_name = '{gc}'"))$data_type
     if (grepl("^GEOMETRY", col_type)) {
-      # already GEOMETRY (possibly with CRS); strip CRS to avoid storage issues
+      # already GEOMETRY (possibly with non-4326 CRS); normalize to EPSG:4326
       DBI::dbExecute(con, glue::glue(
-        'ALTER TABLE {tbl_name} ADD COLUMN {tmp_col} GEOMETRY'))
+        "ALTER TABLE {tbl_name} ADD COLUMN {tmp_col} GEOMETRY"))
       DBI::dbExecute(con, glue::glue(
-        'UPDATE {tbl_name} SET {tmp_col} = ST_GeomFromWKB(ST_AsWKB({gc}))'))
+        "UPDATE {tbl_name} SET {tmp_col} = ST_GeomFromWKB(ST_AsWKB({gc}))"))
       DBI::dbExecute(con, glue::glue(
-        'ALTER TABLE {tbl_name} DROP COLUMN {gc}'))
+        "ALTER TABLE {tbl_name} DROP COLUMN {gc}"))
       DBI::dbExecute(con, glue::glue(
-        'ALTER TABLE {tbl_name} RENAME COLUMN {tmp_col} TO {gc}'))
+        "ALTER TABLE {tbl_name} RENAME COLUMN {tmp_col} TO {gc}"))
     } else {
-      # WKB BLOB -> GEOMETRY
+      # WKB BLOB -> GEOMETRY (EPSG:4326)
       DBI::dbExecute(con, glue::glue(
-        'ALTER TABLE {tbl_name} ADD COLUMN {tmp_col} GEOMETRY'))
+        "ALTER TABLE {tbl_name} ADD COLUMN {tmp_col} GEOMETRY"))
       DBI::dbExecute(con, glue::glue(
-        'UPDATE {tbl_name} SET {tmp_col} = ST_GeomFromWKB({gc})'))
+        "UPDATE {tbl_name} SET {tmp_col} = ST_GeomFromWKB({gc})"))
       DBI::dbExecute(con, glue::glue(
-        'ALTER TABLE {tbl_name} DROP COLUMN {gc}'))
+        "ALTER TABLE {tbl_name} DROP COLUMN {gc}"))
       DBI::dbExecute(con, glue::glue(
-        'ALTER TABLE {tbl_name} RENAME COLUMN {tmp_col} TO {gc}'))
+        "ALTER TABLE {tbl_name} RENAME COLUMN {tmp_col} TO {gc}"))
     }
   }
 

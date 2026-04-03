@@ -1,5 +1,42 @@
 # parquet operations for calcofi data workflow
 
+#' Export a DuckDB Table or Query to Parquet
+#'
+#' Uses DuckDB's native `COPY TO` which handles GEOMETRY columns (as WKB),
+#' compression, and hive partitioning. Preferred over `arrow::write_parquet()`
+#' for any table that may contain geometry.
+#'
+#' @param con DuckDB connection
+#' @param table Table name or SQL query (wrapped in parentheses for queries)
+#' @param path Output parquet file path
+#' @param compression Compression codec (default: "snappy")
+#'
+#' @return Invisibly returns the output path
+#' @export
+#' @concept parquet
+#'
+#' @examples
+#' \dontrun{
+#' # export a table
+#' export_parquet(con, "ship", "output/ship.parquet")
+#'
+#' # export a query
+#' export_parquet(con, "(SELECT * FROM ship WHERE ship_key = 'ZZ')",
+#'   "output/ship_new.parquet")
+#' }
+#' @importFrom DBI dbExecute
+#' @importFrom glue glue
+export_parquet <- function(con, table, path, compression = "snappy") {
+  # if table looks like a query (contains spaces/parens), use as-is
+  # otherwise wrap as SELECT * FROM {table}
+  src <- if (grepl("\\s", table)) table else glue::glue("SELECT * FROM {table}")
+
+  DBI::dbExecute(con, glue::glue(
+    "COPY ({src}) TO '{path}' (FORMAT PARQUET, COMPRESSION '{compression}')"))
+
+  invisible(path)
+}
+
 #' Convert CSV file to Parquet format
 #'
 #' Reads a CSV file and writes it as Parquet with optional schema enforcement.

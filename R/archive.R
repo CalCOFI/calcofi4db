@@ -33,22 +33,20 @@ get_latest_archive_timestamp <- function(
 
   gcs_path <- glue::glue("gs://{gcs_bucket}/{archive_prefix}/")
 
-  # list archive directories
-  archives <- tryCatch({
-    list_gcs_files(gcs_bucket, prefix = glue::glue("{archive_prefix}/"))
-  }, error = function(e) {
-    return(NULL)
-  })
+  # list top-level archive directories via simple gcloud ls (fast, non-recursive)
+  gcloud <- find_gcloud()
+  ls_out <- tryCatch(
+    system2(gcloud, c("storage", "ls", gcs_path),
+            stdout = TRUE, stderr = TRUE),
+    error = function(e) character())
 
-  if (is.null(archives) || nrow(archives) == 0) {
-    return(NULL)
-  }
+  if (length(ls_out) == 0) return(NULL)
 
-  # extract timestamps from paths like "archive/2026-02-02_121557/..."
-  timestamps <- archives$name |>
-    stringr::str_extract(glue::glue("{archive_prefix}/([^/]+)/"), group = 1) |>
-    unique() |>
+  # extract timestamps from paths like "gs://bucket/archive/2026-02-02_121557/"
+  timestamps <- stringr::str_extract(
+    ls_out, "\\d{4}-\\d{2}-\\d{2}_\\d{6}") |>
     stats::na.omit() |>
+    unique() |>
     sort(decreasing = TRUE)
 
   if (length(timestamps) == 0) {

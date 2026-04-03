@@ -11,7 +11,8 @@ load_prior_tables(
   gcs_prefix = NULL,
   geom_tables = c("grid", "site", "segment"),
   overwrite = TRUE,
-  include_supplemental = FALSE
+  include_supplemental = FALSE,
+  as_view = FALSE
 )
 }
 \arguments{
@@ -36,6 +37,11 @@ columns needing conversion (default: c("grid", "site", "segment"))}
 \code{"supplemental"} in the directory's manifest.json are excluded from
 auto-discovery. Set to TRUE to load all tables including supplemental
 (e.g. wide-format ERDDAP outputs).}
+
+\item{as_view}{If TRUE, create VIEWs instead of TABLEs (zero-copy,
+reads directly from parquet on disk). Use for dependency tables that
+don't need to be modified or re-exported. Default FALSE for backward
+compatibility.}
 }
 \value{
 Tibble with columns: table, rows, has_geom

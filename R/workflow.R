@@ -530,6 +530,104 @@ integrate_to_working_ducklake <- function(
     tables        = table_info)
 }
 
+#' Build Release Table Registry from Ingest Manifests
+#'
+#' Reads all ingest `manifest.json` files to build a registry of which
+#' tables come from which ingests. For tables appearing in multiple
+#' ingests, marks the first occurrence as canonical. Excludes supplemental
+#' tables. Used by `release_database.qmd` to auto-discover table sources
+#' for GCS server-side copy.
+#'
+#' @param workflows_dir Path to the workflows directory (default: `here::here()`)
+#'
+#' @return Tibble with columns: table, ingest, parquet_dir, gcs_prefix,
+#'   partitioned, supplemental, canonical
+#' @export
+#' @concept workflow
+#'
+#' @examples
+#' \dontrun{
+#' registry <- build_release_table_registry()
+#' # canonical single-source tables for GCS copy
+#' registry |> filter(canonical, !supplemental)
+#' }
+#' @importFrom dplyr filter mutate group_by row_number ungroup
+#' @importFrom purrr map_dfr
+#' @importFrom jsonlite fromJSON
+#' @importFrom tibble tibble
+build_release_table_registry <- function(workflows_dir = here::here()) {
+
+  wf <- parse_qmd_frontmatter(workflows_dir)
+
+  ingest_dirs <- wf |>
+    dplyr::filter(workflow_type %in% c("ingest", "spatial")) |>
+    dplyr::mutate(parquet_dir = file.path(workflows_dir, dirname(output)))
+
+  registry <- purrr::map_dfr(seq_len(nrow(ingest_dirs)), function(i) {
+    mf_path <- file.path(ingest_dirs$parquet_dir[i], "manifest.json")
+    if (!file.exists(mf_path)) return(tibble::tibble())
+    mf <- jsonlite::fromJSON(mf_path)
+    supp <- unlist(mf$supplemental) %||% character()
+    part <- unlist(mf$partitioned) %||% character()
+    n_tables <- length(mf$tables)
+    rows <- if (length(mf$files$rows) == n_tables) mf$files$rows
+            else rep(NA_real_, n_tables)
+
+    # derive GCS prefix from target_name: ingest_swfsc_ichthyo -> swfsc_ichthyo
+    target <- ingest_dirs$target_name[i]
+    dir_label <- basename(ingest_dirs$parquet_dir[i])
+
+    tibble::tibble(
+      table        = mf$tables,
+      rows         = rows,
+      ingest       = target,
+      parquet_dir  = ingest_dirs$parquet_dir[i],
+      gcs_prefix   = paste0("ingest/", dir_label),
+      partitioned  = table %in% part,
+      supplemental = table %in% supp)
+  })
+
+  # mark canonical source for duplicated tables (first ingest wins)
+  registry <- registry |>
+    dplyr::group_by(table) |>
+    dplyr::mutate(canonical = dplyr::row_number() == 1) |>
+    dplyr::ungroup()
+
+  # discover _new sidecar parquets from filesystem (not in manifests)
+  # these are delta exports from ingests that declare calcofi.modifies
+  modifies_map <- ingest_dirs |>
+    dplyr::select(ingest = target_name, parquet_dir, modifies) |>
+    tidyr::unnest(modifies) |>
+    dplyr::rename(modified_table = modifies)
+
+  if (nrow(modifies_map) > 0) {
+    new_sidecars <- purrr::map_dfr(seq_len(nrow(modifies_map)), function(j) {
+      mr <- modifies_map[j, ]
+      pq_path <- file.path(mr$parquet_dir, paste0(mr$modified_table, "_new.parquet"))
+      if (!file.exists(pq_path)) return(tibble::tibble())
+      dir_label <- basename(mr$parquet_dir)
+      tibble::tibble(
+        table        = paste0(mr$modified_table, "_new"),
+        rows         = NA_real_,
+        ingest       = mr$ingest,
+        parquet_dir  = mr$parquet_dir,
+        gcs_prefix   = paste0("ingest/", dir_label),
+        partitioned  = FALSE,
+        supplemental = FALSE,
+        canonical    = TRUE)
+    })
+    if (nrow(new_sidecars) > 0) {
+      registry <- dplyr::bind_rows(registry, new_sidecars)
+    }
+  }
+
+  # mark tables that have additions from other ingests
+  registry$has_additions <- registry$table %in%
+    paste0(modifies_map$modified_table, "_new")
+
+  registry
+}
+
 #' Parse YAML Frontmatter from Quarto Notebooks
 #'
 #' Reads each `.qmd` file in a directory and extracts the `calcofi:` block
@@ -541,7 +639,8 @@ integrate_to_working_ducklake <- function(
 #' @param pattern Glob pattern for `.qmd` files (default: `"*.qmd"`)
 #'
 #' @return Tibble with columns: `qmd_file`, `target_name`, `workflow_type`,
-#'   `dependency` (list column), `output`
+#'   `dependency` (list column), `output`, `modifies` (list column of
+#'   dependency table names this ingest inserts/modifies)
 #' @export
 #' @concept workflow
 #'
@@ -578,7 +677,8 @@ parse_qmd_frontmatter <- function(
       target_name   = cc$target_name   %||% NA_character_,
       workflow_type = cc$workflow_type  %||% NA_character_,
       dependency    = list(cc$dependency %||% character(0)),
-      output        = cc$output        %||% NA_character_)
+      output        = cc$output        %||% NA_character_,
+      modifies      = list(cc$modifies  %||% character(0)))
   }))
 
   if (length(results) == 0) {
@@ -587,7 +687,8 @@ parse_qmd_frontmatter <- function(
       target_name   = character(),
       workflow_type = character(),
       dependency    = list(),
-      output        = character()))
+      output        = character(),
+      modifies      = list()))
   }
 
   dplyr::bind_rows(results)

@@ -14,7 +14,8 @@ parse_qmd_frontmatter(workflows_dir = here::here(), pattern = "*.qmd")
 }
 \value{
 Tibble with columns: \code{qmd_file}, \code{target_name}, \code{workflow_type},
-\code{dependency} (list column), \code{output}
+\code{dependency} (list column), \code{output}, \code{modifies} (list column of
+dependency table names this ingest inserts/modifies)
 }
 \description{
 Reads each \code{.qmd} file in a directory and extracts the \verb{calcofi:} block
