@@ -62,7 +62,7 @@ standardize_species_local <- function(
   for (col in c("worms_id", "itis_id", "gbif_id")) {
     if (!col %in% sp_cols) {
       DBI::dbExecute(con, glue::glue(
-        "ALTER TABLE {species_tbl} ADD COLUMN {col} INTEGER"))
+        "ALTER TABLE {species_tbl} ADD COLUMN IF NOT EXISTS {col} INTEGER"))
     }
   }
 
@@ -521,7 +521,7 @@ standardize_species <- function(
     for (col in c("worms_id", "itis_id", "gbif_id")) {
       if (!col %in% existing_cols) {
         DBI::dbExecute(con, glue::glue(
-          "ALTER TABLE {species_tbl} ADD COLUMN {col} INTEGER"))
+          "ALTER TABLE {species_tbl} ADD COLUMN IF NOT EXISTS {col} INTEGER"))
         message(glue::glue("Added column {col} to {species_tbl}"))
       }
     }

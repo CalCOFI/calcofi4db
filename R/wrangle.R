@@ -38,7 +38,7 @@ create_cruise_key <- function(
 
   if (!"cruise_key" %in% cols) {
     DBI::dbExecute(con, glue::glue(
-      "ALTER TABLE {cruise_tbl} ADD COLUMN cruise_key TEXT"))
+      "ALTER TABLE {cruise_tbl} ADD COLUMN IF NOT EXISTS cruise_key TEXT"))
   }
 
   # populate cruise_key as YYYY-MM-NODC (4-digit year + 2-digit month + NODC ship code)
@@ -58,11 +58,16 @@ create_cruise_key <- function(
     SELECT cruise_key, COUNT(*) as n
     FROM {cruise_tbl}
     GROUP BY cruise_key
-    HAVING COUNT(*) > 1"))
+    HAVING COUNT(*) > 1
+    ORDER BY cruise_key
+    LIMIT 10"))
 
   if (nrow(dups) > 0) {
+    examples <- paste(
+      glue::glue("{dups$cruise_key} (n={dups$n})"), collapse = ", ")
     warning(glue::glue(
-      "cruise_key is not unique! Found {nrow(dups)} duplicate keys"))
+      "cruise_key is not unique! Found {nrow(dups)} duplicate keys. ",
+      "Examples: {examples}"))
   }
 
   # check for NULLs (ships without NODC codes)
@@ -260,7 +265,7 @@ propagate_natural_key <- function(
 
   if (!key_col %in% child_cols) {
     DBI::dbExecute(con, glue::glue(
-      "ALTER TABLE {child_tbl} ADD COLUMN {key_col} {key_type}"))
+      "ALTER TABLE {child_tbl} ADD COLUMN IF NOT EXISTS {key_col} {key_type}"))
   }
 
   # populate key from parent table via join
@@ -345,7 +350,7 @@ assign_sequential_ids <- function(
 
   if (!id_col %in% cols) {
     DBI::dbExecute(con, glue::glue(
-      "ALTER TABLE {table_name} ADD COLUMN {id_col} INTEGER"))
+      "ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {id_col} INTEGER"))
   }
 
   # build sort clause with COALESCE for NULL handling
@@ -951,7 +956,7 @@ replace_uuid_with_id <- function(
 
   if (!new_id_col %in% cols) {
     DBI::dbExecute(con, glue::glue(
-      "ALTER TABLE {table_name} ADD COLUMN {new_id_col} INTEGER"))
+      "ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {new_id_col} INTEGER"))
   }
 
   # populate new ID column from reference table

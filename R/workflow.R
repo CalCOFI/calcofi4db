@@ -338,7 +338,7 @@ finalize_ingest <- function(
         for (gc in blob_cols) {
           tmp_col <- paste0(gc, "_tmp")
           DBI::dbExecute(con_wdl, glue::glue(
-            'ALTER TABLE {tbl_name} ADD COLUMN {tmp_col} GEOMETRY'))
+            'ALTER TABLE {tbl_name} ADD COLUMN IF NOT EXISTS {tmp_col} GEOMETRY'))
           DBI::dbExecute(con_wdl, glue::glue(
             'UPDATE {tbl_name} SET {tmp_col} = ST_GeomFromWKB({gc})'))
           DBI::dbExecute(con_wdl, glue::glue(

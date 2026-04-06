@@ -286,7 +286,7 @@ load_prior_tables <- function(
     if (grepl("^GEOMETRY", col_type)) {
       # already GEOMETRY (possibly with non-4326 CRS); normalize to EPSG:4326
       DBI::dbExecute(con, glue::glue(
-        "ALTER TABLE {tbl_name} ADD COLUMN {tmp_col} GEOMETRY"))
+        "ALTER TABLE {tbl_name} ADD COLUMN IF NOT EXISTS {tmp_col} GEOMETRY"))
       DBI::dbExecute(con, glue::glue(
         "UPDATE {tbl_name} SET {tmp_col} = ST_GeomFromWKB(ST_AsWKB({gc}))"))
       DBI::dbExecute(con, glue::glue(
@@ -296,7 +296,7 @@ load_prior_tables <- function(
     } else {
       # WKB BLOB -> GEOMETRY (EPSG:4326)
       DBI::dbExecute(con, glue::glue(
-        "ALTER TABLE {tbl_name} ADD COLUMN {tmp_col} GEOMETRY"))
+        "ALTER TABLE {tbl_name} ADD COLUMN IF NOT EXISTS {tmp_col} GEOMETRY"))
       DBI::dbExecute(con, glue::glue(
         "UPDATE {tbl_name} SET {tmp_col} = ST_GeomFromWKB({gc})"))
       DBI::dbExecute(con, glue::glue(
@@ -652,8 +652,17 @@ ingest_to_working <- function(
       DBI::dbWriteTable(con, table, data_prov, overwrite = FALSE, append = FALSE)
       message(glue::glue("Created table '{table}' with {rows_input} rows"))
     } else {
-      DBI::dbWriteTable(con, table, data_prov, overwrite = FALSE, append = TRUE)
-      message(glue::glue("Appended {rows_input} rows to table '{table}'"))
+      # skip if already ingested from same source (idempotent re-render)
+      existing <- DBI::dbGetQuery(con, glue::glue(
+        "SELECT COUNT(*) AS n FROM \"{table}\"
+         WHERE _source_file = '{source_file}'"))$n
+      if (existing > 0) {
+        message(glue::glue(
+          "Skipped table '{table}' ({existing} rows already from same source)"))
+      } else {
+        DBI::dbWriteTable(con, table, data_prov, overwrite = FALSE, append = TRUE)
+        message(glue::glue("Appended {rows_input} rows to table '{table}'"))
+      }
     }
 
   } else if (mode == "upsert") {

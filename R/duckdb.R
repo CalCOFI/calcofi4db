@@ -59,13 +59,19 @@ get_duckdb_con <- function(
     config <- list()
   }
 
-  # create connection
-  con <- DBI::dbConnect(
-    duckdb::duckdb(),
+  # autoload extensions so spatial is available during WAL replay
+  default_config <- list(autoload_known_extensions = "true")
+  config <- utils::modifyList(default_config, config)
+
+  # named driver tied to the DB file (proper WAL lifecycle)
+  drv <- duckdb::duckdb(
     dbdir     = path,
     read_only = read_only,
     config    = config)
+  con <- DBI::dbConnect(drv)
 
+  # store driver for close_duckdb() to shut down
+  attr(con, "duckdb_driver") <- drv
   return(con)
 }
 
@@ -430,6 +436,10 @@ close_duckdb <- function(con, checkpoint = NULL) {
       error = function(e) NULL)
   }
 
+  drv <- attr(con, "duckdb_driver")
   DBI::dbDisconnect(con, shutdown = TRUE)
+  if (!is.null(drv)) {
+    tryCatch(duckdb::duckdb_shutdown(drv), error = function(e) NULL)
+  }
   invisible(NULL)
 }

@@ -1,3 +1,12 @@
+# calcofi4db 2.5.3
+
+*DuckDB driver lifecycle, idempotent ingestion & defensive ALTER TABLE*
+
+- **DuckDB driver lifecycle** `get_duckdb_con()` now creates a named driver via `duckdb::duckdb(dbdir=...)` and stores it as an attribute; `close_duckdb()` calls `duckdb_shutdown()` for proper WAL flush. Also sets `autoload_known_extensions = "true"` so the spatial extension loads during WAL replay.
+- **Idempotent DuckLake ingestion** `ingest_to_working()` checks `_source_file` before appending — skips if rows from the same source already exist, making notebook re-renders safe.
+- **Defensive `ADD COLUMN IF NOT EXISTS`** All `ALTER TABLE … ADD COLUMN` calls across `load_prior_tables()`, `load_gcs_parquet_to_duckdb()`, `standardize_species_local()`, `standardize_species()`, `finalize_ingest()`, `create_cruise_key()`, `propagate_natural_key()`, `assign_sequential_ids()`, and `replace_uuid_with_id()` now use `IF NOT EXISTS` to prevent errors on re-runs.
+- **Better duplicate-key warnings** `create_cruise_key()` now shows top-10 examples with counts in the warning message.
+
 # calcofi4db 2.5.2
 
 *VIEWs for dependencies, GCS server-side copy, crc32c sync & spatial consolidation*

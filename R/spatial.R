@@ -141,7 +141,7 @@ load_gcs_parquet_to_duckdb <- function(
   for (gc in geom_cols) {
     tmp_col <- paste0(gc, "_tmp")
     DBI::dbExecute(con, glue::glue(
-      'ALTER TABLE {table_name} ADD COLUMN {tmp_col} GEOMETRY'))
+      'ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {tmp_col} GEOMETRY'))
     DBI::dbExecute(con, glue::glue(
       'UPDATE {table_name} SET {tmp_col} = ST_GeomFromWKB({gc})'))
     DBI::dbExecute(con, glue::glue(
