@@ -1,5 +1,22 @@
 # Changelog
 
+## calcofi4db 2.5.6
+
+*Grid geometry refresh workaround for DuckDB spatial bug*
+
+- **[`assign_grid_key()`](https://calcofi.io/calcofi4db/reference/assign_grid_key.md)
+  refreshes grid geometry** from stored `geom_wkb` before spatial joins,
+  working around a DuckDB v1.5.1 spatial serialization bug where
+  GEOMETRY columns corrupt after many operations in file-backed DBs.
+  Only applies to BASE TABLEs with `geom_wkb`; VIEWs from parquet are
+  unaffected.
+- **Avoid glue in spatial.R** Replaced
+  [`glue::glue()`](https://glue.tidyverse.org/reference/glue.html) with
+  [`paste0()`](https://rdrr.io/r/base/paste.html) in
+  [`assign_grid_key()`](https://calcofi.io/calcofi4db/reference/assign_grid_key.md)
+  to prevent cli from intercepting `{variable}` patterns in error
+  messages propagated through targets.
+
 ## calcofi4db 2.5.5
 
 *Server-side GCS copy for archives & sync_to_gcs replaces put_gcs_file

@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.5.5</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.5.6</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -32,6 +32,14 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="2.5.6" id="calcofi4db-256">calcofi4db 2.5.6<a class="anchor" aria-label="anchor" href="#calcofi4db-256"></a></h2>
+<p><em>Grid geometry refresh workaround for DuckDB spatial bug</em></p>
+<ul><li>
+<strong><code><a href="../reference/assign_grid_key.html">assign_grid_key()</a></code> refreshes grid geometry</strong> from stored <code>geom_wkb</code> before spatial joins, working around a DuckDB v1.5.1 spatial serialization bug where GEOMETRY columns corrupt after many operations in file-backed DBs. Only applies to BASE TABLEs with <code>geom_wkb</code>; VIEWs from parquet are unaffected.</li>
+<li>
+<strong>Avoid glue in spatial.R</strong> Replaced <code><a href="https://glue.tidyverse.org/reference/glue.html" class="external-link">glue::glue()</a></code> with <code><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0()</a></code> in <code><a href="../reference/assign_grid_key.html">assign_grid_key()</a></code> to prevent cli from intercepting <code>{variable}</code> patterns in error messages propagated through targets.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.5.5" id="calcofi4db-255">calcofi4db 2.5.5<a class="anchor" aria-label="anchor" href="#calcofi4db-255"></a></h2>
 <p><em>Server-side GCS copy for archives &amp; sync_to_gcs replaces put_gcs_file loops</em></p>
