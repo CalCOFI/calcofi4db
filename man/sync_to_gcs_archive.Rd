@@ -2,7 +2,7 @@
 % Please edit documentation in R/archive.R
 \name{sync_to_gcs_archive}
 \alias{sync_to_gcs_archive}
-\title{Sync local files to GCS archive}
+\title{Sync local files to GCS archive (deprecated wrapper)}
 \usage{
 sync_to_gcs_archive(
   dir_csv,
@@ -27,29 +27,30 @@ sync_to_gcs_archive(
 \item{force}{Force creation even if files match latest archive}
 }
 \value{
-List with:
-\itemize{
-\item \code{archive_timestamp}: Timestamp of the archive used/created
-\item \code{archive_path}: Full GCS path to archive
-\item \code{created_new}: Logical, TRUE if new archive was created
-\item \code{files_uploaded}: Number of files uploaded (0 if using existing)
-}
+List with \code{archive_timestamp}, \code{archive_path}, \code{created_new},
+\code{files_uploaded}.
 }
 \description{
 Creates a new timestamped archive in GCS from local files.
-Only creates a new archive if local files differ from the latest archive.
-The archive timestamp is derived from the maximum file modification time
-(not render/wall-clock time), so re-rendering with unchanged files produces
-the same timestamp and skips upload.
+This is a convenience wrapper around
+\link[=sync_to_gcs]{sync_to_gcs(archive = TRUE)}.
 }
 \examples{
 \dontrun{
-result <- sync_to_gcs_archive(
+# preferred: use sync_to_gcs() directly
+sync_to_gcs(
+  local_dir  = "/path/to/csv",
+  gcs_prefix = "archive",
+  bucket     = "calcofi-files-public",
+  archive    = TRUE,
+  provider   = "swfsc",
+  dataset    = "ichthyo")
+
+# legacy wrapper (still works)
+sync_to_gcs_archive(
   dir_csv  = "/path/to/csv",
   provider = "swfsc",
   dataset  = "ichthyo")
-
-message(glue("Using archive: {result$archive_timestamp}"))
 }
 }
 \concept{archive}

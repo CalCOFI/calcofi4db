@@ -237,13 +237,11 @@ compare_local_vs_archive <- function(
     changed          = changed)
 }
 
-#' Sync local files to GCS archive
+#' Sync local files to GCS archive (deprecated wrapper)
 #'
 #' Creates a new timestamped archive in GCS from local files.
-#' Only creates a new archive if local files differ from the latest archive.
-#' The archive timestamp is derived from the maximum file modification time
-#' (not render/wall-clock time), so re-rendering with unchanged files produces
-#' the same timestamp and skips upload.
+#' This is a convenience wrapper around
+#' [sync_to_gcs(archive = TRUE)][sync_to_gcs].
 #'
 #' @param dir_csv Local directory containing CSV files
 #' @param provider Data provider
@@ -252,24 +250,27 @@ compare_local_vs_archive <- function(
 #' @param archive_prefix Archive folder prefix
 #' @param force Force creation even if files match latest archive
 #'
-#' @return List with:
-#'   \itemize{
-#'     \item \code{archive_timestamp}: Timestamp of the archive used/created
-#'     \item \code{archive_path}: Full GCS path to archive
-#'     \item \code{created_new}: Logical, TRUE if new archive was created
-#'     \item \code{files_uploaded}: Number of files uploaded (0 if using existing)
-#'   }
+#' @return List with `archive_timestamp`, `archive_path`, `created_new`,
+#'   `files_uploaded`.
 #' @export
 #' @concept archive
 #'
 #' @examples
 #' \dontrun{
-#' result <- sync_to_gcs_archive(
+#' # preferred: use sync_to_gcs() directly
+#' sync_to_gcs(
+#'   local_dir  = "/path/to/csv",
+#'   gcs_prefix = "archive",
+#'   bucket     = "calcofi-files-public",
+#'   archive    = TRUE,
+#'   provider   = "swfsc",
+#'   dataset    = "ichthyo")
+#'
+#' # legacy wrapper (still works)
+#' sync_to_gcs_archive(
 #'   dir_csv  = "/path/to/csv",
 #'   provider = "swfsc",
 #'   dataset  = "ichthyo")
-#'
-#' message(glue("Using archive: {result$archive_timestamp}"))
 #' }
 #' @importFrom glue glue
 sync_to_gcs_archive <- function(
@@ -280,102 +281,13 @@ sync_to_gcs_archive <- function(
     archive_prefix = "archive",
     force          = FALSE) {
 
-  # check latest archive
-  latest_timestamp <- get_latest_archive_timestamp(gcs_bucket, archive_prefix)
-
-  if (!is.null(latest_timestamp) && !force) {
-    # compare with latest archive
-    comparison <- compare_local_vs_archive(
-      dir_csv           = dir_csv,
-      archive_timestamp = latest_timestamp,
-      provider          = provider,
-      dataset           = dataset,
-      gcs_bucket        = gcs_bucket,
-      archive_prefix    = archive_prefix)
-
-    if (comparison$matches) {
-      message(glue::glue(
-        "Local files match archive {latest_timestamp}, no sync needed"))
-      return(list(
-        archive_timestamp = latest_timestamp,
-        archive_path      = glue::glue(
-          "gs://{gcs_bucket}/{archive_prefix}/{latest_timestamp}/{provider}/{dataset}"),
-        created_new       = FALSE,
-        files_uploaded    = 0L))
-    }
-
-    # report changes
-    if (nrow(comparison$added) > 0) {
-      message(glue::glue(
-        "New files: {paste(comparison$added$name, collapse = ', ')}"))
-    }
-    if (nrow(comparison$removed) > 0) {
-      message(glue::glue(
-        "Removed files: {paste(comparison$removed$name, collapse = ', ')}"))
-    }
-    if (nrow(comparison$changed) > 0) {
-      message(glue::glue(
-        "Changed files: {paste(comparison$changed$name, collapse = ', ')}"))
-    }
-  }
-
-  # get local files
-  local_manifest <- get_local_manifest(dir_csv)
-
-  if (nrow(local_manifest) == 0) {
-    stop("No CSV files found in local directory")
-  }
-
-  # use max file mtime as archive timestamp (not wall-clock time)
-  max_mtime     <- max(local_manifest$mtime)
-  new_timestamp <- format(max_mtime, "%Y-%m-%d_%H%M%S")
-
-  # check if archive at this mtime-based timestamp already exists
-  existing <- get_archive_manifest(
-    archive_timestamp = new_timestamp,
-    provider          = provider,
-    dataset           = dataset,
-    gcs_bucket        = gcs_bucket,
-    archive_prefix    = archive_prefix)
-
-  if (nrow(existing) > 0) {
-    message(glue::glue(
-      "Archive already exists at {new_timestamp} ",
-      "(file modification date), skipping upload"))
-    return(list(
-      archive_timestamp = new_timestamp,
-      archive_path      = glue::glue(
-        "gs://{gcs_bucket}/{archive_prefix}/{new_timestamp}/{provider}/{dataset}"),
-      created_new       = FALSE,
-      files_uploaded    = 0L))
-  }
-
-  archive_base <- glue::glue(
-    "{archive_prefix}/{new_timestamp}/{provider}/{dataset}")
-
-  message(glue::glue("Creating new archive: {new_timestamp}"))
-
-  # upload each file
-  files_uploaded <- 0L
-  for (i in seq_len(nrow(local_manifest))) {
-    local_path <- local_manifest$local_path[i]
-    filename   <- local_manifest$name[i]
-    gcs_path   <- glue::glue("gs://{gcs_bucket}/{archive_base}/{filename}")
-
-    tryCatch({
-      put_gcs_file(local_path, gcs_path)
-      files_uploaded <- files_uploaded + 1L
-      message(glue::glue("  Uploaded: {filename}"))
-    }, error = function(e) {
-      warning(glue::glue("Failed to upload {filename}: {e$message}"))
-    })
-  }
-
-  list(
-    archive_timestamp = new_timestamp,
-    archive_path      = glue::glue("gs://{gcs_bucket}/{archive_base}"),
-    created_new       = TRUE,
-    files_uploaded    = files_uploaded)
+  sync_to_gcs(
+    local_dir  = dir_csv,
+    gcs_prefix = archive_prefix,
+    bucket     = gcs_bucket,
+    archive    = TRUE,
+    provider   = provider,
+    dataset    = dataset)
 }
 
 #' Download archive to local directory

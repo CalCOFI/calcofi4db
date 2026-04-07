@@ -9,45 +9,88 @@ sync_to_gcs(
   gcs_prefix,
   bucket,
   pattern = NULL,
+  exclude = NULL,
   delete_stale = FALSE,
+  log_to_gcs = FALSE,
+  archive = FALSE,
+  provider = NULL,
+  dataset = NULL,
   verbose = TRUE
 )
 }
 \arguments{
 \item{local_dir}{Directory containing files to upload}
 
-\item{gcs_prefix}{GCS destination prefix (e.g. "ingest/swfsc_ichthyo")}
+\item{gcs_prefix}{GCS destination prefix (e.g. "ingest/swfsc_ichthyo"
+or "archive" for archive mode)}
 
 \item{bucket}{GCS bucket name}
 
 \item{pattern}{Regex to filter local files (default: NULL = all files)}
 
-\item{delete_stale}{If TRUE, delete GCS files that no longer exist locally
-(e.g. after renaming partitions or tables). Default FALSE.}
+\item{exclude}{Character vector of glob patterns to skip
+(e.g. \code{c(".DS_Store", "*.tmp")}). Applied to relative file paths.}
+
+\item{delete_stale}{If TRUE, delete GCS files that no longer exist
+locally. Default FALSE. Ignored in archive mode.}
+
+\item{log_to_gcs}{If TRUE, write a timestamped JSON action log to
+\verb{gs://\{bucket\}/\{gcs_prefix\}/_logs/sync_YYYY-MM-DD_HHMMSS.json}.}
+
+\item{archive}{If TRUE, use archive mode: creates a timestamped
+immutable snapshot. Requires \code{provider} and \code{dataset}.}
+
+\item{provider}{Data provider (required when \code{archive = TRUE})}
+
+\item{dataset}{Dataset name (required when \code{archive = TRUE})}
 
 \item{verbose}{Print per-file status messages (default: TRUE)}
 }
 \value{
-Tibble with columns: file, action (uploaded/skipped/deleted)
+In mirror mode: tibble with columns \code{file}, \code{action}, \code{size}.
+In archive mode: list with \code{archive_timestamp}, \code{archive_path},
+\code{created_new}, \code{files_uploaded}.
 }
 \description{
-Compares local files against GCS using MD5 hashes (with file-size
-fallback when MD5 is unavailable from the CLI). Only uploads files
-that are new or changed, skipping identical files.
+Compares local files against GCS using checksums (CRC32C > MD5 > size).
+Only uploads files that are new or changed.
+}
+\details{
+Two modes:
+\itemize{
+\item \strong{Mirror mode} (default): syncs \verb{local_dir/} to
+\verb{gs://\{bucket\}/\{gcs_prefix\}/}. Optionally deletes stale GCS files.
+\item \strong{Archive mode} (\code{archive = TRUE}): creates a timestamped
+immutable snapshot at \verb{gs://\{bucket\}/\{gcs_prefix\}/\{timestamp\}/\{provider\}/\{dataset\}/}.
+Timestamp derived from max file mtime for reproducibility.
+Skips upload if files match the latest existing archive.
+}
 }
 \examples{
 \dontrun{
+# mirror mode: sync parquet outputs
 sync_to_gcs(
   local_dir  = "data/parquet/swfsc_ichthyo",
   gcs_prefix = "ingest/swfsc_ichthyo",
   bucket     = "calcofi-db")
 
-# clean up stale GCS files after partition key change
+# mirror mode: full GD backup with stale cleanup
 sync_to_gcs(
-  local_dir    = "data/parquet/calcofi_ctd-cast",
-  gcs_prefix   = "ingest/calcofi_ctd-cast",
-  bucket       = "calcofi-db",
-  delete_stale = TRUE)
+  local_dir    = "~/My Drive/projects/calcofi/data-public",
+  gcs_prefix   = "_sync",
+  bucket       = "calcofi-files-public",
+  delete_stale = TRUE,
+  log_to_gcs   = TRUE,
+  exclude      = c(".DS_Store", "*.tmp"))
+
+# archive mode: timestamped snapshot of source CSVs
+sync_to_gcs(
+  local_dir  = "path/to/csv",
+  gcs_prefix = "archive",
+  bucket     = "calcofi-files-public",
+  archive    = TRUE,
+  provider   = "swfsc",
+  dataset    = "ichthyo")
 }
 }
 \concept{cloud}
