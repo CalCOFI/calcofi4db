@@ -1,3 +1,11 @@
+# calcofi4db 2.5.5
+
+*Server-side GCS copy for archives & sync_to_gcs replaces put_gcs_file loops*
+
+- **Server-side archive copy** `.sync_to_gcs_archive()` now checks `_sync/{provider}/{dataset}/` on GCS before uploading from local. If a file exists with matching MD5, uses `copy_gcs_file()` for instant server-side copy — no local I/O or GD mount needed.
+- **`copy_gcs_file(src, dst)`** New helper for server-side GCS-to-GCS copy via `gcloud storage cp`.
+- **Bottle & DIC uploads** replaced `put_gcs_file()` loops in QMDs with `sync_to_gcs()` for hash-based deduplication (idempotent re-renders).
+
 # calcofi4db 2.5.4
 
 *Consolidated `sync_to_gcs()` with archive mode, exclude patterns & GCS logging*

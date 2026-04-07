@@ -130,6 +130,27 @@ put_gcs_file <- function(
   return(glue::glue("gs://{bucket}/{gcs_path}"))
 }
 
+
+#' Server-side copy between GCS paths
+#'
+#' Copies a file within GCS (or between buckets) using `gcloud storage cp`.
+#' This is a server-side operation — no data is downloaded locally.
+#'
+#' @param src Full GCS source path (e.g. `"gs://bucket/src/file.csv"`)
+#' @param dst Full GCS destination path (e.g. `"gs://bucket/dst/file.csv"`)
+#'
+#' @return Destination GCS path (invisibly)
+#' @export
+#' @concept cloud
+copy_gcs_file <- function(src, dst) {
+  stopifnot(grepl("^gs://", src), grepl("^gs://", dst))
+  gcloud <- find_gcloud()
+  system2(gcloud, c("storage", "cp", src, dst),
+          stdout = FALSE, stderr = FALSE)
+  invisible(dst)
+}
+
+
 #' Sync local files to GCS, skipping unchanged files
 #'
 #' Compares local files against GCS using checksums (CRC32C > MD5 > size).
@@ -475,17 +496,51 @@ sync_to_gcs <- function(
     "{archive_prefix}/{new_timestamp}/{provider}/{dataset}")
   if (verbose) message(glue::glue("Creating new archive: {new_timestamp}"))
 
+  # check if files exist in _sync/ for server-side GCS copy
+  sync_prefix <- glue::glue("_sync/{provider}/{dataset}")
+  sync_manifest <- tryCatch(
+    list_gcs_files(gcs_bucket, prefix = paste0(sync_prefix, "/")),
+    error = function(e) tibble::tibble(
+      name = character(), size = numeric(), md5 = character()))
+  if (nrow(sync_manifest) > 0) {
+    sync_manifest <- sync_manifest |>
+      dplyr::mutate(name = sub(paste0("^", sync_prefix, "/?"), "", name))
+  }
+
   files_uploaded <- 0L
   for (i in seq_len(nrow(local_manifest))) {
     local_path <- local_manifest$local_path[i]
     filename   <- local_manifest$name[i]
-    gcs_path   <- glue::glue("gs://{gcs_bucket}/{archive_base}/{filename}")
+    dst_path   <- glue::glue("gs://{gcs_bucket}/{archive_base}/{filename}")
+
+    # prefer server-side copy from _sync/ if file exists with matching hash
+    sync_row <- sync_manifest[sync_manifest$name == filename, ]
+    use_sync <- FALSE
+    if (nrow(sync_row) == 1) {
+      local_md5 <- unname(tools::md5sum(local_path))
+      sync_md5  <- if (!is.na(sync_row$md5) && nchar(sync_row$md5) > 0)
+        md5_base64_to_hex(sync_row$md5) else NA_character_
+      if (!is.na(local_md5) && !is.na(sync_md5) && local_md5 == sync_md5) {
+        use_sync <- TRUE
+      }
+    }
+
     tryCatch({
-      put_gcs_file(local_path, gcs_path)
-      files_uploaded <- files_uploaded + 1L
-      if (verbose) message(glue::glue("  Uploaded: {filename}"))
+      if (use_sync) {
+        src_path <- glue::glue(
+          "gs://{gcs_bucket}/{sync_prefix}/{filename}")
+        copy_gcs_file(src_path, dst_path)
+        files_uploaded <- files_uploaded + 1L
+        if (verbose) message(glue::glue(
+          "  Copied from _sync: {filename}"))
+      } else {
+        put_gcs_file(local_path, dst_path)
+        files_uploaded <- files_uploaded + 1L
+        if (verbose) message(glue::glue(
+          "  Uploaded from local: {filename}"))
+      }
     }, error = function(e) {
-      warning(glue::glue("Failed to upload {filename}: {e$message}"))
+      warning(glue::glue("Failed to archive {filename}: {e$message}"))
     })
   }
 
