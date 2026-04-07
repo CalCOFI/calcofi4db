@@ -68,18 +68,6 @@ assign_grid_key <- function(
   DBI::dbExecute(con, paste0(
     'ALTER TABLE "', table, '" ADD COLUMN IF NOT EXISTS grid_key TEXT'))
 
-  # refresh grid geometry from WKB to work around DuckDB spatial
-  # serialization bug where GEOMETRY columns corrupt after many operations.
-  # only applies to TABLEs with geom_wkb (not VIEWs from parquet)
-  if (grid_table %in% DBI::dbListTables(con)) {
-    grid_cols <- DBI::dbListFields(con, grid_table)
-    if ("geom_wkb" %in% grid_cols) {
-      DBI::dbExecute(con, paste0(
-        "UPDATE ", grid_table, " SET geom = ST_GeomFromHEXWKB(geom_wkb)"))
-      message("Refreshed grid geometry from geom_wkb")
-    }
-  }
-
   DBI::dbExecute(con, paste0(
     'UPDATE "', table, '" SET grid_key = (',
     'SELECT g.grid_key FROM ', grid_table, ' g',

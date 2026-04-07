@@ -1,9 +1,15 @@
-# calcofi4db 2.5.6
+# calcofi4db 2.6.0
 
-*Grid geometry refresh workaround for DuckDB spatial bug*
+*Native GEOMETRY storage via DuckDB v1.5 — removes spatial workaround*
 
-- **`assign_grid_key()` refreshes grid geometry** from stored `geom_wkb` before spatial joins, working around a DuckDB v1.5.1 spatial serialization bug where GEOMETRY columns corrupt after many operations in file-backed DBs. Only applies to BASE TABLEs with `geom_wkb`; VIEWs from parquet are unaffected.
-- **Avoid glue in spatial.R** Replaced `glue::glue()` with `paste0()` in `assign_grid_key()` to prevent cli from intercepting `{variable}` patterns in error messages propagated through targets.
+- **`storage_compatibility_version = 'latest'`** `get_duckdb_con()` now sets this in the default config, enabling DuckDB v1.5's native built-in GEOMETRY type. This fixes the "Buffer overflow" / "Skipping beyond end of binary data" spatial serialization bug that occurred with the old v0.10.2 storage format.
+- **Removed geom_wkb workaround** `assign_grid_key()` no longer refreshes grid geometry from a stored WKB column — native GEOMETRY storage is reliable.
+- **Requires `duckdb >= 1.5.1`** Added minimum version constraint in DESCRIPTION to ensure the native GEOMETRY type is available.
+- **Avoid glue in spatial.R** `assign_grid_key()` uses `paste0()` instead of `glue::glue()` to prevent cli from intercepting `{variable}` patterns in error messages propagated through targets.
+
+# calcofi4db 2.5.6 (superseded)
+
+*Grid geometry refresh workaround for DuckDB spatial bug (removed in 2.6.0)*
 
 # calcofi4db 2.5.5
 

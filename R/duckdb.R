@@ -59,8 +59,11 @@ get_duckdb_con <- function(
     config <- list()
   }
 
-  # autoload extensions so spatial is available during WAL replay
-  default_config <- list(autoload_known_extensions = "true")
+  # autoload extensions so spatial is available during WAL replay;
+  # use latest storage format for native GEOMETRY type (v1.5+)
+  default_config <- list(
+    autoload_known_extensions     = "true",
+    storage_compatibility_version = "latest")
   config <- utils::modifyList(default_config, config)
 
   # named driver tied to the DB file (proper WAL lifecycle)
