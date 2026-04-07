@@ -1235,6 +1235,14 @@ enforce_column_types <- function(
 #' @param con DuckDB connection
 #' @param output_dir Directory for parquet files
 #' @param tables Optional vector of table names to export. If NULL, exports all tables.
+#' @param partition_by Named list mapping table names to partition column(s),
+#'   e.g. `list(ctd_measurement = "cruise_key")`. Creates hive-partitioned
+#'   subdirectories.
+#' @param sort_by Named list mapping table names to sort column(s) for
+#'   optimized row group statistics. For Hilbert-curve spatial sorting,
+#'   use `"hilbert:lon_col,lat_col"`. Example:
+#'   `list(ctd_measurement = c("measurement_type", "depth_m"),
+#'         site = "hilbert:longitude,latitude")`.
 #' @param strip_provenance Remove provenance columns (_source_*, _ingested_at) (default: TRUE)
 #' @param compression Parquet compression codec (default: "snappy")
 #' @param mismatches Optional named list of mismatch tibbles to include in
@@ -1264,6 +1272,7 @@ write_parquet_outputs <- function(
     output_dir,
     tables           = NULL,
     partition_by     = NULL,
+    sort_by          = NULL,
     strip_provenance = TRUE,
     compression      = "snappy",
     mismatches       = NULL,
@@ -1291,6 +1300,9 @@ write_parquet_outputs <- function(
   } else {
     part_map <- as.list(partition_by)
   }
+
+  # normalize sort_by to named list: table -> sort column(s)
+  sort_map <- if (is.null(sort_by)) list() else as.list(sort_by)
 
   # provenance columns to strip
   prov_cols <- c("_source_file", "_source_row", "_source_uuid", "_ingested_at")
@@ -1374,16 +1386,35 @@ write_parquet_outputs <- function(
         path = output_path, partitioned = is_partitioned))
     }
 
+    # build ORDER BY clause from sort_by
+    sort_cols <- sort_map[[tbl]]
+    order_clause <- ""
+    if (!is.null(sort_cols)) {
+      # handle hilbert spatial sort: "hilbert:lon_col,lat_col"
+      # uses ST_Hilbert(x, y, bounds) from DuckDB spatial extension
+      order_parts <- vapply(sort_cols, function(sc) {
+        if (grepl("^hilbert:", sc)) {
+          coords <- trimws(strsplit(sub("^hilbert:", "", sc), ",")[[1]])
+          paste0(
+            "ST_Hilbert(", coords[1], ", ", coords[2],
+            ", {min_x: -180, min_y: -90, max_x: 180, max_y: 90}::BOX_2D)")
+        } else {
+          sc
+        }
+      }, character(1))
+      order_clause <- paste(" ORDER BY", paste(order_parts, collapse = ", "))
+    }
+
     if (is_partitioned) {
       # hive-partitioned output to subdirectory
       if (dir.exists(output_path)) unlink(output_path, recursive = TRUE)
       part_clause <- paste(part_cols, collapse = ", ")
 
-      DBI::dbExecute(con, glue::glue("
-        COPY (SELECT {select_clause} FROM {tbl})
-        TO '{output_path}'
-        (FORMAT PARQUET, PARTITION_BY ({part_clause}),
-         COMPRESSION '{compression}', OVERWRITE_OR_IGNORE)"))
+      DBI::dbExecute(con, paste0(
+        "COPY (SELECT ", select_clause, " FROM ", tbl, order_clause, ")",
+        " TO '", output_path, "'",
+        " (FORMAT PARQUET, PARTITION_BY (", part_clause, "),",
+        " COMPRESSION '", compression, "', OVERWRITE_OR_IGNORE)"))
 
       # sum file sizes across partition files
       part_files <- list.files(output_path, pattern = "\\.parquet$",
@@ -1391,10 +1422,10 @@ write_parquet_outputs <- function(
       file_size <- sum(file.info(part_files)$size)
     } else {
       # single parquet file
-      DBI::dbExecute(con, glue::glue("
-        COPY (SELECT {select_clause} FROM {tbl})
-        TO '{output_path}'
-        (FORMAT PARQUET, COMPRESSION '{compression}')"))
+      DBI::dbExecute(con, paste0(
+        "COPY (SELECT ", select_clause, " FROM ", tbl, order_clause, ")",
+        " TO '", output_path, "'",
+        " (FORMAT PARQUET, COMPRESSION '", compression, "')"))
 
       file_size <- file.info(output_path)$size
     }
@@ -1405,7 +1436,10 @@ write_parquet_outputs <- function(
       paste0(round(file_size / 1024^2, 2), " MB")
     }
     part_label <- if (is_partitioned) " (partitioned)" else ""
-    message(glue::glue("Exported {tbl}: {n_rows} rows, {size_label}{part_label}"))
+    sort_label <- if (!is.null(sort_cols))
+      paste0(" sorted:", paste(sort_cols, collapse = ",")) else ""
+    message(glue::glue(
+      "Exported {tbl}: {n_rows} rows, {size_label}{part_label}{sort_label}"))
 
     tibble::tibble(
       table       = tbl,
@@ -1424,6 +1458,7 @@ write_parquet_outputs <- function(
     partitioned      = stats$table[stats$partitioned],
     supplemental     = if (!is.null(supplemental))
       intersect(supplemental, stats$table) else list(),
+    sort_by          = if (length(sort_map) > 0) sort_map else list(),
     files            = stats |> dplyr::select(-partitioned) |> as.list())
 
   # append mismatches if provided

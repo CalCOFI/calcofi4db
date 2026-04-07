@@ -9,6 +9,7 @@ write_parquet_outputs(
   output_dir,
   tables = NULL,
   partition_by = NULL,
+  sort_by = NULL,
   strip_provenance = TRUE,
   compression = "snappy",
   mismatches = NULL,
@@ -21,6 +22,15 @@ write_parquet_outputs(
 \item{output_dir}{Directory for parquet files}
 
 \item{tables}{Optional vector of table names to export. If NULL, exports all tables.}
+
+\item{partition_by}{Named list mapping table names to partition column(s),
+e.g. \code{list(ctd_measurement = "cruise_key")}. Creates hive-partitioned
+subdirectories.}
+
+\item{sort_by}{Named list mapping table names to sort column(s) for
+optimized row group statistics. For Hilbert-curve spatial sorting,
+use \code{"hilbert:lon_col,lat_col"}. Example:
+\code{list(ctd_measurement = c("measurement_type", "depth_m"), site = "hilbert:longitude,latitude")}.}
 
 \item{strip_provenance}{Remove provenance columns (\emph{source}*, _ingested_at) (default: TRUE)}
 
