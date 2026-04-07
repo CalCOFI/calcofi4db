@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.5.6</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -33,13 +33,21 @@
     </div>
 
     <div class="section level2">
-<h2 class="pkg-version" data-toc-text="2.5.6" id="calcofi4db-256">calcofi4db 2.5.6<a class="anchor" aria-label="anchor" href="#calcofi4db-256"></a></h2>
-<p><em>Grid geometry refresh workaround for DuckDB spatial bug</em></p>
+<h2 class="pkg-version" data-toc-text="2.6.0" id="calcofi4db-260">calcofi4db 2.6.0<a class="anchor" aria-label="anchor" href="#calcofi4db-260"></a></h2>
+<p><em>Native GEOMETRY storage via DuckDB v1.5 — removes spatial workaround</em></p>
 <ul><li>
-<strong><code><a href="../reference/assign_grid_key.html">assign_grid_key()</a></code> refreshes grid geometry</strong> from stored <code>geom_wkb</code> before spatial joins, working around a DuckDB v1.5.1 spatial serialization bug where GEOMETRY columns corrupt after many operations in file-backed DBs. Only applies to BASE TABLEs with <code>geom_wkb</code>; VIEWs from parquet are unaffected.</li>
+<strong><code>storage_compatibility_version = 'latest'</code></strong> <code><a href="../reference/get_duckdb_con.html">get_duckdb_con()</a></code> now sets this in the default config, enabling DuckDB v1.5’s native built-in GEOMETRY type. This fixes the “Buffer overflow” / “Skipping beyond end of binary data” spatial serialization bug that occurred with the old v0.10.2 storage format.</li>
 <li>
-<strong>Avoid glue in spatial.R</strong> Replaced <code><a href="https://glue.tidyverse.org/reference/glue.html" class="external-link">glue::glue()</a></code> with <code><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0()</a></code> in <code><a href="../reference/assign_grid_key.html">assign_grid_key()</a></code> to prevent cli from intercepting <code>{variable}</code> patterns in error messages propagated through targets.</li>
+<strong>Removed geom_wkb workaround</strong> <code><a href="../reference/assign_grid_key.html">assign_grid_key()</a></code> no longer refreshes grid geometry from a stored WKB column — native GEOMETRY storage is reliable.</li>
+<li>
+<strong>Requires <code>duckdb &gt;= 1.5.1</code></strong> Added minimum version constraint in DESCRIPTION to ensure the native GEOMETRY type is available.</li>
+<li>
+<strong>Avoid glue in spatial.R</strong> <code><a href="../reference/assign_grid_key.html">assign_grid_key()</a></code> uses <code><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0()</a></code> instead of <code><a href="https://glue.tidyverse.org/reference/glue.html" class="external-link">glue::glue()</a></code> to prevent cli from intercepting <code>{variable}</code> patterns in error messages propagated through targets.</li>
 </ul></div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="2.5.6" id="calcofi4db-256-superseded">calcofi4db 2.5.6 (superseded)<a class="anchor" aria-label="anchor" href="#calcofi4db-256-superseded"></a></h2>
+<p><em>Grid geometry refresh workaround for DuckDB spatial bug (removed in 2.6.0)</em></p>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.5.5" id="calcofi4db-255">calcofi4db 2.5.5<a class="anchor" aria-label="anchor" href="#calcofi4db-255"></a></h2>
 <p><em>Server-side GCS copy for archives &amp; sync_to_gcs replaces put_gcs_file loops</em></p>
