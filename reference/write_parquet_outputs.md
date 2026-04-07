@@ -11,6 +11,7 @@ write_parquet_outputs(
   output_dir,
   tables = NULL,
   partition_by = NULL,
+  sort_by = NULL,
   strip_provenance = TRUE,
   compression = "snappy",
   mismatches = NULL,
@@ -31,6 +32,19 @@ write_parquet_outputs(
 - tables:
 
   Optional vector of table names to export. If NULL, exports all tables.
+
+- partition_by:
+
+  Named list mapping table names to partition column(s), e.g.
+  `list(ctd_measurement = "cruise_key")`. Creates hive-partitioned
+  subdirectories.
+
+- sort_by:
+
+  Named list mapping table names to sort column(s) for optimized row
+  group statistics. For Hilbert-curve spatial sorting, use
+  `"hilbert:lon_col,lat_col"`. Example:
+  `list(ctd_measurement = c("measurement_type", "depth_m"), site = "hilbert:longitude,latitude")`.
 
 - strip_provenance:
 

@@ -1,5 +1,27 @@
 # Changelog
 
+## calcofi4db 2.6.1
+
+*Sorted parquet output with ST_Hilbert spatial ordering*
+
+- **`sort_by` parameter**
+  [`write_parquet_outputs()`](https://calcofi.io/calcofi4db/reference/write_parquet_outputs.md)
+  gains a `sort_by` named list to specify row ordering per table. Sorted
+  row groups enable predicate pushdown (min/max statistics skip
+  irrelevant chunks).
+- **Hilbert spatial sort** Use `"hilbert:lon_col,lat_col"` syntax in
+  `sort_by` to order rows by `ST_Hilbert()` curve position — clusters
+  spatially nearby records for fast bounding-box queries.
+- **[`paste0()`](https://rdrr.io/r/base/paste.html) in COPY TO** SQL
+  construction in
+  [`write_parquet_outputs()`](https://calcofi.io/calcofi4db/reference/write_parquet_outputs.md)
+  uses [`paste0()`](https://rdrr.io/r/base/paste.html) instead of
+  [`glue::glue()`](https://glue.tidyverse.org/reference/glue.html) to
+  prevent cli `{variable}` interpolation errors when propagating through
+  targets.
+- **sort_by in manifest.json** Sort specifications recorded alongside
+  `partition_by` for downstream consumers.
+
 ## calcofi4db 2.6.0
 
 *Native GEOMETRY storage via DuckDB v1.5 — removes spatial workaround*

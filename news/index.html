@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.6.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.6.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -32,6 +32,18 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="2.6.1" id="calcofi4db-261">calcofi4db 2.6.1<a class="anchor" aria-label="anchor" href="#calcofi4db-261"></a></h2>
+<p><em>Sorted parquet output with ST_Hilbert spatial ordering</em></p>
+<ul><li>
+<strong><code>sort_by</code> parameter</strong> <code><a href="../reference/write_parquet_outputs.html">write_parquet_outputs()</a></code> gains a <code>sort_by</code> named list to specify row ordering per table. Sorted row groups enable predicate pushdown (min/max statistics skip irrelevant chunks).</li>
+<li>
+<strong>Hilbert spatial sort</strong> Use <code>"hilbert:lon_col,lat_col"</code> syntax in <code>sort_by</code> to order rows by <code>ST_Hilbert()</code> curve position — clusters spatially nearby records for fast bounding-box queries.</li>
+<li>
+<strong><code><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0()</a></code> in COPY TO</strong> SQL construction in <code><a href="../reference/write_parquet_outputs.html">write_parquet_outputs()</a></code> uses <code><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0()</a></code> instead of <code><a href="https://glue.tidyverse.org/reference/glue.html" class="external-link">glue::glue()</a></code> to prevent cli <code>{variable}</code> interpolation errors when propagating through targets.</li>
+<li>
+<strong>sort_by in manifest.json</strong> Sort specifications recorded alongside <code>partition_by</code> for downstream consumers.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.6.0" id="calcofi4db-260">calcofi4db 2.6.0<a class="anchor" aria-label="anchor" href="#calcofi4db-260"></a></h2>
 <p><em>Native GEOMETRY storage via DuckDB v1.5 — removes spatial workaround</em></p>
