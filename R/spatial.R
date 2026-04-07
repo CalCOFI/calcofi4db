@@ -65,20 +65,29 @@ assign_grid_key <- function(
     geom_col   = "geom",
     grid_table = "grid") {
 
-  DBI::dbExecute(con, glue::glue(
-    'ALTER TABLE {table} ADD COLUMN IF NOT EXISTS grid_key TEXT'))
+  DBI::dbExecute(con, paste0(
+    'ALTER TABLE "', table, '" ADD COLUMN IF NOT EXISTS grid_key TEXT'))
 
-  DBI::dbExecute(con, glue::glue(
-    'UPDATE {table} SET grid_key = (
-       SELECT g.grid_key FROM {grid_table} g
-       WHERE ST_Intersects({table}.{geom_col}, g.geom) LIMIT 1)'))
+  # refresh grid geometry from WKB to work around DuckDB spatial
+  # serialization bug where GEOMETRY columns corrupt after many operations.
+  # only applies to TABLEs with geom_wkb (not VIEWs from parquet)
+  if (grid_table %in% DBI::dbListTables(con)) {
+    grid_cols <- DBI::dbListFields(con, grid_table)
+    if ("geom_wkb" %in% grid_cols) {
+      DBI::dbExecute(con, paste0(
+        "UPDATE ", grid_table, " SET geom = ST_GeomFromHEXWKB(geom_wkb)"))
+      message("Refreshed grid geometry from geom_wkb")
+    }
+  }
 
-  grid_stats <- DBI::dbGetQuery(con, glue::glue(
-    "SELECT
-       CASE WHEN grid_key IS NULL THEN 'not_in_grid' ELSE 'in_grid' END AS status,
-       COUNT(*) AS n
-     FROM {table}
-     GROUP BY status"))
+  DBI::dbExecute(con, paste0(
+    'UPDATE "', table, '" SET grid_key = (',
+    'SELECT g.grid_key FROM ', grid_table, ' g',
+    ' WHERE ST_Intersects("', table, '".', geom_col, ', g.geom) LIMIT 1)'))
+
+  grid_stats <- DBI::dbGetQuery(con, paste0(
+    "SELECT CASE WHEN grid_key IS NULL THEN 'not_in_grid' ELSE 'in_grid' END AS status,",
+    " COUNT(*) AS n FROM ", table, " GROUP BY status"))
 
   message(glue::glue(
     "Assigned grid_key to {table}: ",
