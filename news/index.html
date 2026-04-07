@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.5.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.5.5</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -32,6 +32,16 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="2.5.5" id="calcofi4db-255">calcofi4db 2.5.5<a class="anchor" aria-label="anchor" href="#calcofi4db-255"></a></h2>
+<p><em>Server-side GCS copy for archives &amp; sync_to_gcs replaces put_gcs_file loops</em></p>
+<ul><li>
+<strong>Server-side archive copy</strong> <code>.sync_to_gcs_archive()</code> now checks <code>_sync/{provider}/{dataset}/</code> on GCS before uploading from local. If a file exists with matching MD5, uses <code><a href="../reference/copy_gcs_file.html">copy_gcs_file()</a></code> for instant server-side copy — no local I/O or GD mount needed.</li>
+<li>
+<strong><code>copy_gcs_file(src, dst)</code></strong> New helper for server-side GCS-to-GCS copy via <code>gcloud storage cp</code>.</li>
+<li>
+<strong>Bottle &amp; DIC uploads</strong> replaced <code><a href="../reference/put_gcs_file.html">put_gcs_file()</a></code> loops in QMDs with <code><a href="../reference/sync_to_gcs.html">sync_to_gcs()</a></code> for hash-based deduplication (idempotent re-renders).</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.5.4" id="calcofi4db-254">calcofi4db 2.5.4<a class="anchor" aria-label="anchor" href="#calcofi4db-254"></a></h2>
 <p><em>Consolidated <code><a href="../reference/sync_to_gcs.html">sync_to_gcs()</a></code> with archive mode, exclude patterns &amp; GCS logging</em></p>

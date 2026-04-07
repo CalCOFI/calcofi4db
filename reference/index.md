@@ -6,6 +6,8 @@ functions for Google Cloud Storage operations
 
 - [`cleanup_gcs_obsolete()`](https://calcofi.io/calcofi4db/reference/cleanup_gcs_obsolete.md)
   : Clean up obsolete GCS directories from dataset renames
+- [`copy_gcs_file()`](https://calcofi.io/calcofi4db/reference/copy_gcs_file.md)
+  : Server-side copy between GCS paths
 - [`create_gcs_manifest()`](https://calcofi.io/calcofi4db/reference/create_gcs_manifest.md)
   : Create a manifest of current GCS files
 - [`delete_gcs_prefix()`](https://calcofi.io/calcofi4db/reference/delete_gcs_prefix.md)
