@@ -783,6 +783,7 @@ consolidate_ichthyo_tables <- function(
     larva_tbl         = "larva",
     larvastage_tbl    = "larva_stage",
     larvasize_tbl     = "larva_size",
+    invert_tbl        = "invert",
     larva_stage_vocab = NULL,
     net_id_col        = "net_uuid") {
 
@@ -892,6 +893,23 @@ consolidate_ichthyo_tables <- function(
 
     ichthyo_rows <- append(ichthyo_rows, list(larvasize_data))
     message(glue::glue("  Processed {nrow(larvasize_data)} rows from {larvasize_tbl}"))
+  }
+
+  # 6. invert totals (life_stage = 'invert', measurement_type = NULL)
+  if (table_exists(invert_tbl)) {
+    invert_data <- dplyr::tbl(con, invert_tbl) |>
+      dplyr::collect() |>
+      dplyr::mutate(
+        net_uuid          = .data[[net_id_col]],
+        life_stage        = "invert",
+        measurement_type  = NA_character_,
+        measurement_value = NA_real_) |>
+      select_with_prov(
+        "net_uuid", "species_id", "life_stage",
+        "measurement_type", "measurement_value", "tally")
+
+    ichthyo_rows <- append(ichthyo_rows, list(invert_data))
+    message(glue::glue("  Processed {nrow(invert_data)} rows from {invert_tbl}"))
   }
 
   # combine all rows
@@ -1028,15 +1046,37 @@ apply_data_corrections <- function(con, verbose = TRUE) {
     }
   }
 
-  # add additional corrections here as they are identified
-  # correction 2: example placeholder
-  # if ("some_table" %in% DBI::dbListTables(con)) {
-  #   result <- DBI::dbExecute(con, "UPDATE some_table SET ... WHERE ...")
-  #   if (result > 0) {
-  #     if (verbose) message("Correction: ...")
-  #     corrections_applied <- corrections_applied + 1
-  #   }
-  # }
+  # correction 2: add missing invert species not in Ed Weber's species.csv
+  # these species exist in inverts.csv but have no matching species_id row.
+  # names and IDs sourced from ERDDAP erdCalCOFIinvcnt; worms_id from WoRMS.
+  if ("species" %in% DBI::dbListTables(con)) {
+    missing_species <- data.frame(
+      species_id      = c(9542L,  9562L,  9597L,  9607L,  9787L,  9790L),
+      scientific_name = c("Doryteuthis opalescens", "Abraliopsis sp A",
+                          "Onychoteuthis sp B", "Onykia robusta",
+                          "Octopodid type E", "Octopodid type H"),
+      common_name     = c("Market squid", NA, NA, "Robust clubhook squid", NA, NA),
+      itis_id         = c(82371L, 82398L, 82439L, 82438L, 82590L, 82590L),
+      worms_id        = c(574540L, NA, NA, 342397L, NA, NA),
+      stringsAsFactors = FALSE)
+
+    existing <- DBI::dbGetQuery(con, paste0(
+      "SELECT species_id FROM species WHERE species_id IN (",
+      paste(missing_species$species_id, collapse = ","), ")"))
+
+    to_add <- missing_species[!missing_species$species_id %in% existing$species_id, ]
+
+    # only keep columns that exist in the target table
+    if (nrow(to_add) > 0) {
+      tbl_cols <- DBI::dbListFields(con, "species")
+      to_add   <- to_add[, intersect(names(to_add), tbl_cols), drop = FALSE]
+      DBI::dbWriteTable(con, "species", to_add, append = TRUE)
+      if (verbose) message(glue::glue(
+        "Correction: Added {nrow(to_add)} missing invert species to species table: ",
+        "{paste(to_add$scientific_name, collapse = ', ')}"))
+      corrections_applied <- corrections_applied + nrow(to_add)
+    }
+  }
 
   if (verbose) {
     message(glue::glue("Applied {corrections_applied} data correction(s)"))

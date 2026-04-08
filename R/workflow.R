@@ -709,6 +709,10 @@ parse_qmd_frontmatter <- function(
 #' @param corrections Character vector of correction file paths relative to
 #'   `workflows_dir` (default: `c("metadata/ship_renames.csv",
 #'   "metadata/measurement_type.csv")`)
+#' @param exclude Character vector of target names to exclude from the pipeline
+#'   (default: NULL). Excluded targets are also removed from other targets'
+#'   dependency lists. Useful for skipping large workflows like
+#'   `"ingest_calcofi_ctd-cast"`.
 #' @param verbose Print parsed workflow table (default: TRUE)
 #'
 #' @return A `list()` of `tar_target()` objects ready for `_targets.R`
@@ -721,12 +725,16 @@ parse_qmd_frontmatter <- function(
 #' library(targets)
 #' devtools::load_all(here::here("../calcofi4db"))
 #' build_targets_list()
+#'
+#' # skip CTD ingest:
+#' build_targets_list(exclude = "ingest_calcofi_ctd-cast")
 #' }
 #' @importFrom glue glue
 build_targets_list <- function(
     workflows_dir = here::here(),
     corrections   = c("metadata/ship_renames.csv",
                        "metadata/measurement_type.csv"),
+    exclude       = NULL,
     verbose       = TRUE) {
 
   if (!requireNamespace("targets", quietly = TRUE)) {
@@ -737,6 +745,22 @@ build_targets_list <- function(
 
   if (nrow(wf) == 0) {
     stop("No .qmd files with calcofi: frontmatter found in ", workflows_dir)
+  }
+
+  # exclude requested targets
+  if (!is.null(exclude) && length(exclude) > 0) {
+    # normalize: allow qmd filenames, target names with underscores or hyphens
+    exclude_targets <- gsub("-", "_", gsub("\\.qmd$", "", exclude))
+    n_before <- nrow(wf)
+    wf <- wf[!wf$target_name %in% exclude_targets, ]
+    if (verbose && nrow(wf) < n_before) {
+      message("Excluded ", n_before - nrow(wf), " target(s): ",
+              paste(exclude_targets, collapse = ", "))
+    }
+    # also strip excluded targets from dependency lists
+    wf$dependency <- lapply(wf$dependency, function(deps) {
+      setdiff(deps, exclude_targets)
+    })
   }
 
   if (verbose) {

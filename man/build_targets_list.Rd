@@ -7,6 +7,7 @@
 build_targets_list(
   workflows_dir = here::here(),
   corrections = c("metadata/ship_renames.csv", "metadata/measurement_type.csv"),
+  exclude = NULL,
   verbose = TRUE
 )
 }
@@ -15,6 +16,11 @@ build_targets_list(
 
 \item{corrections}{Character vector of correction file paths relative to
 \code{workflows_dir} (default: \code{c("metadata/ship_renames.csv", "metadata/measurement_type.csv")})}
+
+\item{exclude}{Character vector of target names to exclude from the pipeline
+(default: NULL). Excluded targets are also removed from other targets'
+dependency lists. Useful for skipping large workflows like
+\code{"ingest_calcofi_ctd-cast"}.}
 
 \item{verbose}{Print parsed workflow table (default: TRUE)}
 }
@@ -38,6 +44,9 @@ depend on all targets whose \code{workflow_type} is \code{"ingest"} or \code{"sp
 library(targets)
 devtools::load_all(here::here("../calcofi4db"))
 build_targets_list()
+
+# skip CTD ingest:
+build_targets_list(exclude = "ingest_calcofi_ctd-cast")
 }
 }
 \concept{workflow}

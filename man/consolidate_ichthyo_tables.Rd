@@ -12,6 +12,7 @@ consolidate_ichthyo_tables(
   larva_tbl = "larva",
   larvastage_tbl = "larva_stage",
   larvasize_tbl = "larva_size",
+  invert_tbl = "invert",
   larva_stage_vocab = NULL,
   net_id_col = "net_uuid"
 )
