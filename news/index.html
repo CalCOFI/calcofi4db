@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.6.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.6.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -32,6 +32,16 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="2.6.2" id="calcofi4db-262">calcofi4db 2.6.2<a class="anchor" aria-label="anchor" href="#calcofi4db-262"></a></h2>
+<p><em>Invert consolidation, pipeline exclusions, and missing species corrections</em></p>
+<ul><li>
+<strong><code><a href="../reference/consolidate_ichthyo_tables.html">consolidate_ichthyo_tables()</a></code></strong> gains <code>invert_tbl</code> parameter — folds Ed Weber’s <code>inverts.csv</code> into the unified <code>ichthyo</code> table with <code>life_stage = "invert"</code>.</li>
+<li>
+<strong><code><a href="../reference/build_targets_list.html">build_targets_list()</a></code></strong> gains <code>exclude</code> parameter — skip targets by name (e.g., <code>exclude = "ingest_calcofi_ctd-cast"</code>). Excluded targets are also stripped from other targets’ dependency lists. Normalizes hyphens to underscores for matching.</li>
+<li>
+<strong><code><a href="../reference/apply_data_corrections.html">apply_data_corrections()</a></code></strong> adds 6 missing invert species (including Market squid, <em>Doryteuthis opalescens</em>) sourced from ERDDAP <code>erdCalCOFIinvcnt</code>. Dynamically matches columns to avoid errors when <code>gbif_id</code> hasn’t been added yet.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.6.1" id="calcofi4db-261">calcofi4db 2.6.1<a class="anchor" aria-label="anchor" href="#calcofi4db-261"></a></h2>
 <p><em>Sorted parquet output with ST_Hilbert spatial ordering</em></p>

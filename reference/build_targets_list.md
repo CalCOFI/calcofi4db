@@ -14,6 +14,7 @@ re-run of dependent ingest targets.
 build_targets_list(
   workflows_dir = here::here(),
   corrections = c("metadata/ship_renames.csv", "metadata/measurement_type.csv"),
+  exclude = NULL,
   verbose = TRUE
 )
 ```
@@ -30,6 +31,13 @@ build_targets_list(
   Character vector of correction file paths relative to `workflows_dir`
   (default:
   `c("metadata/ship_renames.csv", "metadata/measurement_type.csv")`)
+
+- exclude:
+
+  Character vector of target names to exclude from the pipeline
+  (default: NULL). Excluded targets are also removed from other targets'
+  dependency lists. Useful for skipping large workflows like
+  `"ingest_calcofi_ctd-cast"`.
 
 - verbose:
 
@@ -55,5 +63,8 @@ if (FALSE) { # \dontrun{
 library(targets)
 devtools::load_all(here::here("../calcofi4db"))
 build_targets_list()
+
+# skip CTD ingest:
+build_targets_list(exclude = "ingest_calcofi_ctd-cast")
 } # }
 ```

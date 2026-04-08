@@ -15,7 +15,7 @@ so any edit to those files forces re-run of dependent ingest targets."></head><b
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.6.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.6.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -54,6 +54,7 @@ so any edit to those files forces re-run of dependent ingest targets.</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">build_targets_list</span><span class="op">(</span></span>
 <span>  workflows_dir <span class="op">=</span> <span class="fu">here</span><span class="fu">::</span><span class="fu"><a href="https://here.r-lib.org/reference/here.html" class="external-link">here</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  corrections <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"metadata/ship_renames.csv"</span>, <span class="st">"metadata/measurement_type.csv"</span><span class="op">)</span>,</span>
+<span>  exclude <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -69,6 +70,13 @@ so any edit to those files forces re-run of dependent ingest targets.</p>
 <dt id="arg-corrections">corrections<a class="anchor" aria-label="anchor" href="#arg-corrections"></a></dt>
 <dd><p>Character vector of correction file paths relative to
 <code>workflows_dir</code> (default: <code>c("metadata/ship_renames.csv", "metadata/measurement_type.csv")</code>)</p></dd>
+
+
+<dt id="arg-exclude">exclude<a class="anchor" aria-label="anchor" href="#arg-exclude"></a></dt>
+<dd><p>Character vector of target names to exclude from the pipeline
+(default: NULL). Excluded targets are also removed from other targets'
+dependency lists. Useful for skipping large workflows like
+<code>"ingest_calcofi_ctd-cast"</code>.</p></dd>
 
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
@@ -92,6 +100,9 @@ depend on all targets whose <code>workflow_type</code> is <code>"ingest"</code> 
 <span class="r-in"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://docs.ropensci.org/targets/" class="external-link">targets</a></span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu">devtools</span><span class="fu">::</span><span class="fu">load_all</span><span class="op">(</span><span class="fu">here</span><span class="fu">::</span><span class="fu"><a href="https://here.r-lib.org/reference/here.html" class="external-link">here</a></span><span class="op">(</span><span class="st">"../calcofi4db"</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu">build_targets_list</span><span class="op">(</span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># skip CTD ingest:</span></span></span>
+<span class="r-in"><span><span class="fu">build_targets_list</span><span class="op">(</span>exclude <span class="op">=</span> <span class="st">"ingest_calcofi_ctd-cast"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 </code></pre></div>
     </div>
