@@ -9,7 +9,7 @@ Optionally strips provenance columns for public releases."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.6.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -46,8 +46,12 @@ Optionally strips provenance columns for public releases.</p>
 <span>  <span class="va">con</span>,</span>
 <span>  <span class="va">output_dir</span>,</span>
 <span>  tables <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  partition_by <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  sort_by <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  strip_provenance <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  compression <span class="op">=</span> <span class="st">"snappy"</span></span>
+<span>  compression <span class="op">=</span> <span class="st">"snappy"</span>,</span>
+<span>  mismatches <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  supplemental <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -67,12 +71,39 @@ Optionally strips provenance columns for public releases.</p>
 <dd><p>Optional vector of table names to export. If NULL, exports all tables.</p></dd>
 
 
+<dt id="arg-partition-by">partition_by<a class="anchor" aria-label="anchor" href="#arg-partition-by"></a></dt>
+<dd><p>Named list mapping table names to partition column(s),
+e.g. <code>list(ctd_measurement = "cruise_key")</code>. Creates hive-partitioned
+subdirectories.</p></dd>
+
+
+<dt id="arg-sort-by">sort_by<a class="anchor" aria-label="anchor" href="#arg-sort-by"></a></dt>
+<dd><p>Named list mapping table names to sort column(s) for
+optimized row group statistics. For Hilbert-curve spatial sorting,
+use <code>"hilbert:lon_col,lat_col"</code>. Example:
+<code>list(ctd_measurement = c("measurement_type", "depth_m"), site = "hilbert:longitude,latitude")</code>.</p></dd>
+
+
 <dt id="arg-strip-provenance">strip_provenance<a class="anchor" aria-label="anchor" href="#arg-strip-provenance"></a></dt>
 <dd><p>Remove provenance columns (<em>source</em>*, _ingested_at) (default: TRUE)</p></dd>
 
 
 <dt id="arg-compression">compression<a class="anchor" aria-label="anchor" href="#arg-compression"></a></dt>
 <dd><p>Parquet compression codec (default: "snappy")</p></dd>
+
+
+<dt id="arg-mismatches">mismatches<a class="anchor" aria-label="anchor" href="#arg-mismatches"></a></dt>
+<dd><p>Optional named list of mismatch tibbles to include in
+manifest.json. Expected names: <code>ships</code>, <code>measurement_types</code>, <code>cruise_keys</code>.
+Each element should be a tibble (or data frame) describing unresolved
+entities. Zero-row tibbles are recorded as empty arrays.</p></dd>
+
+
+<dt id="arg-supplemental">supplemental<a class="anchor" aria-label="anchor" href="#arg-supplemental"></a></dt>
+<dd><p>Character vector of table names that are supplemental
+outputs (e.g. wide-format tables for ERDDAP). These are written to parquet
+and listed in manifest.json under <code>"supplemental"</code>, but are excluded by
+default from downstream database loading via <code><a href="load_prior_tables.html">load_prior_tables()</a></code>.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -97,7 +128,7 @@ Optionally strips provenance columns for public releases.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.3.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
 </div>
 
     </footer></div>

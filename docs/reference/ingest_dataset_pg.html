@@ -15,7 +15,7 @@ Legacy function to ingest a dataset into PostgreSQL database."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.6.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -109,8 +109,8 @@ Legacy function to ingest a dataset into PostgreSQL database."></head><body>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">ingest_dataset_pg</span><span class="op">(</span></span></span>
 <span class="r-in"><span>  con <span class="op">=</span> <span class="va">db_connection</span>,</span></span>
-<span class="r-in"><span>  provider <span class="op">=</span> <span class="st">"swfsc.noaa.gov"</span>,</span></span>
-<span class="r-in"><span>  dataset <span class="op">=</span> <span class="st">"calcofi-db"</span>,</span></span>
+<span class="r-in"><span>  provider <span class="op">=</span> <span class="st">"swfsc"</span>,</span></span>
+<span class="r-in"><span>  dataset <span class="op">=</span> <span class="st">"ichthyo"</span>,</span></span>
 <span class="r-in"><span>  dir_data <span class="op">=</span> <span class="st">"/path/to/data"</span>,</span></span>
 <span class="r-in"><span>  schema <span class="op">=</span> <span class="st">"public"</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
@@ -126,7 +126,7 @@ Legacy function to ingest a dataset into PostgreSQL database."></head><body>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.3.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
 </div>
 
     </footer></div>

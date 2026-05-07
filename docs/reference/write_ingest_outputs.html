@@ -11,7 +11,7 @@ tracking provenance back to the source archive."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.6.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -63,11 +63,11 @@ tracking provenance back to the source archive.</p>
 
 
 <dt id="arg-provider">provider<a class="anchor" aria-label="anchor" href="#arg-provider"></a></dt>
-<dd><p>Data provider (e.g., "swfsc.noaa.gov")</p></dd>
+<dd><p>Data provider (e.g., "swfsc")</p></dd>
 
 
 <dt id="arg-dataset">dataset<a class="anchor" aria-label="anchor" href="#arg-dataset"></a></dt>
-<dd><p>Dataset name (e.g., "calcofi-db")</p></dd>
+<dd><p>Dataset name (e.g., "ichthyo")</p></dd>
 
 
 <dt id="arg-gcs-bucket">gcs_bucket<a class="anchor" aria-label="anchor" href="#arg-gcs-bucket"></a></dt>
@@ -90,14 +90,14 @@ tracking provenance back to the source archive.</p>
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
 <span class="r-in"><span><span class="va">d</span> <span class="op">&lt;-</span> <span class="fu"><a href="read_csv_files.html">read_csv_files</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>  provider     <span class="op">=</span> <span class="st">"swfsc.noaa.gov"</span>,</span></span>
-<span class="r-in"><span>  dataset      <span class="op">=</span> <span class="st">"calcofi-db"</span>,</span></span>
+<span class="r-in"><span>  provider     <span class="op">=</span> <span class="st">"swfsc"</span>,</span></span>
+<span class="r-in"><span>  dataset      <span class="op">=</span> <span class="st">"ichthyo"</span>,</span></span>
 <span class="r-in"><span>  metadata_dir <span class="op">=</span> <span class="st">"metadata"</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">write_ingest_outputs</span><span class="op">(</span></span></span>
 <span class="r-in"><span>  data_info  <span class="op">=</span> <span class="va">d</span>,</span></span>
-<span class="r-in"><span>  provider   <span class="op">=</span> <span class="st">"swfsc.noaa.gov"</span>,</span></span>
-<span class="r-in"><span>  dataset    <span class="op">=</span> <span class="st">"calcofi-db"</span><span class="op">)</span></span></span>
+<span class="r-in"><span>  provider   <span class="op">=</span> <span class="st">"swfsc"</span>,</span></span>
+<span class="r-in"><span>  dataset    <span class="op">=</span> <span class="st">"ichthyo"</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># check manifest</span></span></span>
 <span class="r-in"><span><span class="va">result</span><span class="op">$</span><span class="va">manifest</span><span class="op">$</span><span class="va">tables</span></span></span>
@@ -113,7 +113,7 @@ tracking provenance back to the source archive.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.3.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
 </div>
 
     </footer></div>

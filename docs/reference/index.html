@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.6.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -36,67 +36,96 @@
 
       <div class="section-desc"><p>functions for Google Cloud Storage operations</p></div>
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
 
       <dl><dt>
 
+          <code><a href="cleanup_gcs_obsolete.html">cleanup_gcs_obsolete()</a></code>
+
+        </dt>
+        <dd>Clean up obsolete GCS directories from dataset renames</dd>
+
+        <dt>
+
+          <code><a href="copy_gcs_file.html">copy_gcs_file()</a></code>
+
+        </dt>
+        <dd>Server-side copy between GCS paths</dd>
+
+        <dt>
+
           <code><a href="create_gcs_manifest.html">create_gcs_manifest()</a></code>
 
         </dt>
         <dd>Create a manifest of current GCS files</dd>
-      </dl><dl><dt>
+
+        <dt>
+
+          <code><a href="delete_gcs_prefix.html">delete_gcs_prefix()</a></code>
+
+        </dt>
+        <dd>Delete all objects under a GCS prefix</dd>
+
+        <dt>
 
           <code><a href="get_calcofi_file.html">get_calcofi_file()</a></code>
 
         </dt>
         <dd>Get a CalCOFI file from the immutable archive</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="get_gcs_file.html">get_gcs_file()</a></code>
 
         </dt>
         <dd>Get a file from Google Cloud Storage</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="get_historical_file.html">get_historical_file()</a></code>
 
         </dt>
         <dd>Get historical file from a specific date</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="get_manifest.html">get_manifest()</a></code>
 
         </dt>
         <dd>Get manifest for a specific date</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="list_calcofi_files.html">list_calcofi_files()</a></code>
 
         </dt>
         <dd>List CalCOFI files from manifest</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="list_gcs_files.html">list_gcs_files()</a></code>
 
         </dt>
         <dd>List files in a GCS bucket/prefix</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="list_gcs_versions.html">list_gcs_versions()</a></code>
 
         </dt>
         <dd>List versions of a file in GCS archive</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="put_gcs_file.html">put_gcs_file()</a></code>
 
         </dt>
         <dd>Upload a file to Google Cloud Storage</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="sync_to_gcs.html">sync_to_gcs()</a></code>
 
@@ -107,8 +136,7 @@
 
       <div class="section-desc"><p>functions for Apache Parquet file operations</p></div>
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
@@ -119,31 +147,43 @@
 
         </dt>
         <dd>Add metadata to Parquet file</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="csv_to_parquet.html">csv_to_parquet()</a></code>
 
         </dt>
         <dd>Convert CSV file to Parquet format</dd>
-      </dl><dl><dt>
+
+        <dt>
+
+          <code><a href="export_parquet.html">export_parquet()</a></code>
+
+        </dt>
+        <dd>Export a DuckDB Table or Query to Parquet</dd>
+
+        <dt>
 
           <code><a href="get_parquet_metadata.html">get_parquet_metadata()</a></code>
 
         </dt>
         <dd>Get Parquet file metadata</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="read_parquet_table.html">read_parquet_table()</a></code>
 
         </dt>
         <dd>Read a Parquet table</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="upload_parquet.html">upload_parquet()</a></code>
 
         </dt>
         <dd>Upload Parquet file to GCS</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="write_parquet_table.html">write_parquet_table()</a></code>
 
@@ -154,8 +194,7 @@
 
       <div class="section-desc"><p>basic DuckDB database operations</p></div>
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
@@ -166,49 +205,57 @@
 
         </dt>
         <dd>Disconnect from DuckDB and shutdown</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="create_duckdb_from_parquet.html">create_duckdb_from_parquet()</a></code>
 
         </dt>
         <dd>Create DuckDB from Parquet files</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="create_duckdb_views.html">create_duckdb_views()</a></code>
 
         </dt>
         <dd>Create views from a manifest</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="duckdb_to_parquet.html">duckdb_to_parquet()</a></code>
 
         </dt>
         <dd>Export DuckDB table to Parquet</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="get_duckdb_con.html">get_duckdb_con()</a></code>
 
         </dt>
         <dd>Get a DuckDB connection</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="get_duckdb_tables.html">get_duckdb_tables()</a></code>
 
         </dt>
         <dd>Get table information from DuckDB</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="load_duckdb_extension.html">load_duckdb_extension()</a></code>
 
         </dt>
         <dd>Install and load DuckDB extension</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="save_duckdb_to_gcs.html">save_duckdb_to_gcs()</a></code>
 
         </dt>
         <dd>Save DuckDB to GCS</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="set_duckdb_comments.html">set_duckdb_comments()</a></code>
 
@@ -219,8 +266,7 @@
 
       <div class="section-desc"><p>functions for the internal Working DuckLake with provenance tracking</p></div>
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
@@ -231,43 +277,57 @@
 
         </dt>
         <dd>Add provenance columns to a data frame</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="get_working_ducklake.html">get_working_ducklake()</a></code>
 
         </dt>
         <dd>Get Working DuckLake connection</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="ingest_dataset.html">ingest_dataset()</a></code>
 
         </dt>
         <dd>Ingest Dataset into Working DuckLake</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="ingest_to_working.html">ingest_to_working()</a></code>
 
         </dt>
         <dd>Ingest data to Working DuckLake</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="list_working_tables.html">list_working_tables()</a></code>
 
         </dt>
         <dd>List tables with provenance in Working DuckLake</dd>
-      </dl><dl><dt>
+
+        <dt>
+
+          <code><a href="load_prior_tables.html">load_prior_tables()</a></code>
+
+        </dt>
+        <dd>Load Tables from a Prior Ingest's Parquet Directory</dd>
+
+        <dt>
 
           <code><a href="query_at_time.html">query_at_time()</a></code>
 
         </dt>
         <dd>Query Working DuckLake at a point in time</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="save_working_ducklake.html">save_working_ducklake()</a></code>
 
         </dt>
         <dd>Save Working DuckLake to GCS</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="strip_provenance_columns.html">strip_provenance_columns()</a></code>
 
@@ -278,8 +338,7 @@
 
       <div class="section-desc"><p>functions for creating and managing frozen DuckLake releases</p></div>
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
@@ -290,31 +349,36 @@
 
         </dt>
         <dd>Compare two frozen releases</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="freeze_release.html">freeze_release()</a></code>
 
         </dt>
         <dd>Freeze a release of the DuckLake</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="get_release_metadata.html">get_release_metadata()</a></code>
 
         </dt>
         <dd>Get metadata for a frozen release</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="list_frozen_releases.html">list_frozen_releases()</a></code>
 
         </dt>
         <dd>List available frozen releases</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="upload_frozen_release.html">upload_frozen_release()</a></code>
 
         </dt>
         <dd>Upload Frozen Release to GCS</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="validate_for_release.html">validate_for_release()</a></code>
 
@@ -325,8 +389,7 @@
 
       <div class="section-desc"><p>functions reading data, particularly from CSV files in the Google Drive CalCOFI data folder</p></div>
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
@@ -337,19 +400,22 @@
 
         </dt>
         <dd>Create Redefinition Files for Tables and Fields</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="determine_field_types.html">determine_field_types()</a></code>
 
         </dt>
         <dd>Determine Field Types for Database</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="read_csv_files.html">read_csv_files()</a></code>
 
         </dt>
         <dd>Read CSV Files and Their Metadata</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="read_csv_metadata.html">read_csv_metadata()</a></code>
 
@@ -360,8 +426,7 @@
 
       <div class="section-desc"><p>functions to transform data, after reading data and before ingesting into the database</p></div>
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
@@ -372,19 +437,22 @@
 
         </dt>
         <dd>Detect Changes in CSV Files</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="display_csv_changes.html">display_csv_changes()</a></code>
 
         </dt>
         <dd>Display CSV Changes in a Formatted Table</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="print_csv_change_stats.html">print_csv_change_stats()</a></code>
 
         </dt>
         <dd>Print CSV Change Statistics</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="transform_data.html">transform_data()</a></code>
 
@@ -395,8 +463,7 @@
 
       <div class="section-desc"><p>functions for data validation and integrity checking</p></div>
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
@@ -407,13 +474,15 @@
 
         </dt>
         <dd>Check Data Integrity for Ingestion</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="check_multiple_datasets.html">check_multiple_datasets()</a></code>
 
         </dt>
         <dd>Check Multiple Datasets for Integrity</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="render_integrity_message.html">render_integrity_message()</a></code>
 
@@ -424,8 +493,7 @@
 
       <div class="section-desc"><p>functions for referential integrity validation and flagging invalid rows</p></div>
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
@@ -436,31 +504,36 @@
 
         </dt>
         <dd>Delete Flagged Rows from Database</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="flag_invalid_rows.html">flag_invalid_rows()</a></code>
 
         </dt>
         <dd>Flag and Export Invalid Rows</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="validate_dataset.html">validate_dataset()</a></code>
 
         </dt>
         <dd>Run All Validations for a Dataset</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="validate_egg_stages.html">validate_egg_stages()</a></code>
 
         </dt>
         <dd>Validate Egg Stage Values</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="validate_fk_references.html">validate_fk_references()</a></code>
 
         </dt>
         <dd>Validate Foreign Key References</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="validate_lookup_values.html">validate_lookup_values()</a></code>
 
@@ -471,8 +544,7 @@
 
       <div class="section-desc"><p>functions for ingesting data into the database (PostgreSQL deprecated, use DuckLake)</p></div>
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
@@ -483,7 +555,8 @@
           <span class="badge lifecycle lifecycle-deprecated">deprecated</span>
         </dt>
         <dd>Ingest CSV data to PostgreSQL database (DEPRECATED)</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="ingest_dataset_pg.html">ingest_dataset_pg()</a></code>
           <span class="badge lifecycle lifecycle-deprecated">deprecated</span>
@@ -494,8 +567,7 @@
 
       <div class="section-desc"><p>functions for schema and package versioning</p></div>
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
@@ -506,13 +578,15 @@
 
         </dt>
         <dd>Get Schema Version History</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="init_schema_version_csv.html">init_schema_version_csv()</a></code>
 
         </dt>
         <dd>Initialize Schema Version CSV</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="record_schema_version.html">record_schema_version()</a></code>
 
@@ -523,8 +597,7 @@
 
       <div class="section-desc"><p>utility functions for database operations (PostgreSQL deprecated)</p></div>
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
@@ -535,7 +608,8 @@
 
         </dt>
         <dd>Copy Database Schema</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="get_db_con.html">get_db_con()</a></code>
           <span class="badge lifecycle lifecycle-deprecated">deprecated</span>
@@ -546,8 +620,7 @@
 
       <div class="section-desc"><p>functions for local DuckDB wrangling (keys, IDs, table consolidation)</p></div>
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
@@ -558,102 +631,213 @@
 
         </dt>
         <dd>Apply Data Corrections</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="assign_deterministic_uuids.html">assign_deterministic_uuids()</a></code>
 
         </dt>
         <dd>Assign deterministic UUIDs from composite key columns</dd>
-      </dl><dl><dt>
+
+        <dt>
+
+          <code><a href="assign_deterministic_uuids_md5.html">assign_deterministic_uuids_md5()</a></code>
+
+        </dt>
+        <dd>Assign deterministic UUIDs using DuckDB-native md5</dd>
+
+        <dt>
 
           <code><a href="assign_sequential_ids.html">assign_sequential_ids()</a></code>
 
         </dt>
         <dd>Assign Sequential IDs with Deterministic Sort Order</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="build_metadata_json.html">build_metadata_json()</a></code>
 
         </dt>
         <dd>Build Metadata JSON for Parquet Outputs</dd>
-      </dl><dl><dt>
+
+        <dt>
+
+          <code><a href="build_relationships_json.html">build_relationships_json()</a></code>
+
+        </dt>
+        <dd>Build Relationships JSON from dm Object</dd>
+
+        <dt>
+
+          <code><a href="collect_cruise_key_mismatches.html">collect_cruise_key_mismatches()</a></code>
+
+        </dt>
+        <dd>Collect Cruise Key Mismatches</dd>
+
+        <dt>
+
+          <code><a href="collect_measurement_type_mismatches.html">collect_measurement_type_mismatches()</a></code>
+
+        </dt>
+        <dd>Collect Measurement Type Mismatches</dd>
+
+        <dt>
+
+          <code><a href="collect_ship_mismatches.html">collect_ship_mismatches()</a></code>
+
+        </dt>
+        <dd>Collect Ship Mismatches</dd>
+
+        <dt>
 
           <code><a href="consolidate_ichthyo_tables.html">consolidate_ichthyo_tables()</a></code>
 
         </dt>
         <dd>Consolidate Ichthyoplankton Tables into Tidy Format</dd>
-      </dl><dl><dt>
+
+        <dt>
+
+          <code><a href="convert_cruise_key_format.html">convert_cruise_key_format()</a></code>
+
+        </dt>
+        <dd>Convert Old YYMMKK Cruise Key to YYYY-MM-NODC Format</dd>
+
+        <dt>
 
           <code><a href="create_cruise_key.html">create_cruise_key()</a></code>
 
         </dt>
-        <dd>Create Cruise Key from Ship Key and Date</dd>
-      </dl><dl><dt>
+        <dd>Create Cruise Key from Ship NODC Code and Date</dd>
+
+        <dt>
 
           <code><a href="create_lookup_table.html">create_lookup_table()</a></code>
 
         </dt>
         <dd>Create Lookup Table from Vocabulary Definitions</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="enforce_column_types.html">enforce_column_types()</a></code>
 
         </dt>
         <dd>Enforce Column Types Before Export</dd>
-      </dl><dl><dt>
+
+        <dt>
+
+          <code><a href="merge_relationships_json.html">merge_relationships_json()</a></code>
+
+        </dt>
+        <dd>Merge Multiple Relationships JSON Files</dd>
+
+        <dt>
 
           <code><a href="propagate_natural_key.html">propagate_natural_key()</a></code>
 
         </dt>
         <dd>Propagate Key from Parent to Child Table</dd>
-      </dl><dl><dt>
+
+        <dt>
+
+          <code><a href="read_relationships_json.html">read_relationships_json()</a></code>
+
+        </dt>
+        <dd>Read Relationships JSON and Optionally Apply to dm</dd>
+
+        <dt>
 
           <code><a href="replace_uuid_with_id.html">replace_uuid_with_id()</a></code>
 
         </dt>
         <dd>Replace UUIDs with Integer Foreign Keys</dd>
-      </dl><dl><dt>
+
+        <dt>
+
+          <code><a href="standardize_site_key.html">standardize_site_key()</a></code>
+
+        </dt>
+        <dd>Standardize Site Key from Line and Station Columns</dd>
+
+        <dt>
 
           <code><a href="write_parquet_outputs.html">write_parquet_outputs()</a></code>
 
         </dt>
         <dd>Write Tables to Parquet Files</dd>
+
+        <dt>
+
+          <code><a href="write_spatial_manifest.html">write_spatial_manifest()</a></code>
+
+        </dt>
+        <dd>Write Spatial Manifest</dd>
       </dl></div><div class="section level2">
       <h2 id="workflow">Workflow<a class="anchor" aria-label="anchor" href="#workflow"></a></h2>
 
       <div class="section-desc"><p>functions for orchestrating ingestion workflow steps</p></div>
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
 
       <dl><dt>
 
+          <code><a href="build_release_table_registry.html">build_release_table_registry()</a></code>
+
+        </dt>
+        <dd>Build Release Table Registry from Ingest Manifests</dd>
+
+        <dt>
+
+          <code><a href="build_targets_list.html">build_targets_list()</a></code>
+
+        </dt>
+        <dd>Build Targets List from Quarto Frontmatter</dd>
+
+        <dt>
+
+          <code><a href="finalize_ingest.html">finalize_ingest()</a></code>
+
+        </dt>
+        <dd>Finalize Ingest — Push Parquet Tables to Working DuckLake</dd>
+
+        <dt>
+
           <code><a href="integrate_to_working_ducklake.html">integrate_to_working_ducklake()</a></code>
 
         </dt>
         <dd>Integrate Ingest Outputs into Working DuckLake</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="list_ingest_outputs.html">list_ingest_outputs()</a></code>
 
         </dt>
         <dd>List Available Ingest Outputs</dd>
-      </dl><dl><dt>
+
+        <dt>
+
+          <code><a href="parse_qmd_frontmatter.html">parse_qmd_frontmatter()</a></code>
+
+        </dt>
+        <dd>Parse YAML Frontmatter from Quarto Notebooks</dd>
+
+        <dt>
 
           <code><a href="read_ingest_manifest.html">read_ingest_manifest()</a></code>
 
         </dt>
         <dd>Read Ingest Manifest from GCS</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="read_ingest_parquet.html">read_ingest_parquet()</a></code>
 
         </dt>
         <dd>Read Ingest Parquet Table from GCS</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="write_ingest_outputs.html">write_ingest_outputs()</a></code>
 
@@ -664,31 +848,40 @@
 
       <div class="section-desc"><p>helper functions for workflow display outputs (GitHub links, validation tables)</p></div>
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
 
       <dl><dt>
 
+          <code><a href="dt.html">dt()</a></code>
+
+        </dt>
+        <dd>Create Interactive Data Table with CSV Export</dd>
+
+        <dt>
+
           <code><a href="github_file_link.html">github_file_link()</a></code>
 
         </dt>
         <dd>Create GitHub File Link</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="preview_tables.html">preview_tables()</a></code>
 
         </dt>
         <dd>Preview Tables with Head and Tail Rows</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="show_flagged_file.html">show_flagged_file()</a></code>
 
         </dt>
         <dd>Show Flagged File Result</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="show_validation_results.html">show_validation_results()</a></code>
 
@@ -699,8 +892,7 @@
 
       <div class="section-desc"><p>functions for archiving and managing historical data snapshots</p></div>
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
@@ -711,49 +903,54 @@
 
         </dt>
         <dd>Remove duplicate archives from GCS</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="compare_local_vs_archive.html">compare_local_vs_archive()</a></code>
 
         </dt>
         <dd>Compare local files with GCS archive</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="download_archive.html">download_archive()</a></code>
 
         </dt>
         <dd>Download archive to local directory</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="get_archive_manifest.html">get_archive_manifest()</a></code>
 
         </dt>
         <dd>Get archive manifest (file metadata)</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="get_latest_archive_timestamp.html">get_latest_archive_timestamp()</a></code>
 
         </dt>
         <dd>Get latest archive timestamp from GCS</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="get_local_manifest.html">get_local_manifest()</a></code>
 
         </dt>
         <dd>Get local file manifest</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="sync_to_gcs_archive.html">sync_to_gcs_archive()</a></code>
 
         </dt>
-        <dd>Sync local files to GCS archive</dd>
+        <dd>Sync local files to GCS archive (deprecated wrapper)</dd>
       </dl></div><div class="section level2">
       <h2 id="version-sync">Version Sync<a class="anchor" aria-label="anchor" href="#version-sync"></a></h2>
 
       <div class="section-desc"><p>functions for synchronizing schema and package versions</p></div>
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
@@ -764,25 +961,29 @@
 
         </dt>
         <dd>Commit Version Changes and Get Permalink</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="complete_version_release.html">complete_version_release()</a></code>
 
         </dt>
         <dd>Complete Version Release Workflow</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="get_package_version.html">get_package_version()</a></code>
 
         </dt>
         <dd>Get Current Package Version</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="suggest_next_version.html">suggest_next_version()</a></code>
 
         </dt>
         <dd>Suggest Next Version</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="update_package_version.html">update_package_version()</a></code>
 
@@ -793,8 +994,7 @@
 
       <div class="section-desc"><p>functions visualizing diagnostic outputs, particularly color coded data tables</p></div>
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
@@ -805,13 +1005,15 @@
 
         </dt>
         <dd>Show fields to redefine</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="show_source_files.html">show_source_files()</a></code>
 
         </dt>
         <dd>Show source files</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="show_tables_redefine.html">show_tables_redefine()</a></code>
 
@@ -822,8 +1024,7 @@
 
       <div class="section-desc"><p>check for other functions or datasets not captured by above categories</p></div>
 
-
-    </div><div class="section level2">
+      <dl></dl></div><div class="section level2">
 
 
 
@@ -834,42 +1035,83 @@
 
         </dt>
         <dd>Add Point Geometry Column to a DuckDB Table</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="assign_grid_key.html">assign_grid_key()</a></code>
 
         </dt>
         <dd>Assign Grid Key via Spatial Join</dd>
-      </dl><dl><dt>
+
+        <dt>
+
+          <code><a href="build_taxon_hierarchy.html">build_taxon_hierarchy()</a></code>
+
+        </dt>
+        <dd>Build Taxon Hierarchy from Local spp.duckdb via Recursive CTEs</dd>
+
+        <dt>
 
           <code><a href="build_taxon_table.html">build_taxon_table()</a></code>
 
         </dt>
         <dd>Build Taxonomic Hierarchy Table from WoRMS</dd>
-      </dl><dl><dt>
+
+        <dt>
+
+          <code><a href="derive_cruise_key_on_casts.html">derive_cruise_key_on_casts()</a></code>
+
+        </dt>
+        <dd>Derive Cruise Key on Bottle Casts via Ship Matching</dd>
+
+        <dt>
+
+          <code><a href="ensure_interim_ships.html">ensure_interim_ships()</a></code>
+
+        </dt>
+        <dd>Ensure Interim Ship Entries for Unmatched Ships</dd>
+
+        <dt>
 
           <code><a href="fetch_ship_ices.html">fetch_ship_ices()</a></code>
 
         </dt>
         <dd>Fetch Ship Codes from ICES Reference Codes API</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="load_gcs_parquet_to_duckdb.html">load_gcs_parquet_to_duckdb()</a></code>
 
         </dt>
         <dd>Load a GCS Parquet File into DuckDB</dd>
-      </dl><dl><dt>
+
+        <dt>
 
           <code><a href="match_ships.html">match_ships()</a></code>
 
         </dt>
         <dd>Match Ship Codes Across Datasets Using Multi-Source References</dd>
-      </dl><dl><dt>
+
+        <dt>
+
+          <code><a href="report_ship_matches.html">report_ship_matches()</a></code>
+
+        </dt>
+        <dd>Report Ship Matching Status for a Dataset</dd>
+
+        <dt>
 
           <code><a href="standardize_species.html">standardize_species()</a></code>
 
         </dt>
         <dd>Standardize Species Identifiers Using WoRMS/ITIS/GBIF APIs</dd>
+
+        <dt>
+
+          <code><a href="standardize_species_local.html">standardize_species_local()</a></code>
+
+        </dt>
+        <dd>Standardize Species Using Local spp.duckdb Lookups</dd>
       </dl></div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
@@ -880,7 +1122,7 @@
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.3.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
 </div>
 
     </footer></div>

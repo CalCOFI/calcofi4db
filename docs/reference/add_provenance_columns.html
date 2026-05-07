@@ -9,7 +9,7 @@ before ingestion. Called internally by ingest_to_working()."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.6.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -60,7 +60,7 @@ before ingestion. Called internally by <code><a href="ingest_to_working.html">in
 
 <dt id="arg-source-file">source_file<a class="anchor" aria-label="anchor" href="#arg-source-file"></a></dt>
 <dd><p>Path to original CSV file in archive
-(e.g., "archive/2026-02-02_121557/swfsc.noaa.gov/calcofi-db/larva.csv")</p></dd>
+(e.g., "archive/2026-02-02_121557/swfsc/ichthyo/larva.csv")</p></dd>
 
 
 <dt id="arg-source-row-start">source_row_start<a class="anchor" aria-label="anchor" href="#arg-source-row-start"></a></dt>
@@ -86,7 +86,7 @@ If provided, values are copied to <code>_source_uuid</code> column.</p></dd>
 <span class="r-in"><span><span class="va">data</span> <span class="op">&lt;-</span> <span class="fu">tibble</span><span class="fu">::</span><span class="fu"><a href="https://tibble.tidyverse.org/reference/tibble.html" class="external-link">tibble</a></span><span class="op">(</span>x <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">3</span>, y <span class="op">=</span> <span class="va">letters</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">3</span><span class="op">]</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">data_prov</span> <span class="op">&lt;-</span> <span class="fu">add_provenance_columns</span><span class="op">(</span></span></span>
 <span class="r-in"><span>  data        <span class="op">=</span> <span class="va">data</span>,</span></span>
-<span class="r-in"><span>  source_file <span class="op">=</span> <span class="st">"archive/2026-02-02_121557/swfsc.noaa.gov/calcofi-db/test.csv"</span>,</span></span>
+<span class="r-in"><span>  source_file <span class="op">=</span> <span class="st">"archive/2026-02-02_121557/swfsc/ichthyo/test.csv"</span>,</span></span>
 <span class="r-in"><span>  source_row_start <span class="op">=</span> <span class="fl">2</span><span class="op">)</span>  <span class="co"># skip header</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># with source uuid column</span></span></span>
@@ -107,7 +107,7 @@ If provided, values are copied to <code>_source_uuid</code> column.</p></dd>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.3.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
 </div>
 
     </footer></div>

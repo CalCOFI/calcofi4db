@@ -11,7 +11,7 @@ _ingested_at columns to track data lineage."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.6.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -76,7 +76,7 @@ Adds <code>_source_file</code>, <code>_source_row</code>, <code>_source_uuid</co
 <dt id="arg-source-file">source_file<a class="anchor" aria-label="anchor" href="#arg-source-file"></a></dt>
 <dd><p>Path to original CSV file in Archive (for provenance).
 Should be the full path including archive timestamp
-(e.g., "archive/2026-02-02_121557/swfsc.noaa.gov/calcofi-db/larva.csv")</p></dd>
+(e.g., "archive/2026-02-02_121557/swfsc/ichthyo/larva.csv")</p></dd>
 
 
 <dt id="arg-source-uuid-col">source_uuid_col<a class="anchor" aria-label="anchor" href="#arg-source-uuid-col"></a></dt>
@@ -119,7 +119,7 @@ to source records.</p></dd>
 <span class="r-in"><span>  con         <span class="op">=</span> <span class="va">con</span>,</span></span>
 <span class="r-in"><span>  data        <span class="op">=</span> <span class="va">larvae_data</span>,</span></span>
 <span class="r-in"><span>  table       <span class="op">=</span> <span class="st">"larva"</span>,</span></span>
-<span class="r-in"><span>  source_file <span class="op">=</span> <span class="st">"archive/2026-02-02_121557/swfsc.noaa.gov/calcofi-db/larva.csv"</span>,</span></span>
+<span class="r-in"><span>  source_file <span class="op">=</span> <span class="st">"archive/2026-02-02_121557/swfsc/ichthyo/larva.csv"</span>,</span></span>
 <span class="r-in"><span>  source_uuid_col <span class="op">=</span> <span class="st">"larva_uuid"</span>,</span></span>
 <span class="r-in"><span>  mode        <span class="op">=</span> <span class="st">"replace"</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
@@ -129,7 +129,7 @@ to source records.</p></dd>
 <span class="r-in"><span>  con         <span class="op">=</span> <span class="va">con</span>,</span></span>
 <span class="r-in"><span>  data        <span class="op">=</span> <span class="va">new_data</span>,</span></span>
 <span class="r-in"><span>  table       <span class="op">=</span> <span class="st">"larva"</span>,</span></span>
-<span class="r-in"><span>  source_file <span class="op">=</span> <span class="st">"archive/2026-03-01_121557/swfsc.noaa.gov/calcofi-db/larva.csv"</span>,</span></span>
+<span class="r-in"><span>  source_file <span class="op">=</span> <span class="st">"archive/2026-03-01_121557/swfsc/ichthyo/larva.csv"</span>,</span></span>
 <span class="r-in"><span>  mode        <span class="op">=</span> <span class="st">"append"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 </code></pre></div>
@@ -143,7 +143,7 @@ to source records.</p></dd>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.3.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
 </div>
 
     </footer></div>
