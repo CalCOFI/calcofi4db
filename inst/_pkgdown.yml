@@ -1,7 +1,7 @@
 url: https://calcofi.io/calcofi4db
-google_analytics: "G-0HVK8TDMCF"
 template:
   bootstrap: 5
+  google_analytics: "G-0HVK8TDMCF"
 reference:
 - title: "Cloud Storage (GCS)"
   desc: functions for Google Cloud Storage operations
