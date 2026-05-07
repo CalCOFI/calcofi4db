@@ -42,6 +42,7 @@ uses:
 ## Installation
 
 ``` r
+
 # install from GitHub
 remotes::install_github("CalCOFI/calcofi4db")
 ```
@@ -54,6 +55,7 @@ The Working DuckLake is used internally for data ingestion with
 automatic provenance tracking:
 
 ``` r
+
 library(calcofi4db)
 
 # connect to the Working DuckLake
@@ -88,6 +90,7 @@ close_duckdb(con)
 Frozen releases are immutable snapshots for public access:
 
 ``` r
+
 # connect to Working DuckLake
 con <- get_working_ducklake()
 
@@ -113,6 +116,7 @@ close_duckdb(con)
 ### Listing and Comparing Releases
 
 ``` r
+
 # list all available frozen releases
 releases <- list_frozen_releases()
 print(releases)
@@ -129,6 +133,7 @@ print(diff$summary)
 ### Cloud Storage Operations
 
 ``` r
+
 # download file from GCS
 local_file <- get_gcs_file("gs://calcofi-files-public/_sync/bottle.csv")
 
@@ -147,6 +152,7 @@ file <- get_calcofi_file(
 ### Parquet Operations
 
 ``` r
+
 # convert CSV to Parquet
 csv_to_parquet("data.csv", output = "data.parquet")
 
@@ -168,6 +174,7 @@ add_parquet_metadata(
 ### Basic DuckDB Operations
 
 ``` r
+
 # create in-memory DuckDB
 con <- get_duckdb_con()
 
@@ -197,6 +204,7 @@ close_duckdb(con)
 End users should use the `calcofi4r` package to access CalCOFI data:
 
 ``` r
+
 library(calcofi4r)
 
 # connect to latest frozen release
@@ -218,11 +226,11 @@ cc_list_versions()
 The following PostgreSQL-based functions are deprecated and will emit
 warnings:
 
-| Deprecated                                                                          | Replacement                                                                                                                                                                    |
-|-------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [`get_db_con()`](https://calcofi.io/calcofi4db/reference/get_db_con.md)             | [`get_working_ducklake()`](https://calcofi.io/calcofi4db/reference/get_working_ducklake.md) or [`get_duckdb_con()`](https://calcofi.io/calcofi4db/reference/get_duckdb_con.md) |
-| [`ingest_csv_to_db()`](https://calcofi.io/calcofi4db/reference/ingest_csv_to_db.md) | [`ingest_to_working()`](https://calcofi.io/calcofi4db/reference/ingest_to_working.md)                                                                                          |
-| [`ingest_dataset()`](https://calcofi.io/calcofi4db/reference/ingest_dataset.md)     | Use targets pipeline with [`ingest_to_working()`](https://calcofi.io/calcofi4db/reference/ingest_to_working.md)                                                                |
+| Deprecated | Replacement |
+|----|----|
+| [`get_db_con()`](https://calcofi.io/calcofi4db/reference/get_db_con.md) | [`get_working_ducklake()`](https://calcofi.io/calcofi4db/reference/get_working_ducklake.md) or [`get_duckdb_con()`](https://calcofi.io/calcofi4db/reference/get_duckdb_con.md) |
+| [`ingest_csv_to_db()`](https://calcofi.io/calcofi4db/reference/ingest_csv_to_db.md) | [`ingest_to_working()`](https://calcofi.io/calcofi4db/reference/ingest_to_working.md) |
+| [`ingest_dataset()`](https://calcofi.io/calcofi4db/reference/ingest_dataset.md) | Use targets pipeline with [`ingest_to_working()`](https://calcofi.io/calcofi4db/reference/ingest_to_working.md) |
 
 ## Documentation
 
