@@ -7,3 +7,5 @@
 ^\.gitignore$
 ^LICENSE\.md$
 ^inst/dev_prompts\.md$
+^\.positai$
+^\.claude$
