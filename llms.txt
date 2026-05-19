@@ -501,6 +501,8 @@ functions for local DuckDB wrangling (keys, IDs, table consolidation)
   : Create Lookup Table from Vocabulary Definitions
 - [`enforce_column_types()`](https://calcofi.io/calcofi4db/reference/enforce_column_types.md)
   : Enforce Column Types Before Export
+- [`merge_metadata_json()`](https://calcofi.io/calcofi4db/reference/merge_metadata_json.md)
+  : Merge Per-Ingest metadata.json into a Release-Level Sidecar
 - [`merge_relationships_json()`](https://calcofi.io/calcofi4db/reference/merge_relationships_json.md)
   : Merge Multiple Relationships JSON Files
 - [`propagate_natural_key()`](https://calcofi.io/calcofi4db/reference/propagate_natural_key.md)

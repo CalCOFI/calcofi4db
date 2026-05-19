@@ -95,6 +95,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/load_gcs_parquet_to_duckdb.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/load_prior_tables.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/match_ships.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/merge_metadata_json.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/merge_relationships_json.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/parse_qmd_frontmatter.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/preview_tables.html</loc></url>
