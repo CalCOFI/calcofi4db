@@ -1973,6 +1973,215 @@ merge_relationships_json <- function(paths, output_path) {
   output_path
 }
 
+#' Merge Per-Ingest metadata.json into a Release-Level Sidecar
+#'
+#' Combines per-ingest \code{metadata.json} files (produced by
+#' [build_metadata_json()]) into a single release-level \code{metadata.json}.
+#' Adds release-only tables and columns from CSV registries plus optional
+#' \code{dataset.csv} and \code{measurement_type.csv} blocks. Emits schema
+#' version \code{"1.1"} alongside \code{catalog.json} and
+#' \code{relationships.json} in a frozen release directory.
+#'
+#' Conflict rule: when the same \code{table} or \code{table.column} key
+#' appears in multiple per-ingest files, the last path wins, but a warning
+#' lists the duplicates so genuine drift between ingests is surfaced.
+#'
+#' @param paths Character vector of paths to per-ingest
+#'   \code{metadata.json} files.
+#' @param output_path Path for the merged output file.
+#' @param release_version Optional release version string (e.g.
+#'   \code{"v2026.05.14"}) written to the top-level \code{release_version}
+#'   field.
+#' @param release_tables_csv Optional path to a CSV with columns
+#'   \code{table, name_long, description_md, provider, dataset} describing
+#'   tables built inside \code{release_database.qmd} that have no per-ingest
+#'   metadata.json (e.g. \code{cruise_summary}, \code{_spatial}).
+#' @param release_columns_csv Optional path to a CSV with columns
+#'   \code{table, column, name_long, units, description_md} for release-only
+#'   columns.
+#' @param measurement_type_csv Optional path to
+#'   \code{metadata/measurement_type.csv}. When supplied, populates the
+#'   \code{measurement_types} block with one entry per canonical type.
+#' @param dataset_csv Optional path to \code{metadata/dataset.csv}. When
+#'   supplied, populates the \code{datasets} block keyed by
+#'   \code{"\{provider\}_\{dataset\}"}.
+#'
+#' @return Path to the merged \code{metadata.json} file (invisibly returns
+#'   \code{output_path}).
+#' @export
+#' @concept wrangle
+#'
+#' @examples
+#' \dontrun{
+#' merge_metadata_json(
+#'   paths = c(
+#'     "data/parquet/swfsc_ichthyo/metadata.json",
+#'     "data/parquet/calcofi_bottle/metadata.json",
+#'     "data/parquet/calcofi_ctd-cast/metadata.json",
+#'     "data/parquet/calcofi_dic/metadata.json"),
+#'   output_path          = "data/releases/v2026.05.14/metadata.json",
+#'   release_version      = "v2026.05.14",
+#'   release_tables_csv   = "metadata/release_tables.csv",
+#'   release_columns_csv  = "metadata/release_columns.csv",
+#'   measurement_type_csv = "metadata/measurement_type.csv",
+#'   dataset_csv          = "metadata/dataset.csv")
+#' }
+#' @importFrom jsonlite fromJSON write_json
+#' @importFrom readr read_csv
+#' @importFrom glue glue
+merge_metadata_json <- function(
+    paths,
+    output_path,
+    release_version      = NULL,
+    release_tables_csv   = NULL,
+    release_columns_csv  = NULL,
+    measurement_type_csv = NULL,
+    dataset_csv          = NULL) {
+
+  tables_meta  <- list()
+  columns_meta <- list()
+  datasets     <- list()
+
+  dup_tables  <- character()
+  dup_columns <- character()
+
+  for (path in paths) {
+    if (!file.exists(path)) {
+      warning(glue::glue("merge_metadata_json: skipping missing path {path}"))
+      next
+    }
+    meta <- jsonlite::fromJSON(path, simplifyVector = FALSE)
+
+    prov <- meta$provider %||% NA_character_
+    dset <- meta$dataset  %||% NA_character_
+
+    # record per-ingest tables (tagged with provider/dataset)
+    for (tbl in names(meta$tables)) {
+      if (tbl %in% names(tables_meta)) dup_tables <- c(dup_tables, tbl)
+      entry <- meta$tables[[tbl]]
+      entry$provider <- prov
+      entry$dataset  <- dset
+      tables_meta[[tbl]] <- entry
+    }
+
+    # record per-ingest columns
+    for (key in names(meta$columns)) {
+      if (key %in% names(columns_meta)) dup_columns <- c(dup_columns, key)
+      columns_meta[[key]] <- meta$columns[[key]]
+    }
+  }
+
+  if (length(dup_tables) > 0) {
+    warning(glue::glue(
+      "merge_metadata_json: duplicate table keys across ingests ",
+      "(last-writer-wins): {paste(unique(dup_tables), collapse = ', ')}"))
+  }
+  if (length(dup_columns) > 0) {
+    warning(glue::glue(
+      "merge_metadata_json: {length(unique(dup_columns))} duplicate ",
+      "table.column keys across ingests (last-writer-wins). First few: ",
+      "{paste(utils::head(unique(dup_columns), 5), collapse = ', ')}"))
+  }
+
+  # overlay release_tables.csv (release-only tables — supplement only, do not
+  # override per-ingest metadata; only fill fields that are missing/empty)
+  fill_if_empty <- function(entry, key, val) {
+    if (is.na(val) || val == "") return(entry)
+    cur <- entry[[key]]
+    if (is.null(cur) || (is.character(cur) && (is.na(cur) || cur == ""))) {
+      entry[[key]] <- val
+    }
+    entry
+  }
+  if (!is.null(release_tables_csv) && file.exists(release_tables_csv)) {
+    d_rt <- readr::read_csv(release_tables_csv, show_col_types = FALSE)
+    for (i in seq_len(nrow(d_rt))) {
+      tbl <- d_rt$table[i]
+      if (is.na(tbl) || tbl == "") next
+      entry <- tables_meta[[tbl]] %||% list()
+      if ("name_long"      %in% names(d_rt)) entry <- fill_if_empty(entry, "name_long",      d_rt$name_long[i])
+      if ("description_md" %in% names(d_rt)) entry <- fill_if_empty(entry, "description_md", d_rt$description_md[i])
+      if ("provider"       %in% names(d_rt)) entry <- fill_if_empty(entry, "provider",       d_rt$provider[i])
+      if ("dataset"        %in% names(d_rt)) entry <- fill_if_empty(entry, "dataset",        d_rt$dataset[i])
+      tables_meta[[tbl]] <- entry
+    }
+  }
+
+  # overlay release_columns.csv (release-only columns — same gap-fill semantics)
+  if (!is.null(release_columns_csv) && file.exists(release_columns_csv)) {
+    d_rc <- readr::read_csv(release_columns_csv, show_col_types = FALSE)
+    for (i in seq_len(nrow(d_rc))) {
+      tbl <- d_rc$table[i]
+      col <- d_rc$column[i]
+      if (is.na(tbl) || is.na(col) || tbl == "" || col == "") next
+      key <- paste0(tbl, ".", col)
+      entry <- columns_meta[[key]] %||% list(name_long = NULL, units = NULL, description_md = "")
+      if ("name_long"      %in% names(d_rc)) entry <- fill_if_empty(entry, "name_long",      d_rc$name_long[i])
+      if ("units"          %in% names(d_rc)) entry <- fill_if_empty(entry, "units",          d_rc$units[i])
+      if ("description_md" %in% names(d_rc)) entry <- fill_if_empty(entry, "description_md", d_rc$description_md[i])
+      columns_meta[[key]] <- entry
+    }
+  }
+
+  # measurement_types block
+  measurement_types <- list()
+  if (!is.null(measurement_type_csv) && file.exists(measurement_type_csv)) {
+    d_mt <- readr::read_csv(measurement_type_csv, show_col_types = FALSE)
+    for (i in seq_len(nrow(d_mt))) {
+      mt <- d_mt$measurement_type[i]
+      if (is.na(mt) || mt == "") next
+      measurement_types[[mt]] <- list(
+        description  = if (!is.na(d_mt$description[i]))   d_mt$description[i]   else "",
+        units        = if (!is.na(d_mt$units[i]))         d_mt$units[i]         else NULL,
+        is_canonical = if ("is_canonical" %in% names(d_mt)) isTRUE(d_mt$is_canonical[i]) else NA)
+    }
+  }
+
+  # datasets block
+  if (!is.null(dataset_csv) && file.exists(dataset_csv)) {
+    d_ds <- readr::read_csv(dataset_csv, show_col_types = FALSE)
+    for (i in seq_len(nrow(d_ds))) {
+      prov <- d_ds$provider[i]
+      dset <- d_ds$dataset[i]
+      if (is.na(prov) || is.na(dset)) next
+      key <- paste0(prov, "_", dset)
+      datasets[[key]] <- list(
+        provider          = prov,
+        dataset           = dset,
+        dataset_name      = if ("dataset_name"      %in% names(d_ds) && !is.na(d_ds$dataset_name[i]))      d_ds$dataset_name[i]      else NULL,
+        description       = if ("description"       %in% names(d_ds) && !is.na(d_ds$description[i]))       d_ds$description[i]       else NULL,
+        citation_main     = if ("citation_main"     %in% names(d_ds) && !is.na(d_ds$citation_main[i]))     d_ds$citation_main[i]     else NULL,
+        link_calcofi_org  = if ("link_calcofi_org"  %in% names(d_ds) && !is.na(d_ds$link_calcofi_org[i]))  d_ds$link_calcofi_org[i]  else NULL,
+        link_data_source  = if ("link_data_source"  %in% names(d_ds) && !is.na(d_ds$link_data_source[i]))  d_ds$link_data_source[i]  else NULL,
+        coverage_temporal = if ("coverage_temporal" %in% names(d_ds) && !is.na(d_ds$coverage_temporal[i])) d_ds$coverage_temporal[i] else NULL,
+        coverage_spatial  = if ("coverage_spatial"  %in% names(d_ds) && !is.na(d_ds$coverage_spatial[i]))  d_ds$coverage_spatial[i]  else NULL,
+        license           = if ("license"           %in% names(d_ds) && !is.na(d_ds$license[i]))           d_ds$license[i]           else NULL,
+        pi_names          = if ("pi_names"          %in% names(d_ds) && !is.na(d_ds$pi_names[i]))          d_ds$pi_names[i]          else NULL)
+    }
+  }
+
+  merged <- list(
+    schema_version    = "1.1",
+    release_version   = release_version,
+    release_date      = as.character(Sys.Date()),
+    datasets          = datasets,
+    tables            = tables_meta,
+    columns           = columns_meta,
+    measurement_types = measurement_types)
+
+  dir.create(dirname(output_path), recursive = TRUE, showWarnings = FALSE)
+  jsonlite::write_json(
+    merged, output_path,
+    auto_unbox = TRUE, pretty = TRUE, null = "null")
+
+  message(glue::glue(
+    "Merged metadata.json: {length(tables_meta)} tables, ",
+    "{length(columns_meta)} columns, {length(datasets)} datasets, ",
+    "{length(measurement_types)} measurement types"))
+
+  invisible(output_path)
+}
+
 # mismatch collection & spatial manifest ----
 
 #' Collect Ship Mismatches
