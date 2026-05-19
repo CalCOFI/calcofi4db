@@ -2083,26 +2083,31 @@ merge_metadata_json <- function(
       "{paste(utils::head(unique(dup_columns), 5), collapse = ', ')}"))
   }
 
-  # overlay release_tables.csv (release-only tables)
+  # overlay release_tables.csv (release-only tables — supplement only, do not
+  # override per-ingest metadata; only fill fields that are missing/empty)
+  fill_if_empty <- function(entry, key, val) {
+    if (is.na(val) || val == "") return(entry)
+    cur <- entry[[key]]
+    if (is.null(cur) || (is.character(cur) && (is.na(cur) || cur == ""))) {
+      entry[[key]] <- val
+    }
+    entry
+  }
   if (!is.null(release_tables_csv) && file.exists(release_tables_csv)) {
     d_rt <- readr::read_csv(release_tables_csv, show_col_types = FALSE)
     for (i in seq_len(nrow(d_rt))) {
       tbl <- d_rt$table[i]
       if (is.na(tbl) || tbl == "") next
       entry <- tables_meta[[tbl]] %||% list()
-      if ("name_long"      %in% names(d_rt) && !is.na(d_rt$name_long[i])      && d_rt$name_long[i]      != "")
-        entry$name_long      <- d_rt$name_long[i]
-      if ("description_md" %in% names(d_rt) && !is.na(d_rt$description_md[i]) && d_rt$description_md[i] != "")
-        entry$description_md <- d_rt$description_md[i]
-      if ("provider" %in% names(d_rt) && !is.na(d_rt$provider[i]) && d_rt$provider[i] != "")
-        entry$provider <- d_rt$provider[i]
-      if ("dataset"  %in% names(d_rt) && !is.na(d_rt$dataset[i])  && d_rt$dataset[i]  != "")
-        entry$dataset  <- d_rt$dataset[i]
+      if ("name_long"      %in% names(d_rt)) entry <- fill_if_empty(entry, "name_long",      d_rt$name_long[i])
+      if ("description_md" %in% names(d_rt)) entry <- fill_if_empty(entry, "description_md", d_rt$description_md[i])
+      if ("provider"       %in% names(d_rt)) entry <- fill_if_empty(entry, "provider",       d_rt$provider[i])
+      if ("dataset"        %in% names(d_rt)) entry <- fill_if_empty(entry, "dataset",        d_rt$dataset[i])
       tables_meta[[tbl]] <- entry
     }
   }
 
-  # overlay release_columns.csv (release-only columns)
+  # overlay release_columns.csv (release-only columns — same gap-fill semantics)
   if (!is.null(release_columns_csv) && file.exists(release_columns_csv)) {
     d_rc <- readr::read_csv(release_columns_csv, show_col_types = FALSE)
     for (i in seq_len(nrow(d_rc))) {
@@ -2111,12 +2116,9 @@ merge_metadata_json <- function(
       if (is.na(tbl) || is.na(col) || tbl == "" || col == "") next
       key <- paste0(tbl, ".", col)
       entry <- columns_meta[[key]] %||% list(name_long = NULL, units = NULL, description_md = "")
-      if ("name_long"      %in% names(d_rc) && !is.na(d_rc$name_long[i])      && d_rc$name_long[i]      != "")
-        entry$name_long      <- d_rc$name_long[i]
-      if ("units"          %in% names(d_rc) && !is.na(d_rc$units[i])          && d_rc$units[i]          != "")
-        entry$units          <- d_rc$units[i]
-      if ("description_md" %in% names(d_rc) && !is.na(d_rc$description_md[i]) && d_rc$description_md[i] != "")
-        entry$description_md <- d_rc$description_md[i]
+      if ("name_long"      %in% names(d_rc)) entry <- fill_if_empty(entry, "name_long",      d_rc$name_long[i])
+      if ("units"          %in% names(d_rc)) entry <- fill_if_empty(entry, "units",          d_rc$units[i])
+      if ("description_md" %in% names(d_rc)) entry <- fill_if_empty(entry, "description_md", d_rc$description_md[i])
       columns_meta[[key]] <- entry
     }
   }
