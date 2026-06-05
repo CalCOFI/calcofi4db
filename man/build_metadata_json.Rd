@@ -14,7 +14,8 @@ build_metadata_json(
   set_comments = TRUE,
   provider = NULL,
   dataset = NULL,
-  workflow_url = NULL
+  workflow_url = NULL,
+  tables_owned = NULL
 )
 }
 \arguments{
@@ -40,6 +41,12 @@ tables from DuckDB.}
 \item{dataset}{Dataset identifier (e.g. "ichthyo")}
 
 \item{workflow_url}{URL to the rendered workflow page}
+
+\item{tables_owned}{Optional list describing the tables this ingest owns,
+as parsed from the \code{calcofi$tables_owned} YAML block: a list of entries
+each with \code{table} and optional \code{shared} (logical) / \code{note}. When supplied,
+a \code{contributions} block (per-table row counts) is emitted for these tables
+only, so reference tables loaded from prior ingests are not mis-attributed.}
 }
 \value{
 Path to the created \code{metadata.json} file

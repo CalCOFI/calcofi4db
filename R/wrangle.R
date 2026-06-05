@@ -1551,6 +1551,11 @@ write_parquet_outputs <- function(
 #' @param provider Data provider identifier (e.g. "swfsc")
 #' @param dataset Dataset identifier (e.g. "ichthyo")
 #' @param workflow_url URL to the rendered workflow page
+#' @param tables_owned Optional list describing the tables this ingest owns,
+#'   as parsed from the `calcofi$tables_owned` YAML block: a list of entries
+#'   each with `table` and optional `shared` (logical) / `note`. When supplied,
+#'   a `contributions` block (per-table row counts) is emitted for these tables
+#'   only, so reference tables loaded from prior ingests are not mis-attributed.
 #'
 #' @return Path to the created `metadata.json` file
 #' @export
@@ -1584,7 +1589,8 @@ build_metadata_json <- function(
     set_comments  = TRUE,
     provider      = NULL,
     dataset       = NULL,
-    workflow_url  = NULL) {
+    workflow_url  = NULL,
+    tables_owned  = NULL) {
 
   # get tables from duckdb if not specified
   if (is.null(tables)) {
@@ -1734,14 +1740,43 @@ build_metadata_json <- function(
     message("Set DuckDB COMMENT ON for tables and columns")
   }
 
+  # --- per-dataset row contributions (owned tables only) ---
+  # each ingest's DuckDB holds only its own rows, so COUNT(*) per owned table
+  # is this dataset's clean contribution — even for shared registry tables
+  # (e.g. measurement_type). reference tables loaded from prior ingests are
+  # excluded because they are not listed in tables_owned.
+  contributions <- NULL
+  if (!is.null(tables_owned) && length(tables_owned) > 0) {
+    contributions <- list()
+    db_tbls <- DBI::dbListTables(con)
+    for (ent in tables_owned) {
+      tbl <- ent$table
+      if (is.null(tbl) || !(tbl %in% db_tbls)) {
+        if (!is.null(tbl)) {
+          warning(glue::glue(
+            "build_metadata_json: tables_owned lists '{tbl}' but it is not ",
+            "in the connection — skipping its contribution"))
+        }
+        next
+      }
+      n <- DBI::dbGetQuery(con, glue::glue(
+        "SELECT COUNT(*) AS n FROM {DBI::dbQuoteIdentifier(con, tbl)}"))$n
+      contributions[[tbl]] <- list(
+        rows   = as.integer(n),
+        owned  = TRUE,
+        shared = isTRUE(ent$shared))
+    }
+  }
+
   # --- assemble metadata json ---
   metadata <- list(
-    schema_version = "1.0",
+    schema_version = "1.1",
     provider       = provider,
     dataset        = dataset,
     workflow       = workflow_url,
     tables         = tables_meta,
     columns        = columns_meta)
+  if (!is.null(contributions)) metadata$contributions <- contributions
 
   # write json
   if (!dir.exists(output_dir)) {
@@ -1973,6 +2008,164 @@ merge_relationships_json <- function(paths, output_path) {
   output_path
 }
 
+# extract the YAML front-matter block (between the leading `---` fences) of a
+# .qmd/.Rmd/.md file and parse it. returns an empty list when absent.
+.read_yaml_front_matter <- function(path) {
+  lines <- readLines(path, warn = FALSE)
+  fences <- which(grepl("^---\\s*$", lines))
+  # front matter must open within the first few lines
+  if (length(fences) < 2 || fences[1] > 3) return(list())
+  body <- lines[(fences[1] + 1):(fences[2] - 1)]
+  tryCatch(
+    yaml::yaml.load(paste(body, collapse = "\n")) %||% list(),
+    error = function(e) {
+      warning(glue::glue("Failed to parse YAML front matter in {path}: {e$message}"))
+      list()
+    })
+}
+
+#' Read calcofi YAML blocks from ingest_*.qmd front matter
+#'
+#' Reads the \code{calcofi:} block from the YAML front matter of each
+#' \code{ingest_*.qmd} workflow and returns it keyed by
+#' \code{"\{provider\}_\{dataset\}"}. This is the authoritative source for
+#' dataset-level metadata, table ownership, workflow links, and ERD colors
+#' consumed by [merge_metadata_json()] and \code{release_database.qmd}.
+#'
+#' @param workflow_dir Directory containing the \code{ingest_*.qmd} files.
+#' @param pattern Regular expression matching ingest filenames
+#'   (default \code{"^ingest_.*\\\\.qmd$"}).
+#'
+#' @return A named list keyed by \code{provider_dataset}. Each element is the
+#'   parsed \code{calcofi} block, augmented with \code{provider_dataset} and
+#'   \code{qmd} (the source file path). Ingests whose block lacks
+#'   \code{provider}/\code{dataset} are skipped with a warning.
+#' @export
+#' @concept wrangle
+#'
+#' @examples
+#' \dontrun{
+#' ingest_yaml <- read_ingest_yaml("workflows")
+#' names(ingest_yaml)            # "swfsc_ichthyo" "calcofi_bottle" ...
+#' ingest_yaml$calcofi_bottle$tables_owned
+#' }
+read_ingest_yaml <- function(workflow_dir, pattern = "^ingest_.*\\.qmd$") {
+  stopifnot(dir.exists(workflow_dir))
+  qmds <- list.files(workflow_dir, pattern = pattern, full.names = TRUE)
+  out <- list()
+  for (qmd in qmds) {
+    cc <- read_calcofi_meta(qmd)
+    if (is.null(cc) || is.null(cc$provider) || is.null(cc$dataset)) {
+      next
+    }
+    out[[cc$provider_dataset]] <- cc
+  }
+  out
+}
+
+#' Read the calcofi YAML block from a single workflow file
+#'
+#' @param qmd_path Path to one \code{ingest_*.qmd} (or any .qmd with a
+#'   \code{calcofi:} YAML block).
+#'
+#' @return The parsed \code{calcofi} block as a list, augmented with
+#'   \code{provider_dataset} and \code{qmd}, or \code{NULL} if absent. Use this
+#'   in an ingest's setup chunk to read its own \code{provider}/\code{dataset}/
+#'   \code{tables_owned} from the authoritative YAML rather than hard-coding.
+#' @export
+#' @concept wrangle
+read_calcofi_meta <- function(qmd_path) {
+  stopifnot(file.exists(qmd_path))
+  cc <- .read_yaml_front_matter(qmd_path)$calcofi
+  if (is.null(cc)) return(NULL)
+  if (!is.null(cc$provider) && !is.null(cc$dataset)) {
+    cc$provider_dataset <- paste0(cc$provider, "_", cc$dataset)
+  }
+  cc$qmd <- qmd_path
+  cc
+}
+
+#' Build the dataset registry table from ingest YAML blocks
+#'
+#' Assembles a data frame mirroring the legacy \code{metadata/dataset.csv}
+#' (the authoritative \code{dataset} registry table written into each ingest's
+#' database) from the \code{dataset_meta}/\code{tables_owned} YAML blocks
+#' returned by [read_ingest_yaml()]. Replaces reading \code{dataset.csv}.
+#'
+#' @param ingest_yaml Named list from [read_ingest_yaml()].
+#'
+#' @return A [tibble][tibble::tibble] with one row per dataset (including any
+#'   \code{additional_datasets} folded into an ingest) and the columns of the
+#'   legacy \code{dataset.csv}.
+#' @export
+#' @concept wrangle
+#' @importFrom tibble tibble
+ingest_yaml_to_dataset_df <- function(ingest_yaml) {
+  join_semi <- function(x) {
+    if (is.null(x) || length(x) == 0) return(NA_character_)
+    paste(unlist(x), collapse = ";")
+  }
+  s <- function(x) if (is.null(x)) NA_character_ else as.character(x)
+
+  rows <- list()
+  add_row <- function(provider, dataset, m, tables_owned = NULL) {
+    m <- m %||% list()
+    tbls <- if (!is.null(tables_owned)) {
+      vapply(tables_owned, function(e) e$table %||% NA_character_, character(1))
+    } else {
+      m$tables
+    }
+    rows[[length(rows) + 1]] <<- tibble::tibble(
+      provider          = s(provider),
+      dataset           = s(dataset),
+      dataset_name      = s(m$dataset_name),
+      description       = s(m$description),
+      citation_main     = s(m$citation_main),
+      citation_others   = join_semi(m$citation_others),
+      link_calcofi_org  = s(m$link_calcofi_org),
+      link_data_source  = s(m$link_data_source),
+      link_others       = join_semi(m$link_others),
+      tables            = join_semi(tbls),
+      coverage_temporal = s(m$coverage_temporal),
+      coverage_spatial  = s(m$coverage_spatial),
+      license           = s(m$license),
+      pi_names          = s(m$pi_names))
+  }
+
+  for (key in names(ingest_yaml)) {
+    cc <- ingest_yaml[[key]]
+    add_row(cc$provider, cc$dataset, cc$dataset_meta, cc$tables_owned)
+    for (ad in cc$additional_datasets %||% list()) {
+      add_row(ad$provider, ad$dataset, ad, ad$tables_owned)
+    }
+  }
+  do.call(rbind, rows)
+}
+
+# build a standard datasets[] entry from a metadata block (list), dropping
+# empty/NA fields. shared by the CSV and YAML code paths in merge_metadata_json.
+.dataset_entry <- function(provider, dataset, m) {
+  m <- m %||% list()
+  pick <- function(k) {
+    v <- m[[k]]
+    if (is.null(v)) return(NULL)
+    if (is.character(v) && length(v) == 1 && (is.na(v) || v == "")) return(NULL)
+    v
+  }
+  list(
+    provider          = provider,
+    dataset           = dataset,
+    dataset_name      = pick("dataset_name"),
+    description       = pick("description"),
+    citation_main     = pick("citation_main"),
+    link_calcofi_org  = pick("link_calcofi_org"),
+    link_data_source  = pick("link_data_source"),
+    coverage_temporal = pick("coverage_temporal"),
+    coverage_spatial  = pick("coverage_spatial"),
+    license           = pick("license"),
+    pi_names          = pick("pi_names"))
+}
+
 #' Merge Per-Ingest metadata.json into a Release-Level Sidecar
 #'
 #' Combines per-ingest \code{metadata.json} files (produced by
@@ -2002,9 +2195,16 @@ merge_relationships_json <- function(paths, output_path) {
 #' @param measurement_type_csv Optional path to
 #'   \code{metadata/measurement_type.csv}. When supplied, populates the
 #'   \code{measurement_types} block with one entry per canonical type.
-#' @param dataset_csv Optional path to \code{metadata/dataset.csv}. When
-#'   supplied, populates the \code{datasets} block keyed by
-#'   \code{"\{provider\}_\{dataset\}"}.
+#' @param dataset_csv Optional path to \code{metadata/dataset.csv}. Deprecated
+#'   fallback for the \code{datasets} block; superseded by \code{ingest_yaml}.
+#'   When both are supplied, \code{ingest_yaml} wins.
+#' @param ingest_yaml Optional named list from [read_ingest_yaml()] (keyed by
+#'   \code{provider_dataset}). When supplied, the \code{datasets} block and the
+#'   \code{erd_legend} are built from each ingest's \code{calcofi} YAML
+#'   (authoritative source) rather than \code{dataset_csv}.
+#' @param table_rows Optional named numeric vector (table name → release-final
+#'   row count, e.g. from freeze stats). Used as the denominator when computing
+#'   per-dataset contribution percentages.
 #'
 #' @return Path to the merged \code{metadata.json} file (invisibly returns
 #'   \code{output_path}).
@@ -2036,7 +2236,9 @@ merge_metadata_json <- function(
     release_tables_csv   = NULL,
     release_columns_csv  = NULL,
     measurement_type_csv = NULL,
-    dataset_csv          = NULL) {
+    dataset_csv          = NULL,
+    ingest_yaml          = NULL,
+    table_rows           = NULL) {
 
   tables_meta  <- list()
   columns_meta <- list()
@@ -2044,6 +2246,9 @@ merge_metadata_json <- function(
 
   dup_tables  <- character()
   dup_columns <- character()
+
+  # per-ingest contributions, pivoted to table -> list of contributor records
+  contrib_raw <- list()
 
   for (path in paths) {
     if (!file.exists(path)) {
@@ -2054,13 +2259,16 @@ merge_metadata_json <- function(
 
     prov <- meta$provider %||% NA_character_
     dset <- meta$dataset  %||% NA_character_
+    wf   <- meta$workflow %||% NA_character_
+    pd   <- paste0(prov, "_", dset)
 
-    # record per-ingest tables (tagged with provider/dataset)
+    # record per-ingest tables (tagged with provider/dataset + workflow link)
     for (tbl in names(meta$tables)) {
       if (tbl %in% names(tables_meta)) dup_tables <- c(dup_tables, tbl)
       entry <- meta$tables[[tbl]]
       entry$provider <- prov
       entry$dataset  <- dset
+      entry$workflow <- wf
       tables_meta[[tbl]] <- entry
     }
 
@@ -2068,6 +2276,17 @@ merge_metadata_json <- function(
     for (key in names(meta$columns)) {
       if (key %in% names(columns_meta)) dup_columns <- c(dup_columns, key)
       columns_meta[[key]] <- meta$columns[[key]]
+    }
+
+    # collect per-ingest row contributions (only tables the ingest owns)
+    if (!is.null(meta$contributions)) {
+      for (tbl in names(meta$contributions)) {
+        c1 <- meta$contributions[[tbl]]
+        contrib_raw[[tbl]] <- c(contrib_raw[[tbl]], list(list(
+          provider_dataset = pd,
+          rows             = c1$rows %||% 0,
+          workflow         = wf)))
+      }
     }
   }
 
@@ -2130,44 +2349,107 @@ merge_metadata_json <- function(
     for (i in seq_len(nrow(d_mt))) {
       mt <- d_mt$measurement_type[i]
       if (is.na(mt) || mt == "") next
+      ds_vec <- NULL
+      if ("_source_datasets" %in% names(d_mt) && !is.na(d_mt$`_source_datasets`[i]) &&
+          nzchar(d_mt$`_source_datasets`[i])) {
+        ds_vec <- trimws(strsplit(d_mt$`_source_datasets`[i], ";")[[1]])
+        ds_vec <- ds_vec[nzchar(ds_vec)]
+      }
       measurement_types[[mt]] <- list(
         description  = if (!is.na(d_mt$description[i]))   d_mt$description[i]   else "",
         units        = if (!is.na(d_mt$units[i]))         d_mt$units[i]         else NULL,
-        is_canonical = if ("is_canonical" %in% names(d_mt)) isTRUE(d_mt$is_canonical[i]) else NA)
+        is_canonical = if ("is_canonical" %in% names(d_mt)) isTRUE(d_mt$is_canonical[i]) else NA,
+        datasets     = ds_vec)
     }
   }
 
-  # datasets block
-  if (!is.null(dataset_csv) && file.exists(dataset_csv)) {
+  # datasets block + erd_legend — authoritative source is ingest_yaml; fall
+  # back to the deprecated dataset.csv when YAML is not supplied
+  erd_legend <- list()
+  owned_tbls <- function(tables_owned) {
+    if (is.null(tables_owned) || length(tables_owned) == 0) return(NULL)
+    unname(vapply(tables_owned, function(e) e$table %||% NA_character_, character(1)))
+  }
+  if (!is.null(ingest_yaml)) {
+    for (key in names(ingest_yaml)) {
+      cc <- ingest_yaml[[key]]
+      entry <- .dataset_entry(cc$provider, cc$dataset, cc$dataset_meta)
+      entry$tables <- owned_tbls(cc$tables_owned)
+      datasets[[key]] <- entry
+      # datasets folded into one ingest (e.g. swfsc_invert inside ichthyo)
+      for (ad in cc$additional_datasets %||% list()) {
+        k2 <- paste0(ad$provider, "_", ad$dataset)
+        e2 <- .dataset_entry(ad$provider, ad$dataset, ad)
+        e2$tables <- owned_tbls(ad$tables_owned)
+        datasets[[k2]] <- e2
+      }
+      # ERD legend swatch (provider_dataset → color)
+      col <- cc$erd$color
+      if (!is.null(col)) {
+        erd_legend[[length(erd_legend) + 1]] <- list(
+          provider_dataset = key, color = col)
+      }
+    }
+  } else if (!is.null(dataset_csv) && file.exists(dataset_csv)) {
     d_ds <- readr::read_csv(dataset_csv, show_col_types = FALSE)
+    csv_field <- function(i, k) {
+      if (k %in% names(d_ds) && !is.na(d_ds[[k]][i])) d_ds[[k]][i] else NULL
+    }
     for (i in seq_len(nrow(d_ds))) {
       prov <- d_ds$provider[i]
       dset <- d_ds$dataset[i]
       if (is.na(prov) || is.na(dset)) next
       key <- paste0(prov, "_", dset)
-      datasets[[key]] <- list(
-        provider          = prov,
-        dataset           = dset,
-        dataset_name      = if ("dataset_name"      %in% names(d_ds) && !is.na(d_ds$dataset_name[i]))      d_ds$dataset_name[i]      else NULL,
-        description       = if ("description"       %in% names(d_ds) && !is.na(d_ds$description[i]))       d_ds$description[i]       else NULL,
-        citation_main     = if ("citation_main"     %in% names(d_ds) && !is.na(d_ds$citation_main[i]))     d_ds$citation_main[i]     else NULL,
-        link_calcofi_org  = if ("link_calcofi_org"  %in% names(d_ds) && !is.na(d_ds$link_calcofi_org[i]))  d_ds$link_calcofi_org[i]  else NULL,
-        link_data_source  = if ("link_data_source"  %in% names(d_ds) && !is.na(d_ds$link_data_source[i]))  d_ds$link_data_source[i]  else NULL,
-        coverage_temporal = if ("coverage_temporal" %in% names(d_ds) && !is.na(d_ds$coverage_temporal[i])) d_ds$coverage_temporal[i] else NULL,
-        coverage_spatial  = if ("coverage_spatial"  %in% names(d_ds) && !is.na(d_ds$coverage_spatial[i]))  d_ds$coverage_spatial[i]  else NULL,
-        license           = if ("license"           %in% names(d_ds) && !is.na(d_ds$license[i]))           d_ds$license[i]           else NULL,
-        pi_names          = if ("pi_names"          %in% names(d_ds) && !is.na(d_ds$pi_names[i]))          d_ds$pi_names[i]          else NULL)
+      m <- list(
+        dataset_name      = csv_field(i, "dataset_name"),
+        description       = csv_field(i, "description"),
+        citation_main     = csv_field(i, "citation_main"),
+        link_calcofi_org  = csv_field(i, "link_calcofi_org"),
+        link_data_source  = csv_field(i, "link_data_source"),
+        coverage_temporal = csv_field(i, "coverage_temporal"),
+        coverage_spatial  = csv_field(i, "coverage_spatial"),
+        license           = csv_field(i, "license"),
+        pi_names          = csv_field(i, "pi_names"))
+      datasets[[key]] <- .dataset_entry(prov, dset, m)
     }
   }
 
+  # contributions block — pivot per-ingest row counts to table -> by_dataset
+  # with percentages against the release-final row count
+  contributions <- list()
+  for (tbl in names(contrib_raw)) {
+    conts    <- contrib_raw[[tbl]]
+    sum_rows <- sum(vapply(conts, function(x) as.numeric(x$rows %||% 0), numeric(1)))
+    total    <- if (!is.null(table_rows) && tbl %in% names(table_rows)) {
+      as.numeric(table_rows[[tbl]])
+    } else {
+      sum_rows
+    }
+    denom <- if (total > 0) total else sum_rows
+    by_dataset <- lapply(conts, function(x) {
+      r <- as.numeric(x$rows %||% 0)
+      list(
+        provider_dataset = x$provider_dataset,
+        rows             = as.integer(r),
+        pct              = if (denom > 0) round(r / denom * 100, 1) else 0,
+        workflow         = x$workflow %||% NA_character_)
+    })
+    contributions[[tbl]] <- list(
+      total_rows      = as.integer(total),
+      over_attributed = sum_rows > total,
+      by_dataset      = by_dataset)
+  }
+
   merged <- list(
-    schema_version    = "1.1",
+    schema_version    = "1.2",
     release_version   = release_version,
     release_date      = as.character(Sys.Date()),
     datasets          = datasets,
     tables            = tables_meta,
     columns           = columns_meta,
-    measurement_types = measurement_types)
+    measurement_types = measurement_types,
+    contributions     = contributions,
+    erd_legend        = erd_legend)
 
   dir.create(dirname(output_path), recursive = TRUE, showWarnings = FALSE)
   jsonlite::write_json(

@@ -11,7 +11,9 @@ merge_metadata_json(
   release_tables_csv = NULL,
   release_columns_csv = NULL,
   measurement_type_csv = NULL,
-  dataset_csv = NULL
+  dataset_csv = NULL,
+  ingest_yaml = NULL,
+  table_rows = NULL
 )
 }
 \arguments{
@@ -37,9 +39,18 @@ columns.}
 \code{metadata/measurement_type.csv}. When supplied, populates the
 \code{measurement_types} block with one entry per canonical type.}
 
-\item{dataset_csv}{Optional path to \code{metadata/dataset.csv}. When
-supplied, populates the \code{datasets} block keyed by
-\code{"\{provider\}_\{dataset\}"}.}
+\item{dataset_csv}{Optional path to \code{metadata/dataset.csv}. Deprecated
+fallback for the \code{datasets} block; superseded by \code{ingest_yaml}.
+When both are supplied, \code{ingest_yaml} wins.}
+
+\item{ingest_yaml}{Optional named list from \code{\link[=read_ingest_yaml]{read_ingest_yaml()}} (keyed by
+\code{provider_dataset}). When supplied, the \code{datasets} block and the
+\code{erd_legend} are built from each ingest's \code{calcofi} YAML
+(authoritative source) rather than \code{dataset_csv}.}
+
+\item{table_rows}{Optional named numeric vector (table name → release-final
+row count, e.g. from freeze stats). Used as the denominator when computing
+per-dataset contribution percentages.}
 }
 \value{
 Path to the merged \code{metadata.json} file (invisibly returns
