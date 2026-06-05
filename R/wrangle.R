@@ -1466,7 +1466,10 @@ write_parquet_outputs <- function(
     # re-uploading. compare order-independent signatures vs the prior manifest.
     # this is what stops a metadata-only change (or a few new cruises) from
     # re-sending the whole 15 GB ctd_measurement to GCS.
-    exclude_cols  <- setdiff(cols, export_cols)
+    # always exclude provenance columns (esp. _ingested_at, which changes every
+    # run) so the signature tracks real data changes, not re-ingestion — even
+    # when strip_provenance = FALSE keeps them in the exported file.
+    exclude_cols  <- union(setdiff(cols, export_cols), prov_cols)
     prior         <- prior_hash[[tbl]]
     skip          <- FALSE
     write_filter  <- NULL          # predicate to write only changed partitions

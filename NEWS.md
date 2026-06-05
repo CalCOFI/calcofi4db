@@ -1,3 +1,7 @@
+# calcofi4db 2.8.1
+
+- **Content-hash dedup ignores provenance columns** — the per-table/partition signature now always excludes `_source_file`, `_source_row`, `_source_uuid`, and `_ingested_at` (even when `strip_provenance = FALSE`). Otherwise `_ingested_at` (set to the current time on every ingest) made every table look changed, defeating the dedup for tables exported with provenance.
+
 # calcofi4db 2.8.0
 
 *Content-hash dedup of parquet uploads + Parquet V2 / zstd defaults*
