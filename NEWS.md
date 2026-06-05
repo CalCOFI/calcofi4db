@@ -1,3 +1,7 @@
+# calcofi4db 2.7.1
+
+- **`parse_qmd_frontmatter()`** now reads the whole file when locating the YAML front matter delimiters instead of only the first 50 lines, so workflows with long `calcofi:` blocks (e.g. `dataset_meta` + `additional_datasets`) are parsed and not silently dropped from the targets pipeline / release registry.
+
 # calcofi4db 2.7.0
 
 *YAML-authoritative dataset metadata, per-dataset contributions, and richer release sidecars*

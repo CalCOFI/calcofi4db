@@ -659,7 +659,9 @@ parse_qmd_frontmatter <- function(
   qmd_files <- Sys.glob(file.path(workflows_dir, pattern))
 
   results <- purrr::compact(lapply(qmd_files, function(f) {
-    lines <- readLines(f, n = 50, warn = FALSE)
+    # read the whole file: YAML front matter can be long (e.g. dataset_meta +
+    # additional_datasets blocks), so a fixed line cap can miss the closing ---
+    lines <- readLines(f, warn = FALSE)
 
     # find first and second --- delimiters
     delims <- which(trimws(lines) == "---")
