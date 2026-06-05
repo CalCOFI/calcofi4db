@@ -17,7 +17,7 @@ to parquet via COPY TO, so this provides the metadata externally."><!-- Google t
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.6.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.7.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -61,7 +61,8 @@ to parquet via <code>COPY TO</code>, so this provides the metadata externally.</
 <span>  set_comments <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  provider <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  dataset <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  workflow_url <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  workflow_url <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  tables_owned <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -110,6 +111,14 @@ tables from DuckDB.</p></dd>
 
 <dt id="arg-workflow-url">workflow_url<a class="anchor" aria-label="anchor" href="#arg-workflow-url"></a></dt>
 <dd><p>URL to the rendered workflow page</p></dd>
+
+
+<dt id="arg-tables-owned">tables_owned<a class="anchor" aria-label="anchor" href="#arg-tables-owned"></a></dt>
+<dd><p>Optional list describing the tables this ingest owns,
+as parsed from the <code>calcofi$tables_owned</code> YAML block: a list of entries
+each with <code>table</code> and optional <code>shared</code> (logical) / <code>note</code>. When supplied,
+a <code>contributions</code> block (per-table row counts) is emitted for these tables
+only, so reference tables loaded from prior ingests are not mis-attributed.</p></dd>
 
 </dl></div>
     <div class="section level2">

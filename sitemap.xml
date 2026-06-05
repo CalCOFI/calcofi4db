@@ -83,6 +83,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/ingest_dataset.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ingest_dataset_pg.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ingest_to_working.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/ingest_yaml_to_dataset_df.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/init_schema_version_csv.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/integrate_to_working_ducklake.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/list_calcofi_files.html</loc></url>
@@ -103,10 +104,12 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/propagate_natural_key.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/put_gcs_file.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/query_at_time.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/read_calcofi_meta.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_csv_files.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_csv_metadata.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_ingest_manifest.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_ingest_parquet.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/read_ingest_yaml.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_parquet_table.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_relationships_json.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/record_schema_version.html</loc></url>

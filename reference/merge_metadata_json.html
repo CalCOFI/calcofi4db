@@ -23,7 +23,7 @@ relationships.json in a frozen release directory.'><!-- Google tag (gtag.js) -->
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.6.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.7.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -67,7 +67,9 @@ version <code>"1.1"</code> alongside <code>catalog.json</code> and
 <span>  release_tables_csv <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  release_columns_csv <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  measurement_type_csv <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  dataset_csv <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  dataset_csv <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  ingest_yaml <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  table_rows <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -110,9 +112,22 @@ columns.</p></dd>
 
 
 <dt id="arg-dataset-csv">dataset_csv<a class="anchor" aria-label="anchor" href="#arg-dataset-csv"></a></dt>
-<dd><p>Optional path to <code>metadata/dataset.csv</code>. When
-supplied, populates the <code>datasets</code> block keyed by
-<code>"\{provider\}_\{dataset\}"</code>.</p></dd>
+<dd><p>Optional path to <code>metadata/dataset.csv</code>. Deprecated
+fallback for the <code>datasets</code> block; superseded by <code>ingest_yaml</code>.
+When both are supplied, <code>ingest_yaml</code> wins.</p></dd>
+
+
+<dt id="arg-ingest-yaml">ingest_yaml<a class="anchor" aria-label="anchor" href="#arg-ingest-yaml"></a></dt>
+<dd><p>Optional named list from <code><a href="read_ingest_yaml.html">read_ingest_yaml()</a></code> (keyed by
+<code>provider_dataset</code>). When supplied, the <code>datasets</code> block and the
+<code>erd_legend</code> are built from each ingest's <code>calcofi</code> YAML
+(authoritative source) rather than <code>dataset_csv</code>.</p></dd>
+
+
+<dt id="arg-table-rows">table_rows<a class="anchor" aria-label="anchor" href="#arg-table-rows"></a></dt>
+<dd><p>Optional named numeric vector (table name → release-final
+row count, e.g. from freeze stats). Used as the denominator when computing
+per-dataset contribution percentages.</p></dd>
 
 </dl></div>
     <div class="section level2">

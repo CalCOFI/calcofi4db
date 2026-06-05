@@ -17,7 +17,9 @@ merge_metadata_json(
   release_tables_csv = NULL,
   release_columns_csv = NULL,
   measurement_type_csv = NULL,
-  dataset_csv = NULL
+  dataset_csv = NULL,
+  ingest_yaml = NULL,
+  table_rows = NULL
 )
 ```
 
@@ -57,8 +59,23 @@ merge_metadata_json(
 
 - dataset_csv:
 
-  Optional path to `metadata/dataset.csv`. When supplied, populates the
-  `datasets` block keyed by `"\{provider\}_\{dataset\}"`.
+  Optional path to `metadata/dataset.csv`. Deprecated fallback for the
+  `datasets` block; superseded by `ingest_yaml`. When both are supplied,
+  `ingest_yaml` wins.
+
+- ingest_yaml:
+
+  Optional named list from
+  [`read_ingest_yaml()`](https://calcofi.io/calcofi4db/reference/read_ingest_yaml.md)
+  (keyed by `provider_dataset`). When supplied, the `datasets` block and
+  the `erd_legend` are built from each ingest's `calcofi` YAML
+  (authoritative source) rather than `dataset_csv`.
+
+- table_rows:
+
+  Optional named numeric vector (table name → release-final row count,
+  e.g. from freeze stats). Used as the denominator when computing
+  per-dataset contribution percentages.
 
 ## Value
 

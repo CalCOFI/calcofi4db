@@ -17,7 +17,8 @@ build_metadata_json(
   set_comments = TRUE,
   provider = NULL,
   dataset = NULL,
-  workflow_url = NULL
+  workflow_url = NULL,
+  tables_owned = NULL
 )
 ```
 
@@ -65,6 +66,15 @@ build_metadata_json(
 - workflow_url:
 
   URL to the rendered workflow page
+
+- tables_owned:
+
+  Optional list describing the tables this ingest owns, as parsed from
+  the `calcofi$tables_owned` YAML block: a list of entries each with
+  `table` and optional `shared` (logical) / `note`. When supplied, a
+  `contributions` block (per-table row counts) is emitted for these
+  tables only, so reference tables loaded from prior ingests are not
+  mis-attributed.
 
 ## Value
 

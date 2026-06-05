@@ -1,5 +1,36 @@
 # Changelog
 
+## calcofi4db 2.7.0
+
+*YAML-authoritative dataset metadata, per-dataset contributions, and
+richer release sidecars*
+
+- **[`read_ingest_yaml()`](https://calcofi.io/calcofi4db/reference/read_ingest_yaml.md)
+  /
+  [`read_calcofi_meta()`](https://calcofi.io/calcofi4db/reference/read_calcofi_meta.md)**
+  read the `calcofi:` YAML block from `ingest_*.qmd` workflows — the
+  authoritative source for `provider`/`dataset`, `dataset_meta`,
+  `tables_owned`, `workflow_url`, and `erd.color`. Replaces
+  `metadata/dataset.csv`.
+- **[`ingest_yaml_to_dataset_df()`](https://calcofi.io/calcofi4db/reference/ingest_yaml_to_dataset_df.md)**
+  rebuilds the in-database `dataset` registry table from the ingest YAML
+  (including `additional_datasets:` folded into one ingest,
+  e.g. `swfsc_invert`), so ingests no longer read `dataset.csv`.
+- **[`build_metadata_json()`](https://calcofi.io/calcofi4db/reference/build_metadata_json.md)**
+  gains `tables_owned` — emits a `contributions` block (per-table
+  `COUNT(*)`, `owned`/`shared` flags) for owned tables only, avoiding
+  mis-attribution of reference tables loaded from prior ingests.
+  Per-ingest schema bumped to `"1.1"`.
+- **[`merge_metadata_json()`](https://calcofi.io/calcofi4db/reference/merge_metadata_json.md)**
+  now (a) builds the `datasets` block from `ingest_yaml=`
+  (authoritative; `dataset_csv=` kept as deprecated fallback), (b)
+  propagates each table’s `workflow` link, (c) aggregates a
+  release-level `contributions` block (rows + `pct` per dataset, with
+  `over_attributed` flag and `table_rows=` denominators), (d) adds
+  `erd_legend`, `datasets[].tables`, and `measurement_types[].datasets`
+  (from `_source_datasets`). Release schema bumped to `"1.2"`. All new
+  fields are additive.
+
 ## calcofi4db 2.6.2
 
 *Invert consolidation, pipeline exclusions, and missing species

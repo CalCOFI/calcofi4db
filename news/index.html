@@ -13,7 +13,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.6.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.7.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -38,6 +38,18 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="2.7.0" id="calcofi4db-270">calcofi4db 2.7.0<a class="anchor" aria-label="anchor" href="#calcofi4db-270"></a></h2>
+<p><em>YAML-authoritative dataset metadata, per-dataset contributions, and richer release sidecars</em></p>
+<ul><li>
+<strong><code><a href="../reference/read_ingest_yaml.html">read_ingest_yaml()</a></code> / <code><a href="../reference/read_calcofi_meta.html">read_calcofi_meta()</a></code></strong> read the <code>calcofi:</code> YAML block from <code>ingest_*.qmd</code> workflows — the authoritative source for <code>provider</code>/<code>dataset</code>, <code>dataset_meta</code>, <code>tables_owned</code>, <code>workflow_url</code>, and <code>erd.color</code>. Replaces <code>metadata/dataset.csv</code>.</li>
+<li>
+<strong><code><a href="../reference/ingest_yaml_to_dataset_df.html">ingest_yaml_to_dataset_df()</a></code></strong> rebuilds the in-database <code>dataset</code> registry table from the ingest YAML (including <code>additional_datasets:</code> folded into one ingest, e.g. <code>swfsc_invert</code>), so ingests no longer read <code>dataset.csv</code>.</li>
+<li>
+<strong><code><a href="../reference/build_metadata_json.html">build_metadata_json()</a></code></strong> gains <code>tables_owned</code> — emits a <code>contributions</code> block (per-table <code>COUNT(*)</code>, <code>owned</code>/<code>shared</code> flags) for owned tables only, avoiding mis-attribution of reference tables loaded from prior ingests. Per-ingest schema bumped to <code>"1.1"</code>.</li>
+<li>
+<strong><code><a href="../reference/merge_metadata_json.html">merge_metadata_json()</a></code></strong> now (a) builds the <code>datasets</code> block from <code>ingest_yaml=</code> (authoritative; <code>dataset_csv=</code> kept as deprecated fallback), (b) propagates each table’s <code>workflow</code> link, (c) aggregates a release-level <code>contributions</code> block (rows + <code>pct</code> per dataset, with <code>over_attributed</code> flag and <code>table_rows=</code> denominators), (d) adds <code>erd_legend</code>, <code>datasets[].tables</code>, and <code>measurement_types[].datasets</code> (from <code>_source_datasets</code>). Release schema bumped to <code>"1.2"</code>. All new fields are additive.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.6.2" id="calcofi4db-262">calcofi4db 2.6.2<a class="anchor" aria-label="anchor" href="#calcofi4db-262"></a></h2>
 <p><em>Invert consolidation, pipeline exclusions, and missing species corrections</em></p>

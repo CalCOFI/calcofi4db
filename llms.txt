@@ -501,12 +501,18 @@ functions for local DuckDB wrangling (keys, IDs, table consolidation)
   : Create Lookup Table from Vocabulary Definitions
 - [`enforce_column_types()`](https://calcofi.io/calcofi4db/reference/enforce_column_types.md)
   : Enforce Column Types Before Export
+- [`ingest_yaml_to_dataset_df()`](https://calcofi.io/calcofi4db/reference/ingest_yaml_to_dataset_df.md)
+  : Build the dataset registry table from ingest YAML blocks
 - [`merge_metadata_json()`](https://calcofi.io/calcofi4db/reference/merge_metadata_json.md)
   : Merge Per-Ingest metadata.json into a Release-Level Sidecar
 - [`merge_relationships_json()`](https://calcofi.io/calcofi4db/reference/merge_relationships_json.md)
   : Merge Multiple Relationships JSON Files
 - [`propagate_natural_key()`](https://calcofi.io/calcofi4db/reference/propagate_natural_key.md)
   : Propagate Key from Parent to Child Table
+- [`read_calcofi_meta()`](https://calcofi.io/calcofi4db/reference/read_calcofi_meta.md)
+  : Read the calcofi YAML block from a single workflow file
+- [`read_ingest_yaml()`](https://calcofi.io/calcofi4db/reference/read_ingest_yaml.md)
+  : Read calcofi YAML blocks from ingest\_\*.qmd front matter
 - [`read_relationships_json()`](https://calcofi.io/calcofi4db/reference/read_relationships_json.md)
   : Read Relationships JSON and Optionally Apply to dm
 - [`replace_uuid_with_id()`](https://calcofi.io/calcofi4db/reference/replace_uuid_with_id.md)
