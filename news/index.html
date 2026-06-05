@@ -13,7 +13,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.8.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.8.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -38,6 +38,11 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="2.8.1" id="calcofi4db-281">calcofi4db 2.8.1<a class="anchor" aria-label="anchor" href="#calcofi4db-281"></a></h2>
+<ul><li>
+<strong>Content-hash dedup ignores provenance columns</strong> — the per-table/partition signature now always excludes <code>_source_file</code>, <code>_source_row</code>, <code>_source_uuid</code>, and <code>_ingested_at</code> (even when <code>strip_provenance = FALSE</code>). Otherwise <code>_ingested_at</code> (set to the current time on every ingest) made every table look changed, defeating the dedup for tables exported with provenance.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.8.0" id="calcofi4db-280">calcofi4db 2.8.0<a class="anchor" aria-label="anchor" href="#calcofi4db-280"></a></h2>
 <p><em>Content-hash dedup of parquet uploads + Parquet V2 / zstd defaults</em></p>
