@@ -10,8 +10,9 @@ write_parquet_outputs(
   tables = NULL,
   partition_by = NULL,
   sort_by = NULL,
+  primary_keys = NULL,
   strip_provenance = TRUE,
-  compression = "snappy",
+  compression = "zstd",
   mismatches = NULL,
   supplemental = NULL
 )
@@ -31,6 +32,14 @@ subdirectories.}
 optimized row group statistics. For Hilbert-curve spatial sorting,
 use \code{"hilbert:lon_col,lat_col"}. Example:
 \code{list(ctd_measurement = c("measurement_type", "depth_m"), site = "hilbert:longitude,latitude")}.}
+
+\item{primary_keys}{Named list mapping table names to their primary-key
+column (e.g. from a \code{relationships.json} \code{primary_keys} block). Appended
+as a final ORDER BY tiebreaker so output is a unique total order and thus
+\strong{byte-identical across re-runs of unchanged data} — letting
+\code{\link[=sync_to_gcs]{sync_to_gcs()}} skip re-uploading parquet that did not actually change.
+Without it, ties in \code{sort_by} break nondeterministically under parallel
+writes, changing the bytes (and crc32c) on every run.}
 
 \item{strip_provenance}{Remove provenance columns (\emph{source}*, _ingested_at) (default: TRUE)}
 

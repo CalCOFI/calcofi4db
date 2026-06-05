@@ -322,8 +322,11 @@ sync_to_gcs <- function(
 
       if (!is.na(gcs_crc32c) && nchar(gcs_crc32c) > 0) {
         gcloud <- find_gcloud()
+        # `gcloud storage hash` prints both crc32c_hash and md5_hash; the
+        # older `--crc32c` flag was removed in recent gcloud (≥ 5xx) and
+        # errors out, which silently degraded this to a size-only compare
         hash_out <- tryCatch(
-          system2(gcloud, c("storage", "hash", "--crc32c",
+          system2(gcloud, c("storage", "hash",
             local_manifest$local_path[i]),
             stdout = TRUE, stderr = TRUE),
           error = function(e) "")

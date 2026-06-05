@@ -1267,6 +1267,54 @@ enforce_column_types <- function(
   result
 }
 
+# build per-column order-independent checksum expressions for a table. each is
+# SUM(hash(value)::HUGEINT) so the combined signature is independent of row
+# order (parallel writes reorder rows) but sensitive to any value change.
+# GEOMETRY is hashed via WKB; nested types via VARCHAR cast.
+.row_hash_exprs <- function(con, tbl, exclude_cols = character()) {
+  cols <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT column_name, data_type FROM information_schema.columns
+     WHERE table_name = '{tbl}' AND table_schema = 'main'
+     ORDER BY ordinal_position"))
+  cols <- cols[!cols$column_name %in% exclude_cols, , drop = FALSE]
+  vapply(seq_len(nrow(cols)), function(i) {
+    cn <- cols$column_name[i]
+    dt <- toupper(cols$data_type[i])
+    valexpr <- if (grepl("GEOMETRY", dt)) {
+      glue::glue('ST_AsWKB("{cn}")')
+    } else if (grepl("STRUCT|MAP|LIST|UNION|\\[\\]", dt)) {
+      glue::glue('CAST("{cn}" AS VARCHAR)')
+    } else {
+      glue::glue('"{cn}"')
+    }
+    glue::glue("COALESCE(SUM(hash({valexpr})::HUGEINT), 0::HUGEINT)")
+  }, character(1))
+}
+
+# order-independent content signature for a whole table
+.table_content_hash <- function(con, tbl, exclude_cols = character()) {
+  exprs <- .row_hash_exprs(con, tbl, exclude_cols)
+  if (length(exprs) == 0) return(NA_character_)
+  sig_expr <- paste(
+    c("CAST(COUNT(*) AS VARCHAR)", paste0("CAST(", exprs, " AS VARCHAR)")),
+    collapse = " || ':' || ")
+  DBI::dbGetQuery(con, glue::glue(
+    'SELECT {sig_expr} AS sig FROM "{tbl}"'))$sig
+}
+
+# order-independent content signature per partition value -> named character
+.partition_content_hashes <- function(con, tbl, part_col, exclude_cols = character()) {
+  exprs <- .row_hash_exprs(con, tbl, c(exclude_cols, part_col))
+  if (length(exprs) == 0) return(stats::setNames(character(), character()))
+  sig_expr <- paste(
+    c("CAST(COUNT(*) AS VARCHAR)", paste0("CAST(", exprs, " AS VARCHAR)")),
+    collapse = " || ':' || ")
+  res <- DBI::dbGetQuery(con, glue::glue(
+    'SELECT CAST("{part_col}" AS VARCHAR) AS pv, {sig_expr} AS sig
+     FROM "{tbl}" GROUP BY 1'))
+  stats::setNames(res$sig, res$pv)
+}
+
 #' Write Tables to Parquet Files
 #'
 #' Exports all tables from a DuckDB connection to parquet files.
@@ -1283,6 +1331,13 @@ enforce_column_types <- function(
 #'   use `"hilbert:lon_col,lat_col"`. Example:
 #'   `list(ctd_measurement = c("measurement_type", "depth_m"),
 #'         site = "hilbert:longitude,latitude")`.
+#' @param primary_keys Named list mapping table names to their primary-key
+#'   column (e.g. from a `relationships.json` `primary_keys` block). Appended
+#'   as a final ORDER BY tiebreaker so output is a unique total order and thus
+#'   **byte-identical across re-runs of unchanged data** — letting
+#'   [sync_to_gcs()] skip re-uploading parquet that did not actually change.
+#'   Without it, ties in `sort_by` break nondeterministically under parallel
+#'   writes, changing the bytes (and crc32c) on every run.
 #' @param strip_provenance Remove provenance columns (_source_*, _ingested_at) (default: TRUE)
 #' @param compression Parquet compression codec (default: "snappy")
 #' @param mismatches Optional named list of mismatch tibbles to include in
@@ -1313,8 +1368,9 @@ write_parquet_outputs <- function(
     tables           = NULL,
     partition_by     = NULL,
     sort_by          = NULL,
+    primary_keys     = NULL,
     strip_provenance = TRUE,
-    compression      = "snappy",
+    compression      = "zstd",
     mismatches       = NULL,
     supplemental     = NULL) {
 
@@ -1346,6 +1402,32 @@ write_parquet_outputs <- function(
 
   # provenance columns to strip
   prov_cols <- c("_source_file", "_source_row", "_source_uuid", "_ingested_at")
+
+  # read prior manifest's content hashes so unchanged tables/partitions can be
+  # reused from the previous run instead of re-written and re-uploaded
+  prior_hash   <- list()
+  prior_format <- NA_character_
+  prior_manifest_path <- file.path(output_dir, "manifest.json")
+  if (file.exists(prior_manifest_path)) {
+    prior_m <- tryCatch(
+      jsonlite::read_json(prior_manifest_path), error = function(e) NULL)
+    if (!is.null(prior_m$data_hash))      prior_hash   <- prior_m$data_hash
+    if (!is.null(prior_m$parquet_format)) prior_format <- prior_m$parquet_format
+  }
+
+  # parquet format signature (compression + version). content hashes track the
+  # DATA, not the file encoding, so a format change (e.g. snappy->zstd, V1->V2)
+  # must force a one-time full rewrite even when the data is unchanged.
+  cur_format <- paste0(compression, "|v2")
+  fmt_match  <- identical(as.character(prior_format), cur_format)
+  if (!fmt_match && length(prior_hash) > 0) {
+    message(glue::glue(
+      "Parquet format changed ({prior_format %||% 'none'} -> {cur_format}); ",
+      "rewriting all tables once to migrate encoding"))
+  }
+
+  # collect per-table content hashes to persist in the new manifest
+  hash_acc <- list()
 
   # export each table
   stats <- purrr::map_dfr(tables, function(tbl) {
@@ -1379,35 +1461,49 @@ write_parquet_outputs <- function(
       output_path <- file.path(output_dir, paste0(tbl, ".parquet"))
     }
 
-    # check if we can skip this table (output exists with same row count)
-    skip <- FALSE
-    if (is_partitioned && dir.exists(output_path)) {
-      existing_n <- tryCatch(
-        DBI::dbGetQuery(con, glue::glue(
-          "SELECT COUNT(*) AS n
-           FROM read_parquet('{output_path}/**/*.parquet')"))$n,
-        error = function(e) -1)
-      skip <- (existing_n == n_rows)
-    } else if (!is_partitioned && file.exists(output_path)) {
-      existing_n <- tryCatch(
-        DBI::dbGetQuery(con, glue::glue(
-          "SELECT COUNT(*) AS n FROM read_parquet('{output_path}')"))$n,
-        error = function(e) -1)
-      skip <- (existing_n == n_rows)
-    }
+    # content-hash dedup: reuse unchanged tables/partitions from the prior run
+    # rather than re-writing (parallel partition writes aren't byte-stable) and
+    # re-uploading. compare order-independent signatures vs the prior manifest.
+    # this is what stops a metadata-only change (or a few new cruises) from
+    # re-sending the whole 15 GB ctd_measurement to GCS.
+    exclude_cols  <- setdiff(cols, export_cols)
+    prior         <- prior_hash[[tbl]]
+    skip          <- FALSE
+    write_filter  <- NULL          # predicate to write only changed partitions
+    changed       <- character()   # changed/new partition values
+    removed_parts <- character()   # partition values gone from source
 
-    # for partitioned tables, also check partition directory names match
-    if (skip && is_partitioned && dir.exists(output_path)) {
-      existing_parts <- list.dirs(output_path, recursive = FALSE,
-                                  full.names = FALSE)
-      existing_parts <- existing_parts[grepl("=", existing_parts)]
-      existing_vals  <- sort(gsub("^[^=]+=", "", existing_parts))
-      current_vals   <- sort(as.character(DBI::dbGetQuery(con, glue::glue(
-        "SELECT DISTINCT {part_cols[1]} FROM {tbl}"))[[1]]))
-      if (!identical(existing_vals, current_vals)) {
-        skip <- FALSE
-        message(glue::glue(
-          "Partition values changed for {tbl} — forcing re-write"))
+    if (is_partitioned) {
+      cur_hash <- as.list(.partition_content_hashes(
+        con, tbl, part_cols[1], exclude_cols))
+      hash_acc[[tbl]] <<- cur_hash
+      have_output <- dir.exists(output_path) &&
+        length(list.files(output_path, "\\.parquet$", recursive = TRUE)) > 0
+      if (!is.null(prior) && have_output && fmt_match) {
+        changed <- Filter(function(pv)
+          !identical(as.character(prior[[pv]]), as.character(cur_hash[[pv]])),
+          names(cur_hash))
+        removed_parts <- setdiff(names(prior), names(cur_hash))
+        if (length(changed) == 0 && length(removed_parts) == 0) {
+          skip <- TRUE
+        } else if (length(changed) == 0) {
+          # deletions only: drop removed partition dirs, reuse the rest
+          for (pv in removed_parts) {
+            pdir <- file.path(output_path, paste0(part_cols[1], "=", pv))
+            if (dir.exists(pdir)) unlink(pdir, recursive = TRUE)
+          }
+          skip <- TRUE
+        } else {
+          vals <- paste0("'", gsub("'", "''", changed), "'", collapse = ", ")
+          write_filter <- glue::glue('"{part_cols[1]}" IN ({vals})')
+        }
+      }
+    } else {
+      cur_hash <- .table_content_hash(con, tbl, exclude_cols)
+      hash_acc[[tbl]] <<- cur_hash
+      if (!is.null(prior) && file.exists(output_path) && fmt_match &&
+          identical(as.character(prior), as.character(cur_hash))) {
+        skip <- TRUE
       }
     }
 
@@ -1420,15 +1516,17 @@ write_parquet_outputs <- function(
         file.info(output_path)$size
       }
       message(glue::glue(
-        "Skipped {tbl}: {format(n_rows, big.mark = ',')} rows unchanged"))
+        "Reused {tbl}: {format(n_rows, big.mark = ',')} rows unchanged ",
+        "(no re-write/upload)"))
       return(tibble::tibble(
         table = tbl, rows = n_rows, file_size = file_size,
         path = output_path, partitioned = is_partitioned))
     }
 
     # build ORDER BY clause from sort_by
-    sort_cols <- sort_map[[tbl]]
+    sort_cols   <- sort_map[[tbl]]
     order_clause <- ""
+    order_parts  <- character(0)
     if (!is.null(sort_cols)) {
       # handle hilbert spatial sort: "hilbert:lon_col,lat_col"
       # uses ST_Hilbert(x, y, bounds) from DuckDB spatial extension
@@ -1442,19 +1540,45 @@ write_parquet_outputs <- function(
           sc
         }
       }, character(1))
+    }
+    # append the primary key as a final tiebreaker for a stable total order
+    # (better row-group statistics; byte-stable output for single-file tables).
+    # partitioned tables still aren't byte-stable under parallel writes — the
+    # content-hash dedup above is what prevents needless re-writes there.
+    pk <- if (!is.null(primary_keys)) primary_keys[[tbl]] else NULL
+    if (!is.null(pk) && !(pk %in% sort_cols)) {
+      order_parts <- c(order_parts, pk)
+    }
+    if (length(order_parts) > 0) {
       order_clause <- paste(" ORDER BY", paste(order_parts, collapse = ", "))
     }
 
     if (is_partitioned) {
-      # hive-partitioned output to subdirectory
-      if (dir.exists(output_path)) unlink(output_path, recursive = TRUE)
       part_clause <- paste(part_cols, collapse = ", ")
+      if (is.null(write_filter)) {
+        # full (re)write: clear the directory and write every partition
+        if (dir.exists(output_path)) unlink(output_path, recursive = TRUE)
+        where_clause <- ""
+      } else {
+        # incremental: drop only the changed/removed partition dirs so the
+        # untouched ones are reused as-is, then write just the changed rows
+        for (pv in c(removed_parts, changed)) {
+          pdir <- file.path(output_path, paste0(part_cols[1], "=", pv))
+          if (dir.exists(pdir)) unlink(pdir, recursive = TRUE)
+        }
+        where_clause <- paste0(" WHERE ", write_filter)
+        message(glue::glue(
+          "  {tbl}: writing {length(changed)} changed partition(s), ",
+          "{length(removed_parts)} removed, reusing the rest"))
+      }
 
       DBI::dbExecute(con, paste0(
-        "COPY (SELECT ", select_clause, " FROM ", tbl, order_clause, ")",
+        "COPY (SELECT ", select_clause, " FROM ", tbl, where_clause,
+        order_clause, ")",
         " TO '", output_path, "'",
         " (FORMAT PARQUET, PARTITION_BY (", part_clause, "),",
-        " COMPRESSION '", compression, "', OVERWRITE_OR_IGNORE)"))
+        " COMPRESSION '", compression, "', PARQUET_VERSION V2,",
+        " OVERWRITE_OR_IGNORE)"))
 
       # sum file sizes across partition files
       part_files <- list.files(output_path, pattern = "\\.parquet$",
@@ -1465,7 +1589,8 @@ write_parquet_outputs <- function(
       DBI::dbExecute(con, paste0(
         "COPY (SELECT ", select_clause, " FROM ", tbl, order_clause, ")",
         " TO '", output_path, "'",
-        " (FORMAT PARQUET, COMPRESSION '", compression, "')"))
+        " (FORMAT PARQUET, COMPRESSION '", compression, "',",
+        " PARQUET_VERSION V2)"))
 
       file_size <- file.info(output_path)$size
     }
@@ -1499,7 +1624,14 @@ write_parquet_outputs <- function(
     supplemental     = if (!is.null(supplemental))
       intersect(supplemental, stats$table) else list(),
     sort_by          = if (length(sort_map) > 0) sort_map else list(),
-    files            = stats |> dplyr::select(-partitioned) |> as.list())
+    files            = stats |> dplyr::select(-partitioned) |> as.list(),
+    # order-independent content signatures per table (partitioned tables map
+    # partition value -> signature); read on the next run to skip unchanged
+    # tables/partitions instead of re-writing and re-uploading them
+    data_hash        = hash_acc,
+    # encoding signature; a change forces a one-time rewrite (content hashes
+    # track data, not file format) so snappy/V1 -> zstd/V2 actually applies
+    parquet_format   = cur_format)
 
   # append mismatches if provided
 
