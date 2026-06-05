@@ -13,7 +13,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.7.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.7.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -38,6 +38,11 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="2.7.1" id="calcofi4db-271">calcofi4db 2.7.1<a class="anchor" aria-label="anchor" href="#calcofi4db-271"></a></h2>
+<ul><li>
+<strong><code><a href="../reference/parse_qmd_frontmatter.html">parse_qmd_frontmatter()</a></code></strong> now reads the whole file when locating the YAML front matter delimiters instead of only the first 50 lines, so workflows with long <code>calcofi:</code> blocks (e.g. <code>dataset_meta</code> + <code>additional_datasets</code>) are parsed and not silently dropped from the targets pipeline / release registry.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.7.0" id="calcofi4db-270">calcofi4db 2.7.0<a class="anchor" aria-label="anchor" href="#calcofi4db-270"></a></h2>
 <p><em>YAML-authoritative dataset metadata, per-dataset contributions, and richer release sidecars</em></p>
