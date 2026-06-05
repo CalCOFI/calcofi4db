@@ -12,8 +12,9 @@ write_parquet_outputs(
   tables = NULL,
   partition_by = NULL,
   sort_by = NULL,
+  primary_keys = NULL,
   strip_provenance = TRUE,
-  compression = "snappy",
+  compression = "zstd",
   mismatches = NULL,
   supplemental = NULL
 )
@@ -45,6 +46,17 @@ write_parquet_outputs(
   group statistics. For Hilbert-curve spatial sorting, use
   `"hilbert:lon_col,lat_col"`. Example:
   `list(ctd_measurement = c("measurement_type", "depth_m"), site = "hilbert:longitude,latitude")`.
+
+- primary_keys:
+
+  Named list mapping table names to their primary-key column (e.g. from
+  a `relationships.json` `primary_keys` block). Appended as a final
+  ORDER BY tiebreaker so output is a unique total order and thus
+  **byte-identical across re-runs of unchanged data** — letting
+  [`sync_to_gcs()`](https://calcofi.io/calcofi4db/reference/sync_to_gcs.md)
+  skip re-uploading parquet that did not actually change. Without it,
+  ties in `sort_by` break nondeterministically under parallel writes,
+  changing the bytes (and crc32c) on every run.
 
 - strip_provenance:
 

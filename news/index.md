@@ -1,5 +1,35 @@
 # Changelog
 
+## calcofi4db 2.8.0
+
+*Content-hash dedup of parquet uploads + Parquet V2 / zstd defaults*
+
+- **[`write_parquet_outputs()`](https://calcofi.io/calcofi4db/reference/write_parquet_outputs.md)
+  content-hash dedup** — computes an order-independent content signature
+  per table (and per partition for partitioned tables), stored in
+  `manifest.json` as `data_hash`. On re-run, unchanged tables/partitions
+  are **reused from the previous run** instead of being re-written and
+  re-uploaded. A few new cruises (or a metadata-only change) now rewrite
+  only the affected partitions, not all 15 GB of `ctd_measurement`.
+  Replaces the previous coarse row-count check that forced a full-table
+  rewrite whenever any partition value changed.
+- **Parquet V2 + zstd defaults** — `COPY TO` now writes
+  `PARQUET_VERSION V2` and defaults `compression = "zstd"` (was
+  `"snappy"`) for better compression at minimal cost. Native DuckDB
+  GEOMETRY (v1.5+) round-trips correctly under both. The encoding is
+  recorded in `manifest.json` as `parquet_format`; a format change
+  forces a one-time full rewrite so the new encoding actually applies
+  (content hashes track data, not file bytes). `ROW_GROUP_SIZE_BYTES` is
+  intentionally not set on these writes because it requires
+  `preserve_insertion_order=false`, which conflicts with ordered output.
+- **`primary_keys` parameter** — optional named list (table → PK column)
+  appended as a final `ORDER BY` tiebreaker for a stable total order
+  (better row-group statistics; byte-stable single-file outputs).
+- **[`sync_to_gcs()`](https://calcofi.io/calcofi4db/reference/sync_to_gcs.md)
+  crc32c fix** — `gcloud storage hash` is now called without the removed
+  `--crc32c` flag (rejected by gcloud ≥ 5xx), which had silently
+  degraded change detection to a size-only comparison.
+
 ## calcofi4db 2.7.1
 
 - **[`parse_qmd_frontmatter()`](https://calcofi.io/calcofi4db/reference/parse_qmd_frontmatter.md)**

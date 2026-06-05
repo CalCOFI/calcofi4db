@@ -15,7 +15,7 @@ Optionally strips provenance columns for public releases."><!-- Google tag (gtag
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.7.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -54,8 +54,9 @@ Optionally strips provenance columns for public releases.</p>
 <span>  tables <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  partition_by <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  sort_by <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  primary_keys <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  strip_provenance <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  compression <span class="op">=</span> <span class="st">"snappy"</span>,</span>
+<span>  compression <span class="op">=</span> <span class="st">"zstd"</span>,</span>
 <span>  mismatches <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  supplemental <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -88,6 +89,16 @@ subdirectories.</p></dd>
 optimized row group statistics. For Hilbert-curve spatial sorting,
 use <code>"hilbert:lon_col,lat_col"</code>. Example:
 <code>list(ctd_measurement = c("measurement_type", "depth_m"), site = "hilbert:longitude,latitude")</code>.</p></dd>
+
+
+<dt id="arg-primary-keys">primary_keys<a class="anchor" aria-label="anchor" href="#arg-primary-keys"></a></dt>
+<dd><p>Named list mapping table names to their primary-key
+column (e.g. from a <code>relationships.json</code> <code>primary_keys</code> block). Appended
+as a final ORDER BY tiebreaker so output is a unique total order and thus
+<strong>byte-identical across re-runs of unchanged data</strong> — letting
+<code><a href="sync_to_gcs.html">sync_to_gcs()</a></code> skip re-uploading parquet that did not actually change.
+Without it, ties in <code>sort_by</code> break nondeterministically under parallel
+writes, changing the bytes (and crc32c) on every run.</p></dd>
 
 
 <dt id="arg-strip-provenance">strip_provenance<a class="anchor" aria-label="anchor" href="#arg-strip-provenance"></a></dt>

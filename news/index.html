@@ -13,7 +13,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.7.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -38,6 +38,18 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="2.8.0" id="calcofi4db-280">calcofi4db 2.8.0<a class="anchor" aria-label="anchor" href="#calcofi4db-280"></a></h2>
+<p><em>Content-hash dedup of parquet uploads + Parquet V2 / zstd defaults</em></p>
+<ul><li>
+<strong><code><a href="../reference/write_parquet_outputs.html">write_parquet_outputs()</a></code> content-hash dedup</strong> — computes an order-independent content signature per table (and per partition for partitioned tables), stored in <code>manifest.json</code> as <code>data_hash</code>. On re-run, unchanged tables/partitions are <strong>reused from the previous run</strong> instead of being re-written and re-uploaded. A few new cruises (or a metadata-only change) now rewrite only the affected partitions, not all 15 GB of <code>ctd_measurement</code>. Replaces the previous coarse row-count check that forced a full-table rewrite whenever any partition value changed.</li>
+<li>
+<strong>Parquet V2 + zstd defaults</strong> — <code>COPY TO</code> now writes <code>PARQUET_VERSION V2</code> and defaults <code>compression = "zstd"</code> (was <code>"snappy"</code>) for better compression at minimal cost. Native DuckDB GEOMETRY (v1.5+) round-trips correctly under both. The encoding is recorded in <code>manifest.json</code> as <code>parquet_format</code>; a format change forces a one-time full rewrite so the new encoding actually applies (content hashes track data, not file bytes). <code>ROW_GROUP_SIZE_BYTES</code> is intentionally not set on these writes because it requires <code>preserve_insertion_order=false</code>, which conflicts with ordered output.</li>
+<li>
+<strong><code>primary_keys</code> parameter</strong> — optional named list (table → PK column) appended as a final <code>ORDER BY</code> tiebreaker for a stable total order (better row-group statistics; byte-stable single-file outputs).</li>
+<li>
+<strong><code><a href="../reference/sync_to_gcs.html">sync_to_gcs()</a></code> crc32c fix</strong> — <code>gcloud storage hash</code> is now called without the removed <code>--crc32c</code> flag (rejected by gcloud ≥ 5xx), which had silently degraded change detection to a size-only comparison.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.7.1" id="calcofi4db-271">calcofi4db 2.7.1<a class="anchor" aria-label="anchor" href="#calcofi4db-271"></a></h2>
 <ul><li>
