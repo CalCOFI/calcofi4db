@@ -1,5 +1,12 @@
 # Changelog
 
+## calcofi4db 2.8.2
+
+- **[`merge_metadata_json()`](https://calcofi.io/calcofi4db/reference/merge_metadata_json.md)**
+  adds each dataset’s `workflow_url` (from the ingest `calcofi:` YAML)
+  to its `datasets[]` entry, so the schema site can link the rendered
+  ingest notebook next to the calcofi.org / data-source links.
+
 ## calcofi4db 2.8.1
 
 - **Content-hash dedup ignores provenance columns** — the
