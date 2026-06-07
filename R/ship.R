@@ -435,7 +435,8 @@ match_ships <- function(
 derive_cruise_key_on_casts <- function(
     con,
     ship_renames_csv = NULL,
-    fetch_ices       = TRUE) {
+    fetch_ices       = TRUE,
+    datetime_col     = "datetime_utc") {
 
   # verify required tables exist
   tbls <- DBI::dbListTables(con)
@@ -494,15 +495,15 @@ derive_cruise_key_on_casts <- function(
   # step 4: derive cruise_key as YYYY-MM-NODC ----
   DBI::dbExecute(con, "ALTER TABLE casts ADD COLUMN IF NOT EXISTS cruise_key TEXT")
 
-  DBI::dbExecute(con, "
+  DBI::dbExecute(con, glue::glue("
     UPDATE casts SET cruise_key = CONCAT(
-      CAST(EXTRACT(YEAR FROM datetime_utc) AS VARCHAR),
+      CAST(EXTRACT(YEAR FROM {datetime_col}) AS VARCHAR),
       '-',
-      LPAD(CAST(EXTRACT(MONTH FROM datetime_utc) AS VARCHAR), 2, '0'),
+      LPAD(CAST(EXTRACT(MONTH FROM {datetime_col}) AS VARCHAR), 2, '0'),
       '-',
       (SELECT s.ship_nodc FROM ship s
        WHERE s.ship_key = casts.ship_key LIMIT 1))
-    WHERE ship_key IS NOT NULL")
+    WHERE ship_key IS NOT NULL"))
 
   n_cruise <- DBI::dbGetQuery(con,
     "SELECT COUNT(*) AS n FROM casts WHERE cruise_key IS NOT NULL")$n
@@ -524,16 +525,16 @@ derive_cruise_key_on_casts <- function(
     ORDER BY status")
 
   # step 6: report unmatched ships ----
-  unmatched_report <- DBI::dbGetQuery(con, "
+  unmatched_report <- DBI::dbGetQuery(con, glue::glue("
     SELECT DISTINCT
       c.ship_code, c.ship_name,
       COUNT(*) AS n_casts,
-      MIN(c.datetime_utc) AS first_cast,
-      MAX(c.datetime_utc) AS last_cast
+      MIN(c.{datetime_col}) AS first_cast,
+      MAX(c.{datetime_col}) AS last_cast
     FROM casts c
     WHERE c.ship_key IS NULL
     GROUP BY c.ship_code, c.ship_name
-    ORDER BY n_casts DESC")
+    ORDER BY n_casts DESC"))
 
   if (nrow(unmatched_report) > 0) {
     message(glue::glue("{nrow(unmatched_report)} ship codes still unmatched"))

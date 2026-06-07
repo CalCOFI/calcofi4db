@@ -155,3 +155,184 @@ load_gcs_parquet_to_duckdb <- function(
 
   invisible(NULL)
 }
+
+# look up a column's DuckDB data type from information_schema (helper, not exported)
+.column_type <- function(con, table, column) {
+  t <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT data_type FROM information_schema.columns
+     WHERE table_name = '{table}' AND column_name = '{column}'
+     LIMIT 1"))$data_type
+  if (length(t) == 0 || is.na(t)) "INTEGER" else t
+}
+
+#' Match Records to a Reference Table by Key + Datetime Window
+#'
+#' Adds a foreign-key column to `data_tbl` and populates it with the primary
+#' key of the nearest-in-time row of `ref_tbl` that shares the same key column
+#' (e.g. `site_key`) and falls within `window_days` of the data row's datetime.
+#' This is the standard cross-dataset bridge for datasets that lack an explicit
+#' cast/cruise FK (issue #47). Extracted from `ingest_calcofi_dic.qmd` so every
+#' ingest reuses the same logic rather than re-writing inline SQL.
+#'
+#' @param con DBI connection to DuckDB.
+#' @param data_tbl Character. Table to add the FK column to (e.g. "dic_sample").
+#' @param ref_tbl Character. Reference table to match against (e.g. "casts").
+#' @param fk_col Character. FK column to create on `data_tbl` (default "cast_id").
+#' @param ref_pk Character. Primary-key column on `ref_tbl` (default "cast_id").
+#' @param key_col Character. Shared key matched exactly on both tables
+#'   (default "site_key").
+#' @param datetime_col Character. Timestamp column on `data_tbl`, compared by
+#'   date (default "datetime_start_utc").
+#' @param ref_key_col Character. Key column on `ref_tbl` (default: same as
+#'   `key_col`). Set when the reference table names the key differently.
+#' @param ref_datetime_col Character. Timestamp column on `ref_tbl` (default:
+#'   same as `datetime_col`). Set when the two tables name their timestamp
+#'   differently — e.g. matching a dataset on `datetime_start_utc` to a not-yet-
+#'   normalized reference still on `datetime_utc`.
+#' @param window_days Numeric. Maximum absolute date difference, in days
+#'   (default 3).
+#' @param return_stats Logical. If TRUE (default), return a stats list;
+#'   otherwise return invisible NULL.
+#'
+#' @return If `return_stats`, a list with `matched`, `total`, `pct`, and an
+#'   `unmatched` data frame of distinct unmatched key/date rows. Side effect:
+#'   adds and populates `fk_col` on `data_tbl`.
+#' @export
+#' @concept spatial
+#'
+#' @examples
+#' \dontrun{
+#' s <- match_by_site_datetime(con, "dic_sample", "casts")
+#' cat(glue::glue("matched {s$matched}/{s$total} ({s$pct}%)"), "\n")
+#' }
+#' @importFrom DBI dbExecute dbGetQuery
+#' @importFrom glue glue
+match_by_site_datetime <- function(
+    con,
+    data_tbl,
+    ref_tbl,
+    fk_col       = "cast_id",
+    ref_pk       = "cast_id",
+    key_col          = "site_key",
+    datetime_col     = "datetime_start_utc",
+    ref_key_col      = NULL,
+    ref_datetime_col = NULL,
+    window_days      = 3,
+    return_stats     = TRUE) {
+
+  if (is.null(ref_key_col))      ref_key_col      <- key_col
+  if (is.null(ref_datetime_col)) ref_datetime_col <- datetime_col
+
+  fk_type <- .column_type(con, ref_tbl, ref_pk)
+
+  DBI::dbExecute(con, glue::glue(
+    "ALTER TABLE {data_tbl} ADD COLUMN IF NOT EXISTS {fk_col} {fk_type}"))
+
+  DBI::dbExecute(con, glue::glue(
+    "UPDATE {data_tbl} d
+     SET {fk_col} = (
+       SELECT r.{ref_pk}
+       FROM {ref_tbl} r
+       WHERE r.{ref_key_col} = d.{key_col}
+         AND ABS(r.{ref_datetime_col}::DATE - d.{datetime_col}::DATE) <= {window_days}
+       ORDER BY ABS(r.{ref_datetime_col}::DATE - d.{datetime_col}::DATE)
+       LIMIT 1
+     )"))
+
+  matched <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT COUNT(*) AS n FROM {data_tbl} WHERE {fk_col} IS NOT NULL"))$n
+  total <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT COUNT(*) AS n FROM {data_tbl}"))$n
+  pct <- if (total > 0) round(100 * matched / total, 1) else NA_real_
+
+  message(glue::glue(
+    "match_by_site_datetime: {matched}/{total} {data_tbl} rows matched to ",
+    "{ref_tbl} ({pct}%) within {window_days} d"))
+
+  if (!return_stats) return(invisible(NULL))
+
+  unmatched <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT DISTINCT {key_col}, {datetime_col}::DATE AS date
+     FROM {data_tbl} WHERE {fk_col} IS NULL ORDER BY {key_col}, date"))
+
+  list(matched = matched, total = total, pct = pct, unmatched = unmatched)
+}
+
+#' Match Records to the Nearest Reference Row Along a Continuous Axis
+#'
+#' Adds a foreign-key column to `data_tbl` and populates it with the primary
+#' key of the `ref_tbl` row that is nearest along a continuous axis (e.g.
+#' `depth_m`) within `tolerance`, restricted to rows sharing an already-matched
+#' parent FK (e.g. `cast_id`). Use after [match_by_site_datetime()] to descend
+#' from a parent match (cast) to a child match (Niskin bottle). Extracted from
+#' `ingest_calcofi_dic.qmd`.
+#'
+#' @param con DBI connection to DuckDB.
+#' @param data_tbl Character. Table to add the FK column to (e.g. "dic_sample").
+#' @param ref_tbl Character. Reference table to match against (e.g. "bottle").
+#' @param fk_col Character. FK column to create on `data_tbl` (default
+#'   "bottle_id").
+#' @param ref_pk Character. Primary-key column on `ref_tbl` (default
+#'   "bottle_id").
+#' @param parent_fk Character. Parent FK present on both tables that scopes the
+#'   match (default "cast_id"); only rows with a non-NULL parent are matched.
+#' @param axis_col Character. Continuous column minimized in absolute difference
+#'   (default "depth_m").
+#' @param tolerance Numeric. Maximum absolute difference on `axis_col`
+#'   (default 1.0).
+#' @param return_stats Logical. If TRUE (default), return a stats list;
+#'   otherwise return invisible NULL.
+#'
+#' @return If `return_stats`, a list with `matched`, `eligible` (rows with a
+#'   non-NULL parent), and `pct`. Side effect: adds and populates `fk_col`.
+#' @export
+#' @concept spatial
+#'
+#' @examples
+#' \dontrun{
+#' match_by_site_datetime(con, "dic_sample", "casts")
+#' match_nearest_by_depth(con, "dic_sample", "bottle")
+#' }
+#' @importFrom DBI dbExecute dbGetQuery
+#' @importFrom glue glue
+match_nearest_by_depth <- function(
+    con,
+    data_tbl,
+    ref_tbl,
+    fk_col       = "bottle_id",
+    ref_pk       = "bottle_id",
+    parent_fk    = "cast_id",
+    axis_col     = "depth_m",
+    tolerance    = 1.0,
+    return_stats = TRUE) {
+
+  fk_type <- .column_type(con, ref_tbl, ref_pk)
+
+  DBI::dbExecute(con, glue::glue(
+    "ALTER TABLE {data_tbl} ADD COLUMN IF NOT EXISTS {fk_col} {fk_type}"))
+
+  DBI::dbExecute(con, glue::glue(
+    "UPDATE {data_tbl} d
+     SET {fk_col} = (
+       SELECT r.{ref_pk}
+       FROM {ref_tbl} r
+       WHERE r.{parent_fk} = d.{parent_fk}
+         AND ABS(r.{axis_col} - d.{axis_col}) <= {tolerance}
+       ORDER BY ABS(r.{axis_col} - d.{axis_col})
+       LIMIT 1
+     )
+     WHERE d.{parent_fk} IS NOT NULL"))
+
+  matched <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT COUNT(*) AS n FROM {data_tbl} WHERE {fk_col} IS NOT NULL"))$n
+  eligible <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT COUNT(*) AS n FROM {data_tbl} WHERE {parent_fk} IS NOT NULL"))$n
+  pct <- if (eligible > 0) round(100 * matched / eligible, 1) else NA_real_
+
+  message(glue::glue(
+    "match_nearest_by_depth: {matched}/{eligible} {data_tbl} rows matched to ",
+    "{ref_tbl} ({pct}%) within {tolerance} {axis_col}"))
+
+  if (!return_stats) return(invisible(NULL))
+  list(matched = matched, eligible = eligible, pct = pct)
+}
