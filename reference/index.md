@@ -361,6 +361,10 @@ check for other functions or datasets not captured by above categories
   : Fetch Ship Codes from ICES Reference Codes API
 - [`load_gcs_parquet_to_duckdb()`](https://calcofi.io/calcofi4db/reference/load_gcs_parquet_to_duckdb.md)
   : Load a GCS Parquet File into DuckDB
+- [`match_by_site_datetime()`](https://calcofi.io/calcofi4db/reference/match_by_site_datetime.md)
+  : Match Records to a Reference Table by Key + Datetime Window
+- [`match_nearest_by_depth()`](https://calcofi.io/calcofi4db/reference/match_nearest_by_depth.md)
+  : Match Records to the Nearest Reference Row Along a Continuous Axis
 - [`match_ships()`](https://calcofi.io/calcofi4db/reference/match_ships.md)
   : Match Ship Codes Across Datasets Using Multi-Source References
 - [`report_ship_matches()`](https://calcofi.io/calcofi4db/reference/report_ship_matches.md)

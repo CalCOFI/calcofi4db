@@ -9,7 +9,12 @@ casts, (4) validating against the cruise table.
 ## Usage
 
 ``` r
-derive_cruise_key_on_casts(con, ship_renames_csv = NULL, fetch_ices = TRUE)
+derive_cruise_key_on_casts(
+  con,
+  ship_renames_csv = NULL,
+  fetch_ices = TRUE,
+  datetime_col = "datetime_utc"
+)
 ```
 
 ## Arguments
