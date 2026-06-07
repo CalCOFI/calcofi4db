@@ -2510,12 +2510,14 @@ merge_metadata_json <- function(
       cc <- ingest_yaml[[key]]
       entry <- .dataset_entry(cc$provider, cc$dataset, cc$dataset_meta)
       entry$tables <- owned_tbls(cc$tables_owned)
+      entry$workflow_url <- cc$workflow_url   # link to rendered ingest notebook
       datasets[[key]] <- entry
       # datasets folded into one ingest (e.g. swfsc_invert inside ichthyo)
       for (ad in cc$additional_datasets %||% list()) {
         k2 <- paste0(ad$provider, "_", ad$dataset)
         e2 <- .dataset_entry(ad$provider, ad$dataset, ad)
         e2$tables <- owned_tbls(ad$tables_owned)
+        e2$workflow_url <- ad$workflow_url %||% cc$workflow_url
         datasets[[k2]] <- e2
       }
       # ERD legend swatch (provider_dataset → color)
