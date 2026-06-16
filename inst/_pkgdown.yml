@@ -12,6 +12,24 @@ template:
 
         gtag('config', 'G-0HVK8TDMCF');
       </script>
+navbar:
+  structure:
+    # left:  [intro, reference, articles, news]
+    left:  [reference, news]
+    right: [schema, query, docs, search, github]
+  components:
+    schema:
+      text: Schema
+      href: https://calcofi.io/schema/
+      aria-label: CalCOFI Schema explorer (ERD, tables, columns, units)
+    query:
+      text: Query
+      href: https://calcofi.io/query/
+      aria-label: CalCOFI Query (browser DuckDB-WASM)
+    docs:
+      text: Docs
+      href: https://calcofi.io/docs/
+      aria-label: CalCOFI Docs
 reference:
 - title: "Cloud Storage (GCS)"
   desc: functions for Google Cloud Storage operations
