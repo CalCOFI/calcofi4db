@@ -13,7 +13,8 @@ merge_metadata_json(
   measurement_type_csv = NULL,
   dataset_csv = NULL,
   ingest_yaml = NULL,
-  table_rows = NULL
+  table_rows = NULL,
+  measurement_datasets = NULL
 )
 }
 \arguments{
@@ -51,6 +52,13 @@ When both are supplied, \code{ingest_yaml} wins.}
 \item{table_rows}{Optional named numeric vector (table name → release-final
 row count, e.g. from freeze stats). Used as the denominator when computing
 per-dataset contribution percentages.}
+
+\item{measurement_datasets}{Optional named list, \code{measurement_type ->
+  character vector of provider_datasets} (typically from
+\code{\link[=derive_measurement_type_datasets]{derive_measurement_type_datasets()}}). When supplied, it supersedes the
+per-type \code{_source_datasets} hint in \code{measurement_type_csv},
+giving the true one-to-many membership (e.g. \code{temperature} reported by
+both \code{calcofi_bottle} and \code{calcofi_ctd-cast}).}
 }
 \value{
 Path to the merged \code{metadata.json} file (invisibly returns
