@@ -2340,6 +2340,12 @@ ingest_yaml_to_dataset_df <- function(ingest_yaml) {
 #' @param table_rows Optional named numeric vector (table name → release-final
 #'   row count, e.g. from freeze stats). Used as the denominator when computing
 #'   per-dataset contribution percentages.
+#' @param measurement_datasets Optional named list, \code{measurement_type ->
+#'   character vector of provider_datasets} (typically from
+#'   [derive_measurement_type_datasets()]). When supplied, it supersedes the
+#'   per-type \code{_source_datasets} hint in \code{measurement_type_csv},
+#'   giving the true one-to-many membership (e.g. \code{temperature} reported by
+#'   both \code{calcofi_bottle} and \code{calcofi_ctd-cast}).
 #'
 #' @return Path to the merged \code{metadata.json} file (invisibly returns
 #'   \code{output_path}).
@@ -2373,7 +2379,8 @@ merge_metadata_json <- function(
     measurement_type_csv = NULL,
     dataset_csv          = NULL,
     ingest_yaml          = NULL,
-    table_rows           = NULL) {
+    table_rows           = NULL,
+    measurement_datasets = NULL) {
 
   tables_meta  <- list()
   columns_meta <- list()
@@ -2485,7 +2492,13 @@ merge_metadata_json <- function(
       mt <- d_mt$measurement_type[i]
       if (is.na(mt) || mt == "") next
       ds_vec <- NULL
-      if ("_source_datasets" %in% names(d_mt) && !is.na(d_mt$`_source_datasets`[i]) &&
+      # data-derived membership (one type -> many datasets) supersedes the CSV
+      # `_source_datasets` hint when supplied by the caller (see
+      # derive_measurement_type_datasets())
+      if (!is.null(measurement_datasets) && !is.null(measurement_datasets[[mt]]) &&
+          length(measurement_datasets[[mt]])) {
+        ds_vec <- as.character(measurement_datasets[[mt]])
+      } else if ("_source_datasets" %in% names(d_mt) && !is.na(d_mt$`_source_datasets`[i]) &&
           nzchar(d_mt$`_source_datasets`[i])) {
         ds_vec <- trimws(strsplit(d_mt$`_source_datasets`[i], ";")[[1]])
         ds_vec <- ds_vec[nzchar(ds_vec)]
@@ -2494,7 +2507,10 @@ merge_metadata_json <- function(
         description  = if (!is.na(d_mt$description[i]))   d_mt$description[i]   else "",
         units        = if (!is.na(d_mt$units[i]))         d_mt$units[i]         else NULL,
         is_canonical = if ("is_canonical" %in% names(d_mt)) isTRUE(d_mt$is_canonical[i]) else NA,
-        datasets     = ds_vec)
+        # wrap in I() so a single dataset still serializes as a JSON array
+        # (auto_unbox = TRUE would otherwise collapse a length-1 vector to a
+        # bare string, which the schema site's dataset filter can't match)
+        datasets     = if (is.null(ds_vec)) NULL else I(ds_vec))
     }
   }
 
@@ -2599,6 +2615,63 @@ merge_metadata_json <- function(
     "{length(measurement_types)} measurement types"))
 
   invisible(output_path)
+}
+
+#' Derive measurement_type → contributing datasets from the data
+#'
+#' Scans every measurement-bearing table (those with a \code{measurement_type}
+#' column) for its distinct measurement types and unions in the dataset(s) that
+#' own the table, yielding the true one-to-many map (e.g. \code{temperature}
+#' reported by both \code{calcofi_bottle} and \code{calcofi_ctd-cast}). Feed the
+#' result to [merge_metadata_json()] via its \code{measurement_datasets} argument
+#' so the schema site's per-measurement dataset filter reflects reality rather
+#' than the single "first-defined" dataset.
+#'
+#' Tables in \code{table_datasets} that lack a \code{measurement_type} column are
+#' skipped silently. Exclude the \code{measurement_type} vocabulary/lookup table
+#' from \code{table_datasets} — its \code{measurement_type} column is the term
+#' list, not measured rows, so including it would mis-attribute every term to
+#' every contributing dataset.
+#'
+#' @param con A DBI connection (e.g. from [get_duckdb_con()]). Reads happen via
+#'   \code{from_fn(table)} so the same helper works against in-DB tables or
+#'   remote parquet over httpfs.
+#' @param table_datasets Named list, \code{table -> character vector of
+#'   provider_datasets}. Typically built from the ingest YAML \code{tables_owned}
+#'   or the metadata \code{contributions} block.
+#' @param from_fn Function mapping a table name to a SQL FROM source. Defaults to
+#'   the identity (the table exists in \code{con}); for remote parquet pass e.g.
+#'   \code{function(t) sprintf("read_parquet('\%s/\%s.parquet')", base, t)}.
+#'
+#' @return Named list, \code{measurement_type -> sorted unique character vector
+#'   of provider_datasets}.
+#' @export
+#' @concept wrangle
+#'
+#' @examples
+#' \dontrun{
+#' td <- list(bottle_measurement = "calcofi_bottle",
+#'            ctd_thin           = "calcofi_ctd-cast")
+#' derive_measurement_type_datasets(con, td)
+#' }
+#' @importFrom DBI dbGetQuery
+#' @importFrom glue glue
+derive_measurement_type_datasets <- function(con, table_datasets, from_fn = identity) {
+  out <- list()
+  for (tbl in names(table_datasets)) {
+    src <- from_fn(tbl)
+    types <- tryCatch(
+      DBI::dbGetQuery(con, glue::glue(
+        "SELECT DISTINCT measurement_type AS t FROM {src} ",
+        "WHERE measurement_type IS NOT NULL"))$t,
+      # table has no measurement_type column (or is unreadable) → skip
+      error = function(e) character(0))
+    for (ty in types) {
+      if (is.na(ty) || !nzchar(ty)) next
+      out[[ty]] <- union(out[[ty]], table_datasets[[tbl]])
+    }
+  }
+  lapply(out, sort)
 }
 
 # mismatch collection & spatial manifest ----
