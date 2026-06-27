@@ -19,7 +19,8 @@ merge_metadata_json(
   measurement_type_csv = NULL,
   dataset_csv = NULL,
   ingest_yaml = NULL,
-  table_rows = NULL
+  table_rows = NULL,
+  measurement_datasets = NULL
 )
 ```
 
@@ -76,6 +77,17 @@ merge_metadata_json(
   Optional named numeric vector (table name → release-final row count,
   e.g. from freeze stats). Used as the denominator when computing
   per-dataset contribution percentages.
+
+- measurement_datasets:
+
+  Optional named list,
+  `measurement_type -> character vector of provider_datasets` (typically
+  from
+  [`derive_measurement_type_datasets()`](https://calcofi.io/calcofi4db/reference/derive_measurement_type_datasets.md)).
+  When supplied, it supersedes the per-type `_source_datasets` hint in
+  `measurement_type_csv`, giving the true one-to-many membership (e.g.
+  `temperature` reported by both `calcofi_bottle` and
+  `calcofi_ctd-cast`).
 
 ## Value
 

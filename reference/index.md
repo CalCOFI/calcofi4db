@@ -231,6 +231,8 @@ functions for local DuckDB wrangling (keys, IDs, table consolidation)
   : Create Cruise Key from Ship NODC Code and Date
 - [`create_lookup_table()`](https://calcofi.io/calcofi4db/reference/create_lookup_table.md)
   : Create Lookup Table from Vocabulary Definitions
+- [`derive_measurement_type_datasets()`](https://calcofi.io/calcofi4db/reference/derive_measurement_type_datasets.md)
+  : Derive measurement_type → contributing datasets from the data
 - [`enforce_column_types()`](https://calcofi.io/calcofi4db/reference/enforce_column_types.md)
   : Enforce Column Types Before Export
 - [`ingest_yaml_to_dataset_df()`](https://calcofi.io/calcofi4db/reference/ingest_yaml_to_dataset_df.md)

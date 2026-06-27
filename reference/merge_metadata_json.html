@@ -72,7 +72,8 @@ version <code>"1.1"</code> alongside <code>catalog.json</code> and
 <span>  measurement_type_csv <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  dataset_csv <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  ingest_yaml <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  table_rows <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  table_rows <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  measurement_datasets <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -131,6 +132,15 @@ When both are supplied, <code>ingest_yaml</code> wins.</p></dd>
 <dd><p>Optional named numeric vector (table name → release-final
 row count, e.g. from freeze stats). Used as the denominator when computing
 per-dataset contribution percentages.</p></dd>
+
+
+<dt id="arg-measurement-datasets">measurement_datasets<a class="anchor" aria-label="anchor" href="#arg-measurement-datasets"></a></dt>
+<dd><p>Optional named list, <code>measurement_type -&gt;
+  character vector of provider_datasets</code> (typically from
+<code><a href="derive_measurement_type_datasets.html">derive_measurement_type_datasets()</a></code>). When supplied, it supersedes the
+per-type <code>_source_datasets</code> hint in <code>measurement_type_csv</code>,
+giving the true one-to-many membership (e.g. <code>temperature</code> reported by
+both <code>calcofi_bottle</code> and <code>calcofi_ctd-cast</code>).</p></dd>
 
 </dl></div>
     <div class="section level2">
