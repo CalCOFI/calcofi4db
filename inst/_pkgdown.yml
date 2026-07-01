@@ -20,11 +20,11 @@ navbar:
   components:
     schema:
       text: Schema
-      href: https://calcofi.io/schema/
+      href: https://calcofi.io/db-schema/
       aria-label: CalCOFI Schema explorer (ERD, tables, columns, units)
     query:
       text: Query
-      href: https://calcofi.io/query/
+      href: https://calcofi.io/db-query/
       aria-label: CalCOFI Query (browser DuckDB-WASM)
     docs:
       text: Docs

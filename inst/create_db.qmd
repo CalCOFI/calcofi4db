@@ -694,10 +694,10 @@ sum(d_eff$time_hr, na.rm = T)    # 302,516 hours; 12,604 days; 34.5 years
 sum(d_eff$length_km, na.rm = T)  # 3,666,181 km
 ```
 
-## TODO: transfer int-app/taxa_worms.qmd workflow
+## TODO: transfer db-viz-hex/taxa_worms.qmd workflow
 
-- notebook: [taxa_worms.html](https://calcofi.io/int-app/taxa_worms.html)
-- source: [taxa_worms.qmd](https://github.com/CalCOFI/int-app/blob/main/taxa_worms.qmd)
+- notebook: [taxa_worms.html](https://calcofi.io/db-viz-hex/taxa_worms.html)
+- source: [taxa_worms.qmd](https://github.com/CalCOFI/db-viz-hex/blob/main/taxa_worms.qmd)
 
 Tables modified (∆) or added (+) by:
 

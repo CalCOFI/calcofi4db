@@ -679,7 +679,7 @@ build_taxon_table <- function(
     "Created {taxon_tbl} table: {nrow(all_taxa)} rows"))
 
   # create taxa_rank lookup table
-  # rank ordering from int-app/taxa_worms.qmd
+  # rank ordering from db-viz-hex/taxa_worms.qmd
   taxa_ranks_chr <- c(
     "Kingdom", "Subkingdom",
     "Phylum", "Subphylum", "Infraphylum",
