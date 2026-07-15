@@ -43,7 +43,6 @@ Imports:
     uuid,
     yaml
 Suggests:
-    calcofi4r,
     googleCloudStorageR,
     httr2,
     rvest,
