@@ -165,7 +165,9 @@ append_obs <- function(con, select_sql, obs_tbl = "obs", res_max = CC_H3_RES_MAX
             taxon_id, life_stage, measurement_type, measurement_value,
             measurement_qual, measurement_prec,
             {hex} AS hex_id
-     FROM ( {select_sql} ) src"))
+     FROM ( {select_sql} ) AS src(realm, dataset_key, sample_key, grid_key, cruise_key,
+            latitude, longitude, datetime, depth_min_m, depth_max_m, taxon_id, life_stage,
+            measurement_type, measurement_value, measurement_qual, measurement_prec)"))
   invisible(DBI::dbGetQuery(
     con, glue::glue("SELECT COUNT(*) AS n FROM {obs_tbl}"))$n)
 }
@@ -191,7 +193,8 @@ append_obs_freq <- function(con, select_sql, tbl = "obs_freq") {
      SELECT {off} + ROW_NUMBER() OVER () AS obs_freq_id,
             dataset_key, sample_key, taxon_id, life_stage,
             measurement_type, bin_value, bin_label, count, measurement_qual
-     FROM ( {select_sql} ) src"))
+     FROM ( {select_sql} ) AS src(dataset_key, sample_key, taxon_id, life_stage,
+            measurement_type, bin_value, bin_label, count, measurement_qual)"))
   invisible(DBI::dbGetQuery(
     con, glue::glue("SELECT COUNT(*) AS n FROM {tbl}"))$n)
 }
@@ -215,7 +218,8 @@ append_sample_measurement <- function(con, select_sql, tbl = "sample_measurement
         measurement_type, measurement_value, measurement_qual)
      SELECT {off} + ROW_NUMBER() OVER () AS sample_measurement_id,
             sample_key, dataset_key, measurement_type, measurement_value, measurement_qual
-     FROM ( {select_sql} ) src"))
+     FROM ( {select_sql} ) AS src(sample_key, dataset_key,
+            measurement_type, measurement_value, measurement_qual)"))
   invisible(DBI::dbGetQuery(
     con, glue::glue("SELECT COUNT(*) AS n FROM {tbl}"))$n)
 }
@@ -245,7 +249,8 @@ append_sample <- function(con, select_sql, sample_tbl = "sample") {
             depth_min_m, depth_max_m,
             CASE WHEN latitude IS NULL OR longitude IS NULL THEN NULL
                  ELSE ST_Point(longitude, latitude) END AS geom
-     FROM ( {select_sql} ) src"))
+     FROM ( {select_sql} ) AS src(sample_key, sample_type, parent_sample_key, root_sample_key,
+            dataset_key, grid_key, cruise_key, latitude, longitude, datetime, depth_min_m, depth_max_m)"))
   invisible(DBI::dbGetQuery(
     con, glue::glue("SELECT COUNT(*) AS n FROM {sample_tbl}"))$n)
 }
@@ -498,4 +503,151 @@ build_sample_reference <- function(con, sample_tbl = "sample") {
 
   n <- DBI::dbGetQuery(con, glue::glue("SELECT COUNT(*) AS n FROM {sample_tbl}"))$n
   invisible(n)
+}
+
+# emit_core_tables ------------------------------------------------------------
+
+# per-dataset obs (occurrence-headline) projection SQL. The single source of
+# truth for how each dataset maps into `obs`, reused by the release assembly and
+# by each ingest's emit_core step. Mirrors the validated release core_tables arms.
+.obs_arm_sql <- function(dataset_key) {
+  switch(dataset_key,
+    "calcofi_bottle" = "
+      SELECT 'env' realm, 'calcofi_bottle' dataset_key,
+             'calcofi_bottle:bottle:' || CAST(b.bottle_id AS VARCHAR) sample_key,
+             c.grid_key, c.cruise_key, c.latitude, c.longitude,
+             CAST(c.datetime_start_utc AS TIMESTAMP) datetime, b.depth_m depth_min_m, b.depth_m depth_max_m,
+             NULL::VARCHAR taxon_id, NULL::VARCHAR life_stage,
+             m.measurement_type, m.measurement_value, m.measurement_qual, m.measurement_prec
+      FROM bottle_measurement m JOIN bottle b USING (bottle_id) JOIN casts c USING (cast_id)
+      WHERE c.grid_key IS NOT NULL",
+    "calcofi_ctd-cast" = "
+      SELECT 'env', 'calcofi_ctd-cast',
+             'calcofi_ctd-cast:cast:' || CAST(cc.cast_key AS VARCHAR),
+             cc.grid_key, cc.cruise_key, cc.latitude, cc.longitude,
+             CAST(cc.datetime_start_utc AS TIMESTAMP), t.depth_m, t.depth_m,
+             NULL::VARCHAR, NULL::VARCHAR, t.measurement_type, t.measurement_value,
+             t.measurement_qual, NULL::DOUBLE
+      FROM ctd_thin t JOIN ctd_cast cc ON t.ctd_cast_uuid = cc.ctd_cast_uuid
+      WHERE cc.grid_key IS NOT NULL",
+    "calcofi_dic" = glue::glue("
+      SELECT 'env', 'calcofi_dic',
+             CASE WHEN dm.bottle_id IS NOT NULL AND dm.bottle_id IN (SELECT bottle_id FROM bottle)
+                  THEN 'calcofi_bottle:bottle:' || CAST(dm.bottle_id AS VARCHAR)
+                  ELSE 'calcofi_dic:bottle:' || md5(concat_ws('|', dm.expocode,
+                    CAST(dm.datetime_start_utc AS VARCHAR), CAST(dm.latitude AS VARCHAR),
+                    CAST(dm.longitude AS VARCHAR), CAST(dm.depth_m AS VARCHAR))) END,
+             c.grid_key, c.cruise_key, dm.latitude, dm.longitude,
+             CAST(dm.datetime_start_utc AS TIMESTAMP), dm.depth_m, dm.depth_m,
+             NULL::VARCHAR, NULL::VARCHAR, dm.measurement_type, dm.measurement_value,
+             dm.measurement_qual, NULL::DOUBLE
+      FROM dic_measurement dm JOIN casts c USING (cast_id)
+      WHERE c.grid_key IS NOT NULL"),
+    "swfsc_ichthyo" = "
+      SELECT 'bio', 'swfsc_ichthyo', 'swfsc_ichthyo:net:' || CAST(i.net_uuid AS VARCHAR),
+             s.grid_key, s.cruise_key, s.latitude, s.longitude,
+             CAST(t.datetime_start_utc AS TIMESTAMP), NULL::DOUBLE, NULL::DOUBLE,
+             CAST(i.species_id AS VARCHAR), i.life_stage,
+             'abundance', CAST(i.tally AS DOUBLE), NULL::VARCHAR, NULL::DOUBLE
+      FROM ichthyo i JOIN net n USING (net_uuid) JOIN tow t USING (tow_uuid) JOIN site s USING (site_uuid)
+      WHERE i.measurement_type IS NULL AND s.grid_key IS NOT NULL",
+    "swfsc_cufes" = "
+      SELECT 'bio', 'swfsc_cufes', 'swfsc_cufes:underway:' || CAST(c.sample_id AS VARCHAR),
+             c.grid_key, c.cruise_key, c.latitude, c.longitude,
+             CAST(c.datetime_start_utc AS TIMESTAMP), 0::DOUBLE, 0::DOUBLE,
+             NULL::VARCHAR, NULL::VARCHAR, m.measurement_type, m.measurement_value, m.measurement_qual, NULL::DOUBLE
+      FROM cufes_measurement m JOIN cufes_sample c USING (sample_id) WHERE c.grid_key IS NOT NULL",
+    "cce-lter_euphausiids" = "
+      SELECT 'bio', 'cce-lter_euphausiids', 'cce-lter_euphausiids:tow:' || CAST(tw.tow_id AS VARCHAR),
+             tw.grid_key, tw.cruise_key, tw.latitude, tw.longitude,
+             CAST(tw.datetime_start_utc AS TIMESTAMP), NULL::DOUBLE, NULL::DOUBLE,
+             NULL::VARCHAR, NULL::VARCHAR, m.measurement_type, m.measurement_value, m.measurement_qual, NULL::DOUBLE
+      FROM euphausiids_measurement m JOIN euphausiids_tow tw USING (tow_id) WHERE tw.grid_key IS NOT NULL",
+    "calcofi_phyllosoma" = "
+      SELECT 'bio', 'calcofi_phyllosoma', 'calcofi_phyllosoma:tow:' || CAST(tw.tow_id AS VARCHAR),
+             tw.grid_key, tw.cruise_key, tw.latitude, tw.longitude,
+             CAST(tw.datetime_start_utc AS TIMESTAMP), 0::DOUBLE, tw.max_tow_depth_m,
+             NULL::VARCHAR, NULL::VARCHAR, m.measurement_type, m.measurement_value, m.measurement_qual, NULL::DOUBLE
+      FROM phyllosoma_measurement m JOIN phyllosoma_tow tw USING (tow_id) WHERE tw.grid_key IS NOT NULL",
+    "cce-lter_zoodb" = "
+      SELECT 'bio', 'cce-lter_zoodb', 'cce-lter_zoodb:tow:' || CAST(sp.sample_id AS VARCHAR),
+             sp.grid_key, sp.cruise_key, sp.latitude, sp.longitude,
+             CAST(sp.datetime_start_utc AS TIMESTAMP), sp.min_depth_m, sp.max_depth_m,
+             CAST(m.taxon_id AS VARCHAR), NULL::VARCHAR, m.measurement_type, m.measurement_value, NULL::VARCHAR, NULL::DOUBLE
+      FROM zoodb_measurement m JOIN zoodb_sample sp USING (sample_id) WHERE sp.grid_key IS NOT NULL",
+    "cce-lter_zooscan" = "
+      SELECT 'bio', 'cce-lter_zooscan', 'cce-lter_zooscan:tow:' || CAST(sp.sample_id AS VARCHAR),
+             sp.grid_key, sp.cruise_key, sp.latitude, sp.longitude,
+             CAST(sp.station_date AS TIMESTAMP), sp.min_depth_m, sp.max_depth_m,
+             CAST(m.taxon_id AS VARCHAR), NULL::VARCHAR, m.measurement_type, m.measurement_value, NULL::VARCHAR, NULL::DOUBLE
+      FROM zooscan_measurement m JOIN zooscan_sample sp USING (sample_id) WHERE sp.grid_key IS NOT NULL",
+    "calcofi_bird_mammal_census" = "
+      SELECT 'bio', 'calcofi_bird_mammal_census', 'calcofi_bird_mammal_census:transect:' || CAST(tr.gis_key AS VARCHAR),
+             tr.grid_key, tr.cruise_key, tr.latitude, tr.longitude,
+             CAST(tr.datetime_start_utc AS TIMESTAMP), 0::DOUBLE, 0::DOUBLE,
+             CAST(o.species_code AS VARCHAR), o.behavior_code, 'count', CAST(o.count AS DOUBLE), NULL::VARCHAR, NULL::DOUBLE
+      FROM bird_mammal_observation o JOIN bird_mammal_transect tr USING (gis_key) WHERE tr.grid_key IS NOT NULL",
+    NULL)  # pic_zooplankton (no measurements) / calcofi_phytoplankton (no grid_key) -> sample only
+}
+
+.obs_freq_arm_sql <- function(dataset_key) {
+  if (!identical(dataset_key, "swfsc_ichthyo")) return(NULL)
+  "SELECT 'swfsc_ichthyo' dataset_key, 'swfsc_ichthyo:net:' || CAST(i.net_uuid AS VARCHAR) sample_key,
+          CAST(i.species_id AS VARCHAR) taxon_id, i.life_stage,
+          CASE i.measurement_type WHEN 'size' THEN 'body_length' ELSE i.measurement_type END measurement_type,
+          i.measurement_value bin_value,
+          CASE WHEN i.measurement_type = 'stage' THEN lk.description ELSE NULL END bin_label,
+          i.tally count, NULL::VARCHAR measurement_qual
+   FROM ichthyo i
+   LEFT JOIN lookup lk ON lk.lookup_type = i.life_stage || '_stage'
+                      AND lk.lookup_num = CAST(i.measurement_value AS INTEGER)
+   WHERE i.measurement_type IN ('stage','size')"
+}
+
+.sample_measurement_arm_sql <- function(dataset_key) {
+  switch(dataset_key,
+    "swfsc_ichthyo" = "
+      SELECT 'swfsc_ichthyo:net:' || CAST(net_uuid AS VARCHAR) sample_key, 'swfsc_ichthyo' dataset_key,
+             mt measurement_type, mv measurement_value, NULL::VARCHAR measurement_qual
+      FROM (
+        SELECT net_uuid, 'volume_sampled' mt, volume_sampled mv FROM net UNION ALL
+        SELECT net_uuid, 'std_haul_factor', standard_haul_factor FROM net UNION ALL
+        SELECT net_uuid, 'prop_sorted', prop_sorted FROM net UNION ALL
+        SELECT net_uuid, 'small_plankton_biomass', smallplankton FROM net UNION ALL
+        SELECT net_uuid, 'total_plankton_biomass', totalplankton FROM net)
+      WHERE mv IS NOT NULL",
+    "calcofi_bottle" = "
+      SELECT 'calcofi_bottle:cast:' || CAST(CAST(cast_id AS BIGINT) AS VARCHAR), 'calcofi_bottle',
+             condition_type, condition_value, NULL::VARCHAR
+      FROM cast_condition",
+    NULL)
+}
+
+#' Project one dataset into the consolidated core tables
+#'
+#' The per-ingest (Phase 3) entry point: after an ingest has built its
+#' per-dataset tables, `emit_core_tables()` projects that dataset into the shared
+#' core family — `sample` (via [build_sample_reference()], which auto-detects the
+#' dataset's event tables present in `con`), plus its `obs` occurrence headline,
+#' `obs_freq` (bin, count) detail, and `sample_measurement` effort — using the same
+#' validated projection the release assembly uses. Idempotent per connection for a
+#' single dataset's tables. Arms for `pic_zooplankton` (no measurements) and
+#' `calcofi_phytoplankton` (region-pooled, no grid_key) contribute `sample` only.
+#'
+#' @param con a DuckDB connection holding this dataset's per-dataset tables
+#' @param dataset_key provider_dataset (e.g. `"swfsc_ichthyo"`, `"calcofi_bottle"`)
+#' @param sample logical; also (re)build `sample` from the present event tables (default TRUE)
+#' @return (invisibly) a named list of row counts for the core tables written
+#' @export
+#' @concept model
+emit_core_tables <- function(con, dataset_key, sample = TRUE) {
+  out <- list()
+  if (isTRUE(sample)) out$sample <- build_sample_reference(con)
+  oa <- .obs_arm_sql(dataset_key)
+  if (!is.null(oa)) out$obs <- append_obs(con, oa)
+  fa <- .obs_freq_arm_sql(dataset_key)
+  if (!is.null(fa)) out$obs_freq <- append_obs_freq(con, fa)
+  ma <- .sample_measurement_arm_sql(dataset_key)
+  if (!is.null(ma)) out$sample_measurement <- append_sample_measurement(con, ma)
+  invisible(out)
 }
