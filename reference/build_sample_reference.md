@@ -16,7 +16,7 @@ whose source tables exist are included. Errors if the resulting
 ## Usage
 
 ``` r
-build_sample_reference(con, sample_tbl = "sample")
+build_sample_reference(con, sample_tbl = "sample", datasets = NULL)
 ```
 
 ## Arguments
@@ -28,6 +28,13 @@ build_sample_reference(con, sample_tbl = "sample")
 - sample_tbl:
 
   target table name (default `"sample"`)
+
+- datasets:
+
+  optional character vector of `dataset_key`s to restrict which arms
+  build (default `NULL` = every dataset whose event tables are present).
+  Use in an ingest that has other datasets' event tables loaded as
+  references so only this dataset's `sample` rows are built.
 
 ## Value
 
