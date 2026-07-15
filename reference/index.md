@@ -349,29 +349,75 @@ check for other functions or datasets not captured by above categories
 
 - [`add_point_geom()`](https://calcofi.io/calcofi4db/reference/add_point_geom.md)
   : Add Point Geometry Column to a DuckDB Table
+
+- [`append_obs()`](https://calcofi.io/calcofi4db/reference/append_obs.md)
+  :
+
+  Append occurrence-headline rows into the core `obs` table
+
+- [`append_obs_freq()`](https://calcofi.io/calcofi4db/reference/append_obs_freq.md)
+  :
+
+  Append (bin, count) rows into the core `obs_freq` table
+
+- [`append_sample()`](https://calcofi.io/calcofi4db/reference/append_sample.md)
+  :
+
+  Append event rows into the core `sample` dimension
+
+- [`append_sample_measurement()`](https://calcofi.io/calcofi4db/reference/append_sample_measurement.md)
+  :
+
+  Append event-level (effort) rows into the core `sample_measurement`
+  table
+
 - [`assign_grid_key()`](https://calcofi.io/calcofi4db/reference/assign_grid_key.md)
   : Assign Grid Key via Spatial Join
+
+- [`build_grid_reference()`](https://calcofi.io/calcofi4db/reference/build_grid_reference.md)
+  :
+
+  Build the shared `grid` reference table (deterministic,
+  dataset-independent)
+
+- [`build_sample_reference()`](https://calcofi.io/calcofi4db/reference/build_sample_reference.md)
+  :
+
+  Build the shared `sample` event dimension from the per-dataset event
+  tables
+
 - [`build_taxon_hierarchy()`](https://calcofi.io/calcofi4db/reference/build_taxon_hierarchy.md)
   : Build Taxon Hierarchy from Local spp.duckdb via Recursive CTEs
+
 - [`build_taxon_table()`](https://calcofi.io/calcofi4db/reference/build_taxon_table.md)
   : Build Taxonomic Hierarchy Table from WoRMS
+
 - [`derive_cruise_key_on_casts()`](https://calcofi.io/calcofi4db/reference/derive_cruise_key_on_casts.md)
   : Derive Cruise Key on Bottle Casts via Ship Matching
+
 - [`ensure_interim_ships()`](https://calcofi.io/calcofi4db/reference/ensure_interim_ships.md)
   : Ensure Interim Ship Entries for Unmatched Ships
+
 - [`fetch_ship_ices()`](https://calcofi.io/calcofi4db/reference/fetch_ship_ices.md)
   : Fetch Ship Codes from ICES Reference Codes API
+
 - [`load_gcs_parquet_to_duckdb()`](https://calcofi.io/calcofi4db/reference/load_gcs_parquet_to_duckdb.md)
   : Load a GCS Parquet File into DuckDB
+
 - [`match_by_site_datetime()`](https://calcofi.io/calcofi4db/reference/match_by_site_datetime.md)
   : Match Records to a Reference Table by Key + Datetime Window
+
 - [`match_nearest_by_depth()`](https://calcofi.io/calcofi4db/reference/match_nearest_by_depth.md)
   : Match Records to the Nearest Reference Row Along a Continuous Axis
+
 - [`match_ships()`](https://calcofi.io/calcofi4db/reference/match_ships.md)
   : Match Ship Codes Across Datasets Using Multi-Source References
+
 - [`report_ship_matches()`](https://calcofi.io/calcofi4db/reference/report_ship_matches.md)
   : Report Ship Matching Status for a Dataset
+
 - [`standardize_species()`](https://calcofi.io/calcofi4db/reference/standardize_species.md)
   : Standardize Species Identifiers Using WoRMS/ITIS/GBIF APIs
+
 - [`standardize_species_local()`](https://calcofi.io/calcofi4db/reference/standardize_species_local.md)
   : Standardize Species Using Local spp.duckdb Lookups
