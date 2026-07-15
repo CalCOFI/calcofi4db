@@ -43,10 +43,15 @@ Imports:
     uuid,
     yaml
 Suggests:
+    calcofi4r,
     googleCloudStorageR,
     httr2,
     rvest,
+    sf,
     targets,
+    testthat (>= 3.0.0),
+    units,
     worrms,
     taxize
 VignetteBuilder: knitr
+Config/testthat/edition: 3
