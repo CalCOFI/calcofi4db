@@ -4,12 +4,17 @@
 \alias{build_sample_reference}
 \title{Build the shared \code{sample} event dimension from the per-dataset event tables}
 \usage{
-build_sample_reference(con, sample_tbl = "sample")
+build_sample_reference(con, sample_tbl = "sample", datasets = NULL)
 }
 \arguments{
 \item{con}{a DuckDB connection with the per-dataset event tables loaded}
 
 \item{sample_tbl}{target table name (default \code{"sample"})}
+
+\item{datasets}{optional character vector of \code{dataset_key}s to restrict which
+arms build (default \code{NULL} = every dataset whose event tables are present).
+Use in an ingest that has other datasets' event tables loaded as references
+so only this dataset's \code{sample} rows are built.}
 }
 \value{
 (invisibly) the row count of the built \code{sample} table

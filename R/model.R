@@ -368,10 +368,14 @@ build_grid_reference <- function(con, grid_tbl = "grid") {
 #'
 #' @param con a DuckDB connection with the per-dataset event tables loaded
 #' @param sample_tbl target table name (default `"sample"`)
+#' @param datasets optional character vector of `dataset_key`s to restrict which
+#'   arms build (default `NULL` = every dataset whose event tables are present).
+#'   Use in an ingest that has other datasets' event tables loaded as references
+#'   so only this dataset's `sample` rows are built.
 #' @return (invisibly) the row count of the built `sample` table
 #' @export
 #' @concept model
-build_sample_reference <- function(con, sample_tbl = "sample") {
+build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) {
   .load_spatial(con)
   has <- function(...) .has_tables(con, ...)
 
@@ -487,6 +491,17 @@ build_sample_reference <- function(con, sample_tbl = "sample") {
                        "region_pool", dt_col = "NULL", grid_expr = "NULL::VARCHAR"))
 
   arms <- Filter(Negate(is.null), arms)
+  # restrict to the requested datasets (arm name -> dataset_key)
+  if (!is.null(datasets)) {
+    arm_ds <- c(bottle_cast = "calcofi_bottle", bottle_btl = "calcofi_bottle",
+                ctd = "calcofi_ctd-cast", dic = "calcofi_dic",
+                ich_site = "swfsc_ichthyo", ich_tow = "swfsc_ichthyo", ich_net = "swfsc_ichthyo",
+                cufes = "swfsc_cufes", euph = "cce-lter_euphausiids",
+                phyllosoma = "calcofi_phyllosoma", zoodb = "cce-lter_zoodb",
+                zooscan = "cce-lter_zooscan", bird = "calcofi_bird_mammal_census",
+                pic = "pic_zooplankton", phyto = "calcofi_phytoplankton")
+    arms <- arms[names(arms) %in% names(arm_ds)[arm_ds %in% datasets]]
+  }
   if (!length(arms)) stop("build_sample_reference(): no source event tables found.")
 
   DBI::dbExecute(con, glue::glue("DROP TABLE IF EXISTS {sample_tbl}"))
@@ -642,7 +657,7 @@ build_sample_reference <- function(con, sample_tbl = "sample") {
 #' @concept model
 emit_core_tables <- function(con, dataset_key, sample = TRUE) {
   out <- list()
-  if (isTRUE(sample)) out$sample <- build_sample_reference(con)
+  if (isTRUE(sample)) out$sample <- build_sample_reference(con, datasets = dataset_key)
   oa <- .obs_arm_sql(dataset_key)
   if (!is.null(oa)) out$obs <- append_obs(con, oa)
   fa <- .obs_freq_arm_sql(dataset_key)
