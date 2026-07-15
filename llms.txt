@@ -663,6 +663,9 @@ check for other functions or datasets not captured by above categories
 - [`derive_cruise_key_on_casts()`](https://calcofi.io/calcofi4db/reference/derive_cruise_key_on_casts.md)
   : Derive Cruise Key on Bottle Casts via Ship Matching
 
+- [`emit_core_tables()`](https://calcofi.io/calcofi4db/reference/emit_core_tables.md)
+  : Project one dataset into the consolidated core tables
+
 - [`ensure_interim_ships()`](https://calcofi.io/calcofi4db/reference/ensure_interim_ships.md)
   : Ensure Interim Ship Entries for Unmatched Ships
 
