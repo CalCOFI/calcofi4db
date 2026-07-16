@@ -1,3 +1,22 @@
+# calcofi4db 2.9.0
+
+- **Unified taxon model** (new `R/taxa.R`): `build_taxon_reference()`,
+  `build_dataset_taxon()`, `build_taxon_group()`, and `taxon_key_of()` collapse the
+  per-dataset taxon tables (`species`, the `taxon` hierarchy, `phyto_taxon`,
+  `zoodb_taxon`, `zooscan_taxon`, `bird_mammal_species`) into a single `taxon`
+  reference keyed by an authority-prefixed `taxon_key` (`worms:<worms_id>`, or
+  `itis:<itis_id>` for birds), a `dataset_taxon` crosswalk (per-dataset vocabulary
+  → `taxon_key`), and a `taxon_group` grouping table. Cross-dataset duplicates
+  (same AphiaID) collapse to one row. Coarse/composite taxa resolve to real
+  WoRMS/ITIS ids via caller-supplied `measurement_taxon` / `overrides` registries.
+- **`append_obs_freq()` → `append_obs_attribute()`** (table `obs_freq` →
+  `obs_attribute`): generalizes the (bin, count) frequency table to any
+  sub-occurrence attribution — length-/stage-frequency plus categorical breakdowns
+  such as seabird behavior. Columns unchanged (`bin_value`/`bin_label`/`count`).
+- **`obs.taxon_id` → `obs.taxon_key`** in the `obs` / `obs_attribute` DDL and the
+  `append_*` helpers; the bio `emit_core_tables()` arms resolve the global
+  `taxon_key` via `dataset_taxon` instead of emitting dataset-local ids.
+
 # calcofi4db 2.8.2
 
 - **`merge_metadata_json()`** adds each dataset's `workflow_url` (from the ingest `calcofi:` YAML) to its `datasets[]` entry, so the schema site can link the rendered ingest notebook next to the calcofi.org / data-source links.

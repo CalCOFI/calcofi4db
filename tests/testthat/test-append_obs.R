@@ -19,18 +19,18 @@ test_that("append_obs writes the abundance headline with a computed hex_id", {
                DBI::dbGetQuery(con, "SELECT COUNT(*) n FROM obs")$n)
 })
 
-test_that("obs_freq stage bins sum to the abundance headline; length bins are a subsample", {
+test_that("obs_attribute stage bins sum to the abundance headline; length bins are a subsample", {
   con <- new_ichthyo_fixture()
   on.exit(close_duckdb(con))
 
   append_obs(con, ich_obs_sql)
-  append_obs_freq(con, ich_obs_freq_sql)
+  append_obs_attribute(con, ich_obs_attribute_sql)
 
   d <- DBI::dbGetQuery(con, "
     SELECT
-      (SELECT SUM(count) FROM obs_freq
+      (SELECT SUM(count) FROM obs_attribute
         WHERE measurement_type='stage')       AS stage_sum,
-      (SELECT SUM(count) FROM obs_freq
+      (SELECT SUM(count) FROM obs_attribute
         WHERE measurement_type='body_length') AS length_sum,
       (SELECT SUM(measurement_value) FROM obs
         WHERE measurement_type='abundance')   AS abundance")
@@ -40,9 +40,9 @@ test_that("obs_freq stage bins sum to the abundance headline; length bins are a 
 
   # size -> body_length rename; stage bins carry a lookup label
   types <- DBI::dbGetQuery(con,
-    "SELECT DISTINCT measurement_type FROM obs_freq ORDER BY 1")$measurement_type
+    "SELECT DISTINCT measurement_type FROM obs_attribute ORDER BY 1")$measurement_type
   expect_setequal(types, c("body_length", "stage"))
   lab <- DBI::dbGetQuery(con,
-    "SELECT bin_label FROM obs_freq WHERE measurement_type='stage' AND bin_value=2.0")$bin_label
+    "SELECT bin_label FROM obs_attribute WHERE measurement_type='stage' AND bin_value=2.0")$bin_label
   expect_equal(lab, "preflexion")
 })

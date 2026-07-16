@@ -22,7 +22,7 @@ append_obs(con, select_sql, obs_tbl = "obs", res_max = CC_H3_RES_MAX)
 Wraps a caller-supplied projection \code{select_sql} (which must yield the canonical
 \code{obs} columns \emph{by name} — \code{realm}, \code{dataset_key}, \code{sample_key}, \code{grid_key},
 \code{cruise_key}, \code{latitude}, \code{longitude}, \code{datetime}, \code{depth_min_m}, \code{depth_max_m},
-\code{taxon_id}, \code{life_stage}, \code{measurement_type}, \code{measurement_value},
+\code{taxon_key}, \code{life_stage}, \code{measurement_type}, \code{measurement_value},
 \code{measurement_qual}, \code{measurement_prec}), mints a surrogate \code{obs_id} (offset from
 the current max so repeated calls stay unique within one connection) and computes
 \code{hex_id} at H3 resolution \code{res_max}. The same helper serves the central Phase-2

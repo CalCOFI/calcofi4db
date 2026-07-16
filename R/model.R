@@ -3,7 +3,7 @@
 # cross-dataset consumer reads, replacing the ~40 per-dataset triples:
 #   - sample              : event dimension (adjacency list: leaf/parent/root)
 #   - obs                 : occurrence-headline long table (realm env|bio)
-#   - obs_freq            : (bin, count) sub-occurrence distributions
+#   - obs_attribute       : sub-occurrence attribution (length/stage freq, behavior)
 #   - sample_measurement  : event-level (effort) long table
 #   - obs_ctd_full        : supplemental full-resolution CTD (same shape as obs)
 # plus the shared reference builders build_grid_reference() / build_sample_reference().
@@ -69,7 +69,7 @@ CC_H3_RES_MAX <- 10L
        datetime          TIMESTAMP,
        depth_min_m       DOUBLE,
        depth_max_m       DOUBLE,
-       taxon_id          VARCHAR,
+       taxon_key         VARCHAR,
        life_stage        VARCHAR,
        measurement_type  VARCHAR,
        measurement_value DOUBLE,
@@ -79,13 +79,18 @@ CC_H3_RES_MAX <- 10L
   invisible(obs_tbl)
 }
 
-.ensure_obs_freq_schema <- function(con, tbl = "obs_freq") {
+# obs_attribute: generalized sub-occurrence attribution — length-/stage-frequency
+# AND categorical breakdowns (e.g. seabird behavior). `bin_value` = the numeric
+# attribute (length mm, stage no.; NULL for categorical), `bin_label` = its
+# category label (preflexion, Flying), `count` = individuals. Supersedes the old
+# `obs_freq` (same columns; adds behavior rows + the taxon_key rename).
+.ensure_obs_attribute_schema <- function(con, tbl = "obs_attribute") {
   DBI::dbExecute(con, glue::glue(
     "CREATE TABLE IF NOT EXISTS {tbl} (
-       obs_freq_id       BIGINT,
+       obs_attribute_id  BIGINT,
        dataset_key       VARCHAR,
        sample_key        VARCHAR,
-       taxon_id          VARCHAR,
+       taxon_key         VARCHAR,
        life_stage        VARCHAR,
        measurement_type  VARCHAR,
        bin_value         DOUBLE,
@@ -133,7 +138,7 @@ CC_H3_RES_MAX <- 10L
 #' Wraps a caller-supplied projection `select_sql` (which must yield the canonical
 #' `obs` columns *by name* — `realm`, `dataset_key`, `sample_key`, `grid_key`,
 #' `cruise_key`, `latitude`, `longitude`, `datetime`, `depth_min_m`, `depth_max_m`,
-#' `taxon_id`, `life_stage`, `measurement_type`, `measurement_value`,
+#' `taxon_key`, `life_stage`, `measurement_type`, `measurement_value`,
 #' `measurement_qual`, `measurement_prec`), mints a surrogate `obs_id` (offset from
 #' the current max so repeated calls stay unique within one connection) and computes
 #' `hex_id` at H3 resolution `res_max`. The same helper serves the central Phase-2
@@ -157,43 +162,46 @@ append_obs <- function(con, select_sql, obs_tbl = "obs", res_max = CC_H3_RES_MAX
     "INSERT INTO {obs_tbl}
        (obs_id, realm, dataset_key, sample_key, grid_key, cruise_key,
         latitude, longitude, datetime, depth_min_m, depth_max_m,
-        taxon_id, life_stage, measurement_type, measurement_value,
+        taxon_key, life_stage, measurement_type, measurement_value,
         measurement_qual, measurement_prec, hex_id)
      SELECT {off} + ROW_NUMBER() OVER () AS obs_id,
             realm, dataset_key, sample_key, grid_key, cruise_key,
             latitude, longitude, datetime, depth_min_m, depth_max_m,
-            taxon_id, life_stage, measurement_type, measurement_value,
+            taxon_key, life_stage, measurement_type, measurement_value,
             measurement_qual, measurement_prec,
             {hex} AS hex_id
      FROM ( {select_sql} ) AS src(realm, dataset_key, sample_key, grid_key, cruise_key,
-            latitude, longitude, datetime, depth_min_m, depth_max_m, taxon_id, life_stage,
+            latitude, longitude, datetime, depth_min_m, depth_max_m, taxon_key, life_stage,
             measurement_type, measurement_value, measurement_qual, measurement_prec)"))
   invisible(DBI::dbGetQuery(
     con, glue::glue("SELECT COUNT(*) AS n FROM {obs_tbl}"))$n)
 }
 
-#' Append (bin, count) rows into the core `obs_freq` table
+#' Append sub-occurrence attribute rows into the core `obs_attribute` table
 #'
-#' `select_sql` must yield `dataset_key`, `sample_key`, `taxon_id`, `life_stage`,
-#' `measurement_type` (the binned attribute, e.g. `body_length`/`stage`),
-#' `bin_value`, `bin_label`, `count`, `measurement_qual` by name.
+#' Generalizes the former `obs_freq`: holds any within-occurrence attribution —
+#' length-frequency, stage-frequency, and categorical breakdowns like seabird
+#' behavior. `select_sql` must yield `dataset_key`, `sample_key`, `taxon_key`,
+#' `life_stage`, `measurement_type` (the attribute, e.g. `body_length`/`stage`/
+#' `behavior`), `bin_value` (numeric bin / stage no.), `bin_label` (category
+#' label), `count`, `measurement_qual` by name.
 #' @inheritParams append_obs
-#' @param tbl target table (default `"obs_freq"`)
+#' @param tbl target table (default `"obs_attribute"`)
 #' @return (invisibly) the total row count of `tbl` after the append
 #' @export
 #' @concept model
-append_obs_freq <- function(con, select_sql, tbl = "obs_freq") {
-  .ensure_obs_freq_schema(con, tbl)
+append_obs_attribute <- function(con, select_sql, tbl = "obs_attribute") {
+  .ensure_obs_attribute_schema(con, tbl)
   off <- DBI::dbGetQuery(
-    con, glue::glue("SELECT COALESCE(MAX(obs_freq_id), 0) AS m FROM {tbl}"))$m
+    con, glue::glue("SELECT COALESCE(MAX(obs_attribute_id), 0) AS m FROM {tbl}"))$m
   DBI::dbExecute(con, glue::glue(
     "INSERT INTO {tbl}
-       (obs_freq_id, dataset_key, sample_key, taxon_id, life_stage,
+       (obs_attribute_id, dataset_key, sample_key, taxon_key, life_stage,
         measurement_type, bin_value, bin_label, count, measurement_qual)
-     SELECT {off} + ROW_NUMBER() OVER () AS obs_freq_id,
-            dataset_key, sample_key, taxon_id, life_stage,
+     SELECT {off} + ROW_NUMBER() OVER () AS obs_attribute_id,
+            dataset_key, sample_key, taxon_key, life_stage,
             measurement_type, bin_value, bin_label, count, measurement_qual
-     FROM ( {select_sql} ) AS src(dataset_key, sample_key, taxon_id, life_stage,
+     FROM ( {select_sql} ) AS src(dataset_key, sample_key, taxon_key, life_stage,
             measurement_type, bin_value, bin_label, count, measurement_qual)"))
   invisible(DBI::dbGetQuery(
     con, glue::glue("SELECT COUNT(*) AS n FROM {tbl}"))$n)
@@ -532,7 +540,7 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
              'calcofi_bottle:bottle:' || CAST(b.bottle_id AS VARCHAR) sample_key,
              c.grid_key, c.cruise_key, c.latitude, c.longitude,
              CAST(c.datetime_start_utc AS TIMESTAMP) datetime, b.depth_m depth_min_m, b.depth_m depth_max_m,
-             NULL::VARCHAR taxon_id, NULL::VARCHAR life_stage,
+             NULL::VARCHAR taxon_key, NULL::VARCHAR life_stage,
              m.measurement_type, m.measurement_value, m.measurement_qual, m.measurement_prec
       FROM bottle_measurement m JOIN bottle b USING (bottle_id) JOIN casts c USING (cast_id)
       WHERE c.grid_key IS NOT NULL",
@@ -558,13 +566,17 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
              dm.measurement_qual, NULL::DOUBLE
       FROM dic_measurement dm JOIN casts c USING (cast_id)
       WHERE c.grid_key IS NOT NULL"),
+    # bio taxon_key resolves through dataset_taxon (built by build_dataset_taxon):
+    # the global "worms:"/"itis:" key, not the dataset-local species_id/taxon_id.
     "swfsc_ichthyo" = "
       SELECT 'bio', 'swfsc_ichthyo', 'swfsc_ichthyo:net:' || CAST(i.net_uuid AS VARCHAR),
              s.grid_key, s.cruise_key, s.latitude, s.longitude,
              CAST(t.datetime_start_utc AS TIMESTAMP), NULL::DOUBLE, NULL::DOUBLE,
-             CAST(i.species_id AS VARCHAR), i.life_stage,
+             dt.taxon_key, i.life_stage,
              'abundance', CAST(i.tally AS DOUBLE), NULL::VARCHAR, NULL::DOUBLE
       FROM ichthyo i JOIN net n USING (net_uuid) JOIN tow t USING (tow_uuid) JOIN site s USING (site_uuid)
+      LEFT JOIN dataset_taxon dt ON dt.dataset_key = 'swfsc_ichthyo'
+                                AND dt.ds_taxa_code = CAST(i.species_id AS VARCHAR)
       WHERE i.measurement_type IS NULL AND s.grid_key IS NOT NULL",
     "swfsc_cufes" = "
       SELECT 'bio', 'swfsc_cufes', 'swfsc_cufes:underway:' || CAST(c.sample_id AS VARCHAR),
@@ -588,32 +600,48 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
       SELECT 'bio', 'cce-lter_zoodb', 'cce-lter_zoodb:tow:' || CAST(sp.sample_id AS VARCHAR),
              sp.grid_key, sp.cruise_key, sp.latitude, sp.longitude,
              CAST(sp.datetime_start_utc AS TIMESTAMP), sp.min_depth_m, sp.max_depth_m,
-             CAST(m.taxon_id AS VARCHAR), NULL::VARCHAR, m.measurement_type, m.measurement_value, NULL::VARCHAR, NULL::DOUBLE
-      FROM zoodb_measurement m JOIN zoodb_sample sp USING (sample_id) WHERE sp.grid_key IS NOT NULL",
+             dt.taxon_key, NULL::VARCHAR, m.measurement_type, m.measurement_value, NULL::VARCHAR, NULL::DOUBLE
+      FROM zoodb_measurement m JOIN zoodb_sample sp USING (sample_id)
+      LEFT JOIN dataset_taxon dt ON dt.dataset_key = 'cce-lter_zoodb'
+                                AND dt.ds_taxa_code = CAST(m.taxon_id AS VARCHAR)
+      WHERE sp.grid_key IS NOT NULL",
     "cce-lter_zooscan" = "
       SELECT 'bio', 'cce-lter_zooscan', 'cce-lter_zooscan:tow:' || CAST(sp.sample_id AS VARCHAR),
              sp.grid_key, sp.cruise_key, sp.latitude, sp.longitude,
              CAST(sp.station_date AS TIMESTAMP), sp.min_depth_m, sp.max_depth_m,
-             CAST(m.taxon_id AS VARCHAR), NULL::VARCHAR, m.measurement_type, m.measurement_value, NULL::VARCHAR, NULL::DOUBLE
-      FROM zooscan_measurement m JOIN zooscan_sample sp USING (sample_id) WHERE sp.grid_key IS NOT NULL",
+             dt.taxon_key, NULL::VARCHAR, m.measurement_type, m.measurement_value, NULL::VARCHAR, NULL::DOUBLE
+      FROM zooscan_measurement m JOIN zooscan_sample sp USING (sample_id)
+      LEFT JOIN dataset_taxon dt ON dt.dataset_key = 'cce-lter_zooscan'
+                                AND dt.ds_taxa_code = CAST(m.taxon_id AS VARCHAR)
+      WHERE sp.grid_key IS NOT NULL",
+    # bird_mammal: taxon_key via dataset_taxon; behavior stays in life_stage on the
+    # obs headline here (the release additionally splits behavior into obs_attribute).
     "calcofi_bird_mammal_census" = "
       SELECT 'bio', 'calcofi_bird_mammal_census', 'calcofi_bird_mammal_census:transect:' || CAST(tr.gis_key AS VARCHAR),
              tr.grid_key, tr.cruise_key, tr.latitude, tr.longitude,
              CAST(tr.datetime_start_utc AS TIMESTAMP), 0::DOUBLE, 0::DOUBLE,
-             CAST(o.species_code AS VARCHAR), o.behavior_code, 'count', CAST(o.count AS DOUBLE), NULL::VARCHAR, NULL::DOUBLE
-      FROM bird_mammal_observation o JOIN bird_mammal_transect tr USING (gis_key) WHERE tr.grid_key IS NOT NULL",
+             dt.taxon_key, o.behavior_code, 'count', CAST(o.count AS DOUBLE), NULL::VARCHAR, NULL::DOUBLE
+      FROM bird_mammal_observation o JOIN bird_mammal_transect tr USING (gis_key)
+      LEFT JOIN dataset_taxon dt ON dt.dataset_key = 'calcofi_bird_mammal_census'
+                                AND dt.ds_taxa_code = CAST(o.species_code AS VARCHAR)
+      WHERE tr.grid_key IS NOT NULL",
+    # NOTE: cufes / euphausiids / phyllosoma bake the taxon into measurement_type;
+    # their taxon_key + canonical-type decomposition lives in release_database.qmd
+    # (Phase 2, via metadata/measurement_taxon.csv). This Phase-3 helper omits them.
     NULL)  # pic_zooplankton (no measurements) / calcofi_phytoplankton (no grid_key) -> sample only
 }
 
-.obs_freq_arm_sql <- function(dataset_key) {
+.obs_attribute_arm_sql <- function(dataset_key) {
   if (!identical(dataset_key, "swfsc_ichthyo")) return(NULL)
   "SELECT 'swfsc_ichthyo' dataset_key, 'swfsc_ichthyo:net:' || CAST(i.net_uuid AS VARCHAR) sample_key,
-          CAST(i.species_id AS VARCHAR) taxon_id, i.life_stage,
+          dt.taxon_key, i.life_stage,
           CASE i.measurement_type WHEN 'size' THEN 'body_length' ELSE i.measurement_type END measurement_type,
           i.measurement_value bin_value,
           CASE WHEN i.measurement_type = 'stage' THEN lk.description ELSE NULL END bin_label,
           i.tally count, NULL::VARCHAR measurement_qual
    FROM ichthyo i
+   LEFT JOIN dataset_taxon dt ON dt.dataset_key = 'swfsc_ichthyo'
+                             AND dt.ds_taxa_code = CAST(i.species_id AS VARCHAR)
    LEFT JOIN lookup lk ON lk.lookup_type = i.life_stage || '_stage'
                       AND lk.lookup_num = CAST(i.measurement_value AS INTEGER)
    WHERE i.measurement_type IN ('stage','size')"
@@ -644,7 +672,7 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
 #' per-dataset tables, `emit_core_tables()` projects that dataset into the shared
 #' core family — `sample` (via [build_sample_reference()], which auto-detects the
 #' dataset's event tables present in `con`), plus its `obs` occurrence headline,
-#' `obs_freq` (bin, count) detail, and `sample_measurement` effort — using the same
+#' `obs_attribute` sub-occurrence detail, and `sample_measurement` effort — using the same
 #' validated projection the release assembly uses. Idempotent per connection for a
 #' single dataset's tables. Arms for `pic_zooplankton` (no measurements) and
 #' `calcofi_phytoplankton` (region-pooled, no grid_key) contribute `sample` only.
@@ -660,8 +688,8 @@ emit_core_tables <- function(con, dataset_key, sample = TRUE) {
   if (isTRUE(sample)) out$sample <- build_sample_reference(con, datasets = dataset_key)
   oa <- .obs_arm_sql(dataset_key)
   if (!is.null(oa)) out$obs <- append_obs(con, oa)
-  fa <- .obs_freq_arm_sql(dataset_key)
-  if (!is.null(fa)) out$obs_freq <- append_obs_freq(con, fa)
+  fa <- .obs_attribute_arm_sql(dataset_key)
+  if (!is.null(fa)) out$obs_attribute <- append_obs_attribute(con, fa)
   ma <- .sample_measurement_arm_sql(dataset_key)
   if (!is.null(ma)) out$sample_measurement <- append_sample_measurement(con, ma)
   invisible(out)

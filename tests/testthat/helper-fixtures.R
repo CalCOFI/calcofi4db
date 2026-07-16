@@ -35,7 +35,7 @@ new_ichthyo_fixture <- function() {
   con
 }
 
-# the ichthyo obs / obs_freq / sample_measurement projections (kept here so the
+# the ichthyo obs / obs_attribute / sample_measurement projections (kept here so the
 # tests exercise the exact SQL the ingest/release will use)
 ich_obs_sql <- "
   SELECT 'bio' realm, 'swfsc_ichthyo' dataset_key,
@@ -43,15 +43,15 @@ ich_obs_sql <- "
          s.grid_key, s.cruise_key, s.latitude, s.longitude,
          CAST(t.datetime_start_utc AS TIMESTAMP) datetime,
          0::DOUBLE depth_min_m, NULL::DOUBLE depth_max_m,
-         CAST(i.species_id AS VARCHAR) taxon_id, i.life_stage,
+         CAST(i.species_id AS VARCHAR) taxon_key, i.life_stage,
          'abundance' measurement_type, CAST(i.tally AS DOUBLE) measurement_value,
          NULL::VARCHAR measurement_qual, NULL::DOUBLE measurement_prec
   FROM ichthyo i JOIN net n USING (net_uuid) JOIN tow t USING (tow_uuid) JOIN site s USING (site_uuid)
   WHERE i.measurement_type IS NULL"
 
-ich_obs_freq_sql <- "
+ich_obs_attribute_sql <- "
   SELECT 'swfsc_ichthyo' dataset_key, 'swfsc_ichthyo:net:' || CAST(i.net_uuid AS VARCHAR) sample_key,
-         CAST(i.species_id AS VARCHAR) taxon_id, i.life_stage,
+         CAST(i.species_id AS VARCHAR) taxon_key, i.life_stage,
          CASE i.measurement_type WHEN 'size' THEN 'body_length' ELSE i.measurement_type END measurement_type,
          i.measurement_value bin_value,
          CASE WHEN i.measurement_type='stage' THEN lk.description ELSE NULL END bin_label,

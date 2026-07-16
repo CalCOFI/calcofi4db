@@ -21,7 +21,7 @@ The per-ingest (Phase 3) entry point: after an ingest has built its
 per-dataset tables, \code{emit_core_tables()} projects that dataset into the shared
 core family — \code{sample} (via \code{\link[=build_sample_reference]{build_sample_reference()}}, which auto-detects the
 dataset's event tables present in \code{con}), plus its \code{obs} occurrence headline,
-\code{obs_freq} (bin, count) detail, and \code{sample_measurement} effort — using the same
+\code{obs_attribute} sub-occurrence detail, and \code{sample_measurement} effort — using the same
 validated projection the release assembly uses. Idempotent per connection for a
 single dataset's tables. Arms for \code{pic_zooplankton} (no measurements) and
 \code{calcofi_phytoplankton} (region-pooled, no grid_key) contribute \code{sample} only.
