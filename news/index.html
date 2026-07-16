@@ -13,7 +13,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.8.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.9.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -41,6 +41,15 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="2.9.0" id="calcofi4db-290">calcofi4db 2.9.0<a class="anchor" aria-label="anchor" href="#calcofi4db-290"></a></h2>
+<ul><li>
+<strong>Unified taxon model</strong> (new <code>R/taxa.R</code>): <code><a href="../reference/build_taxon_reference.html">build_taxon_reference()</a></code>, <code><a href="../reference/build_dataset_taxon.html">build_dataset_taxon()</a></code>, <code><a href="../reference/build_taxon_group.html">build_taxon_group()</a></code>, and <code><a href="../reference/taxon_key_of.html">taxon_key_of()</a></code> collapse the per-dataset taxon tables (<code>species</code>, the <code>taxon</code> hierarchy, <code>phyto_taxon</code>, <code>zoodb_taxon</code>, <code>zooscan_taxon</code>, <code>bird_mammal_species</code>) into a single <code>taxon</code> reference keyed by an authority-prefixed <code>taxon_key</code> (<code>worms:&lt;worms_id&gt;</code>, or <code>itis:&lt;itis_id&gt;</code> for birds), a <code>dataset_taxon</code> crosswalk (per-dataset vocabulary → <code>taxon_key</code>), and a <code>taxon_group</code> grouping table. Cross-dataset duplicates (same AphiaID) collapse to one row. Coarse/composite taxa resolve to real WoRMS/ITIS ids via caller-supplied <code>measurement_taxon</code> / <code>overrides</code> registries.</li>
+<li>
+<strong><code>append_obs_freq()</code> → <code><a href="../reference/append_obs_attribute.html">append_obs_attribute()</a></code></strong> (table <code>obs_freq</code> → <code>obs_attribute</code>): generalizes the (bin, count) frequency table to any sub-occurrence attribution — length-/stage-frequency plus categorical breakdowns such as seabird behavior. Columns unchanged (<code>bin_value</code>/<code>bin_label</code>/<code>count</code>).</li>
+<li>
+<strong><code>obs.taxon_id</code> → <code>obs.taxon_key</code></strong> in the <code>obs</code> / <code>obs_attribute</code> DDL and the <code>append_*</code> helpers; the bio <code><a href="../reference/emit_core_tables.html">emit_core_tables()</a></code> arms resolve the global <code>taxon_key</code> via <code>dataset_taxon</code> instead of emitting dataset-local ids.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.8.2" id="calcofi4db-282">calcofi4db 2.8.2<a class="anchor" aria-label="anchor" href="#calcofi4db-282"></a></h2>
 <ul><li>

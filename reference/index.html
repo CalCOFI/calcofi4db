@@ -13,7 +13,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.8.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.9.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -1089,10 +1089,10 @@
 
         <dt>
 
-          <code><a href="append_obs_freq.html">append_obs_freq()</a></code>
+          <code><a href="append_obs_attribute.html">append_obs_attribute()</a></code>
 
         </dt>
-        <dd>Append (bin, count) rows into the core <code>obs_freq</code> table</dd>
+        <dd>Append sub-occurrence attribute rows into the core <code>obs_attribute</code> table</dd>
 
         <dt>
 
@@ -1117,6 +1117,13 @@
 
         <dt>
 
+          <code><a href="build_dataset_taxon.html">build_dataset_taxon()</a></code>
+
+        </dt>
+        <dd>Build the <code>dataset_taxon</code> crosswalk (per-dataset vocabulary -&gt; <code>taxon</code>)</dd>
+
+        <dt>
+
           <code><a href="build_grid_reference.html">build_grid_reference()</a></code>
 
         </dt>
@@ -1131,10 +1138,24 @@
 
         <dt>
 
+          <code><a href="build_taxon_group.html">build_taxon_group()</a></code>
+
+        </dt>
+        <dd>Build the <code>taxon_group</code> grouping table (many taxa per group)</dd>
+
+        <dt>
+
           <code><a href="build_taxon_hierarchy.html">build_taxon_hierarchy()</a></code>
 
         </dt>
         <dd>Build Taxon Hierarchy from Local spp.duckdb via Recursive CTEs</dd>
+
+        <dt>
+
+          <code><a href="build_taxon_reference.html">build_taxon_reference()</a></code>
+
+        </dt>
+        <dd>Build the unified <code>taxon</code> reference table</dd>
 
         <dt>
 
@@ -1219,6 +1240,13 @@
 
         </dt>
         <dd>Standardize Species Using Local spp.duckdb Lookups</dd>
+
+        <dt>
+
+          <code><a href="taxon_key_of.html">taxon_key_of()</a></code>
+
+        </dt>
+        <dd>Encode an authority-prefixed <code>taxon_key</code></dd>
       </dl></div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

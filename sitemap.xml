@@ -9,7 +9,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/add_point_geom.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/add_provenance_columns.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/append_obs.html</loc></url>
-<url><loc>https://calcofi.io/calcofi4db/reference/append_obs_freq.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/append_obs_attribute.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/append_sample.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/append_sample_measurement.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/apply_data_corrections.html</loc></url>
@@ -17,13 +17,16 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/assign_deterministic_uuids_md5.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assign_grid_key.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assign_sequential_ids.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/build_dataset_taxon.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_grid_reference.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_metadata_json.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_relationships_json.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_release_table_registry.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_sample_reference.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_targets_list.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/build_taxon_group.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_taxon_hierarchy.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/build_taxon_reference.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_taxon_table.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/calcofi4db-package.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_data_integrity.html</loc></url>
@@ -141,6 +144,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/suggest_next_version.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/sync_to_gcs.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/sync_to_gcs_archive.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/taxon_key_of.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/transform_data.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/update_package_version.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/upload_frozen_release.html</loc></url>

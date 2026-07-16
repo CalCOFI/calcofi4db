@@ -3,7 +3,7 @@
 Wraps a caller-supplied projection `select_sql` (which must yield the
 canonical `obs` columns *by name* — `realm`, `dataset_key`,
 `sample_key`, `grid_key`, `cruise_key`, `latitude`, `longitude`,
-`datetime`, `depth_min_m`, `depth_max_m`, `taxon_id`, `life_stage`,
+`datetime`, `depth_min_m`, `depth_max_m`, `taxon_key`, `life_stage`,
 `measurement_type`, `measurement_value`, `measurement_qual`,
 `measurement_prec`), mints a surrogate `obs_id` (offset from the current
 max so repeated calls stay unique within one connection) and computes

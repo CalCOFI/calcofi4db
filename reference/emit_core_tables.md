@@ -5,10 +5,10 @@ per-dataset tables, `emit_core_tables()` projects that dataset into the
 shared core family — `sample` (via
 [`build_sample_reference()`](https://calcofi.io/calcofi4db/reference/build_sample_reference.md),
 which auto-detects the dataset's event tables present in `con`), plus
-its `obs` occurrence headline, `obs_freq` (bin, count) detail, and
-`sample_measurement` effort — using the same validated projection the
-release assembly uses. Idempotent per connection for a single dataset's
-tables. Arms for `pic_zooplankton` (no measurements) and
+its `obs` occurrence headline, `obs_attribute` sub-occurrence detail,
+and `sample_measurement` effort — using the same validated projection
+the release assembly uses. Idempotent per connection for a single
+dataset's tables. Arms for `pic_zooplankton` (no measurements) and
 `calcofi_phytoplankton` (region-pooled, no grid_key) contribute `sample`
 only.
 

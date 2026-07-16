@@ -623,10 +623,11 @@ check for other functions or datasets not captured by above categories
 
   Append occurrence-headline rows into the core `obs` table
 
-- [`append_obs_freq()`](https://calcofi.io/calcofi4db/reference/append_obs_freq.md)
+- [`append_obs_attribute()`](https://calcofi.io/calcofi4db/reference/append_obs_attribute.md)
   :
 
-  Append (bin, count) rows into the core `obs_freq` table
+  Append sub-occurrence attribute rows into the core `obs_attribute`
+  table
 
 - [`append_sample()`](https://calcofi.io/calcofi4db/reference/append_sample.md)
   :
@@ -642,6 +643,12 @@ check for other functions or datasets not captured by above categories
 - [`assign_grid_key()`](https://calcofi.io/calcofi4db/reference/assign_grid_key.md)
   : Assign Grid Key via Spatial Join
 
+- [`build_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/build_dataset_taxon.md)
+  :
+
+  Build the `dataset_taxon` crosswalk (per-dataset vocabulary -\>
+  `taxon`)
+
 - [`build_grid_reference()`](https://calcofi.io/calcofi4db/reference/build_grid_reference.md)
   :
 
@@ -654,8 +661,18 @@ check for other functions or datasets not captured by above categories
   Build the shared `sample` event dimension from the per-dataset event
   tables
 
+- [`build_taxon_group()`](https://calcofi.io/calcofi4db/reference/build_taxon_group.md)
+  :
+
+  Build the `taxon_group` grouping table (many taxa per group)
+
 - [`build_taxon_hierarchy()`](https://calcofi.io/calcofi4db/reference/build_taxon_hierarchy.md)
   : Build Taxon Hierarchy from Local spp.duckdb via Recursive CTEs
+
+- [`build_taxon_reference()`](https://calcofi.io/calcofi4db/reference/build_taxon_reference.md)
+  :
+
+  Build the unified `taxon` reference table
 
 - [`build_taxon_table()`](https://calcofi.io/calcofi4db/reference/build_taxon_table.md)
   : Build Taxonomic Hierarchy Table from WoRMS
@@ -692,4 +709,9 @@ check for other functions or datasets not captured by above categories
 
 - [`standardize_species_local()`](https://calcofi.io/calcofi4db/reference/standardize_species_local.md)
   : Standardize Species Using Local spp.duckdb Lookups
+
+- [`taxon_key_of()`](https://calcofi.io/calcofi4db/reference/taxon_key_of.md)
+  :
+
+  Encode an authority-prefixed `taxon_key`
 
