@@ -13,7 +13,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.9.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.10.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -41,6 +41,11 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="2.10.0" id="calcofi4db-2100">calcofi4db 2.10.0<a class="anchor" aria-label="anchor" href="#calcofi4db-2100"></a></h2>
+<ul><li>
+<strong><code>tow_type</code> (net gear) promoted into the core <code>sample</code> table.</strong> <code><a href="../reference/build_sample_reference.html">build_sample_reference()</a></code> / <code><a href="../reference/append_sample.html">append_sample()</a></code> now carry a <code>tow_type</code> column (added to the <code>sample</code> schema): the CalCOFI ichthyo net gear code (<code>C1</code>/<code>CB</code>/<code>CV</code>/<code>PV</code> oblique &amp; vertical tows, <code>MT</code> manta surface tows), denormalized onto both the <code>tow</code> and <code>net</code> sample rows and <code>NULL</code> for gears / datasets without one. Consumers (e.g. <code>db-viz-hex</code> CPUE) can now read net gear straight from <code>sample</code> instead of re-deriving it from per-dataset ingest tables.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.9.0" id="calcofi4db-290">calcofi4db 2.9.0<a class="anchor" aria-label="anchor" href="#calcofi4db-290"></a></h2>
 <ul><li>
