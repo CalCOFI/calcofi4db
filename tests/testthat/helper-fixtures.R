@@ -13,7 +13,8 @@ new_ichthyo_fixture <- function() {
            '2020-01-NODC'::VARCHAR cruise_key, 32.0::DOUBLE latitude, -120.0::DOUBLE longitude")
   DBI::dbExecute(con, "CREATE TABLE tow AS
     SELECT 'T1'::VARCHAR tow_uuid, 'S1'::VARCHAR site_uuid,
-           TIMESTAMP '2020-01-01 10:00:00' datetime_start_utc")
+           TIMESTAMP '2020-01-01 10:00:00' datetime_start_utc,
+           'CB'::VARCHAR tow_type_key")
   DBI::dbExecute(con, "CREATE TABLE net AS
     SELECT 'N1'::VARCHAR net_uuid, 'T1'::VARCHAR tow_uuid, 100.0::DOUBLE volume_sampled,
            5.0::DOUBLE standard_haul_factor, 0.5::DOUBLE prop_sorted,

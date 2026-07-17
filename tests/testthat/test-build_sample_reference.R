@@ -11,6 +11,22 @@ test_that("build_sample_reference materializes per-level sample counts", {
   expect_equal(n("site"), 1L)
 })
 
+test_that("build_sample_reference carries tow_type onto tow + net rows (NULL on site)", {
+  con <- new_ichthyo_fixture()
+  on.exit(close_duckdb(con))
+
+  build_sample_reference(con)
+  tt <- function(key) DBI::dbGetQuery(con, glue::glue(
+    "SELECT tow_type FROM sample WHERE sample_key = '{key}'"))$tow_type
+
+  # net gear (fixture tow is a 'CB' bongo) propagates to the tow + all its nets
+  expect_equal(tt("swfsc_ichthyo:tow:T1"), "CB")
+  expect_equal(tt("swfsc_ichthyo:net:N1"), "CB")
+  expect_equal(tt("swfsc_ichthyo:net:N2"), "CB")
+  # site has no gear
+  expect_true(is.na(tt("swfsc_ichthyo:site:S1")))
+})
+
 test_that("sample_key namespacing reconstructs leaf -> parent -> root with no recursion", {
   con <- new_ichthyo_fixture()
   on.exit(close_duckdb(con))

@@ -127,6 +127,7 @@ CC_H3_RES_MAX <- 10L
        datetime          TIMESTAMP,
        depth_min_m       DOUBLE,
        depth_max_m       DOUBLE,
+       tow_type          VARCHAR,
        geom              GEOMETRY)"))
   invisible(tbl)
 }
@@ -236,9 +237,11 @@ append_sample_measurement <- function(con, select_sql, tbl = "sample_measurement
 #'
 #' `select_sql` must yield `sample_key`, `sample_type`, `parent_sample_key`,
 #' `root_sample_key`, `dataset_key`, `grid_key`, `cruise_key`, `latitude`,
-#' `longitude`, `datetime`, `depth_min_m`, `depth_max_m` by name; `geom` is minted
-#' here as `ST_Point(longitude, latitude)`. Prefer [build_sample_reference()] for the
-#' central Phase-2 build; use this for per-dataset (Phase 3) appends.
+#' `longitude`, `datetime`, `depth_min_m`, `depth_max_m`, `tow_type` by name;
+#' `geom` is minted here as `ST_Point(longitude, latitude)`. `tow_type` is the net
+#' gear code (ichthyo tow/net grains: C1/CB/CV/PV oblique/vertical, MT manta), NULL
+#' for gears/datasets without one. Prefer [build_sample_reference()] for the central
+#' Phase-2 build; use this for per-dataset (Phase 3) appends.
 #' @inheritParams append_obs
 #' @param sample_tbl target table (default `"sample"`)
 #' @return (invisibly) the total row count of `sample_tbl` after the append
@@ -251,14 +254,14 @@ append_sample <- function(con, select_sql, sample_tbl = "sample") {
     "INSERT INTO {sample_tbl}
        (sample_key, sample_type, parent_sample_key, root_sample_key,
         dataset_key, grid_key, cruise_key, latitude, longitude, datetime,
-        depth_min_m, depth_max_m, geom)
+        depth_min_m, depth_max_m, tow_type, geom)
      SELECT sample_key, sample_type, parent_sample_key, root_sample_key,
             dataset_key, grid_key, cruise_key, latitude, longitude, datetime,
-            depth_min_m, depth_max_m,
+            depth_min_m, depth_max_m, tow_type,
             CASE WHEN latitude IS NULL OR longitude IS NULL THEN NULL
                  ELSE ST_Point(longitude, latitude) END AS geom
      FROM ( {select_sql} ) AS src(sample_key, sample_type, parent_sample_key, root_sample_key,
-            dataset_key, grid_key, cruise_key, latitude, longitude, datetime, depth_min_m, depth_max_m)"))
+            dataset_key, grid_key, cruise_key, latitude, longitude, datetime, depth_min_m, depth_max_m, tow_type)"))
   invisible(DBI::dbGetQuery(
     con, glue::glue("SELECT COUNT(*) AS n FROM {sample_tbl}"))$n)
 }
@@ -358,7 +361,8 @@ build_grid_reference <- function(con, grid_tbl = "grid") {
             NULL::VARCHAR AS parent_sample_key, {key} AS root_sample_key,
             '{dataset_key}' AS dataset_key, {grid_expr} AS grid_key, cruise_key,
             latitude, longitude, {dt} AS datetime,
-            {depth_min} AS depth_min_m, {depth_max} AS depth_max_m
+            {depth_min} AS depth_min_m, {depth_max} AS depth_max_m,
+            NULL::VARCHAR AS tow_type
      FROM {tbl}")
 }
 
@@ -400,14 +404,16 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
               {.ns_key('calcofi_bottle','cast','cast_id')} AS root_sample_key,
               'calcofi_bottle' AS dataset_key, grid_key, cruise_key,
               latitude, longitude, CAST(datetime_start_utc AS TIMESTAMP) AS datetime,
-              NULL::DOUBLE AS depth_min_m, NULL::DOUBLE AS depth_max_m
+              NULL::DOUBLE AS depth_min_m, NULL::DOUBLE AS depth_max_m,
+              NULL::VARCHAR AS tow_type
        FROM casts"),
     bottle_btl = if (has("bottle", "casts")) glue::glue(
       "SELECT {.ns_key('calcofi_bottle','bottle','b.bottle_id')} AS sample_key, 'bottle' AS sample_type,
               {.ns_key('calcofi_bottle','cast','b.cast_id')} AS parent_sample_key,
               {.ns_key('calcofi_bottle','cast','b.cast_id')} AS root_sample_key,
               'calcofi_bottle' AS dataset_key, c.grid_key, c.cruise_key, c.latitude, c.longitude,
-              CAST(c.datetime_start_utc AS TIMESTAMP) AS datetime, b.depth_m AS depth_min_m, b.depth_m AS depth_max_m
+              CAST(c.datetime_start_utc AS TIMESTAMP) AS datetime, b.depth_m AS depth_min_m, b.depth_m AS depth_max_m,
+              NULL::VARCHAR AS tow_type
        FROM bottle b JOIN casts c USING (cast_id)"),
 
     # --- calcofi_ctd-cast: physical cast (leaf = root). ctd_cast is per-SCAN
@@ -421,7 +427,8 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
                 {.ns_key('calcofi_ctd-cast','cast','cast_key')} AS root_sample_key,
                 'calcofi_ctd-cast' AS dataset_key, grid_key, cruise_key, latitude, longitude,
                 CAST(datetime_start_utc AS TIMESTAMP) AS datetime,
-                NULL::DOUBLE AS depth_min_m, NULL::DOUBLE AS depth_max_m
+                NULL::DOUBLE AS depth_min_m, NULL::DOUBLE AS depth_max_m,
+                NULL::VARCHAR AS tow_type
          FROM ctd_cast
        ) q QUALIFY row_number() OVER (PARTITION BY sample_key ORDER BY datetime) = 1"),
 
@@ -440,7 +447,8 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
                     'calcofi_dic:bottle:' || {dic_md5}) AS root_sample_key,
                   'calcofi_dic' AS dataset_key, c.grid_key, c.cruise_key,
                   d.latitude, d.longitude, CAST(d.datetime_start_utc AS TIMESTAMP) AS datetime,
-                  d.depth_m AS depth_min_m, d.depth_m AS depth_max_m
+                  d.depth_m AS depth_min_m, d.depth_m AS depth_max_m,
+                  NULL::VARCHAR AS tow_type
            FROM dic_sample d LEFT JOIN casts c ON d.cast_id = c.cast_id
            {btl_filter}
          ) q QUALIFY row_number() OVER (PARTITION BY sample_key) = 1")
@@ -453,7 +461,8 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
               NULL::VARCHAR AS parent_sample_key,
               {.ns_key('swfsc_ichthyo','site','s.site_uuid')} AS root_sample_key, 'swfsc_ichthyo' AS dataset_key,
               s.grid_key, s.cruise_key, s.latitude, s.longitude,
-              CAST(td.dt AS TIMESTAMP) AS datetime, NULL::DOUBLE AS depth_min_m, NULL::DOUBLE AS depth_max_m
+              CAST(td.dt AS TIMESTAMP) AS datetime, NULL::DOUBLE AS depth_min_m, NULL::DOUBLE AS depth_max_m,
+              NULL::VARCHAR AS tow_type
        FROM site s
        LEFT JOIN (SELECT site_uuid, min(datetime_start_utc) AS dt FROM tow GROUP BY 1) td
               ON td.site_uuid = s.site_uuid"),
@@ -462,14 +471,16 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
               {.ns_key('swfsc_ichthyo','site','t.site_uuid')} AS parent_sample_key,
               {.ns_key('swfsc_ichthyo','site','t.site_uuid')} AS root_sample_key,
               'swfsc_ichthyo' AS dataset_key, s.grid_key, s.cruise_key, s.latitude, s.longitude,
-              CAST(t.datetime_start_utc AS TIMESTAMP) AS datetime, 0::DOUBLE AS depth_min_m, NULL::DOUBLE AS depth_max_m
+              CAST(t.datetime_start_utc AS TIMESTAMP) AS datetime, 0::DOUBLE AS depth_min_m, NULL::DOUBLE AS depth_max_m,
+              t.tow_type_key AS tow_type
        FROM tow t JOIN site s USING (site_uuid)"),
     ich_net = if (has("net", "tow", "site")) glue::glue(
       "SELECT {.ns_key('swfsc_ichthyo','net','n.net_uuid')} AS sample_key, 'net' AS sample_type,
               {.ns_key('swfsc_ichthyo','tow','n.tow_uuid')} AS parent_sample_key,
               {.ns_key('swfsc_ichthyo','site','t.site_uuid')} AS root_sample_key,
               'swfsc_ichthyo' AS dataset_key, s.grid_key, s.cruise_key, s.latitude, s.longitude,
-              CAST(t.datetime_start_utc AS TIMESTAMP) AS datetime, 0::DOUBLE AS depth_min_m, NULL::DOUBLE AS depth_max_m
+              CAST(t.datetime_start_utc AS TIMESTAMP) AS datetime, 0::DOUBLE AS depth_min_m, NULL::DOUBLE AS depth_max_m,
+              t.tow_type_key AS tow_type
        FROM net n JOIN tow t USING (tow_uuid) JOIN site s USING (site_uuid)"),
 
     # --- single-level datasets (leaf = root = self) --------------------------

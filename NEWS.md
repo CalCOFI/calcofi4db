@@ -1,3 +1,13 @@
+# calcofi4db 2.10.0
+
+- **`tow_type` (net gear) promoted into the core `sample` table.**
+  `build_sample_reference()` / `append_sample()` now carry a `tow_type` column
+  (added to the `sample` schema): the CalCOFI ichthyo net gear code
+  (`C1`/`CB`/`CV`/`PV` oblique & vertical tows, `MT` manta surface tows),
+  denormalized onto both the `tow` and `net` sample rows and `NULL` for gears /
+  datasets without one. Consumers (e.g. `db-viz-hex` CPUE) can now read net gear
+  straight from `sample` instead of re-deriving it from per-dataset ingest tables.
+
 # calcofi4db 2.9.0
 
 - **Unified taxon model** (new `R/taxa.R`): `build_taxon_reference()`,
