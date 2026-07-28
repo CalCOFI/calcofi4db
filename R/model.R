@@ -505,6 +505,22 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
     pic = if (has("zooplankton_tow"))
       .sample_arm_self("pic_zooplankton", "zooplankton_tow", "tow_id", "tow",
                        depth_min = "depth_min_m", depth_max = "depth_max_m"),
+    # METS underway: one row per retained track sample. Restricted to samples
+    # mets_thin references so `sample` stays proportionate to `obs` — the full
+    # ~1-minute series is a supplemental output, not a core event dimension.
+    mets = if (has("mets_sample", "mets_thin")) glue::glue(
+      "SELECT {.ns_key('calcofi_mets','underway','s.mets_sample_uuid')} AS sample_key,
+              'underway' AS sample_type,
+              NULL::VARCHAR AS parent_sample_key,
+              {.ns_key('calcofi_mets','underway','s.mets_sample_uuid')} AS root_sample_key,
+              'calcofi_mets' AS dataset_key, s.grid_key, s.cruise_key,
+              s.latitude, s.longitude,
+              CAST(s.datetime_start_utc AS TIMESTAMP) AS datetime,
+              0::DOUBLE AS depth_min_m, 0::DOUBLE AS depth_max_m,
+              NULL::VARCHAR AS tow_type
+       FROM mets_sample s
+       WHERE EXISTS (SELECT 1 FROM mets_thin t
+                     WHERE t.mets_sample_uuid = s.mets_sample_uuid)"),
     meso = if (has("mesopelagic_fish_tow"))
       .sample_arm_self("ucsd_sio_mesopelagic-fish", "mesopelagic_fish_tow",
                        "tow_id", "tow",
@@ -530,6 +546,7 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
                 phyllosoma = "calcofi_phyllosoma", zoodb = "cce-lter_zoodb",
                 zooscan = "cce-lter_zooscan", bird = "calcofi_bird_mammal_census",
                 pic = "pic_zooplankton", phyto = "calcofi_phytoplankton",
+                mets = "calcofi_mets",
                 meso = "ucsd_sio_mesopelagic-fish",
                 pico = "cce-lter_picoplankton-bacteria")
     arms <- arms[names(arms) %in% names(arm_ds)[arm_ds %in% datasets]]
@@ -662,6 +679,19 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
       LEFT JOIN dataset_taxon dt ON dt.dataset_key = 'cce-lter_zooscan'
                                 AND dt.ds_taxa_code = CAST(m.taxon_id AS VARCHAR)
       WHERE sp.grid_key IS NOT NULL",
+    # METS underway: env realm, fed by mets_thin — the same thinned-table pattern
+    # `calcofi_ctd-cast` uses (obs carries ctd_thin, not the full scan set).
+    # Underway seawater is drawn from a hull intake a few metres down; the exact
+    # depth is undocumented per cruise (questions.csv mets_25), so depth is
+    # recorded as surface, matching swfsc_cufes.
+    "calcofi_mets" = "
+      SELECT 'env', 'calcofi_mets', 'calcofi_mets:underway:' || CAST(t.mets_sample_uuid AS VARCHAR),
+             s.grid_key, s.cruise_key, s.latitude, s.longitude,
+             CAST(s.datetime_start_utc AS TIMESTAMP), 0::DOUBLE, 0::DOUBLE,
+             NULL::VARCHAR, NULL::VARCHAR, t.measurement_type, t.measurement_value,
+             NULL::VARCHAR, NULL::DOUBLE
+      FROM mets_thin t JOIN mets_sample s USING (mets_sample_uuid)
+      WHERE s.grid_key IS NOT NULL",
     # mesopelagic fish: species-as-columns pivoted to a per-tow tally; the source
     # names taxa by scientific name (no local code), so ds_taxa_code IS the name
     "ucsd_sio_mesopelagic-fish" = "

@@ -1,3 +1,14 @@
+# calcofi4db 2.12.0
+
+- **`calcofi_mets` projects into the core model.** Underway TSG/meteorology now
+  emits `sample` at the existing `underway` grain (the one `swfsc_cufes` already
+  uses) and an `env`-realm `obs` fed by `mets_thin` — the same thinned-table
+  pattern `calcofi_ctd-cast` uses, where `obs` carries `ctd_thin` rather than the
+  full scan set. `sample` is restricted to the samples `mets_thin` references, so
+  the event dimension stays proportionate to `obs` instead of carrying the full
+  ~1-minute series; that remains a supplemental parquet output. Depth is recorded
+  as surface pending the hull-intake depth (workflows questions.csv mets_25).
+
 # calcofi4db 2.11.0
 
 - **`derive_cruise_key_on_casts()` gains `table_name =`.** It previously required
