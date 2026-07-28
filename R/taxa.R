@@ -186,6 +186,30 @@ isTRUE_vec <- function(x) !is.na(x) & as.logical(x)
       family = z$family, is_bird = FALSE, stringsAsFactors = FALSE))
   }
 
+  # --- euphausiids: species-resolved BTEDB export, worms_id from WoRMS --------
+  # the BTEDB export names 37 species across 8 genera in its column headers; the
+  # ingest resolves each to an AphiaID via standardize_species(), so euphausiids
+  # crosswalks like any other per-dataset taxon vocabulary rather than through
+  # measurement_taxon.csv (which only ever covered the old single-Abundance form)
+  eu <- .read_cols(con, "euphausiids_taxon",
+    c("taxon_id", "scientific_name", "genus", "worms_id", "rank"))
+  if (!is.null(eu)) arms$euphausiids <- .as_taxon_rows(data.frame(
+    dataset_key = "cce-lter_euphausiids", ds_prefix = "cce-lter_euphausiids",
+    ds_taxa_code = eu$taxon_id, ds_scientific_name = eu$scientific_name,
+    worms_id = eu$worms_id, scientific_name = eu$scientific_name,
+    rank = eu$rank, is_bird = FALSE, stringsAsFactors = FALSE))
+
+  # --- mesopelagic fish: taxa named by scientific name in the source columns --
+  # ds_taxa_code IS the scientific name here (the source has no local code), so
+  # obs joins dataset_taxon on the name it stores on the measurement row
+  mf <- .read_cols(con, "mesopelagic_fish_taxon",
+    c("scientific_name", "worms_id", "rank"))
+  if (!is.null(mf)) arms$mesopelagic <- .as_taxon_rows(data.frame(
+    dataset_key = "ucsd_sio_mesopelagic-fish", ds_prefix = "ucsd_sio_mesopelagic-fish",
+    ds_taxa_code = mf$scientific_name, ds_scientific_name = mf$scientific_name,
+    worms_id = mf$worms_id, scientific_name = mf$scientific_name,
+    rank = mf$rank, is_bird = FALSE, stringsAsFactors = FALSE))
+
   # --- seabirds + marine mammals: birds -> itis, mammals -> worms (override) --
   bm <- .read_cols(con, "bird_mammal_species",
     c("species_code", "common_name", "scientific_name", "itis_id",
