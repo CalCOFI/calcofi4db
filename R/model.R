@@ -505,6 +505,17 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
     pic = if (has("zooplankton_tow"))
       .sample_arm_self("pic_zooplankton", "zooplankton_tow", "tow_id", "tow",
                        depth_min = "depth_min_m", depth_max = "depth_max_m"),
+    meso = if (has("mesopelagic_fish_tow"))
+      .sample_arm_self("ucsd_sio_mesopelagic-fish", "mesopelagic_fish_tow",
+                       "tow_id", "tow",
+                       depth_min = "0::DOUBLE", depth_max = "depth_m"),
+    # picoplankton is bottle-shaped (one row per bottle/depth on a CTD cast) but
+    # the export carries no cast-level event table, so the bottle is its own root
+    pico = if (has("picoplankton_bacteria_bottle"))
+      .sample_arm_self("cce-lter_picoplankton-bacteria",
+                       "picoplankton_bacteria_bottle", "bottle_id", "bottle",
+                       dt_col = "datetime_utc",
+                       depth_min = "depth_m", depth_max = "depth_m"),
     phyto = if (has("phyto_sample"))
       .sample_arm_self("calcofi_phytoplankton", "phyto_sample", "phyto_sample_id",
                        "region_pool", dt_col = "NULL", grid_expr = "NULL::VARCHAR"))
@@ -518,7 +529,9 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
                 cufes = "swfsc_cufes", euph = "cce-lter_euphausiids",
                 phyllosoma = "calcofi_phyllosoma", zoodb = "cce-lter_zoodb",
                 zooscan = "cce-lter_zooscan", bird = "calcofi_bird_mammal_census",
-                pic = "pic_zooplankton", phyto = "calcofi_phytoplankton")
+                pic = "pic_zooplankton", phyto = "calcofi_phytoplankton",
+                meso = "ucsd_sio_mesopelagic-fish",
+                pico = "cce-lter_picoplankton-bacteria")
     arms <- arms[names(arms) %in% names(arm_ds)[arm_ds %in% datasets]]
   }
   if (!length(arms)) stop("build_sample_reference(): no source event tables found.")
@@ -540,6 +553,23 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
 }
 
 # emit_core_tables ------------------------------------------------------------
+
+# the bio obs arms LEFT JOIN dataset_taxon, which the release builds centrally;
+# inside an ingest it is normally absent, so stub it rather than fail the whole
+# projection (taxon_key then resolves NULL locally and is filled at release)
+.ensure_dataset_taxon <- function(con) {
+  if ("dataset_taxon" %in% DBI::dbListTables(con)) return(invisible(FALSE))
+  DBI::dbExecute(con, "
+    CREATE TABLE dataset_taxon (
+      ds_taxon_key       VARCHAR,
+      dataset_key        VARCHAR,
+      taxon_key          VARCHAR,
+      ds_scientific_name VARCHAR,
+      ds_common_name     VARCHAR,
+      ds_taxa_code       VARCHAR)")
+  invisible(TRUE)
+}
+
 
 # per-dataset obs (occurrence-headline) projection SQL. The single source of
 # truth for how each dataset maps into `obs`, reused by the release assembly and
@@ -595,12 +625,19 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
              CAST(c.datetime_start_utc AS TIMESTAMP), 0::DOUBLE, 0::DOUBLE,
              NULL::VARCHAR, NULL::VARCHAR, m.measurement_type, m.measurement_value, m.measurement_qual, NULL::DOUBLE
       FROM cufes_measurement m JOIN cufes_sample c USING (sample_id) WHERE c.grid_key IS NOT NULL",
+    # euphausiids: BTEDB export is species- AND life-stage-resolved, so taxon_key
+    # comes from dataset_taxon (like zoodb/zooscan) and life_stage is carried on
+    # the headline. Before that export the measurement was one undifferentiated
+    # value per tow with the taxon baked into measurement_type.
     "cce-lter_euphausiids" = "
       SELECT 'bio', 'cce-lter_euphausiids', 'cce-lter_euphausiids:tow:' || CAST(tw.tow_id AS VARCHAR),
              tw.grid_key, tw.cruise_key, tw.latitude, tw.longitude,
              CAST(tw.datetime_start_utc AS TIMESTAMP), NULL::DOUBLE, NULL::DOUBLE,
-             NULL::VARCHAR, NULL::VARCHAR, m.measurement_type, m.measurement_value, m.measurement_qual, NULL::DOUBLE
-      FROM euphausiids_measurement m JOIN euphausiids_tow tw USING (tow_id) WHERE tw.grid_key IS NOT NULL",
+             dt.taxon_key, m.life_stage, m.measurement_type, m.measurement_value, m.measurement_qual, NULL::DOUBLE
+      FROM euphausiids_measurement m JOIN euphausiids_tow tw USING (tow_id)
+      LEFT JOIN dataset_taxon dt ON dt.dataset_key = 'cce-lter_euphausiids'
+                                AND dt.ds_taxa_code = CAST(m.taxon_id AS VARCHAR)
+      WHERE tw.grid_key IS NOT NULL",
     "calcofi_phyllosoma" = "
       SELECT 'bio', 'calcofi_phyllosoma', 'calcofi_phyllosoma:tow:' || CAST(tw.tow_id AS VARCHAR),
              tw.grid_key, tw.cruise_key, tw.latitude, tw.longitude,
@@ -625,6 +662,27 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
       LEFT JOIN dataset_taxon dt ON dt.dataset_key = 'cce-lter_zooscan'
                                 AND dt.ds_taxa_code = CAST(m.taxon_id AS VARCHAR)
       WHERE sp.grid_key IS NOT NULL",
+    # mesopelagic fish: species-as-columns pivoted to a per-tow tally; the source
+    # names taxa by scientific name (no local code), so ds_taxa_code IS the name
+    "ucsd_sio_mesopelagic-fish" = "
+      SELECT 'bio', 'ucsd_sio_mesopelagic-fish', 'ucsd_sio_mesopelagic-fish:tow:' || CAST(tw.tow_id AS VARCHAR),
+             tw.grid_key, tw.cruise_key, tw.latitude, tw.longitude,
+             CAST(tw.datetime_start_utc AS TIMESTAMP), 0::DOUBLE, tw.depth_m,
+             dt.taxon_key, NULL::VARCHAR, m.measurement_type, m.measurement_value, NULL::VARCHAR, NULL::DOUBLE
+      FROM mesopelagic_fish_measurement m JOIN mesopelagic_fish_tow tw USING (tow_id)
+      LEFT JOIN dataset_taxon dt ON dt.dataset_key = 'ucsd_sio_mesopelagic-fish'
+                                AND dt.ds_taxa_code = m.scientific_name
+      WHERE tw.grid_key IS NOT NULL",
+    # picoplankton/bacteria: env realm — flow-cytometry cell counts per bottle,
+    # no taxon_key (the four types are the measurement vocabulary, not taxa)
+    "cce-lter_picoplankton-bacteria" = "
+      SELECT 'env', 'cce-lter_picoplankton-bacteria', 'cce-lter_picoplankton-bacteria:bottle:' || CAST(b.bottle_id AS VARCHAR),
+             b.grid_key, b.cruise_key, b.latitude, b.longitude,
+             CAST(b.datetime_utc AS TIMESTAMP), b.depth_m, b.depth_m,
+             NULL::VARCHAR, NULL::VARCHAR, m.measurement_type, m.measurement_value, NULL::VARCHAR, NULL::DOUBLE
+      FROM picoplankton_bacteria_measurement m
+      JOIN picoplankton_bacteria_bottle b USING (bottle_id)
+      WHERE b.grid_key IS NOT NULL",
     # bird_mammal: taxon_key via dataset_taxon; behavior stays in life_stage on the
     # obs headline here (the release additionally splits behavior into obs_attribute).
     "calcofi_bird_mammal_census" = "
@@ -636,9 +694,11 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
       LEFT JOIN dataset_taxon dt ON dt.dataset_key = 'calcofi_bird_mammal_census'
                                 AND dt.ds_taxa_code = CAST(o.species_code AS VARCHAR)
       WHERE tr.grid_key IS NOT NULL",
-    # NOTE: cufes / euphausiids / phyllosoma bake the taxon into measurement_type;
-    # their taxon_key + canonical-type decomposition lives in release_database.qmd
-    # (Phase 2, via metadata/measurement_taxon.csv). This Phase-3 helper omits them.
+    # NOTE: cufes / phyllosoma bake the taxon into measurement_type; their
+    # taxon_key + canonical-type decomposition lives in release_database.qmd
+    # (Phase 2, via metadata/measurement_taxon.csv). This Phase-3 helper omits
+    # them. (euphausiids moved off that path with the species-resolved BTEDB
+    # export — see its arm above.)
     NULL)  # pic_zooplankton (no measurements) / calcofi_phytoplankton (no grid_key) -> sample only
 }
 
@@ -688,6 +748,13 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
 #' single dataset's tables. Arms for `pic_zooplankton` (no measurements) and
 #' `calcofi_phytoplankton` (region-pooled, no grid_key) contribute `sample` only.
 #'
+#' The bio arms resolve `taxon_key` through `dataset_taxon`, which is built
+#' centrally by the release assembly ([build_dataset_taxon()]) rather than by
+#' each ingest. When that table is absent — the normal case inside an ingest —
+#' an empty stub is created so the projection still runs with `taxon_key` NULL
+#' and the release fills it in; without the stub the arm's `LEFT JOIN` raises a
+#' catalog error.
+#'
 #' @param con a DuckDB connection holding this dataset's per-dataset tables
 #' @param dataset_key provider_dataset (e.g. `"swfsc_ichthyo"`, `"calcofi_bottle"`)
 #' @param sample logical; also (re)build `sample` from the present event tables (default TRUE)
@@ -696,6 +763,7 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
 #' @concept model
 emit_core_tables <- function(con, dataset_key, sample = TRUE) {
   out <- list()
+  .ensure_dataset_taxon(con)
   if (isTRUE(sample)) out$sample <- build_sample_reference(con, datasets = dataset_key)
   oa <- .obs_arm_sql(dataset_key)
   if (!is.null(oa)) out$obs <- append_obs(con, oa)

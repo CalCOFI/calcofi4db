@@ -19,8 +19,10 @@ append_sample(con, select_sql, sample_tbl = "sample")
 \description{
 \code{select_sql} must yield \code{sample_key}, \code{sample_type}, \code{parent_sample_key},
 \code{root_sample_key}, \code{dataset_key}, \code{grid_key}, \code{cruise_key}, \code{latitude},
-\code{longitude}, \code{datetime}, \code{depth_min_m}, \code{depth_max_m} by name; \code{geom} is minted
-here as \code{ST_Point(longitude, latitude)}. Prefer \code{\link[=build_sample_reference]{build_sample_reference()}} for the
-central Phase-2 build; use this for per-dataset (Phase 3) appends.
+\code{longitude}, \code{datetime}, \code{depth_min_m}, \code{depth_max_m}, \code{tow_type} by name;
+\code{geom} is minted here as \code{ST_Point(longitude, latitude)}. \code{tow_type} is the net
+gear code (ichthyo tow/net grains: C1/CB/CV/PV oblique/vertical, MT manta), NULL
+for gears/datasets without one. Prefer \code{\link[=build_sample_reference]{build_sample_reference()}} for the central
+Phase-2 build; use this for per-dataset (Phase 3) appends.
 }
 \concept{model}

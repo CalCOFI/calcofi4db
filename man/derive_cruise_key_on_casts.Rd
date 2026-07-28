@@ -8,15 +8,25 @@ derive_cruise_key_on_casts(
   con,
   ship_renames_csv = NULL,
   fetch_ices = TRUE,
-  datetime_col = "datetime_utc"
+  datetime_col = "datetime_utc",
+  table_name = "casts"
 )
 }
 \arguments{
-\item{con}{DBI connection to DuckDB with casts, ship, and cruise tables}
+\item{con}{DBI connection to DuckDB with the target table plus \code{ship}
+and \code{cruise}}
 
 \item{ship_renames_csv}{Optional path to manual ship overrides CSV}
 
 \item{fetch_ices}{Logical; if TRUE, also query ICES ship API (default TRUE)}
+
+\item{datetime_col}{Name of the timestamp column on the target table used to
+derive the YYYY-MM prefix (default \code{"datetime_utc"})}
+
+\item{table_name}{Name of the table to annotate (default \code{"casts"}).
+Any table with a \code{ship_code} column and \code{datetime_col} works —
+e.g. \code{"picoplankton_bacteria_bottle"}. A \code{ship_name} column is
+used for the unmatched report when present, and treated as NULL when not.}
 }
 \value{
 List with components:

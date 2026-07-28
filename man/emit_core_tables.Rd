@@ -26,4 +26,12 @@ validated projection the release assembly uses. Idempotent per connection for a
 single dataset's tables. Arms for \code{pic_zooplankton} (no measurements) and
 \code{calcofi_phytoplankton} (region-pooled, no grid_key) contribute \code{sample} only.
 }
+\details{
+The bio arms resolve \code{taxon_key} through \code{dataset_taxon}, which is built
+centrally by the release assembly (\code{\link[=build_dataset_taxon]{build_dataset_taxon()}}) rather than by
+each ingest. When that table is absent — the normal case inside an ingest —
+an empty stub is created so the projection still runs with \code{taxon_key} NULL
+and the release fills it in; without the stub the arm's \verb{LEFT JOIN} raises a
+catalog error.
+}
 \concept{model}

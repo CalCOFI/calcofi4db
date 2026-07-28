@@ -408,9 +408,16 @@ match_ships <- function(
 #' Requires that \code{ship} and \code{cruise} tables are already loaded in
 #' the DuckDB connection (e.g., via \code{load_prior_tables()}).
 #'
-#' @param con DBI connection to DuckDB with casts, ship, and cruise tables
+#' @param con DBI connection to DuckDB with the target table plus \code{ship}
+#'   and \code{cruise}
 #' @param ship_renames_csv Optional path to manual ship overrides CSV
 #' @param fetch_ices Logical; if TRUE, also query ICES ship API (default TRUE)
+#' @param datetime_col Name of the timestamp column on the target table used to
+#'   derive the YYYY-MM prefix (default \code{"datetime_utc"})
+#' @param table_name Name of the table to annotate (default \code{"casts"}).
+#'   Any table with a \code{ship_code} column and \code{datetime_col} works —
+#'   e.g. \code{"picoplankton_bacteria_bottle"}. A \code{ship_name} column is
+#'   used for the unmatched report when present, and treated as NULL when not.
 #'
 #' @return List with components:
 #'   \itemize{
@@ -436,23 +443,36 @@ derive_cruise_key_on_casts <- function(
     con,
     ship_renames_csv = NULL,
     fetch_ices       = TRUE,
-    datetime_col     = "datetime_utc") {
+    datetime_col     = "datetime_utc",
+    table_name       = "casts") {
 
   # verify required tables exist
   tbls <- DBI::dbListTables(con)
   stopifnot(
-    "casts table required"  = "casts"  %in% tbls,
-    "ship table required"   = "ship"   %in% tbls,
-    "cruise table required" = "cruise" %in% tbls)
+    "target table required" = table_name %in% tbls,
+    "ship table required"   = "ship"     %in% tbls,
+    "cruise table required" = "cruise"   %in% tbls)
+
+  tbl  <- DBI::dbQuoteIdentifier(con, table_name)
+  flds <- DBI::dbListFields(con, table_name)
+  stopifnot(
+    "target table needs a ship_code column" = "ship_code" %in% flds,
+    "target table needs the datetime_col"   = datetime_col %in% flds)
+
+  # ship_name is only used for the human-readable unmatched report; tables that
+  # carry a ship code but no vessel name (e.g. bottle-grain tables keyed off an
+  # embedded cruise string) still match fine, so fall back to NULL
+  ship_name_expr <- if ("ship_name" %in% flds) "c.ship_name" else "NULL AS ship_name"
 
   # step 1: find unmatched ships ----
-  unmatched <- DBI::dbGetQuery(con, "
-    SELECT DISTINCT c.ship_code, c.ship_name
-    FROM casts c
+  unmatched <- DBI::dbGetQuery(con, glue::glue("
+    SELECT DISTINCT c.ship_code, {ship_name_expr}
+    FROM {tbl} c
     LEFT JOIN ship s ON c.ship_code = s.ship_nodc
-    WHERE s.ship_key IS NULL")
+    WHERE s.ship_key IS NULL"))
 
-  message(glue::glue("{nrow(unmatched)} unmatched ship codes in casts"))
+  message(glue::glue(
+    "{nrow(unmatched)} unmatched ship codes in {table_name}"))
 
   # step 2: run fuzzy matching ----
   ship_matches <- match_ships(
@@ -461,19 +481,20 @@ derive_cruise_key_on_casts <- function(
     ship_renames_csv = ship_renames_csv,
     fetch_ices       = fetch_ices)
 
-  # step 3: add ship_key to casts ----
-  DBI::dbExecute(con, "ALTER TABLE casts ADD COLUMN IF NOT EXISTS ship_key TEXT")
+  # step 3: add ship_key to the target table ----
+  DBI::dbExecute(con, glue::glue(
+    "ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS ship_key TEXT"))
 
-  # exact match: casts.ship_code = ship.ship_nodc
-  DBI::dbExecute(con, "
-    UPDATE casts SET ship_key = (
+  # exact match: {table}.ship_code = ship.ship_nodc
+  DBI::dbExecute(con, glue::glue("
+    UPDATE {tbl} SET ship_key = (
       SELECT s.ship_key FROM ship s
-      WHERE s.ship_nodc = casts.ship_code
-      LIMIT 1)")
+      WHERE s.ship_nodc = {tbl}.ship_code
+      LIMIT 1)"))
 
-  n_exact <- DBI::dbGetQuery(con,
-    "SELECT COUNT(*) AS n FROM casts WHERE ship_key IS NOT NULL")$n
-  message(glue::glue("Exact ship_nodc match: {n_exact} casts"))
+  n_exact <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT COUNT(*) AS n FROM {tbl} WHERE ship_key IS NOT NULL"))$n
+  message(glue::glue("Exact ship_nodc match: {n_exact} rows"))
 
   # apply fuzzy match results
   matched_ships <- ship_matches |>
@@ -483,34 +504,35 @@ derive_cruise_key_on_casts <- function(
     for (i in seq_len(nrow(matched_ships))) {
       m <- matched_ships[i, ]
       DBI::dbExecute(con, glue::glue("
-        UPDATE casts SET ship_key = '{m$matched_ship_key}'
-        WHERE ship_code = '{m$ship_code}'
+        UPDATE {tbl} SET ship_key = {DBI::dbQuoteString(con, m$matched_ship_key)}
+        WHERE ship_code = {DBI::dbQuoteString(con, m$ship_code)}
           AND ship_key IS NULL"))
     }
-    n_fuzzy <- DBI::dbGetQuery(con,
-      "SELECT COUNT(*) AS n FROM casts WHERE ship_key IS NOT NULL")$n - n_exact
-    message(glue::glue("Fuzzy/manual match: {n_fuzzy} additional casts"))
+    n_fuzzy <- DBI::dbGetQuery(con, glue::glue(
+      "SELECT COUNT(*) AS n FROM {tbl} WHERE ship_key IS NOT NULL"))$n - n_exact
+    message(glue::glue("Fuzzy/manual match: {n_fuzzy} additional rows"))
   }
 
   # step 4: derive cruise_key as YYYY-MM-NODC ----
-  DBI::dbExecute(con, "ALTER TABLE casts ADD COLUMN IF NOT EXISTS cruise_key TEXT")
+  DBI::dbExecute(con, glue::glue(
+    "ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS cruise_key TEXT"))
 
   DBI::dbExecute(con, glue::glue("
-    UPDATE casts SET cruise_key = CONCAT(
+    UPDATE {tbl} SET cruise_key = CONCAT(
       CAST(EXTRACT(YEAR FROM {datetime_col}) AS VARCHAR),
       '-',
       LPAD(CAST(EXTRACT(MONTH FROM {datetime_col}) AS VARCHAR), 2, '0'),
       '-',
       (SELECT s.ship_nodc FROM ship s
-       WHERE s.ship_key = casts.ship_key LIMIT 1))
+       WHERE s.ship_key = {tbl}.ship_key LIMIT 1))
     WHERE ship_key IS NOT NULL"))
 
-  n_cruise <- DBI::dbGetQuery(con,
-    "SELECT COUNT(*) AS n FROM casts WHERE cruise_key IS NOT NULL")$n
-  message(glue::glue("Derived cruise_key for {n_cruise} casts"))
+  n_cruise <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT COUNT(*) AS n FROM {tbl} WHERE cruise_key IS NOT NULL"))$n
+  message(glue::glue("Derived cruise_key for {n_cruise} rows"))
 
   # step 5: validate against cruise table ----
-  cruise_stats <- DBI::dbGetQuery(con, "
+  cruise_stats <- DBI::dbGetQuery(con, glue::glue("
     SELECT
       CASE
         WHEN c.ship_key IS NULL THEN 'no_ship_match'
@@ -519,21 +541,22 @@ derive_cruise_key_on_casts <- function(
         ELSE 'matched'
       END AS status,
       COUNT(*) AS n_casts
-    FROM casts c
+    FROM {tbl} c
     LEFT JOIN cruise cr ON c.cruise_key = cr.cruise_key
     GROUP BY status
-    ORDER BY status")
+    ORDER BY status"))
 
   # step 6: report unmatched ships ----
+  unmatched_grp <- if ("ship_name" %in% flds) "c.ship_code, c.ship_name" else "c.ship_code"
   unmatched_report <- DBI::dbGetQuery(con, glue::glue("
-    SELECT DISTINCT
-      c.ship_code, c.ship_name,
+    SELECT
+      c.ship_code, {ship_name_expr},
       COUNT(*) AS n_casts,
       MIN(c.{datetime_col}) AS first_cast,
       MAX(c.{datetime_col}) AS last_cast
-    FROM casts c
+    FROM {tbl} c
     WHERE c.ship_key IS NULL
-    GROUP BY c.ship_code, c.ship_name
+    GROUP BY {unmatched_grp}
     ORDER BY n_casts DESC"))
 
   if (nrow(unmatched_report) > 0) {
