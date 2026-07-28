@@ -39,8 +39,11 @@ build_metadata_json(
 
 - metadata_derived_csv:
 
-  Path to CSV with derived table/column metadata (columns: table,
-  column, name_long, units, description_md)
+  Path(s) to CSV with derived table/column metadata (columns: table,
+  column, name_long, units, description_md). Several paths may be given;
+  they are applied in order, so later files win. Ingests that emit the
+  consolidated core pass the shared `metadata/core_dictionary.csv` first
+  and their own `metadata_derived.csv` second.
 
 - output_dir:
 

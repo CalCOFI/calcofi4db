@@ -14,7 +14,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.11.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -42,6 +42,34 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="2.14.0" id="calcofi4db-2140">calcofi4db 2.14.0<a class="anchor" aria-label="anchor" href="#calcofi4db-2140"></a></h2>
+<ul><li><p><strong><code>site_key</code> and <code>order_occ</code> promoted onto the core <code>sample</code> table.</strong> Both are event-level and cross-dataset — <code>site_key</code> appears on 13 of the 18 source event tables and is the station natural key (<code>grid_key</code> is the <em>derived</em> grid cell, not the source’s own id); <code>order_occ</code> is the order of station occupation. Previously both were dropped by consolidation, which made <code>site</code>, <code>casts</code> and <code>ctd_cast</code> unreconstructable from the core. Source spelling varies (<code>order_occ</code> vs <code>ord_occ</code>) and CTD stores it as text, so it is normalised to <code>INTEGER</code>. <code>tow</code>/<code>net</code> inherit both from their parent site, as they already do for <code>grid_key</code>/<code>cruise_key</code>.</p></li>
+<li><p><strong><code>bottom_depth_m</code> now projects into <code>sample_measurement</code></strong> as <code>bottom_depth</code> on the cast event — it describes the sampling event (how deep the water was), not an observation, so it belongs with the other event-level effort measures rather than in <code>obs</code>. <code><a href="../reference/create_compat_views.html">create_compat_views()</a></code> excludes it when rebuilding <code>cast_condition</code>, so no phantom condition row appears.</p></li>
+<li><p><strong><code><a href="../reference/create_compat_views.html">create_compat_views()</a></code></strong> rebuilds the retired per-dataset tables as VIEWs over the core: the source id from the namespaced <code>sample_key</code>, the containment FK from <code>parent_sample_key</code>, event effort by pivoting <code>sample_measurement</code> out of long form, and the measurement triples from <code>obs</code>. Verified against the shipped data — <code>net</code> (76,512), <code>tow</code> (75,506) and <code>site</code> (61,104) round-trip identically for every column the core models. It is <strong>exact for those columns and lossy for the rest</strong>; see <code><a href="../reference/create_compat_views.html">?create_compat_views</a></code> for what does not come back (notably CTD scan-grain columns, since <code>sample</code> holds one row per physical cast).</p></li>
+<li><p>Fixed <code>.sample_arm_self()</code> emitting <code>site_key AS site_key</code>, which DuckDB resolves against the alias being defined in the same <code>SELECT</code> (lateral column alias) rather than the source column; all caller-supplied expressions are now table-qualified.</p></li>
+</ul></div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="2.13.0" id="calcofi4db-2130">calcofi4db 2.13.0<a class="anchor" aria-label="anchor" href="#calcofi4db-2130"></a></h2>
+<ul><li><p><strong><code><a href="../reference/emit_core_tables.html">emit_core_tables()</a></code> is now the authoritative core projection.</strong> It gains <code>measurement_taxon</code> / <code>overrides</code> / <code>taxa</code> arguments and builds this dataset’s slice of <code>taxon</code> / <code>dataset_taxon</code> / <code>taxon_group</code>, so <code>obs.taxon_key</code> resolves at ingest time. Each ingest can now emit the consolidated core as its parquet output instead of per-dataset tables that <code>release_database.qmd</code> re-derives.</p></li>
+<li>
+<p><strong>Realigned four <code>obs</code> arms that had drifted from the release projection.</strong> The projection existed twice — here and inline in <code>release_database.qmd</code> — and the copies had separated:</p>
+<ul><li>
+<code>calcofi_bird_mammal_census</code>: the headline is one row per (transect, species) with <code>count</code> SUMmed across behaviors, and the behavior breakdown moves to <code>obs_attribute</code> (with <code>bin_label</code> from <code>bird_mammal_behavior</code>). Previously behavior rode on the headline’s <code>life_stage</code>, counting the same birds once per behavior code.</li>
+<li>
+<code>calcofi_phytoplankton</code>: <strong>new arm</strong> — the region-pooled <code>obs</code> projection existed only in the release, so the per-ingest projection emitted no phytoplankton observations at all.</li>
+<li>
+<code>swfsc_cufes</code> / <code>calcofi_phyllosoma</code>: decompose the taxon out of the measurement type name via the new <code>_measurement_taxon</code> registry, yielding a real <code>taxon_key</code> + canonical type + <code>life_stage</code> (and, for phyllosoma, routing the per-stage counts to <code>obs_attribute</code> rather than the headline).</li>
+<li>
+<code>cce-lter_euphausiids</code>: unchanged here, but a regression test now pins the species x life-stage grain. The release arm still decomposed via <code>measurement_taxon</code>, which collapses all 37 BTEDB species to family Euphausiidae and drops <code>life_stage</code>.</li>
+</ul></li>
+<li><p><strong><code><a href="../reference/core_output_tables.html">core_output_tables()</a></code></strong> returns the non-empty core shards an ingest should write to parquet, so datasets without attribution/effort/taxa do not emit empty files.</p></li>
+</ul></div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="2.12.0" id="calcofi4db-2120">calcofi4db 2.12.0<a class="anchor" aria-label="anchor" href="#calcofi4db-2120"></a></h2>
+<ul><li>
+<strong><code>calcofi_mets</code> projects into the core model.</strong> Underway TSG/meteorology now emits <code>sample</code> at the existing <code>underway</code> grain (the one <code>swfsc_cufes</code> already uses) and an <code>env</code>-realm <code>obs</code> fed by <code>mets_thin</code> — the same thinned-table pattern <code>calcofi_ctd-cast</code> uses, where <code>obs</code> carries <code>ctd_thin</code> rather than the full scan set. <code>sample</code> is restricted to the samples <code>mets_thin</code> references, so the event dimension stays proportionate to <code>obs</code> instead of carrying the full ~1-minute series; that remains a supplemental parquet output. Depth is recorded as surface pending the hull-intake depth (workflows questions.csv mets_25).</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.11.0" id="calcofi4db-2110">calcofi4db 2.11.0<a class="anchor" aria-label="anchor" href="#calcofi4db-2110"></a></h2>
 <ul><li>

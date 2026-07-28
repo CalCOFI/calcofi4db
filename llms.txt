@@ -640,6 +640,12 @@ check for other functions or datasets not captured by above categories
   Append event-level (effort) rows into the core `sample_measurement`
   table
 
+- [`assemble_core()`](https://calcofi.io/calcofi4db/reference/assemble_core.md)
+  : Assemble the whole consolidated core from the ingest shards
+
+- [`assemble_core_table()`](https://calcofi.io/calcofi4db/reference/assemble_core_table.md)
+  : Assemble one core table from its per-dataset shards
+
 - [`assign_grid_key()`](https://calcofi.io/calcofi4db/reference/assign_grid_key.md)
   : Assign Grid Key via Spatial Join
 
@@ -677,6 +683,18 @@ check for other functions or datasets not captured by above categories
 - [`build_taxon_table()`](https://calcofi.io/calcofi4db/reference/build_taxon_table.md)
   : Build Taxonomic Hierarchy Table from WoRMS
 
+- [`core_output_tables()`](https://calcofi.io/calcofi4db/reference/core_output_tables.md)
+  : Core tables an ingest writes to parquet
+
+- [`core_relationships()`](https://calcofi.io/calcofi4db/reference/core_relationships.md)
+  : PK/FK spec for the consolidated core tables
+
+- [`core_shard_paths()`](https://calcofi.io/calcofi4db/reference/core_shard_paths.md)
+  : Find the per-dataset parquet shards for a core table
+
+- [`create_compat_views()`](https://calcofi.io/calcofi4db/reference/create_compat_views.md)
+  : Recreate per-dataset tables as VIEWs over the consolidated core
+
 - [`derive_cruise_key_on_casts()`](https://calcofi.io/calcofi4db/reference/derive_cruise_key_on_casts.md)
   : Derive Cruise Key on Bottle Casts via Ship Matching
 
@@ -700,6 +718,11 @@ check for other functions or datasets not captured by above categories
 
 - [`match_ships()`](https://calcofi.io/calcofi4db/reference/match_ships.md)
   : Match Ship Codes Across Datasets Using Multi-Source References
+
+- [`merge_taxon_shards()`](https://calcofi.io/calcofi4db/reference/merge_taxon_shards.md)
+  :
+
+  Merge the per-dataset `taxon` shards into one authoritative reference
 
 - [`report_ship_matches()`](https://calcofi.io/calcofi4db/reference/report_ship_matches.md)
   : Report Ship Matching Status for a Dataset

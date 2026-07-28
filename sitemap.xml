@@ -13,6 +13,8 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/append_sample.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/append_sample_measurement.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/apply_data_corrections.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/assemble_core.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/assemble_core_table.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assign_deterministic_uuids.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assign_deterministic_uuids_md5.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assign_grid_key.html</loc></url>
@@ -45,6 +47,10 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/convert_cruise_key_format.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/copy_gcs_file.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/copy_schema.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/core_output_tables.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/core_relationships.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/core_shard_paths.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/create_compat_views.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/create_cruise_key.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/create_duckdb_from_parquet.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/create_duckdb_views.html</loc></url>
@@ -111,6 +117,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/match_ships.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/merge_metadata_json.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/merge_relationships_json.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/merge_taxon_shards.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/parse_qmd_frontmatter.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/preview_tables.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/print_csv_change_stats.html</loc></url>

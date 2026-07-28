@@ -18,7 +18,7 @@ to parquet via COPY TO, so this provides the metadata externally."><!-- Google t
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.11.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -88,8 +88,11 @@ to parquet via <code>COPY TO</code>, so this provides the metadata externally.</
 
 
 <dt id="arg-metadata-derived-csv">metadata_derived_csv<a class="anchor" aria-label="anchor" href="#arg-metadata-derived-csv"></a></dt>
-<dd><p>Path to CSV with derived table/column metadata
-(columns: table, column, name_long, units, description_md)</p></dd>
+<dd><p>Path(s) to CSV with derived table/column metadata
+(columns: table, column, name_long, units, description_md). Several paths
+may be given; they are applied in order, so later files win. Ingests that
+emit the consolidated core pass the shared <code>metadata/core_dictionary.csv</code>
+first and their own <code>metadata_derived.csv</code> second.</p></dd>
 
 
 <dt id="arg-output-dir">output_dir<a class="anchor" aria-label="anchor" href="#arg-output-dir"></a></dt>

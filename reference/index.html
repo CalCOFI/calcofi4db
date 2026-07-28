@@ -14,7 +14,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.11.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -1111,6 +1111,20 @@
 
         <dt>
 
+          <code><a href="assemble_core.html">assemble_core()</a></code>
+
+        </dt>
+        <dd>Assemble the whole consolidated core from the ingest shards</dd>
+
+        <dt>
+
+          <code><a href="assemble_core_table.html">assemble_core_table()</a></code>
+
+        </dt>
+        <dd>Assemble one core table from its per-dataset shards</dd>
+
+        <dt>
+
           <code><a href="assign_grid_key.html">assign_grid_key()</a></code>
 
         </dt>
@@ -1167,6 +1181,34 @@
 
         <dt>
 
+          <code><a href="core_output_tables.html">core_output_tables()</a></code>
+
+        </dt>
+        <dd>Core tables an ingest writes to parquet</dd>
+
+        <dt>
+
+          <code><a href="core_relationships.html">core_relationships()</a></code>
+
+        </dt>
+        <dd>PK/FK spec for the consolidated core tables</dd>
+
+        <dt>
+
+          <code><a href="core_shard_paths.html">core_shard_paths()</a></code>
+
+        </dt>
+        <dd>Find the per-dataset parquet shards for a core table</dd>
+
+        <dt>
+
+          <code><a href="create_compat_views.html">create_compat_views()</a></code>
+
+        </dt>
+        <dd>Recreate per-dataset tables as VIEWs over the consolidated core</dd>
+
+        <dt>
+
           <code><a href="derive_cruise_key_on_casts.html">derive_cruise_key_on_casts()</a></code>
 
         </dt>
@@ -1220,6 +1262,13 @@
 
         </dt>
         <dd>Match Ship Codes Across Datasets Using Multi-Source References</dd>
+
+        <dt>
+
+          <code><a href="merge_taxon_shards.html">merge_taxon_shards()</a></code>
+
+        </dt>
+        <dd>Merge the per-dataset <code>taxon</code> shards into one authoritative reference</dd>
 
         <dt>
 
