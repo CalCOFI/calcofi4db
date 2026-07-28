@@ -7,7 +7,7 @@ test_that("emit_core_tables projects a bio dataset without a prebuilt dataset_ta
 
   DBI::dbExecute(con, "CREATE TABLE euphausiids_tow AS
     SELECT 1 tow_id, 'st1-ln1' grid_key, '2015-04-33RR' cruise_key,
-           33.0 latitude, -120.0 longitude,
+           33.0 latitude, -120.0 longitude, '090.0 060.0' site_key,
            TIMESTAMP '2015-04-05 09:13:00' datetime_start_utc")
   DBI::dbExecute(con, "CREATE TABLE euphausiids_measurement AS
     SELECT 1 tow_id, 3 taxon_id, 'adult' life_stage,
@@ -39,7 +39,7 @@ test_that("emit_core_tables resolves taxon_key when dataset_taxon is present", {
 
   DBI::dbExecute(con, "CREATE TABLE euphausiids_tow AS
     SELECT 1 tow_id, 'st1-ln1' grid_key, '2015-04-33RR' cruise_key,
-           33.0 latitude, -120.0 longitude,
+           33.0 latitude, -120.0 longitude, '090.0 060.0' site_key,
            TIMESTAMP '2015-04-05 09:13:00' datetime_start_utc")
   DBI::dbExecute(con, "CREATE TABLE euphausiids_measurement AS
     SELECT 1 tow_id, 3 taxon_id, 'furcilia F3' life_stage,

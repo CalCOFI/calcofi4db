@@ -179,7 +179,8 @@ test_that("phyllosoma splits the total (obs) from the stage bins (obs_attribute)
   on.exit(close_duckdb(con))
 
   DBI::dbExecute(con, "CREATE TABLE phyllosoma_tow AS
-    SELECT 1::INTEGER tow_id, 'st1-ln1'::VARCHAR grid_key, '1960-05-31CC'::VARCHAR cruise_key,
+    SELECT 1::INTEGER tow_id, 'st1-ln1'::VARCHAR grid_key, '090.0 060.0'::VARCHAR site_key,
+           '1960-05-31CC'::VARCHAR cruise_key,
            32.5::DOUBLE latitude, -118.0::DOUBLE longitude,
            TIMESTAMP '1960-05-11 03:00:00' datetime_start_utc, 140.0::DOUBLE max_tow_depth_m")
   DBI::dbExecute(con, "CREATE TABLE phyllosoma_measurement AS
@@ -230,7 +231,8 @@ test_that("euphausiids obs keeps species x life-stage resolution", {
   on.exit(close_duckdb(con))
 
   DBI::dbExecute(con, "CREATE TABLE euphausiids_tow AS
-    SELECT 1::INTEGER tow_id, 'st1-ln1'::VARCHAR grid_key, '1998-02-33JD'::VARCHAR cruise_key,
+    SELECT 1::INTEGER tow_id, 'st1-ln1'::VARCHAR grid_key, '090.0 060.0'::VARCHAR site_key,
+           '1998-02-33JD'::VARCHAR cruise_key,
            32.8::DOUBLE latitude, -117.9::DOUBLE longitude,
            TIMESTAMP '1998-02-14 21:00:00' datetime_start_utc")
   DBI::dbExecute(con, "CREATE TABLE euphausiids_measurement AS
@@ -315,7 +317,7 @@ test_that("core_output_tables() lists only non-empty core shards", {
 
   DBI::dbExecute(con, "CREATE TABLE picoplankton_bacteria_bottle AS
     SELECT 1::INTEGER bottle_id, '2004-11-33RR'::VARCHAR cruise_key, 'st1-ln1'::VARCHAR grid_key,
-           33.4::DOUBLE latitude, -118.1::DOUBLE longitude,
+           '090.0 060.0'::VARCHAR site_key, 33.4::DOUBLE latitude, -118.1::DOUBLE longitude,
            TIMESTAMP '2004-11-02 18:20:00' datetime_utc, 20.0::DOUBLE depth_m")
   DBI::dbExecute(con, "CREATE TABLE picoplankton_bacteria_measurement AS
     SELECT 1::INTEGER measurement_id, 1::INTEGER bottle_id,

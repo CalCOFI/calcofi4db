@@ -1,3 +1,36 @@
+# calcofi4db 2.14.0
+
+- **`site_key` and `order_occ` promoted onto the core `sample` table.** Both are
+  event-level and cross-dataset — `site_key` appears on 13 of the 18 source event
+  tables and is the station natural key (`grid_key` is the *derived* grid cell,
+  not the source's own id); `order_occ` is the order of station occupation.
+  Previously both were dropped by consolidation, which made `site`, `casts` and
+  `ctd_cast` unreconstructable from the core. Source spelling varies (`order_occ`
+  vs `ord_occ`) and CTD stores it as text, so it is normalised to `INTEGER`.
+  `tow`/`net` inherit both from their parent site, as they already do for
+  `grid_key`/`cruise_key`.
+
+- **`bottom_depth_m` now projects into `sample_measurement`** as `bottom_depth`
+  on the cast event — it describes the sampling event (how deep the water was),
+  not an observation, so it belongs with the other event-level effort measures
+  rather than in `obs`. `create_compat_views()` excludes it when rebuilding
+  `cast_condition`, so no phantom condition row appears.
+
+- **`create_compat_views()`** rebuilds the retired per-dataset tables as VIEWs
+  over the core: the source id from the namespaced `sample_key`, the containment
+  FK from `parent_sample_key`, event effort by pivoting `sample_measurement` out
+  of long form, and the measurement triples from `obs`. Verified against the
+  shipped data — `net` (76,512), `tow` (75,506) and `site` (61,104) round-trip
+  identically for every column the core models. It is **exact for those columns
+  and lossy for the rest**; see `?create_compat_views` for what does not come
+  back (notably CTD scan-grain columns, since `sample` holds one row per physical
+  cast).
+
+- Fixed `.sample_arm_self()` emitting `site_key AS site_key`, which DuckDB
+  resolves against the alias being defined in the same `SELECT` (lateral column
+  alias) rather than the source column; all caller-supplied expressions are now
+  table-qualified.
+
 # calcofi4db 2.13.0
 
 - **`emit_core_tables()` is now the authoritative core projection.** It gains

@@ -6,7 +6,7 @@ test_that("mesopelagic-fish projects into sample + obs at tow grain", {
   on.exit(close_duckdb(con))
 
   DBI::dbExecute(con, "CREATE TABLE mesopelagic_fish_tow AS
-    SELECT 1 tow_id, '2010-01-32NM' cruise_key, 'st1-ln1' grid_key,
+    SELECT 1 tow_id, '2010-01-32NM' cruise_key, 'st1-ln1' grid_key, '090.0 060.0' site_key,
            32.9 latitude, -117.3 longitude,
            TIMESTAMP '2010-01-12 07:45:00' datetime_start_utc, 210.0 depth_m")
   DBI::dbExecute(con, "CREATE TABLE mesopelagic_fish_measurement AS
@@ -45,7 +45,7 @@ test_that("picoplankton-bacteria projects into sample + obs at bottle grain, env
   on.exit(close_duckdb(con))
 
   DBI::dbExecute(con, "CREATE TABLE picoplankton_bacteria_bottle AS
-    SELECT 1 bottle_id, '2004-11-33RR' cruise_key, 'st1-ln1' grid_key,
+    SELECT 1 bottle_id, '2004-11-33RR' cruise_key, 'st1-ln1' grid_key, '090.0 060.0' site_key,
            33.4 latitude, -118.1 longitude,
            TIMESTAMP '2004-11-02 18:20:00' datetime_utc, 20.0 depth_m")
   DBI::dbExecute(con, "CREATE TABLE picoplankton_bacteria_measurement AS
@@ -79,10 +79,10 @@ test_that("build_sample_reference keeps the new datasets namespaced apart", {
 
   # same integer id in both datasets must not collide on sample_key
   DBI::dbExecute(con, "CREATE TABLE mesopelagic_fish_tow AS
-    SELECT 1 tow_id, 'c' cruise_key, 'g' grid_key, 1.0 latitude, 1.0 longitude,
+    SELECT 1 tow_id, 'c' cruise_key, 'g' grid_key, 's' site_key, 1.0 latitude, 1.0 longitude,
            TIMESTAMP '2010-01-12 07:45:00' datetime_start_utc, 1.0 depth_m")
   DBI::dbExecute(con, "CREATE TABLE picoplankton_bacteria_bottle AS
-    SELECT 1 bottle_id, 'c' cruise_key, 'g' grid_key, 1.0 latitude, 1.0 longitude,
+    SELECT 1 bottle_id, 'c' cruise_key, 'g' grid_key, 's' site_key, 1.0 latitude, 1.0 longitude,
            TIMESTAMP '2004-11-02 18:20:00' datetime_utc, 1.0 depth_m")
 
   n <- build_sample_reference(con)

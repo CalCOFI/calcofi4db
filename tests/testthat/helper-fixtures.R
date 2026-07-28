@@ -10,6 +10,7 @@ new_ichthyo_fixture <- function() {
 
   DBI::dbExecute(con, "CREATE TABLE site AS
     SELECT 'S1'::VARCHAR site_uuid, 'st1-ln1'::VARCHAR grid_key,
+           '090.0 060.0'::VARCHAR site_key, 3::SMALLINT order_occ,
            '2020-01-NODC'::VARCHAR cruise_key, 32.0::DOUBLE latitude, -120.0::DOUBLE longitude")
   DBI::dbExecute(con, "CREATE TABLE tow AS
     SELECT 'T1'::VARCHAR tow_uuid, 'S1'::VARCHAR site_uuid,
