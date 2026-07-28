@@ -1,3 +1,79 @@
+# calcofi4db 2.14.0
+
+- **`site_key` and `order_occ` promoted onto the core `sample` table.** Both are
+  event-level and cross-dataset — `site_key` appears on 13 of the 18 source event
+  tables and is the station natural key (`grid_key` is the *derived* grid cell,
+  not the source's own id); `order_occ` is the order of station occupation.
+  Previously both were dropped by consolidation, which made `site`, `casts` and
+  `ctd_cast` unreconstructable from the core. Source spelling varies (`order_occ`
+  vs `ord_occ`) and CTD stores it as text, so it is normalised to `INTEGER`.
+  `tow`/`net` inherit both from their parent site, as they already do for
+  `grid_key`/`cruise_key`.
+
+- **`bottom_depth_m` now projects into `sample_measurement`** as `bottom_depth`
+  on the cast event — it describes the sampling event (how deep the water was),
+  not an observation, so it belongs with the other event-level effort measures
+  rather than in `obs`. `create_compat_views()` excludes it when rebuilding
+  `cast_condition`, so no phantom condition row appears.
+
+- **`create_compat_views()`** rebuilds the retired per-dataset tables as VIEWs
+  over the core: the source id from the namespaced `sample_key`, the containment
+  FK from `parent_sample_key`, event effort by pivoting `sample_measurement` out
+  of long form, and the measurement triples from `obs`. Verified against the
+  shipped data — `net` (76,512), `tow` (75,506) and `site` (61,104) round-trip
+  identically for every column the core models. It is **exact for those columns
+  and lossy for the rest**; see `?create_compat_views` for what does not come
+  back (notably CTD scan-grain columns, since `sample` holds one row per physical
+  cast).
+
+- Fixed `.sample_arm_self()` emitting `site_key AS site_key`, which DuckDB
+  resolves against the alias being defined in the same `SELECT` (lateral column
+  alias) rather than the source column; all caller-supplied expressions are now
+  table-qualified.
+
+# calcofi4db 2.13.0
+
+- **`emit_core_tables()` is now the authoritative core projection.** It gains
+  `measurement_taxon` / `overrides` / `taxa` arguments and builds this dataset's
+  slice of `taxon` / `dataset_taxon` / `taxon_group`, so `obs.taxon_key` resolves
+  at ingest time. Each ingest can now emit the consolidated core as its parquet
+  output instead of per-dataset tables that `release_database.qmd` re-derives.
+
+- **Realigned four `obs` arms that had drifted from the release projection.**
+  The projection existed twice — here and inline in `release_database.qmd` — and
+  the copies had separated:
+  - `calcofi_bird_mammal_census`: the headline is one row per (transect, species)
+    with `count` SUMmed across behaviors, and the behavior breakdown moves to
+    `obs_attribute` (with `bin_label` from `bird_mammal_behavior`). Previously
+    behavior rode on the headline's `life_stage`, counting the same birds once
+    per behavior code.
+  - `calcofi_phytoplankton`: **new arm** — the region-pooled `obs` projection
+    existed only in the release, so the per-ingest projection emitted no
+    phytoplankton observations at all.
+  - `swfsc_cufes` / `calcofi_phyllosoma`: decompose the taxon out of the
+    measurement type name via the new `_measurement_taxon` registry, yielding a
+    real `taxon_key` + canonical type + `life_stage` (and, for phyllosoma,
+    routing the per-stage counts to `obs_attribute` rather than the headline).
+  - `cce-lter_euphausiids`: unchanged here, but a regression test now pins the
+    species x life-stage grain. The release arm still decomposed via
+    `measurement_taxon`, which collapses all 37 BTEDB species to family
+    Euphausiidae and drops `life_stage`.
+
+- **`core_output_tables()`** returns the non-empty core shards an ingest should
+  write to parquet, so datasets without attribution/effort/taxa do not emit
+  empty files.
+
+# calcofi4db 2.12.0
+
+- **`calcofi_mets` projects into the core model.** Underway TSG/meteorology now
+  emits `sample` at the existing `underway` grain (the one `swfsc_cufes` already
+  uses) and an `env`-realm `obs` fed by `mets_thin` — the same thinned-table
+  pattern `calcofi_ctd-cast` uses, where `obs` carries `ctd_thin` rather than the
+  full scan set. `sample` is restricted to the samples `mets_thin` references, so
+  the event dimension stays proportionate to `obs` instead of carrying the full
+  ~1-minute series; that remains a supplemental parquet output. Depth is recorded
+  as surface pending the hull-intake depth (workflows questions.csv mets_25).
+
 # calcofi4db 2.11.0
 
 - **`derive_cruise_key_on_casts()` gains `table_name =`.** It previously required

@@ -121,7 +121,9 @@ CC_H3_RES_MAX <- 10L
        root_sample_key   VARCHAR,
        dataset_key       VARCHAR,
        grid_key          VARCHAR,
+       site_key          VARCHAR,
        cruise_key        VARCHAR,
+       order_occ         INTEGER,
        latitude          DOUBLE,
        longitude         DOUBLE,
        datetime          TIMESTAMP,
@@ -253,15 +255,16 @@ append_sample <- function(con, select_sql, sample_tbl = "sample") {
   DBI::dbExecute(con, glue::glue(
     "INSERT INTO {sample_tbl}
        (sample_key, sample_type, parent_sample_key, root_sample_key,
-        dataset_key, grid_key, cruise_key, latitude, longitude, datetime,
+        dataset_key, grid_key, site_key, cruise_key, order_occ, latitude, longitude, datetime,
         depth_min_m, depth_max_m, tow_type, geom)
      SELECT sample_key, sample_type, parent_sample_key, root_sample_key,
-            dataset_key, grid_key, cruise_key, latitude, longitude, datetime,
+            dataset_key, grid_key, site_key, cruise_key, order_occ, latitude, longitude, datetime,
             depth_min_m, depth_max_m, tow_type,
             CASE WHEN latitude IS NULL OR longitude IS NULL THEN NULL
                  ELSE ST_Point(longitude, latitude) END AS geom
      FROM ( {select_sql} ) AS src(sample_key, sample_type, parent_sample_key, root_sample_key,
-            dataset_key, grid_key, cruise_key, latitude, longitude, datetime, depth_min_m, depth_max_m, tow_type)"))
+            dataset_key, grid_key, site_key, cruise_key, order_occ, latitude, longitude, datetime,
+            depth_min_m, depth_max_m, tow_type)"))
   invisible(DBI::dbGetQuery(
     con, glue::glue("SELECT COUNT(*) AS n FROM {sample_tbl}"))$n)
 }
@@ -353,17 +356,28 @@ build_grid_reference <- function(con, grid_tbl = "grid") {
 .sample_arm_self <- function(dataset_key, tbl, id_col, sample_type,
                              dt_col = "datetime_start_utc",
                              grid_expr = "grid_key",
+                             site_expr = "NULL::VARCHAR",
+                             ord_expr  = "NULL::INTEGER",
                              depth_min = "0::DOUBLE", depth_max = "0::DOUBLE") {
   key <- .ns_key(dataset_key, sample_type, id_col)
-  dt  <- if (identical(dt_col, "NULL")) "NULL::TIMESTAMP" else glue::glue("CAST({dt_col} AS TIMESTAMP)")
+  # qualify bare column references with the table alias: DuckDB resolves an
+  # unqualified `site_key AS site_key` against the alias being defined in the
+  # same SELECT (lateral column alias) and errors rather than reading the column.
+  # Applies to every caller-supplied expression, since `depth_min_m AS
+  # depth_min_m` and `datetime AS datetime` hit the same trap.
+  q <- function(expr) if (grepl("^[A-Za-z_][A-Za-z0-9_]*$", expr))
+    paste0("_src.", expr) else expr
+  dt <- if (identical(dt_col, "NULL")) "NULL::TIMESTAMP" else
+    glue::glue("CAST({q(dt_col)} AS TIMESTAMP)")
   glue::glue(
     "SELECT {key} AS sample_key, '{sample_type}' AS sample_type,
             NULL::VARCHAR AS parent_sample_key, {key} AS root_sample_key,
-            '{dataset_key}' AS dataset_key, {grid_expr} AS grid_key, cruise_key,
-            latitude, longitude, {dt} AS datetime,
-            {depth_min} AS depth_min_m, {depth_max} AS depth_max_m,
+            '{dataset_key}' AS dataset_key, {q(grid_expr)} AS grid_key,
+            {q(site_expr)} AS site_key, _src.cruise_key, {q(ord_expr)} AS order_occ,
+            _src.latitude, _src.longitude, {dt} AS datetime,
+            {q(depth_min)} AS depth_min_m, {q(depth_max)} AS depth_max_m,
             NULL::VARCHAR AS tow_type
-     FROM {tbl}")
+     FROM {tbl} AS _src")
 }
 
 #' Build the shared `sample` event dimension from the per-dataset event tables
@@ -402,7 +416,8 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
       "SELECT {.ns_key('calcofi_bottle','cast','cast_id')} AS sample_key, 'cast' AS sample_type,
               NULL::VARCHAR AS parent_sample_key,
               {.ns_key('calcofi_bottle','cast','cast_id')} AS root_sample_key,
-              'calcofi_bottle' AS dataset_key, grid_key, cruise_key,
+              'calcofi_bottle' AS dataset_key, grid_key, site_key, cruise_key,
+              CAST(order_occ AS INTEGER) AS order_occ,
               latitude, longitude, CAST(datetime_start_utc AS TIMESTAMP) AS datetime,
               NULL::DOUBLE AS depth_min_m, NULL::DOUBLE AS depth_max_m,
               NULL::VARCHAR AS tow_type
@@ -411,7 +426,8 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
       "SELECT {.ns_key('calcofi_bottle','bottle','b.bottle_id')} AS sample_key, 'bottle' AS sample_type,
               {.ns_key('calcofi_bottle','cast','b.cast_id')} AS parent_sample_key,
               {.ns_key('calcofi_bottle','cast','b.cast_id')} AS root_sample_key,
-              'calcofi_bottle' AS dataset_key, c.grid_key, c.cruise_key, c.latitude, c.longitude,
+              'calcofi_bottle' AS dataset_key, c.grid_key, b.site_key, c.cruise_key,
+              CAST(c.order_occ AS INTEGER) AS order_occ, c.latitude, c.longitude,
               CAST(c.datetime_start_utc AS TIMESTAMP) AS datetime, b.depth_m AS depth_min_m, b.depth_m AS depth_max_m,
               NULL::VARCHAR AS tow_type
        FROM bottle b JOIN casts c USING (cast_id)"),
@@ -425,7 +441,8 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
          SELECT {.ns_key('calcofi_ctd-cast','cast','cast_key')} AS sample_key, 'cast' AS sample_type,
                 NULL::VARCHAR AS parent_sample_key,
                 {.ns_key('calcofi_ctd-cast','cast','cast_key')} AS root_sample_key,
-                'calcofi_ctd-cast' AS dataset_key, grid_key, cruise_key, latitude, longitude,
+                'calcofi_ctd-cast' AS dataset_key, grid_key, site_key, cruise_key,
+                TRY_CAST(ord_occ AS INTEGER) AS order_occ, latitude, longitude,
                 CAST(datetime_start_utc AS TIMESTAMP) AS datetime,
                 NULL::DOUBLE AS depth_min_m, NULL::DOUBLE AS depth_max_m,
                 NULL::VARCHAR AS tow_type
@@ -445,7 +462,8 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
                     CASE WHEN c.cast_id IS NULL THEN NULL
                          ELSE 'calcofi_bottle:cast:' || CAST(c.cast_id AS VARCHAR) END,
                     'calcofi_dic:bottle:' || {dic_md5}) AS root_sample_key,
-                  'calcofi_dic' AS dataset_key, c.grid_key, c.cruise_key,
+                  'calcofi_dic' AS dataset_key, c.grid_key, d.site_key, c.cruise_key,
+                  CAST(c.order_occ AS INTEGER) AS order_occ,
                   d.latitude, d.longitude, CAST(d.datetime_start_utc AS TIMESTAMP) AS datetime,
                   d.depth_m AS depth_min_m, d.depth_m AS depth_max_m,
                   NULL::VARCHAR AS tow_type
@@ -460,7 +478,8 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
       "SELECT {.ns_key('swfsc_ichthyo','site','s.site_uuid')} AS sample_key, 'site' AS sample_type,
               NULL::VARCHAR AS parent_sample_key,
               {.ns_key('swfsc_ichthyo','site','s.site_uuid')} AS root_sample_key, 'swfsc_ichthyo' AS dataset_key,
-              s.grid_key, s.cruise_key, s.latitude, s.longitude,
+              s.grid_key, s.site_key, s.cruise_key, CAST(s.order_occ AS INTEGER) AS order_occ,
+              s.latitude, s.longitude,
               CAST(td.dt AS TIMESTAMP) AS datetime, NULL::DOUBLE AS depth_min_m, NULL::DOUBLE AS depth_max_m,
               NULL::VARCHAR AS tow_type
        FROM site s
@@ -470,7 +489,8 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
       "SELECT {.ns_key('swfsc_ichthyo','tow','t.tow_uuid')} AS sample_key, 'tow' AS sample_type,
               {.ns_key('swfsc_ichthyo','site','t.site_uuid')} AS parent_sample_key,
               {.ns_key('swfsc_ichthyo','site','t.site_uuid')} AS root_sample_key,
-              'swfsc_ichthyo' AS dataset_key, s.grid_key, s.cruise_key, s.latitude, s.longitude,
+              'swfsc_ichthyo' AS dataset_key, s.grid_key, s.site_key, s.cruise_key,
+              CAST(s.order_occ AS INTEGER) AS order_occ, s.latitude, s.longitude,
               CAST(t.datetime_start_utc AS TIMESTAMP) AS datetime, 0::DOUBLE AS depth_min_m, NULL::DOUBLE AS depth_max_m,
               t.tow_type_key AS tow_type
        FROM tow t JOIN site s USING (site_uuid)"),
@@ -478,7 +498,8 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
       "SELECT {.ns_key('swfsc_ichthyo','net','n.net_uuid')} AS sample_key, 'net' AS sample_type,
               {.ns_key('swfsc_ichthyo','tow','n.tow_uuid')} AS parent_sample_key,
               {.ns_key('swfsc_ichthyo','site','t.site_uuid')} AS root_sample_key,
-              'swfsc_ichthyo' AS dataset_key, s.grid_key, s.cruise_key, s.latitude, s.longitude,
+              'swfsc_ichthyo' AS dataset_key, s.grid_key, s.site_key, s.cruise_key,
+              CAST(s.order_occ AS INTEGER) AS order_occ, s.latitude, s.longitude,
               CAST(t.datetime_start_utc AS TIMESTAMP) AS datetime, 0::DOUBLE AS depth_min_m, NULL::DOUBLE AS depth_max_m,
               t.tow_type_key AS tow_type
        FROM net n JOIN tow t USING (tow_uuid) JOIN site s USING (site_uuid)"),
@@ -488,33 +509,53 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
       .sample_arm_self("swfsc_cufes", "cufes_sample", "sample_id", "underway"),
     euph = if (has("euphausiids_tow"))
       .sample_arm_self("cce-lter_euphausiids", "euphausiids_tow", "tow_id", "tow",
+                       site_expr = "site_key",
                        depth_min = "NULL::DOUBLE", depth_max = "NULL::DOUBLE"),
     phyllosoma = if (has("phyllosoma_tow"))
       .sample_arm_self("calcofi_phyllosoma", "phyllosoma_tow", "tow_id", "tow",
+                       site_expr = "site_key",
                        depth_min = "0::DOUBLE", depth_max = "max_tow_depth_m"),
     zoodb = if (has("zoodb_sample"))
       .sample_arm_self("cce-lter_zoodb", "zoodb_sample", "sample_id", "tow",
+                       site_expr = "site_key",
                        depth_min = "min_depth_m", depth_max = "max_depth_m"),
     zooscan = if (has("zooscan_sample"))
       .sample_arm_self("cce-lter_zooscan", "zooscan_sample", "sample_id", "tow",
-                       dt_col = "station_date",
+                       dt_col = "station_date", site_expr = "site_key",
                        depth_min = "min_depth_m", depth_max = "max_depth_m"),
     bird = if (has("bird_mammal_transect"))
       .sample_arm_self("calcofi_bird_mammal_census", "bird_mammal_transect",
                        "gis_key", "transect"),
     pic = if (has("zooplankton_tow"))
       .sample_arm_self("pic_zooplankton", "zooplankton_tow", "tow_id", "tow",
+                       site_expr = "site_key", ord_expr = "CAST(order_occ AS INTEGER)",
                        depth_min = "depth_min_m", depth_max = "depth_max_m"),
+    # METS underway: one row per retained track sample. Restricted to samples
+    # mets_thin references so `sample` stays proportionate to `obs` — the full
+    # ~1-minute series is a supplemental output, not a core event dimension.
+    mets = if (has("mets_sample", "mets_thin")) glue::glue(
+      "SELECT {.ns_key('calcofi_mets','underway','s.mets_sample_uuid')} AS sample_key,
+              'underway' AS sample_type,
+              NULL::VARCHAR AS parent_sample_key,
+              {.ns_key('calcofi_mets','underway','s.mets_sample_uuid')} AS root_sample_key,
+              'calcofi_mets' AS dataset_key, s.grid_key, NULL::VARCHAR AS site_key, s.cruise_key,
+              NULL::INTEGER AS order_occ, s.latitude, s.longitude,
+              CAST(s.datetime_start_utc AS TIMESTAMP) AS datetime,
+              0::DOUBLE AS depth_min_m, 0::DOUBLE AS depth_max_m,
+              NULL::VARCHAR AS tow_type
+       FROM mets_sample s
+       WHERE EXISTS (SELECT 1 FROM mets_thin t
+                     WHERE t.mets_sample_uuid = s.mets_sample_uuid)"),
     meso = if (has("mesopelagic_fish_tow"))
       .sample_arm_self("ucsd_sio_mesopelagic-fish", "mesopelagic_fish_tow",
-                       "tow_id", "tow",
+                       "tow_id", "tow", site_expr = "site_key",
                        depth_min = "0::DOUBLE", depth_max = "depth_m"),
     # picoplankton is bottle-shaped (one row per bottle/depth on a CTD cast) but
     # the export carries no cast-level event table, so the bottle is its own root
     pico = if (has("picoplankton_bacteria_bottle"))
       .sample_arm_self("cce-lter_picoplankton-bacteria",
                        "picoplankton_bacteria_bottle", "bottle_id", "bottle",
-                       dt_col = "datetime_utc",
+                       dt_col = "datetime_utc", site_expr = "site_key",
                        depth_min = "depth_m", depth_max = "depth_m"),
     phyto = if (has("phyto_sample"))
       .sample_arm_self("calcofi_phytoplankton", "phyto_sample", "phyto_sample_id",
@@ -530,6 +571,7 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
                 phyllosoma = "calcofi_phyllosoma", zoodb = "cce-lter_zoodb",
                 zooscan = "cce-lter_zooscan", bird = "calcofi_bird_mammal_census",
                 pic = "pic_zooplankton", phyto = "calcofi_phytoplankton",
+                mets = "calcofi_mets",
                 meso = "ucsd_sio_mesopelagic-fish",
                 pico = "cce-lter_picoplankton-bacteria")
     arms <- arms[names(arms) %in% names(arm_ds)[arm_ds %in% datasets]]
@@ -554,9 +596,10 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
 
 # emit_core_tables ------------------------------------------------------------
 
-# the bio obs arms LEFT JOIN dataset_taxon, which the release builds centrally;
-# inside an ingest it is normally absent, so stub it rather than fail the whole
-# projection (taxon_key then resolves NULL locally and is filled at release)
+# the bio obs arms LEFT JOIN dataset_taxon. Normally each ingest builds its own
+# slice (see .build_taxa_slices()); this stub only covers the case where a caller
+# projects a dataset whose taxon vocabulary is not present, so the LEFT JOIN
+# resolves to NULL instead of raising a catalog error.
 .ensure_dataset_taxon <- function(con) {
   if ("dataset_taxon" %in% DBI::dbListTables(con)) return(invisible(FALSE))
   DBI::dbExecute(con, "
@@ -568,6 +611,89 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
       ds_common_name     VARCHAR,
       ds_taxa_code       VARCHAR)")
   invisible(TRUE)
+}
+
+# `_measurement_taxon`: the composite-decomposition registry the cufes /
+# phyllosoma arms INNER JOIN to split a taxon-bearing measurement_type name
+# ("sardine_eggs", "phyllosoma_stage_3") into (taxon_key, canonical type,
+# life_stage, bin_value). Restricted to `dataset_key` so an ingest never emits
+# another dataset's rows. Always created — an absent registry yields an empty
+# table (arms project zero rows) rather than a catalog error.
+.ensure_measurement_taxon <- function(con, measurement_taxon = NULL,
+                                      dataset_key = NULL, tbl = "_measurement_taxon") {
+  cols <- c("dataset_key", "raw_measurement_type", "target", "measurement_type",
+            "taxon_scientific_name", "worms_id", "itis_id", "life_stage", "bin_value")
+  mt <- measurement_taxon
+  if (is.null(mt) || !nrow(mt)) {
+    mt <- data.frame(
+      dataset_key = character(), raw_measurement_type = character(),
+      target = character(), measurement_type = character(),
+      taxon_scientific_name = character(), worms_id = integer(),
+      itis_id = integer(), life_stage = character(), bin_value = double(),
+      stringsAsFactors = FALSE)
+  } else {
+    for (cl in setdiff(cols, names(mt))) mt[[cl]] <- NA
+    mt <- mt[, cols, drop = FALSE]
+    if (!is.null(dataset_key))
+      mt <- mt[mt$dataset_key %in% dataset_key, , drop = FALSE]
+  }
+  # composites are non-bird, so worms: wins where an AphiaID resolves, itis: else.
+  # guard the empty case: taxon_key_of() recycles to the length of its longest
+  # argument, and the scalar `is_bird` would make a 1-row key for a 0-row frame.
+  mt$taxon_key <- if (nrow(mt)) taxon_key_of(mt$worms_id, mt$itis_id, FALSE) else character()
+  .replace_table(con, tbl, as.data.frame(mt))
+  invisible(tbl)
+}
+
+# build this dataset's slice of the shared taxa references. The builders read
+# whichever per-dataset taxon source tables are present in `con`, so inside an
+# ingest they naturally yield just that dataset's vocabulary; `dataset_taxon` is
+# then hard-filtered because an ingest may have loaded another dataset's tables
+# as references (e.g. dic loads bottle/casts, several load ichthyo's site/tow).
+# The release unions these shards and re-coalesces them (merge_taxon_shards()).
+.build_taxa_slices <- function(con, dataset_key, measurement_taxon = NULL,
+                               overrides = NULL) {
+  out <- list()
+  ok <- tryCatch({
+    out$taxon         <- build_taxon_reference(con, measurement_taxon, overrides)
+    out$dataset_taxon <- build_dataset_taxon(con,   measurement_taxon, overrides)
+    out$taxon_group   <- build_taxon_group(con,     measurement_taxon, overrides)
+    TRUE
+  }, error = function(e) {
+    # no taxon source tables at all (env-only datasets: bottle, ctd, dic, mets,
+    # picoplankton) -> stub dataset_taxon and carry on
+    message("emit_core_tables(): no taxon sources for ", dataset_key,
+            " (", conditionMessage(e), "); emitting env-only core")
+    FALSE
+  })
+  if (!ok) { .ensure_dataset_taxon(con); return(out) }
+
+  DBI::dbExecute(con, glue::glue(
+    "DELETE FROM dataset_taxon WHERE dataset_key <> '{dataset_key}'"))
+  # keep only the taxon rows this dataset's vocabulary actually reaches, plus
+  # their lineage ancestors (parent chain), so shards stay disjoint-ish and the
+  # release union stays small. Ancestors matter: descendant expansion walks
+  # parent_taxon_key, so dropping them would break the chain.
+  DBI::dbExecute(con, "
+    CREATE OR REPLACE TEMP TABLE _tx_keep AS
+    WITH RECURSIVE seed AS (
+      SELECT taxon_key FROM dataset_taxon WHERE taxon_key IS NOT NULL
+    ), chain AS (
+      SELECT taxon_key FROM seed
+      UNION
+      SELECT t.parent_taxon_key FROM taxon t JOIN chain c ON t.taxon_key = c.taxon_key
+      WHERE t.parent_taxon_key IS NOT NULL
+    ) SELECT DISTINCT taxon_key FROM chain WHERE taxon_key IS NOT NULL")
+  DBI::dbExecute(con,
+    "DELETE FROM taxon WHERE taxon_key NOT IN (SELECT taxon_key FROM _tx_keep)")
+  DBI::dbExecute(con,
+    "DELETE FROM taxon_group WHERE taxon_key NOT IN (SELECT taxon_key FROM taxon)")
+  DBI::dbExecute(con, "DROP TABLE IF EXISTS _tx_keep")
+
+  for (t in c("taxon", "dataset_taxon", "taxon_group"))
+    out[[t]] <- DBI::dbGetQuery(
+      con, glue::glue("SELECT COUNT(*) AS n FROM {t}"))$n
+  out
 }
 
 
@@ -619,12 +745,21 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
       LEFT JOIN dataset_taxon dt ON dt.dataset_key = 'swfsc_ichthyo'
                                 AND dt.ds_taxa_code = CAST(i.species_id AS VARCHAR)
       WHERE i.measurement_type IS NULL AND s.grid_key IS NOT NULL",
+    # cufes: the taxon is baked into the type name (sardine_eggs, anchovy_eggs, …).
+    # `_measurement_taxon` (target='obs') decomposes it into taxon_key + the
+    # canonical type ('abundance') + life_stage ('egg') — an INNER join, so a raw
+    # type absent from the registry is dropped rather than silently untaxoned.
     "swfsc_cufes" = "
       SELECT 'bio', 'swfsc_cufes', 'swfsc_cufes:underway:' || CAST(c.sample_id AS VARCHAR),
              c.grid_key, c.cruise_key, c.latitude, c.longitude,
              CAST(c.datetime_start_utc AS TIMESTAMP), 0::DOUBLE, 0::DOUBLE,
-             NULL::VARCHAR, NULL::VARCHAR, m.measurement_type, m.measurement_value, m.measurement_qual, NULL::DOUBLE
-      FROM cufes_measurement m JOIN cufes_sample c USING (sample_id) WHERE c.grid_key IS NOT NULL",
+             mx.taxon_key, mx.life_stage, mx.measurement_type, m.measurement_value,
+             m.measurement_qual, NULL::DOUBLE
+      FROM cufes_measurement m JOIN cufes_sample c USING (sample_id)
+      JOIN _measurement_taxon mx ON mx.dataset_key = 'swfsc_cufes'
+                                AND mx.raw_measurement_type = m.measurement_type
+                                AND mx.target = 'obs'
+      WHERE c.grid_key IS NOT NULL",
     # euphausiids: BTEDB export is species- AND life-stage-resolved, so taxon_key
     # comes from dataset_taxon (like zoodb/zooscan) and life_stage is carried on
     # the headline. Before that export the measurement was one undifferentiated
@@ -638,12 +773,20 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
       LEFT JOIN dataset_taxon dt ON dt.dataset_key = 'cce-lter_euphausiids'
                                 AND dt.ds_taxa_code = CAST(m.taxon_id AS VARCHAR)
       WHERE tw.grid_key IS NOT NULL",
+    # phyllosoma: only the total is the occurrence headline (target='obs'); the
+    # per-stage counts (phyllosoma_stage_N, target='attribute') are sub-occurrence
+    # detail and go to obs_attribute — see .obs_attribute_arm_sql().
     "calcofi_phyllosoma" = "
       SELECT 'bio', 'calcofi_phyllosoma', 'calcofi_phyllosoma:tow:' || CAST(tw.tow_id AS VARCHAR),
              tw.grid_key, tw.cruise_key, tw.latitude, tw.longitude,
              CAST(tw.datetime_start_utc AS TIMESTAMP), 0::DOUBLE, tw.max_tow_depth_m,
-             NULL::VARCHAR, NULL::VARCHAR, m.measurement_type, m.measurement_value, m.measurement_qual, NULL::DOUBLE
-      FROM phyllosoma_measurement m JOIN phyllosoma_tow tw USING (tow_id) WHERE tw.grid_key IS NOT NULL",
+             mx.taxon_key, mx.life_stage, mx.measurement_type, m.measurement_value,
+             m.measurement_qual, NULL::DOUBLE
+      FROM phyllosoma_measurement m JOIN phyllosoma_tow tw USING (tow_id)
+      JOIN _measurement_taxon mx ON mx.dataset_key = 'calcofi_phyllosoma'
+                                AND mx.raw_measurement_type = m.measurement_type
+                                AND mx.target = 'obs'
+      WHERE tw.grid_key IS NOT NULL",
     "cce-lter_zoodb" = "
       SELECT 'bio', 'cce-lter_zoodb', 'cce-lter_zoodb:tow:' || CAST(sp.sample_id AS VARCHAR),
              sp.grid_key, sp.cruise_key, sp.latitude, sp.longitude,
@@ -662,6 +805,19 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
       LEFT JOIN dataset_taxon dt ON dt.dataset_key = 'cce-lter_zooscan'
                                 AND dt.ds_taxa_code = CAST(m.taxon_id AS VARCHAR)
       WHERE sp.grid_key IS NOT NULL",
+    # METS underway: env realm, fed by mets_thin — the same thinned-table pattern
+    # `calcofi_ctd-cast` uses (obs carries ctd_thin, not the full scan set).
+    # Underway seawater is drawn from a hull intake a few metres down; the exact
+    # depth is undocumented per cruise (questions.csv mets_25), so depth is
+    # recorded as surface, matching swfsc_cufes.
+    "calcofi_mets" = "
+      SELECT 'env', 'calcofi_mets', 'calcofi_mets:underway:' || CAST(t.mets_sample_uuid AS VARCHAR),
+             s.grid_key, s.cruise_key, s.latitude, s.longitude,
+             CAST(s.datetime_start_utc AS TIMESTAMP), 0::DOUBLE, 0::DOUBLE,
+             NULL::VARCHAR, NULL::VARCHAR, t.measurement_type, t.measurement_value,
+             NULL::VARCHAR, NULL::DOUBLE
+      FROM mets_thin t JOIN mets_sample s USING (mets_sample_uuid)
+      WHERE s.grid_key IS NOT NULL",
     # mesopelagic fish: species-as-columns pivoted to a per-tow tally; the source
     # names taxa by scientific name (no local code), so ds_taxa_code IS the name
     "ucsd_sio_mesopelagic-fish" = "
@@ -683,39 +839,88 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
       FROM picoplankton_bacteria_measurement m
       JOIN picoplankton_bacteria_bottle b USING (bottle_id)
       WHERE b.grid_key IS NOT NULL",
-    # bird_mammal: taxon_key via dataset_taxon; behavior stays in life_stage on the
-    # obs headline here (the release additionally splits behavior into obs_attribute).
+    # phytoplankton: region-pooled (cruise x region grain) — no grid_key and no
+    # datetime of its own; taxon via dataset_taxon on the source species_code.
+    "calcofi_phytoplankton" = "
+      SELECT 'bio', 'calcofi_phytoplankton',
+             'calcofi_phytoplankton:region_pool:' || CAST(ps.phyto_sample_id AS VARCHAR),
+             NULL::VARCHAR, ps.cruise_key, ps.latitude, ps.longitude,
+             NULL::TIMESTAMP, 0::DOUBLE, 0::DOUBLE,
+             dt.taxon_key, NULL::VARCHAR, pm.measurement_type, pm.measurement_value,
+             NULL::VARCHAR, NULL::DOUBLE
+      FROM phyto_measurement pm JOIN phyto_sample ps USING (phyto_sample_id)
+      LEFT JOIN dataset_taxon dt ON dt.dataset_key = 'calcofi_phytoplankton'
+                                AND dt.ds_taxa_code = CAST(pm.species_code AS VARCHAR)",
+    # bird_mammal headline: one row per (transect, SPECIES CODE) with count
+    # SUMmed across behaviors. The behavior breakdown is sub-occurrence detail
+    # and goes to obs_attribute — it must NOT ride on the headline's life_stage,
+    # or the same bird is counted once per behavior code.
+    #
+    # Grouping is on the source species_code, NOT on taxon_key: only 156 of the
+    # 207 observed codes resolve to a taxon (the rest are excluded by
+    # include_flag or are coarse unidentified categories), so grouping by
+    # taxon_key alone would sum every unresolved species into a single
+    # NULL-taxon row per transect, silently merging distinct species. taxon_key
+    # is functionally determined by species_code (dataset_taxon is unique on
+    # ds_taxa_code within a dataset), so carrying both does not split the grain.
     "calcofi_bird_mammal_census" = "
       SELECT 'bio', 'calcofi_bird_mammal_census', 'calcofi_bird_mammal_census:transect:' || CAST(tr.gis_key AS VARCHAR),
              tr.grid_key, tr.cruise_key, tr.latitude, tr.longitude,
              CAST(tr.datetime_start_utc AS TIMESTAMP), 0::DOUBLE, 0::DOUBLE,
-             dt.taxon_key, o.behavior_code, 'count', CAST(o.count AS DOUBLE), NULL::VARCHAR, NULL::DOUBLE
+             dt.taxon_key, NULL::VARCHAR, 'count', CAST(SUM(o.count) AS DOUBLE),
+             NULL::VARCHAR, NULL::DOUBLE
       FROM bird_mammal_observation o JOIN bird_mammal_transect tr USING (gis_key)
       LEFT JOIN dataset_taxon dt ON dt.dataset_key = 'calcofi_bird_mammal_census'
                                 AND dt.ds_taxa_code = CAST(o.species_code AS VARCHAR)
-      WHERE tr.grid_key IS NOT NULL",
-    # NOTE: cufes / phyllosoma bake the taxon into measurement_type; their
-    # taxon_key + canonical-type decomposition lives in release_database.qmd
-    # (Phase 2, via metadata/measurement_taxon.csv). This Phase-3 helper omits
-    # them. (euphausiids moved off that path with the species-resolved BTEDB
-    # export — see its arm above.)
-    NULL)  # pic_zooplankton (no measurements) / calcofi_phytoplankton (no grid_key) -> sample only
+      WHERE tr.grid_key IS NOT NULL
+      GROUP BY tr.gis_key, tr.grid_key, tr.cruise_key, tr.latitude, tr.longitude,
+               tr.datetime_start_utc, o.species_code, dt.taxon_key",
+    NULL)  # pic_zooplankton (no measurements) -> sample only
 }
 
+# per-dataset obs_attribute (sub-occurrence attribution) projection SQL:
+# length-/stage-frequency bins and categorical breakdowns that sit UNDER an `obs`
+# headline row rather than beside it.
 .obs_attribute_arm_sql <- function(dataset_key) {
-  if (!identical(dataset_key, "swfsc_ichthyo")) return(NULL)
-  "SELECT 'swfsc_ichthyo' dataset_key, 'swfsc_ichthyo:net:' || CAST(i.net_uuid AS VARCHAR) sample_key,
-          dt.taxon_key, i.life_stage,
-          CASE i.measurement_type WHEN 'size' THEN 'body_length' ELSE i.measurement_type END measurement_type,
-          i.measurement_value bin_value,
-          CASE WHEN i.measurement_type = 'stage' THEN lk.description ELSE NULL END bin_label,
-          i.tally count, NULL::VARCHAR measurement_qual
-   FROM ichthyo i
-   LEFT JOIN dataset_taxon dt ON dt.dataset_key = 'swfsc_ichthyo'
-                             AND dt.ds_taxa_code = CAST(i.species_id AS VARCHAR)
-   LEFT JOIN lookup lk ON lk.lookup_type = i.life_stage || '_stage'
-                      AND lk.lookup_num = CAST(i.measurement_value AS INTEGER)
-   WHERE i.measurement_type IN ('stage','size')"
+  switch(dataset_key,
+    # ichthyo size -> body_length bins + stage frequency (bin_label from `lookup`)
+    "swfsc_ichthyo" = "
+      SELECT 'swfsc_ichthyo' dataset_key, 'swfsc_ichthyo:net:' || CAST(i.net_uuid AS VARCHAR) sample_key,
+             dt.taxon_key, i.life_stage,
+             CASE i.measurement_type WHEN 'size' THEN 'body_length' ELSE i.measurement_type END measurement_type,
+             i.measurement_value bin_value,
+             CASE WHEN i.measurement_type = 'stage' THEN lk.description ELSE NULL END bin_label,
+             i.tally count, NULL::VARCHAR measurement_qual
+      FROM ichthyo i
+      LEFT JOIN dataset_taxon dt ON dt.dataset_key = 'swfsc_ichthyo'
+                                AND dt.ds_taxa_code = CAST(i.species_id AS VARCHAR)
+      LEFT JOIN lookup lk ON lk.lookup_type = i.life_stage || '_stage'
+                         AND lk.lookup_num = CAST(i.measurement_value AS INTEGER)
+      WHERE i.measurement_type IN ('stage','size')",
+    # phyllosoma stage frequency: phyllosoma_stage_N -> ('stage', bin_value=N, count)
+    "calcofi_phyllosoma" = "
+      SELECT 'calcofi_phyllosoma' dataset_key, 'calcofi_phyllosoma:tow:' || CAST(tw.tow_id AS VARCHAR) sample_key,
+             mx.taxon_key, mx.life_stage, mx.measurement_type, mx.bin_value,
+             NULL::VARCHAR bin_label, CAST(m.measurement_value AS INTEGER) count,
+             NULL::VARCHAR measurement_qual
+      FROM phyllosoma_measurement m JOIN phyllosoma_tow tw USING (tow_id)
+      JOIN _measurement_taxon mx ON mx.dataset_key = 'calcofi_phyllosoma'
+                                AND mx.raw_measurement_type = m.measurement_type
+                                AND mx.target = 'attribute'
+      WHERE tw.grid_key IS NOT NULL AND m.measurement_value > 0",
+    # bird_mammal behavior breakdown -> ('behavior', bin_label = description)
+    "calcofi_bird_mammal_census" = "
+      SELECT 'calcofi_bird_mammal_census' dataset_key,
+             'calcofi_bird_mammal_census:transect:' || CAST(tr.gis_key AS VARCHAR) sample_key,
+             dt.taxon_key, NULL::VARCHAR life_stage, 'behavior' measurement_type,
+             NULL::DOUBLE bin_value, bb.description bin_label,
+             CAST(o.count AS INTEGER) count, NULL::VARCHAR measurement_qual
+      FROM bird_mammal_observation o JOIN bird_mammal_transect tr USING (gis_key)
+      LEFT JOIN dataset_taxon dt ON dt.dataset_key = 'calcofi_bird_mammal_census'
+                                AND dt.ds_taxa_code = CAST(o.species_code AS VARCHAR)
+      LEFT JOIN bird_mammal_behavior bb ON bb.behavior_code = o.behavior_code
+      WHERE tr.grid_key IS NOT NULL",
+    NULL)
 }
 
 .sample_measurement_arm_sql <- function(dataset_key) {
@@ -730,40 +935,71 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
         SELECT net_uuid, 'small_plankton_biomass', smallplankton FROM net UNION ALL
         SELECT net_uuid, 'total_plankton_biomass', totalplankton FROM net)
       WHERE mv IS NOT NULL",
+    # bottle cast conditions + the cast's bottom depth. `bottom_depth_m` is an
+    # event-level property of the cast (how deep the water was), not an
+    # observation, so it belongs here rather than in obs.
     "calcofi_bottle" = "
       SELECT 'calcofi_bottle:cast:' || CAST(CAST(cast_id AS BIGINT) AS VARCHAR), 'calcofi_bottle',
              condition_type, condition_value, NULL::VARCHAR
-      FROM cast_condition",
+      FROM cast_condition
+      UNION ALL
+      SELECT 'calcofi_bottle:cast:' || CAST(CAST(cast_id AS BIGINT) AS VARCHAR), 'calcofi_bottle',
+             'bottom_depth', bottom_depth_m, NULL::VARCHAR
+      FROM casts WHERE bottom_depth_m IS NOT NULL",
     NULL)
 }
 
 #' Project one dataset into the consolidated core tables
 #'
-#' The per-ingest (Phase 3) entry point: after an ingest has built its
-#' per-dataset tables, `emit_core_tables()` projects that dataset into the shared
-#' core family — `sample` (via [build_sample_reference()], which auto-detects the
-#' dataset's event tables present in `con`), plus its `obs` occurrence headline,
-#' `obs_attribute` sub-occurrence detail, and `sample_measurement` effort — using the same
-#' validated projection the release assembly uses. Idempotent per connection for a
-#' single dataset's tables. Arms for `pic_zooplankton` (no measurements) and
-#' `calcofi_phytoplankton` (region-pooled, no grid_key) contribute `sample` only.
+#' The per-ingest entry point, and the authoritative projection: after an ingest
+#' has built its per-dataset tables, `emit_core_tables()` turns them into that
+#' dataset's slice of the shared core family — `sample` (via
+#' [build_sample_reference()], which auto-detects the dataset's event tables
+#' present in `con`), its `obs` occurrence headline, `obs_attribute`
+#' sub-occurrence detail, `sample_measurement` event-level effort, and its slice
+#' of the taxa references (`taxon` / `dataset_taxon` / `taxon_group`). These
+#' shards ARE the ingest's parquet output; `release_database.qmd` concatenates
+#' them rather than re-deriving the core from per-dataset tables (which is how
+#' the two projections drifted apart). `pic_zooplankton` (no measurements)
+#' contributes `sample` only.
 #'
-#' The bio arms resolve `taxon_key` through `dataset_taxon`, which is built
-#' centrally by the release assembly ([build_dataset_taxon()]) rather than by
-#' each ingest. When that table is absent — the normal case inside an ingest —
-#' an empty stub is created so the projection still runs with `taxon_key` NULL
-#' and the release fills it in; without the stub the arm's `LEFT JOIN` raises a
-#' catalog error.
+#' `taxon_key` is resolved here, at ingest time. Datasets whose taxon lives in a
+#' vocabulary table (ichthyo `species`, `zoodb_taxon`, `bird_mammal_species`, …)
+#' resolve through `dataset_taxon`; datasets that bake the taxon into the
+#' measurement type name (cufes `sardine_eggs`, phyllosoma `phyllosoma_stage_3`)
+#' resolve through `measurement_taxon` — pass `metadata/measurement_taxon.csv`
+#' and `metadata/taxon_override.csv`, or those arms project zero rows.
 #'
 #' @param con a DuckDB connection holding this dataset's per-dataset tables
 #' @param dataset_key provider_dataset (e.g. `"swfsc_ichthyo"`, `"calcofi_bottle"`)
 #' @param sample logical; also (re)build `sample` from the present event tables (default TRUE)
+#' @param measurement_taxon optional data.frame of the composite-type crosswalk
+#'   (`metadata/measurement_taxon.csv`); required for `swfsc_cufes` /
+#'   `calcofi_phyllosoma`, ignored by every other dataset
+#' @param overrides optional data.frame of manual id resolution
+#'   (`metadata/taxon_override.csv`) for coarse taxa (phyto groups, mammals)
+#' @param taxa logical; also build this dataset's `taxon` / `dataset_taxon` /
+#'   `taxon_group` slices (default TRUE). Set FALSE to project against taxa
+#'   references already present in `con`.
 #' @return (invisibly) a named list of row counts for the core tables written
 #' @export
 #' @concept model
-emit_core_tables <- function(con, dataset_key, sample = TRUE) {
+#' @examples
+#' \dontrun{
+#' mt <- readr::read_csv(here::here("metadata/measurement_taxon.csv"))
+#' ov <- readr::read_csv(here::here("metadata/taxon_override.csv"))
+#' core <- emit_core_tables(con, "swfsc_cufes", measurement_taxon = mt, overrides = ov)
+#' }
+emit_core_tables <- function(con, dataset_key, sample = TRUE,
+                             measurement_taxon = NULL, overrides = NULL,
+                             taxa = TRUE) {
   out <- list()
-  .ensure_dataset_taxon(con)
+  .ensure_measurement_taxon(con, measurement_taxon, dataset_key = dataset_key)
+  if (isTRUE(taxa)) {
+    out <- c(out, .build_taxa_slices(con, dataset_key, measurement_taxon, overrides))
+  } else {
+    .ensure_dataset_taxon(con)
+  }
   if (isTRUE(sample)) out$sample <- build_sample_reference(con, datasets = dataset_key)
   oa <- .obs_arm_sql(dataset_key)
   if (!is.null(oa)) out$obs <- append_obs(con, oa)
@@ -772,4 +1008,223 @@ emit_core_tables <- function(con, dataset_key, sample = TRUE) {
   ma <- .sample_measurement_arm_sql(dataset_key)
   if (!is.null(ma)) out$sample_measurement <- append_sample_measurement(con, ma)
   invisible(out)
+}
+
+# core output tables ----------------------------------------------------------
+
+#' Core tables an ingest writes to parquet
+#'
+#' The shard set [emit_core_tables()] produces, filtered to those actually
+#' present and non-empty in `con`. Use it to drive `write_parquet_outputs()` so a
+#' dataset with no `obs_attribute` (most of them) does not emit an empty file.
+#'
+#' @param con a DuckDB connection after [emit_core_tables()]
+#' @param extra additional table names to append (shared refs the ingest owns,
+#'   e.g. `c("grid", "cruise", "ship", "lookup")` for `swfsc_ichthyo`)
+#' @return character vector of table names, core family first
+#' @export
+#' @concept model
+core_output_tables <- function(con, extra = NULL) {
+  core <- c("sample", "obs", "obs_attribute", "sample_measurement",
+            "taxon", "dataset_taxon", "taxon_group")
+  present <- DBI::dbListTables(con)
+  keep <- vapply(intersect(core, present), function(t)
+    DBI::dbGetQuery(con, glue::glue("SELECT COUNT(*) AS n FROM {t}"))$n > 0,
+    logical(1))
+  c(names(keep)[keep], intersect(extra, present))
+}
+
+# compat VIEWs ----------------------------------------------------------------
+
+# Rebuild a per-dataset event table from the core. The source id is recovered
+# from the namespaced sample_key ('<dataset_key>:<sample_type>:<id>' -> field 3),
+# the containment FK from parent_sample_key, and the event-level effort columns
+# by pivoting sample_measurement back out of long form.
+.compat_event_sql <- function(dataset_key, sample_type, id_col, parent_col = NULL,
+                              cols = character(), measures = character()) {
+  sel <- c(
+    glue::glue("split_part(s.sample_key, ':', 3) AS {id_col}"),
+    if (!is.null(parent_col))
+      glue::glue("split_part(s.parent_sample_key, ':', 3) AS {parent_col}"),
+    unname(vapply(seq_along(cols), function(i)
+      glue::glue("s.{cols[[i]]} AS {names(cols)[i]}"), "")),
+    unname(vapply(seq_along(measures), function(i) glue::glue(
+      "MAX(m.measurement_value) FILTER (WHERE m.measurement_type = '{measures[[i]]}')",
+      " AS {names(measures)[i]}"), "")))
+  grp <- seq_len(length(sel) - length(measures))
+  glue::glue(
+    "SELECT {paste(sel, collapse = ',\n         ')}
+     FROM {if (length(measures)) 'sample s LEFT JOIN sample_measurement m USING (sample_key)' else 'sample s'}
+     WHERE s.dataset_key = '{dataset_key}' AND s.sample_type = '{sample_type}'",
+    if (length(measures)) glue::glue("\n     GROUP BY {paste(grp, collapse = ', ')}") else "")
+}
+
+# per-dataset long measurement table, rebuilt from obs
+.compat_measurement_sql <- function(dataset_key, sample_type, fk_col, id_col) {
+  glue::glue(
+    "SELECT obs_id AS {id_col},
+            split_part(sample_key, ':', 3) AS {fk_col},
+            measurement_type, measurement_value, measurement_qual
+     FROM obs WHERE dataset_key = '{dataset_key}'")
+}
+
+.compat_specs <- function(dataset_key) {
+  switch(dataset_key,
+    "swfsc_ichthyo" = list(
+      site = .compat_event_sql("swfsc_ichthyo", "site", "site_uuid", NULL,
+        c(order_occ = "order_occ", longitude = "longitude", latitude = "latitude",
+          cruise_key = "cruise_key", geom = "geom", grid_key = "grid_key",
+          site_key = "site_key")),
+      tow = .compat_event_sql("swfsc_ichthyo", "tow", "tow_uuid", "site_uuid",
+        c(tow_type_key = "tow_type", datetime_start_utc = "datetime")),
+      net = .compat_event_sql("swfsc_ichthyo", "net", "net_uuid", "tow_uuid",
+        character(),
+        c(standard_haul_factor = "std_haul_factor", volume_sampled = "volume_sampled",
+          prop_sorted = "prop_sorted", smallplankton = "small_plankton_biomass",
+          totalplankton = "total_plankton_biomass"))),
+    "calcofi_bottle" = list(
+      # bottom_depth is an event property promoted into sample_measurement, not a
+      # cast *condition*, so exclude it here or it reappears as a phantom row
+      cast_condition = "
+        SELECT sample_measurement_id AS cast_condition_id,
+               CAST(split_part(sample_key, ':', 3) AS BIGINT) AS cast_id,
+               measurement_type AS condition_type, measurement_value AS condition_value
+        FROM sample_measurement
+        WHERE dataset_key = 'calcofi_bottle' AND measurement_type <> 'bottom_depth'",
+      bottle_measurement = "
+        SELECT obs_id AS bottle_measurement_id,
+               CAST(split_part(sample_key, ':', 3) AS BIGINT) AS bottle_id,
+               measurement_type, measurement_value, measurement_qual, measurement_prec
+        FROM obs WHERE dataset_key = 'calcofi_bottle'"),
+    "cce-lter_zoodb" = list(
+      zoodb_measurement = .compat_measurement_sql(
+        "cce-lter_zoodb", "tow", "sample_id", "measurement_id")),
+    "cce-lter_zooscan" = list(
+      zooscan_measurement = .compat_measurement_sql(
+        "cce-lter_zooscan", "tow", "sample_id", "zooscan_measurement_id")),
+    "swfsc_cufes" = list(
+      cufes_measurement = .compat_measurement_sql(
+        "swfsc_cufes", "underway", "sample_id", "cufes_measurement_id")),
+    "calcofi_phyllosoma" = list(
+      phyllosoma_measurement = .compat_measurement_sql(
+        "calcofi_phyllosoma", "tow", "tow_id", "phyllosoma_measurement_id")),
+    "ucsd_sio_mesopelagic-fish" = list(
+      mesopelagic_fish_measurement = .compat_measurement_sql(
+        "ucsd_sio_mesopelagic-fish", "tow", "tow_id", "mesopelagic_fish_measurement_id")),
+    "cce-lter_picoplankton-bacteria" = list(
+      picoplankton_bacteria_measurement = .compat_measurement_sql(
+        "cce-lter_picoplankton-bacteria", "bottle", "bottle_id", "measurement_id")),
+    NULL)
+}
+
+#' Recreate per-dataset tables as VIEWs over the consolidated core
+#'
+#' Once an ingest publishes the core, the per-dataset event and measurement
+#' tables it used to publish can be served as VIEWs instead of stored bytes: the
+#' source id is recovered from the namespaced `sample_key`, the containment FK
+#' from `parent_sample_key`, event-level effort by pivoting `sample_measurement`
+#' back out of long form, and the measurement triples straight from `obs`.
+#'
+#' **This is exact for the columns the core models and lossy for the rest.**
+#' Verified against the shipped data, `net` and `tow` round-trip identically
+#' (76,512 / 75,506 rows, every value equal). What does NOT come back is the
+#' columns the consolidated model never carried — `net.side`, `tow.tow_number`,
+#' `site.order_occ`/`line`/`station`/`site_key`, most of the 33 legacy `casts`
+#' columns (`rpt_line`, `ac_sta`, `int_chl`, …), `bottle.btl_num`/`depth_qual`,
+#' and the CTD scan-grain columns (`ctd_cast_uuid`, `cast_dir`, `data_stage`),
+#' since `sample` holds one row per physical cast. Those are dropped from the
+#' release by `core_keep` regardless, so the VIEW is no thinner than what
+#' consumers already get — but do not treat it as a lossless archive of the
+#' source. Use [core_output_tables()] to publish; use this to keep in-notebook
+#' consumers and ad-hoc queries working against the old names.
+#'
+#' @param con a DuckDB connection holding the core tables
+#' @param dataset_key provider_dataset to rebuild views for
+#' @param replace logical; drop an existing table/view of the same name first
+#'   (default TRUE — the ingest still has the real tables in scope)
+#' @return (invisibly) character vector of view names created
+#' @export
+#' @concept model
+create_compat_views <- function(con, dataset_key, replace = TRUE) {
+  specs <- .compat_specs(dataset_key)
+  if (is.null(specs)) return(invisible(character()))
+  made <- character()
+  present <- DBI::dbListTables(con)
+  for (nm in names(specs)) {
+    # a view can only be built if the core tables it reads are present: the
+    # effort pivot needs sample_measurement, the measurement triples need obs.
+    need <- intersect(c("sample", "sample_measurement", "obs"),
+                      unlist(regmatches(specs[[nm]], gregexpr(
+                        "sample_measurement|\\bsample\\b|\\bobs\\b", specs[[nm]]))))
+    missing <- setdiff(need, present)
+    if (length(missing)) {
+      message("create_compat_views(): skipping ", nm, " (needs ",
+              paste(missing, collapse = ", "), ")")
+      next
+    }
+    if (isTRUE(replace)) {
+      t <- DBI::dbGetQuery(con, glue::glue(
+        "SELECT table_type FROM information_schema.tables WHERE table_name = '{nm}'"))
+      if (nrow(t)) {
+        kind <- if (grepl("VIEW", t$table_type[1], ignore.case = TRUE)) "VIEW" else "TABLE"
+        DBI::dbExecute(con, glue::glue('DROP {kind} IF EXISTS "{nm}"'))
+      }
+    }
+    DBI::dbExecute(con, glue::glue("CREATE VIEW {nm} AS {specs[[nm]]}"))
+    made <- c(made, nm)
+  }
+  invisible(made)
+}
+
+#' PK/FK spec for the consolidated core tables
+#'
+#' Every ingest now emits the same core shape, so every ingest declares the same
+#' relationships. This returns that one spec in [build_relationships_json()]'s
+#' `rels` form, restricted to the tables actually present in `tables` — so an
+#' ingest that emits no `obs_attribute` does not advertise an edge to it.
+#'
+#' @param tables character vector of tables the ingest writes (typically the
+#'   result of [core_output_tables()])
+#' @return a list with `primary_keys` and `foreign_keys`
+#' @export
+#' @concept model
+core_relationships <- function(tables) {
+  pk <- list(
+    sample             = "sample_key",
+    obs                = "obs_id",
+    obs_attribute      = "obs_attribute_id",
+    sample_measurement = "sample_measurement_id",
+    taxon              = "taxon_key",
+    dataset_taxon      = "ds_taxon_key",
+    grid               = "grid_key",
+    cruise             = "cruise_key",
+    ship               = "ship_key",
+    measurement_type   = "measurement_type",
+    region             = "region_key")
+  fk <- list(
+    list(table = "sample",             column = "parent_sample_key", ref_table = "sample",           ref_column = "sample_key"),
+    list(table = "sample",             column = "root_sample_key",   ref_table = "sample",           ref_column = "sample_key"),
+    list(table = "sample",             column = "grid_key",          ref_table = "grid",             ref_column = "grid_key"),
+    list(table = "sample",             column = "cruise_key",        ref_table = "cruise",           ref_column = "cruise_key"),
+    list(table = "obs",                column = "sample_key",        ref_table = "sample",           ref_column = "sample_key"),
+    list(table = "obs",                column = "taxon_key",         ref_table = "taxon",            ref_column = "taxon_key"),
+    list(table = "obs",                column = "grid_key",          ref_table = "grid",             ref_column = "grid_key"),
+    list(table = "obs",                column = "cruise_key",        ref_table = "cruise",           ref_column = "cruise_key"),
+    list(table = "obs",                column = "measurement_type",  ref_table = "measurement_type", ref_column = "measurement_type"),
+    list(table = "obs_attribute",      column = "sample_key",        ref_table = "sample",           ref_column = "sample_key"),
+    list(table = "obs_attribute",      column = "taxon_key",         ref_table = "taxon",            ref_column = "taxon_key"),
+    list(table = "obs_attribute",      column = "measurement_type",  ref_table = "measurement_type", ref_column = "measurement_type"),
+    list(table = "sample_measurement", column = "sample_key",        ref_table = "sample",           ref_column = "sample_key"),
+    list(table = "sample_measurement", column = "measurement_type",  ref_table = "measurement_type", ref_column = "measurement_type"),
+    list(table = "dataset_taxon",      column = "taxon_key",         ref_table = "taxon",            ref_column = "taxon_key"),
+    list(table = "taxon_group",        column = "taxon_key",         ref_table = "taxon",            ref_column = "taxon_key"),
+    list(table = "taxon",              column = "parent_taxon_key",  ref_table = "taxon",            ref_column = "taxon_key"))
+
+  list(
+    primary_keys = pk[intersect(names(pk), tables)],
+    # keep an edge only when BOTH ends ship from this ingest; cross-ingest edges
+    # (obs.grid_key -> grid when grid comes from ichthyo) belong in
+    # metadata/relationships_cross.csv, which the release merges.
+    foreign_keys = unname(Filter(
+      function(e) e$table %in% tables && e$ref_table %in% tables, fk)))
 }
