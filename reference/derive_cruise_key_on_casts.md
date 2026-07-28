@@ -13,7 +13,8 @@ derive_cruise_key_on_casts(
   con,
   ship_renames_csv = NULL,
   fetch_ices = TRUE,
-  datetime_col = "datetime_utc"
+  datetime_col = "datetime_utc",
+  table_name = "casts"
 )
 ```
 
@@ -21,7 +22,8 @@ derive_cruise_key_on_casts(
 
 - con:
 
-  DBI connection to DuckDB with casts, ship, and cruise tables
+  DBI connection to DuckDB with the target table plus `ship` and
+  `cruise`
 
 - ship_renames_csv:
 
@@ -30,6 +32,18 @@ derive_cruise_key_on_casts(
 - fetch_ices:
 
   Logical; if TRUE, also query ICES ship API (default TRUE)
+
+- datetime_col:
+
+  Name of the timestamp column on the target table used to derive the
+  YYYY-MM prefix (default `"datetime_utc"`)
+
+- table_name:
+
+  Name of the table to annotate (default `"casts"`). Any table with a
+  `ship_code` column and `datetime_col` works — e.g.
+  `"picoplankton_bacteria_bottle"`. A `ship_name` column is used for the
+  unmatched report when present, and treated as NULL when not.
 
 ## Value
 

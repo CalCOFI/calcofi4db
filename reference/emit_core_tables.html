@@ -27,7 +27,7 @@ calcofi_phytoplankton (region-pooled, no grid_key) contribute sample only."><!--
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.10.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.11.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -91,6 +91,15 @@ single dataset's tables. Arms for <code>pic_zooplankton</code> (no measurements)
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>(invisibly) a named list of row counts for the core tables written</p>
+    </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>The bio arms resolve <code>taxon_key</code> through <code>dataset_taxon</code>, which is built
+centrally by the release assembly (<code><a href="build_dataset_taxon.html">build_dataset_taxon()</a></code>) rather than by
+each ingest. When that table is absent — the normal case inside an ingest —
+an empty stub is created so the projection still runs with <code>taxon_key</code> NULL
+and the release fills it in; without the stub the arm's <code>LEFT JOIN</code> raises a
+catalog error.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

@@ -3,8 +3,10 @@
 `select_sql` must yield `sample_key`, `sample_type`,
 `parent_sample_key`, `root_sample_key`, `dataset_key`, `grid_key`,
 `cruise_key`, `latitude`, `longitude`, `datetime`, `depth_min_m`,
-`depth_max_m` by name; `geom` is minted here as
-`ST_Point(longitude, latitude)`. Prefer
+`depth_max_m`, `tow_type` by name; `geom` is minted here as
+`ST_Point(longitude, latitude)`. `tow_type` is the net gear code
+(ichthyo tow/net grains: C1/CB/CV/PV oblique/vertical, MT manta), NULL
+for gears/datasets without one. Prefer
 [`build_sample_reference()`](https://calcofi.io/calcofi4db/reference/build_sample_reference.md)
 for the central Phase-2 build; use this for per-dataset (Phase 3)
 appends.

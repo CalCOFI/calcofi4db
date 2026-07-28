@@ -36,3 +36,13 @@ emit_core_tables(con, dataset_key, sample = TRUE)
 ## Value
 
 (invisibly) a named list of row counts for the core tables written
+
+## Details
+
+The bio arms resolve `taxon_key` through `dataset_taxon`, which is built
+centrally by the release assembly
+([`build_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/build_dataset_taxon.md))
+rather than by each ingest. When that table is absent — the normal case
+inside an ingest — an empty stub is created so the projection still runs
+with `taxon_key` NULL and the release fills it in; without the stub the
+arm's `LEFT JOIN` raises a catalog error.

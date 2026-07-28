@@ -1,5 +1,51 @@
 # Changelog
 
+## calcofi4db 2.11.0
+
+- **[`derive_cruise_key_on_casts()`](https://calcofi.io/calcofi4db/reference/derive_cruise_key_on_casts.md)
+  gains `table_name =`.** It previously required a table literally named
+  `casts`; any other dataset had to rename its table or hand-roll the
+  same SQL. It now annotates whichever table you name (default
+  `"casts"`, so existing calls are unchanged), needing only a
+  `ship_code` column and `datetime_col`. A `ship_name` column is used
+  for the unmatched-ship report when present and treated as NULL when
+  absent, so bottle/underway-grain tables that carry only an embedded
+  ship code work directly. Interpolated ship values are now quoted with
+  [`DBI::dbQuoteString()`](https://dbi.r-dbi.org/reference/dbQuoteString.html).
+- **Core arms for two new datasets.** `ucsd_sio_mesopelagic-fish` (MOHT
+  trawl, self-leaf `tow` grain, `bio` realm, `taxon_key` crosswalked
+  from the source’s scientific names via a new `mesopelagic_fish_taxon`
+  arm in
+  [`build_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/build_dataset_taxon.md))
+  and `cce-lter_picoplankton-bacteria` (self-leaf `bottle` grain, `env`
+  realm — the four flow-cytometry counts are a measurement vocabulary,
+  not taxa) now project into `sample` + `obs`, so both reach the frozen
+  release instead of stopping at per-dataset parquet.
+- **[`emit_core_tables()`](https://calcofi.io/calcofi4db/reference/emit_core_tables.md)
+  no longer requires `dataset_taxon` to pre-exist.** Every bio arm
+  `LEFT JOIN`s `dataset_taxon`, but that crosswalk is built centrally by
+  the release
+  ([`build_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/build_dataset_taxon.md)),
+  so calling
+  [`emit_core_tables()`](https://calcofi.io/calcofi4db/reference/emit_core_tables.md)
+  from an ingest raised
+  `Catalog Error: Table with name dataset_taxon does not exist` for
+  ichthyo / zoodb / zooscan / bird_mammal / euphausiids. An empty stub
+  is now created when absent: the ingest-local projection runs with
+  `taxon_key` NULL and the release resolves it for real.
+- **`euphausiids` projects into the core with real taxonomy.** The
+  species- and life-stage-resolved BTEDB export replaces the old
+  single-`Abundance` column, so `.obs_arm_sql("cce-lter_euphausiids")`
+  now resolves `taxon_key` through `dataset_taxon` and carries
+  `life_stage` on the `obs` headline (as zoodb / zooscan do) instead of
+  leaving both NULL.
+  [`build_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/build_dataset_taxon.md)
+  /
+  [`build_taxon_reference()`](https://calcofi.io/calcofi4db/reference/build_taxon_reference.md)
+  gained a `euphausiids_taxon` source arm, so the 37 BTEDB species
+  crosswalk to WoRMS AphiaIDs rather than resolving through
+  `metadata/measurement_taxon.csv`.
+
 ## calcofi4db 2.10.0
 
 - **`tow_type` (net gear) promoted into the core `sample` table.**

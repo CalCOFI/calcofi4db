@@ -19,7 +19,7 @@ to casts, (4) validating against the cruise table."><!-- Google tag (gtag.js) --
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.10.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.11.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -61,7 +61,8 @@ to casts, (4) validating against the cruise table.</p>
 <span>  <span class="va">con</span>,</span>
 <span>  ship_renames_csv <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  fetch_ices <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  datetime_col <span class="op">=</span> <span class="st">"datetime_utc"</span></span>
+<span>  datetime_col <span class="op">=</span> <span class="st">"datetime_utc"</span>,</span>
+<span>  table_name <span class="op">=</span> <span class="st">"casts"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -70,7 +71,8 @@ to casts, (4) validating against the cruise table.</p>
 
 
 <dl><dt id="arg-con">con<a class="anchor" aria-label="anchor" href="#arg-con"></a></dt>
-<dd><p>DBI connection to DuckDB with casts, ship, and cruise tables</p></dd>
+<dd><p>DBI connection to DuckDB with the target table plus <code>ship</code>
+and <code>cruise</code></p></dd>
 
 
 <dt id="arg-ship-renames-csv">ship_renames_csv<a class="anchor" aria-label="anchor" href="#arg-ship-renames-csv"></a></dt>
@@ -79,6 +81,18 @@ to casts, (4) validating against the cruise table.</p>
 
 <dt id="arg-fetch-ices">fetch_ices<a class="anchor" aria-label="anchor" href="#arg-fetch-ices"></a></dt>
 <dd><p>Logical; if TRUE, also query ICES ship API (default TRUE)</p></dd>
+
+
+<dt id="arg-datetime-col">datetime_col<a class="anchor" aria-label="anchor" href="#arg-datetime-col"></a></dt>
+<dd><p>Name of the timestamp column on the target table used to
+derive the YYYY-MM prefix (default <code>"datetime_utc"</code>)</p></dd>
+
+
+<dt id="arg-table-name">table_name<a class="anchor" aria-label="anchor" href="#arg-table-name"></a></dt>
+<dd><p>Name of the table to annotate (default <code>"casts"</code>).
+Any table with a <code>ship_code</code> column and <code>datetime_col</code> works —
+e.g. <code>"picoplankton_bacteria_bottle"</code>. A <code>ship_name</code> column is
+used for the unmatched report when present, and treated as NULL when not.</p></dd>
 
 </dl></div>
     <div class="section level2">

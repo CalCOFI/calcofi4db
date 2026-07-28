@@ -13,7 +13,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.10.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.11.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -41,6 +41,17 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="2.11.0" id="calcofi4db-2110">calcofi4db 2.11.0<a class="anchor" aria-label="anchor" href="#calcofi4db-2110"></a></h2>
+<ul><li>
+<strong><code><a href="../reference/derive_cruise_key_on_casts.html">derive_cruise_key_on_casts()</a></code> gains <code>table_name =</code>.</strong> It previously required a table literally named <code>casts</code>; any other dataset had to rename its table or hand-roll the same SQL. It now annotates whichever table you name (default <code>"casts"</code>, so existing calls are unchanged), needing only a <code>ship_code</code> column and <code>datetime_col</code>. A <code>ship_name</code> column is used for the unmatched-ship report when present and treated as NULL when absent, so bottle/underway-grain tables that carry only an embedded ship code work directly. Interpolated ship values are now quoted with <code><a href="https://dbi.r-dbi.org/reference/dbQuoteString.html" class="external-link">DBI::dbQuoteString()</a></code>.</li>
+<li>
+<strong>Core arms for two new datasets.</strong> <code>ucsd_sio_mesopelagic-fish</code> (MOHT trawl, self-leaf <code>tow</code> grain, <code>bio</code> realm, <code>taxon_key</code> crosswalked from the source’s scientific names via a new <code>mesopelagic_fish_taxon</code> arm in <code><a href="../reference/build_dataset_taxon.html">build_dataset_taxon()</a></code>) and <code>cce-lter_picoplankton-bacteria</code> (self-leaf <code>bottle</code> grain, <code>env</code> realm — the four flow-cytometry counts are a measurement vocabulary, not taxa) now project into <code>sample</code> + <code>obs</code>, so both reach the frozen release instead of stopping at per-dataset parquet.</li>
+<li>
+<strong><code><a href="../reference/emit_core_tables.html">emit_core_tables()</a></code> no longer requires <code>dataset_taxon</code> to pre-exist.</strong> Every bio arm <code>LEFT JOIN</code>s <code>dataset_taxon</code>, but that crosswalk is built centrally by the release (<code><a href="../reference/build_dataset_taxon.html">build_dataset_taxon()</a></code>), so calling <code><a href="../reference/emit_core_tables.html">emit_core_tables()</a></code> from an ingest raised <code>Catalog Error: Table with name dataset_taxon does not exist</code> for ichthyo / zoodb / zooscan / bird_mammal / euphausiids. An empty stub is now created when absent: the ingest-local projection runs with <code>taxon_key</code> NULL and the release resolves it for real.</li>
+<li>
+<strong><code>euphausiids</code> projects into the core with real taxonomy.</strong> The species- and life-stage-resolved BTEDB export replaces the old single-<code>Abundance</code> column, so <code>.obs_arm_sql("cce-lter_euphausiids")</code> now resolves <code>taxon_key</code> through <code>dataset_taxon</code> and carries <code>life_stage</code> on the <code>obs</code> headline (as zoodb / zooscan do) instead of leaving both NULL. <code><a href="../reference/build_dataset_taxon.html">build_dataset_taxon()</a></code> / <code><a href="../reference/build_taxon_reference.html">build_taxon_reference()</a></code> gained a <code>euphausiids_taxon</code> source arm, so the 37 BTEDB species crosswalk to WoRMS AphiaIDs rather than resolving through <code>metadata/measurement_taxon.csv</code>.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.10.0" id="calcofi4db-2100">calcofi4db 2.10.0<a class="anchor" aria-label="anchor" href="#calcofi4db-2100"></a></h2>
 <ul><li>
