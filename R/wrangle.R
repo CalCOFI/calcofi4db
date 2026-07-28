@@ -1677,8 +1677,11 @@ write_parquet_outputs <- function(
 #' @param d_tbls_rd Table redefinition data frame (with `tbl_new`, `tbl_description`)
 #' @param d_flds_rd Field redefinition data frame (with `tbl_new`, `fld_new`,
 #'   `fld_description`, `units`)
-#' @param metadata_derived_csv Path to CSV with derived table/column metadata
-#'   (columns: table, column, name_long, units, description_md)
+#' @param metadata_derived_csv Path(s) to CSV with derived table/column metadata
+#'   (columns: table, column, name_long, units, description_md). Several paths
+#'   may be given; they are applied in order, so later files win. Ingests that
+#'   emit the consolidated core pass the shared `metadata/core_dictionary.csv`
+#'   first and their own `metadata_derived.csv` second.
 #' @param output_dir Directory to write `metadata.json`
 #' @param tables Character vector of table names to include. If NULL, uses all
 #'   tables from DuckDB.
@@ -1789,8 +1792,10 @@ build_metadata_json <- function(
   }
 
   # --- overlay with metadata_derived.csv ---
-  if (!is.null(metadata_derived_csv) && file.exists(metadata_derived_csv)) {
-    d_derived <- readr::read_csv(metadata_derived_csv, show_col_types = FALSE)
+  # accepts several paths, applied in order so later files win: pass the shared
+  # core dictionary first and the per-dataset derived CSV second.
+  for (mdc in Filter(file.exists, as.character(metadata_derived_csv %||% character()))) {
+    d_derived <- readr::read_csv(mdc, show_col_types = FALSE)
 
     for (i in seq_len(nrow(d_derived))) {
       row <- d_derived[i, ]

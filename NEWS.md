@@ -1,3 +1,35 @@
+# calcofi4db 2.13.0
+
+- **`emit_core_tables()` is now the authoritative core projection.** It gains
+  `measurement_taxon` / `overrides` / `taxa` arguments and builds this dataset's
+  slice of `taxon` / `dataset_taxon` / `taxon_group`, so `obs.taxon_key` resolves
+  at ingest time. Each ingest can now emit the consolidated core as its parquet
+  output instead of per-dataset tables that `release_database.qmd` re-derives.
+
+- **Realigned four `obs` arms that had drifted from the release projection.**
+  The projection existed twice — here and inline in `release_database.qmd` — and
+  the copies had separated:
+  - `calcofi_bird_mammal_census`: the headline is one row per (transect, species)
+    with `count` SUMmed across behaviors, and the behavior breakdown moves to
+    `obs_attribute` (with `bin_label` from `bird_mammal_behavior`). Previously
+    behavior rode on the headline's `life_stage`, counting the same birds once
+    per behavior code.
+  - `calcofi_phytoplankton`: **new arm** — the region-pooled `obs` projection
+    existed only in the release, so the per-ingest projection emitted no
+    phytoplankton observations at all.
+  - `swfsc_cufes` / `calcofi_phyllosoma`: decompose the taxon out of the
+    measurement type name via the new `_measurement_taxon` registry, yielding a
+    real `taxon_key` + canonical type + `life_stage` (and, for phyllosoma,
+    routing the per-stage counts to `obs_attribute` rather than the headline).
+  - `cce-lter_euphausiids`: unchanged here, but a regression test now pins the
+    species x life-stage grain. The release arm still decomposed via
+    `measurement_taxon`, which collapses all 37 BTEDB species to family
+    Euphausiidae and drops `life_stage`.
+
+- **`core_output_tables()`** returns the non-empty core shards an ingest should
+  write to parquet, so datasets without attribution/effort/taxa do not emit
+  empty files.
+
 # calcofi4db 2.12.0
 
 - **`calcofi_mets` projects into the core model.** Underway TSG/meteorology now

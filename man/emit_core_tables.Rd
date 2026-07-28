@@ -4,7 +4,14 @@
 \alias{emit_core_tables}
 \title{Project one dataset into the consolidated core tables}
 \usage{
-emit_core_tables(con, dataset_key, sample = TRUE)
+emit_core_tables(
+  con,
+  dataset_key,
+  sample = TRUE,
+  measurement_taxon = NULL,
+  overrides = NULL,
+  taxa = TRUE
+)
 }
 \arguments{
 \item{con}{a DuckDB connection holding this dataset's per-dataset tables}
@@ -12,26 +19,47 @@ emit_core_tables(con, dataset_key, sample = TRUE)
 \item{dataset_key}{provider_dataset (e.g. \code{"swfsc_ichthyo"}, \code{"calcofi_bottle"})}
 
 \item{sample}{logical; also (re)build \code{sample} from the present event tables (default TRUE)}
+
+\item{measurement_taxon}{optional data.frame of the composite-type crosswalk
+(\code{metadata/measurement_taxon.csv}); required for \code{swfsc_cufes} /
+\code{calcofi_phyllosoma}, ignored by every other dataset}
+
+\item{overrides}{optional data.frame of manual id resolution
+(\code{metadata/taxon_override.csv}) for coarse taxa (phyto groups, mammals)}
+
+\item{taxa}{logical; also build this dataset's \code{taxon} / \code{dataset_taxon} /
+\code{taxon_group} slices (default TRUE). Set FALSE to project against taxa
+references already present in \code{con}.}
 }
 \value{
 (invisibly) a named list of row counts for the core tables written
 }
 \description{
-The per-ingest (Phase 3) entry point: after an ingest has built its
-per-dataset tables, \code{emit_core_tables()} projects that dataset into the shared
-core family — \code{sample} (via \code{\link[=build_sample_reference]{build_sample_reference()}}, which auto-detects the
-dataset's event tables present in \code{con}), plus its \code{obs} occurrence headline,
-\code{obs_attribute} sub-occurrence detail, and \code{sample_measurement} effort — using the same
-validated projection the release assembly uses. Idempotent per connection for a
-single dataset's tables. Arms for \code{pic_zooplankton} (no measurements) and
-\code{calcofi_phytoplankton} (region-pooled, no grid_key) contribute \code{sample} only.
+The per-ingest entry point, and the authoritative projection: after an ingest
+has built its per-dataset tables, \code{emit_core_tables()} turns them into that
+dataset's slice of the shared core family — \code{sample} (via
+\code{\link[=build_sample_reference]{build_sample_reference()}}, which auto-detects the dataset's event tables
+present in \code{con}), its \code{obs} occurrence headline, \code{obs_attribute}
+sub-occurrence detail, \code{sample_measurement} event-level effort, and its slice
+of the taxa references (\code{taxon} / \code{dataset_taxon} / \code{taxon_group}). These
+shards ARE the ingest's parquet output; \code{release_database.qmd} concatenates
+them rather than re-deriving the core from per-dataset tables (which is how
+the two projections drifted apart). \code{pic_zooplankton} (no measurements)
+contributes \code{sample} only.
 }
 \details{
-The bio arms resolve \code{taxon_key} through \code{dataset_taxon}, which is built
-centrally by the release assembly (\code{\link[=build_dataset_taxon]{build_dataset_taxon()}}) rather than by
-each ingest. When that table is absent — the normal case inside an ingest —
-an empty stub is created so the projection still runs with \code{taxon_key} NULL
-and the release fills it in; without the stub the arm's \verb{LEFT JOIN} raises a
-catalog error.
+\code{taxon_key} is resolved here, at ingest time. Datasets whose taxon lives in a
+vocabulary table (ichthyo \code{species}, \code{zoodb_taxon}, \code{bird_mammal_species}, …)
+resolve through \code{dataset_taxon}; datasets that bake the taxon into the
+measurement type name (cufes \code{sardine_eggs}, phyllosoma \code{phyllosoma_stage_3})
+resolve through \code{measurement_taxon} — pass \code{metadata/measurement_taxon.csv}
+and \code{metadata/taxon_override.csv}, or those arms project zero rows.
+}
+\examples{
+\dontrun{
+mt <- readr::read_csv(here::here("metadata/measurement_taxon.csv"))
+ov <- readr::read_csv(here::here("metadata/taxon_override.csv"))
+core <- emit_core_tables(con, "swfsc_cufes", measurement_taxon = mt, overrides = ov)
+}
 }
 \concept{model}
