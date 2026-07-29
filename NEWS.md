@@ -1,3 +1,16 @@
+# calcofi4db 2.15.0
+
+- **`sync_to_gcs()` transfers in parallel by default** (`parallel = TRUE`). It
+  previously spawned one `gcloud storage cp` process per file and one
+  `gcloud storage rm` per stale object, so an ingest with a Hive-partitioned
+  table serialised its whole upload — `obs_ctd_full` is 96 partitions / 4.9 GB,
+  and on a slow link that upload ran at ~1.3 MiB/s and dominated the ingest's
+  wall clock. The default path now issues a single `gcloud storage rsync -r`,
+  which transfers concurrently and applies `delete_stale` via
+  `--delete-unmatched-destination-objects`. The per-file path remains at
+  `parallel = FALSE` for callers that need the per-file action tibble; its stale
+  deletes are now batched into one `rm` invocation.
+
 # calcofi4db 2.14.0
 
 - **`site_key` and `order_occ` promoted onto the core `sample` table.** Both are

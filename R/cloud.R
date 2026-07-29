@@ -175,6 +175,13 @@ copy_gcs_file <- function(src, dst) {
 #'   (e.g. `c(".DS_Store", "*.tmp")`). Applied to relative file paths.
 #' @param delete_stale If TRUE, delete GCS files that no longer exist
 #'   locally. Default FALSE. Ignored in archive mode.
+#' @param parallel If TRUE (default), mirror with a single `gcloud storage
+#'   rsync -r`, which transfers concurrently. The per-file path issues one
+#'   `gcloud storage cp` process per file and one `rm` per stale object, which
+#'   serialises the whole upload — an ingest with a Hive-partitioned table
+#'   (obs_ctd_full is 96 partitions / 4.9 GB) spends most of its wall clock in
+#'   process startup. Set FALSE for the per-file path when you need the detailed
+#'   per-file action tibble or crc32c-level skip reporting.
 #' @param log_to_gcs If TRUE, write a timestamped JSON action log to
 #'   `gs://{bucket}/{gcs_prefix}/_logs/sync_YYYY-MM-DD_HHMMSS.json`.
 #' @param archive If TRUE, use archive mode: creates a timestamped
@@ -229,6 +236,7 @@ sync_to_gcs <- function(
     archive      = FALSE,
     provider     = NULL,
     dataset      = NULL,
+    parallel     = TRUE,
     verbose      = TRUE) {
 
   # archive mode: delegate to archive logic
@@ -242,6 +250,36 @@ sync_to_gcs <- function(
       gcs_bucket     = bucket,
       archive_prefix = gcs_prefix,
       verbose        = verbose))
+  }
+
+  # --- parallel mirror (default): one rsync, concurrent transfers ------------
+  # `gcloud storage rsync` compares by size+mtime (and checksum where needed) and
+  # transfers in parallel, so it subsumes the crc32c skip logic below at a
+  # fraction of the wall clock. It returns a coarser result (counts, not a
+  # per-file tibble), which is why the per-file path is still available.
+  if (isTRUE(parallel)) {
+    gcloud <- find_gcloud()
+    args <- c("storage", "rsync", "-r")
+    if (isTRUE(delete_stale)) args <- c(args, "--delete-unmatched-destination-objects")
+    for (pat in exclude %||% character())
+      args <- c(args, "--exclude", utils::glob2rx(pat))
+    dest <- glue::glue("gs://{bucket}/{gcs_prefix}")
+    if (verbose) message(glue::glue("rsync {local_dir} -> {dest}"))
+    out <- system2(gcloud, c(args, shQuote(local_dir), shQuote(dest)),
+                   stdout = TRUE, stderr = TRUE)
+    rc <- attr(out, "status") %||% 0L
+    if (rc != 0)
+      stop(glue::glue("gcloud storage rsync failed ({rc}): ",
+                      "{paste(utils::tail(out, 20), collapse = '\n')}"))
+    n_copy <- sum(grepl("^Copying", out))
+    n_rm   <- sum(grepl("^Removing", out))
+    if (verbose)
+      message(glue::glue("Sync complete: {n_copy} copied, {n_rm} removed (rsync)"))
+    return(tibble::tibble(
+      file   = c(rep("<rsync>", n_copy), rep("<rsync>", n_rm)),
+      action = c(rep("uploaded", n_copy), rep("deleted", n_rm)),
+      size   = NA_real_,
+      reason = "parallel rsync"))
   }
 
   # --- mirror mode ---
@@ -371,12 +409,13 @@ sync_to_gcs <- function(
     stale_files <- setdiff(gcs_manifest$name, local_manifest$name)
     if (length(stale_files) > 0) {
       gcloud <- find_gcloud()
+      # one `rm` for every stale object, not one process per object
+      uris <- glue::glue("gs://{bucket}/{gcs_prefix}/{stale_files}")
+      system2(gcloud, c("storage", "rm", shQuote(uris)),
+              stdout = FALSE, stderr = FALSE)
+      if (verbose) message(glue::glue("  Deleted {length(stale_files)} stale object(s)"))
       stale_results <- purrr::map_dfr(stale_files, function(f) {
-        gcs_path <- glue::glue("gs://{bucket}/{gcs_prefix}/{f}")
         gcs_sz <- gcs_manifest$size[gcs_manifest$name == f]
-        cmd <- glue::glue('"{gcloud}" storage rm "{gcs_path}"')
-        system(cmd, intern = TRUE, ignore.stderr = TRUE)
-        if (verbose) message(glue::glue("  Deleted {f} (stale)"))
         tibble::tibble(
           file = f, action = "deleted",
           size = if (length(gcs_sz) > 0) gcs_sz[1] else NA_real_,

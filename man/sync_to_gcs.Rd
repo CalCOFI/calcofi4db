@@ -15,6 +15,7 @@ sync_to_gcs(
   archive = FALSE,
   provider = NULL,
   dataset = NULL,
+  parallel = TRUE,
   verbose = TRUE
 )
 }
@@ -43,6 +44,13 @@ immutable snapshot. Requires \code{provider} and \code{dataset}.}
 \item{provider}{Data provider (required when \code{archive = TRUE})}
 
 \item{dataset}{Dataset name (required when \code{archive = TRUE})}
+
+\item{parallel}{If TRUE (default), mirror with a single \verb{gcloud storage rsync -r}, which transfers concurrently. The per-file path issues one
+\verb{gcloud storage cp} process per file and one \code{rm} per stale object, which
+serialises the whole upload — an ingest with a Hive-partitioned table
+(obs_ctd_full is 96 partitions / 4.9 GB) spends most of its wall clock in
+process startup. Set FALSE for the per-file path when you need the detailed
+per-file action tibble or crc32c-level skip reporting.}
 
 \item{verbose}{Print per-file status messages (default: TRUE)}
 }
