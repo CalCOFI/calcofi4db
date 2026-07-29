@@ -1041,7 +1041,8 @@ core_output_tables <- function(con, extra = NULL) {
 # the containment FK from parent_sample_key, and the event-level effort columns
 # by pivoting sample_measurement back out of long form.
 .compat_event_sql <- function(dataset_key, sample_type, id_col, parent_col = NULL,
-                              cols = character(), measures = character()) {
+                              cols = character(), measures = character(),
+                              sample_tbl = "sample") {
   sel <- c(
     glue::glue("split_part(s.sample_key, ':', 3) AS {id_col}"),
     if (!is.null(parent_col))
@@ -1054,7 +1055,7 @@ core_output_tables <- function(con, extra = NULL) {
   grp <- seq_len(length(sel) - length(measures))
   glue::glue(
     "SELECT {paste(sel, collapse = ',\n         ')}
-     FROM {if (length(measures)) 'sample s LEFT JOIN sample_measurement m USING (sample_key)' else 'sample s'}
+     FROM {if (length(measures)) paste0(sample_tbl, ' s LEFT JOIN sample_measurement m USING (sample_key)') else paste0(sample_tbl, ' s')}
      WHERE s.dataset_key = '{dataset_key}' AND s.sample_type = '{sample_type}'",
     if (length(measures)) glue::glue("\n     GROUP BY {paste(grp, collapse = ', ')}") else "")
 }
@@ -1068,21 +1069,36 @@ core_output_tables <- function(con, extra = NULL) {
      FROM obs WHERE dataset_key = '{dataset_key}'")
 }
 
-.compat_specs <- function(dataset_key) {
+.compat_specs <- function(dataset_key, sample_tbl = "sample") {
   switch(dataset_key,
     "swfsc_ichthyo" = list(
       site = .compat_event_sql("swfsc_ichthyo", "site", "site_uuid", NULL,
         c(order_occ = "order_occ", longitude = "longitude", latitude = "latitude",
           cruise_key = "cruise_key", geom = "geom", grid_key = "grid_key",
-          site_key = "site_key")),
+          site_key = "site_key"), sample_tbl = sample_tbl),
       tow = .compat_event_sql("swfsc_ichthyo", "tow", "tow_uuid", "site_uuid",
-        c(tow_type_key = "tow_type", datetime_start_utc = "datetime")),
+        c(tow_type_key = "tow_type", datetime_start_utc = "datetime"),
+        sample_tbl = sample_tbl),
       net = .compat_event_sql("swfsc_ichthyo", "net", "net_uuid", "tow_uuid",
         character(),
         c(standard_haul_factor = "std_haul_factor", volume_sampled = "volume_sampled",
           prop_sorted = "prop_sorted", smallplankton = "small_plankton_biomass",
-          totalplankton = "total_plankton_biomass"))),
+          totalplankton = "total_plankton_biomass"), sample_tbl = sample_tbl)),
     "calcofi_bottle" = list(
+      # cast/bottle event tables: downstream ingests (dic) match against these by
+      # site_key + datetime, then by depth, so they must come back from the core.
+      casts = glue::glue(
+        "SELECT CAST(split_part(s.sample_key, ':', 3) AS BIGINT) AS cast_id,
+                s.site_key, s.grid_key, s.cruise_key, s.order_occ,
+                s.latitude, s.longitude, s.datetime AS datetime_start_utc, s.geom
+         FROM {sample_tbl} s
+         WHERE s.dataset_key = 'calcofi_bottle' AND s.sample_type = 'cast'"),
+      bottle = glue::glue(
+        "SELECT CAST(split_part(s.sample_key, ':', 3) AS BIGINT) AS bottle_id,
+                CAST(split_part(s.parent_sample_key, ':', 3) AS BIGINT) AS cast_id,
+                s.site_key, s.depth_min_m AS depth_m
+         FROM {sample_tbl} s
+         WHERE s.dataset_key = 'calcofi_bottle' AND s.sample_type = 'bottle'"),
       # bottom_depth is an event property promoted into sample_measurement, not a
       # cast *condition*, so exclude it here or it reappears as a phantom row
       cast_condition = "
@@ -1142,20 +1158,26 @@ core_output_tables <- function(con, extra = NULL) {
 #' @param dataset_key provider_dataset to rebuild views for
 #' @param replace logical; drop an existing table/view of the same name first
 #'   (default TRUE — the ingest still has the real tables in scope)
+#' @param sample_tbl name of the core `sample` table to read. Override when a
+#'   downstream ingest loads ANOTHER dataset's shard as a reference — e.g. dic
+#'   loads bottle's `sample` as `_bottle_sample` so rebuilding `casts`/`bottle`
+#'   does not collide with the `sample` dic builds for itself.
 #' @return (invisibly) character vector of view names created
 #' @export
 #' @concept model
-create_compat_views <- function(con, dataset_key, replace = TRUE) {
-  specs <- .compat_specs(dataset_key)
+create_compat_views <- function(con, dataset_key, replace = TRUE,
+                                sample_tbl = "sample") {
+  specs <- .compat_specs(dataset_key, sample_tbl = sample_tbl)
   if (is.null(specs)) return(invisible(character()))
   made <- character()
   present <- DBI::dbListTables(con)
   for (nm in names(specs)) {
     # a view can only be built if the core tables it reads are present: the
     # effort pivot needs sample_measurement, the measurement triples need obs.
-    need <- intersect(c("sample", "sample_measurement", "obs"),
+    need <- intersect(c(sample_tbl, "sample_measurement", "obs"),
                       unlist(regmatches(specs[[nm]], gregexpr(
-                        "sample_measurement|\\bsample\\b|\\bobs\\b", specs[[nm]]))))
+                        paste0("sample_measurement|\\b", sample_tbl, "\\b|\\bobs\\b"),
+                        specs[[nm]]))))
     missing <- setdiff(need, present)
     if (length(missing)) {
       message("create_compat_views(): skipping ", nm, " (needs ",

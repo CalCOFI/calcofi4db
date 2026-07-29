@@ -4,7 +4,7 @@
 \alias{create_compat_views}
 \title{Recreate per-dataset tables as VIEWs over the consolidated core}
 \usage{
-create_compat_views(con, dataset_key, replace = TRUE)
+create_compat_views(con, dataset_key, replace = TRUE, sample_tbl = "sample")
 }
 \arguments{
 \item{con}{a DuckDB connection holding the core tables}
@@ -13,6 +13,11 @@ create_compat_views(con, dataset_key, replace = TRUE)
 
 \item{replace}{logical; drop an existing table/view of the same name first
 (default TRUE — the ingest still has the real tables in scope)}
+
+\item{sample_tbl}{name of the core \code{sample} table to read. Override when a
+downstream ingest loads ANOTHER dataset's shard as a reference — e.g. dic
+loads bottle's \code{sample} as \verb{_bottle_sample} so rebuilding \code{casts}/\code{bottle}
+does not collide with the \code{sample} dic builds for itself.}
 }
 \value{
 (invisibly) character vector of view names created

@@ -1,3 +1,18 @@
+# calcofi4db 2.16.0
+
+- **`create_compat_views()` rebuilds `casts` and `bottle`** from the core, and
+  gained a `sample_tbl` argument. `calcofi_dic` matches its samples against
+  `calcofi_bottle`'s cast/bottle event tables (`match_by_site_datetime()` then
+  `match_nearest_by_depth()`), which stopped existing once bottle began
+  publishing the core — the one ingest that depends on another's *event* tables
+  rather than just the shared references. `cast_id`/`bottle_id` come back from
+  the namespaced `sample_key` and the cast FK from `parent_sample_key`.
+
+  `sample_tbl` matters for correctness, not convenience: dic builds its own
+  `sample` later in `emit_core_tables()`, so loading bottle's shard as plain
+  `sample` would have it replaced mid-render and the views would break. dic
+  loads it as `_bottle_sample` and points the views there.
+
 # calcofi4db 2.15.0
 
 - **`sync_to_gcs()` transfers in parallel by default** (`parallel = TRUE`). It

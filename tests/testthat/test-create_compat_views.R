@@ -176,3 +176,42 @@ test_that("bottom_depth_m becomes a sample_measurement on the cast", {
   cc <- DBI::dbGetQuery(con, "SELECT condition_type FROM cast_condition")
   expect_equal(cc$condition_type, "wind_speed")
 })
+
+test_that("bottle casts/bottle rebuild from a renamed sample shard", {
+  # dic loads calcofi_bottle's `sample` shard as a reference and rebuilds the
+  # cast/bottle event tables from it — under a distinct name, because dic builds
+  # its own `sample` afterwards and the views must survive that.
+  skip_if_not_installed("duckdb")
+  con <- get_duckdb_con(":memory:")
+  on.exit(close_duckdb(con))
+  load_duckdb_extension(con, "spatial")
+
+  DBI::dbExecute(con, "CREATE TABLE _bottle_sample AS
+    SELECT 'calcofi_bottle:cast:5'::VARCHAR sample_key, 'cast'::VARCHAR sample_type,
+           NULL::VARCHAR parent_sample_key, 'calcofi_bottle'::VARCHAR dataset_key,
+           'st1-ln1'::VARCHAR grid_key, '090.0 060.0'::VARCHAR site_key,
+           '2018-04-33RR'::VARCHAR cruise_key, 2::INTEGER order_occ,
+           33.0::DOUBLE latitude, -119.0::DOUBLE longitude,
+           TIMESTAMP '2018-04-05 12:00:00' datetime,
+           NULL::DOUBLE depth_min_m, NULL::DOUBLE geom_placeholder
+    UNION ALL SELECT 'calcofi_bottle:bottle:77', 'bottle', 'calcofi_bottle:cast:5',
+           'calcofi_bottle', 'st1-ln1', '090.0 060.0', '2018-04-33RR', 2,
+           33.0, -119.0, TIMESTAMP '2018-04-05 12:00:00', 20.0, NULL")
+  DBI::dbExecute(con, "ALTER TABLE _bottle_sample ADD COLUMN geom VARCHAR")
+
+  made <- create_compat_views(con, "calcofi_bottle", sample_tbl = "_bottle_sample")
+  expect_true(all(c("casts", "bottle") %in% made))
+
+  ca <- DBI::dbGetQuery(con, "SELECT cast_id, site_key, grid_key, order_occ FROM casts")
+  expect_equal(ca$cast_id, 5)              # recovered from the namespaced key
+  expect_equal(ca$site_key, "090.0 060.0")
+  expect_equal(ca$order_occ, 2L)
+
+  bo <- DBI::dbGetQuery(con, "SELECT bottle_id, cast_id, depth_m FROM bottle")
+  expect_equal(bo$bottle_id, 77)
+  expect_equal(bo$cast_id, 5)              # parent cast via parent_sample_key
+  expect_equal(bo$depth_m, 20)
+
+  # the source name must be honoured: a plain `sample` must NOT be required
+  expect_false("sample" %in% DBI::dbListTables(con))
+})
