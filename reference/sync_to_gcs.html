@@ -16,7 +16,7 @@ Only uploads files that are new or changed."><!-- Google tag (gtag.js) --><scrip
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.14.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.16.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -63,6 +63,7 @@ Only uploads files that are new or changed.</p>
 <span>  archive <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  provider <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  dataset <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  parallel <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -114,6 +115,15 @@ immutable snapshot. Requires <code>provider</code> and <code>dataset</code>.</p>
 
 <dt id="arg-dataset">dataset<a class="anchor" aria-label="anchor" href="#arg-dataset"></a></dt>
 <dd><p>Dataset name (required when <code>archive = TRUE</code>)</p></dd>
+
+
+<dt id="arg-parallel">parallel<a class="anchor" aria-label="anchor" href="#arg-parallel"></a></dt>
+<dd><p>If TRUE (default), mirror with a single <code>gcloud storage rsync -r</code>, which transfers concurrently. The per-file path issues one
+<code>gcloud storage cp</code> process per file and one <code>rm</code> per stale object, which
+serialises the whole upload — an ingest with a Hive-partitioned table
+(obs_ctd_full is 96 partitions / 4.9 GB) spends most of its wall clock in
+process startup. Set FALSE for the per-file path when you need the detailed
+per-file action tibble or crc32c-level skip reporting.</p></dd>
 
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>

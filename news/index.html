@@ -14,7 +14,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.14.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.16.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -42,6 +42,18 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="2.16.0" id="calcofi4db-2160">calcofi4db 2.16.0<a class="anchor" aria-label="anchor" href="#calcofi4db-2160"></a></h2>
+<ul><li>
+<p><strong><code><a href="../reference/create_compat_views.html">create_compat_views()</a></code> rebuilds <code>casts</code> and <code>bottle</code></strong> from the core, and gained a <code>sample_tbl</code> argument. <code>calcofi_dic</code> matches its samples against <code>calcofi_bottle</code>’s cast/bottle event tables (<code><a href="../reference/match_by_site_datetime.html">match_by_site_datetime()</a></code> then <code><a href="../reference/match_nearest_by_depth.html">match_nearest_by_depth()</a></code>), which stopped existing once bottle began publishing the core — the one ingest that depends on another’s <em>event</em> tables rather than just the shared references. <code>cast_id</code>/<code>bottle_id</code> come back from the namespaced <code>sample_key</code> and the cast FK from <code>parent_sample_key</code>.</p>
+<p><code>sample_tbl</code> matters for correctness, not convenience: dic builds its own <code>sample</code> later in <code><a href="../reference/emit_core_tables.html">emit_core_tables()</a></code>, so loading bottle’s shard as plain <code>sample</code> would have it replaced mid-render and the views would break. dic loads it as <code>_bottle_sample</code> and points the views there.</p>
+</li>
+</ul></div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="2.15.0" id="calcofi4db-2150">calcofi4db 2.15.0<a class="anchor" aria-label="anchor" href="#calcofi4db-2150"></a></h2>
+<ul><li>
+<strong><code><a href="../reference/sync_to_gcs.html">sync_to_gcs()</a></code> transfers in parallel by default</strong> (<code>parallel = TRUE</code>). It previously spawned one <code>gcloud storage cp</code> process per file and one <code>gcloud storage rm</code> per stale object, so an ingest with a Hive-partitioned table serialised its whole upload — <code>obs_ctd_full</code> is 96 partitions / 4.9 GB, and on a slow link that upload ran at ~1.3 MiB/s and dominated the ingest’s wall clock. The default path now issues a single <code>gcloud storage rsync -r</code>, which transfers concurrently and applies <code>delete_stale</code> via <code>--delete-unmatched-destination-objects</code>. The per-file path remains at <code>parallel = FALSE</code> for callers that need the per-file action tibble; its stale deletes are now batched into one <code>rm</code> invocation.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.14.0" id="calcofi4db-2140">calcofi4db 2.14.0<a class="anchor" aria-label="anchor" href="#calcofi4db-2140"></a></h2>
 <ul><li><p><strong><code>site_key</code> and <code>order_occ</code> promoted onto the core <code>sample</code> table.</strong> Both are event-level and cross-dataset — <code>site_key</code> appears on 13 of the 18 source event tables and is the station natural key (<code>grid_key</code> is the <em>derived</em> grid cell, not the source’s own id); <code>order_occ</code> is the order of station occupation. Previously both were dropped by consolidation, which made <code>site</code>, <code>casts</code> and <code>ctd_cast</code> unreconstructable from the core. Source spelling varies (<code>order_occ</code> vs <code>ord_occ</code>) and CTD stores it as text, so it is normalised to <code>INTEGER</code>. <code>tow</code>/<code>net</code> inherit both from their parent site, as they already do for <code>grid_key</code>/<code>cruise_key</code>.</p></li>

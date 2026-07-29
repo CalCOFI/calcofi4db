@@ -17,6 +17,7 @@ sync_to_gcs(
   archive = FALSE,
   provider = NULL,
   dataset = NULL,
+  parallel = TRUE,
   verbose = TRUE
 )
 ```
@@ -67,6 +68,17 @@ sync_to_gcs(
 - dataset:
 
   Dataset name (required when `archive = TRUE`)
+
+- parallel:
+
+  If TRUE (default), mirror with a single `gcloud storage rsync -r`,
+  which transfers concurrently. The per-file path issues one
+  `gcloud storage cp` process per file and one `rm` per stale object,
+  which serialises the whole upload — an ingest with a Hive-partitioned
+  table (obs_ctd_full is 96 partitions / 4.9 GB) spends most of its wall
+  clock in process startup. Set FALSE for the per-file path when you
+  need the detailed per-file action tibble or crc32c-level skip
+  reporting.
 
 - verbose:
 

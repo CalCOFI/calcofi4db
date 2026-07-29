@@ -1,5 +1,41 @@
 # Changelog
 
+## calcofi4db 2.16.0
+
+- **[`create_compat_views()`](https://calcofi.io/calcofi4db/reference/create_compat_views.md)
+  rebuilds `casts` and `bottle`** from the core, and gained a
+  `sample_tbl` argument. `calcofi_dic` matches its samples against
+  `calcofi_bottle`’s cast/bottle event tables
+  ([`match_by_site_datetime()`](https://calcofi.io/calcofi4db/reference/match_by_site_datetime.md)
+  then
+  [`match_nearest_by_depth()`](https://calcofi.io/calcofi4db/reference/match_nearest_by_depth.md)),
+  which stopped existing once bottle began publishing the core — the one
+  ingest that depends on another’s *event* tables rather than just the
+  shared references. `cast_id`/`bottle_id` come back from the namespaced
+  `sample_key` and the cast FK from `parent_sample_key`.
+
+  `sample_tbl` matters for correctness, not convenience: dic builds its
+  own `sample` later in
+  [`emit_core_tables()`](https://calcofi.io/calcofi4db/reference/emit_core_tables.md),
+  so loading bottle’s shard as plain `sample` would have it replaced
+  mid-render and the views would break. dic loads it as `_bottle_sample`
+  and points the views there.
+
+## calcofi4db 2.15.0
+
+- **[`sync_to_gcs()`](https://calcofi.io/calcofi4db/reference/sync_to_gcs.md)
+  transfers in parallel by default** (`parallel = TRUE`). It previously
+  spawned one `gcloud storage cp` process per file and one
+  `gcloud storage rm` per stale object, so an ingest with a
+  Hive-partitioned table serialised its whole upload — `obs_ctd_full` is
+  96 partitions / 4.9 GB, and on a slow link that upload ran at ~1.3
+  MiB/s and dominated the ingest’s wall clock. The default path now
+  issues a single `gcloud storage rsync -r`, which transfers
+  concurrently and applies `delete_stale` via
+  `--delete-unmatched-destination-objects`. The per-file path remains at
+  `parallel = FALSE` for callers that need the per-file action tibble;
+  its stale deletes are now batched into one `rm` invocation.
+
 ## calcofi4db 2.14.0
 
 - **`site_key` and `order_occ` promoted onto the core `sample` table.**

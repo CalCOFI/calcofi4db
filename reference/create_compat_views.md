@@ -10,7 +10,7 @@ straight from `obs`.
 ## Usage
 
 ``` r
-create_compat_views(con, dataset_key, replace = TRUE)
+create_compat_views(con, dataset_key, replace = TRUE, sample_tbl = "sample")
 ```
 
 ## Arguments
@@ -27,6 +27,13 @@ create_compat_views(con, dataset_key, replace = TRUE)
 
   logical; drop an existing table/view of the same name first (default
   TRUE — the ingest still has the real tables in scope)
+
+- sample_tbl:
+
+  name of the core `sample` table to read. Override when a downstream
+  ingest loads ANOTHER dataset's shard as a reference — e.g. dic loads
+  bottle's `sample` as `_bottle_sample` so rebuilding `casts`/`bottle`
+  does not collide with the `sample` dic builds for itself.
 
 ## Value
 
