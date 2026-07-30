@@ -18,7 +18,8 @@ merge_taxon_shards(
   root = ".",
   priority = c("swfsc_ichthyo", "calcofi_bird_mammal_census", "cce-lter_zoodb",
     "cce-lter_zooscan", "calcofi_phytoplankton"),
-  parquet_dir = "data/parquet"
+  parquet_dir = "data/parquet",
+  exclude = release_excluded_datasets(root)
 )
 ```
 
@@ -39,6 +40,11 @@ merge_taxon_shards(
 - parquet_dir:
 
   directory holding the per-dataset output dirs
+
+- exclude:
+
+  dataset dir names to skip (see
+  [`core_shard_paths()`](https://calcofi.io/calcofi4db/reference/core_shard_paths.md))
 
 ## Value
 

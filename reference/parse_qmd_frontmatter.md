@@ -26,7 +26,9 @@ parse_qmd_frontmatter(workflows_dir = here::here(), pattern = "*.qmd")
 
 Tibble with columns: `qmd_file`, `target_name`, `workflow_type`,
 `dependency` (list column), `output`, `modifies` (list column of
-dependency table names this ingest inserts/modifies)
+dependency table names this ingest inserts/modifies), `in_release`
+(logical; `calcofi.in_release`, defaulting to `TRUE` — see
+[`release_excluded_datasets()`](https://calcofi.io/calcofi4db/reference/release_excluded_datasets.md))
 
 ## Examples
 

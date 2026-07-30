@@ -1,5 +1,42 @@
 # Changelog
 
+## calcofi4db 2.18.0
+
+- **New: hold an in-progress ingest out of the release** — an ingest
+  notebook can now declare `in_release: false` in its `calcofi:` YAML
+  block. It still runs in the pipeline and writes its full
+  `data/parquet/{provider}_{dataset}/` outputs (tables, `manifest.json`,
+  `relationships.json`, `metadata.json`), but every release-side
+  discovery step skips it, so a dataset under review cannot leak into a
+  frozen release.
+
+  The flag is **opt-out**: a notebook with no `in_release:` key is in
+  the release, so existing ingests are unaffected.
+
+  - [`release_excluded_datasets()`](https://calcofi.io/calcofi4db/reference/release_excluded_datasets.md)
+    (new, exported) resolves the flagged-out `provider_dataset` labels
+    from the notebooks in a workflows directory.
+  - [`read_ingest_yaml()`](https://calcofi.io/calcofi4db/reference/read_ingest_yaml.md)
+    gains `in_release_only` (default `FALSE`).
+  - [`parse_qmd_frontmatter()`](https://calcofi.io/calcofi4db/reference/parse_qmd_frontmatter.md)
+    returns a new `in_release` logical column.
+  - [`build_release_table_registry()`](https://calcofi.io/calcofi4db/reference/build_release_table_registry.md)
+    omits flagged-out ingests entirely.
+  - [`core_shard_paths()`](https://calcofi.io/calcofi4db/reference/core_shard_paths.md),
+    [`assemble_core_table()`](https://calcofi.io/calcofi4db/reference/assemble_core_table.md),
+    [`merge_taxon_shards()`](https://calcofi.io/calcofi4db/reference/merge_taxon_shards.md)
+    and
+    [`assemble_core()`](https://calcofi.io/calcofi4db/reference/assemble_core.md)
+    gain `exclude`, defaulting to
+    [`release_excluded_datasets()`](https://calcofi.io/calcofi4db/reference/release_excluded_datasets.md),
+    so a flagged-out dataset’s core shards are never unioned into the
+    release.
+  - [`build_targets_list()`](https://calcofi.io/calcofi4db/reference/build_targets_list.md)
+    no longer makes a flagged-out ingest an `[auto]` dependency of the
+    release caboose. The release ignores its outputs, so the edge only
+    served to invalidate and re-freeze the whole release whenever an
+    in-progress ingest changed. The ingest still runs as its own target.
+
 ## calcofi4db 2.17.0
 
 - **New: dataset-agnostic netCDF planning** —

@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.17.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.18.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -45,6 +45,25 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="2.18.0" id="calcofi4db-2180">calcofi4db 2.18.0<a class="anchor" aria-label="anchor" href="#calcofi4db-2180"></a></h2>
+<ul><li>
+<p><strong>New: hold an in-progress ingest out of the release</strong> — an ingest notebook can now declare <code>in_release: false</code> in its <code>calcofi:</code> YAML block. It still runs in the pipeline and writes its full <code>data/parquet/{provider}_{dataset}/</code> outputs (tables, <code>manifest.json</code>, <code>relationships.json</code>, <code>metadata.json</code>), but every release-side discovery step skips it, so a dataset under review cannot leak into a frozen release.</p>
+<p>The flag is <strong>opt-out</strong>: a notebook with no <code>in_release:</code> key is in the release, so existing ingests are unaffected.</p>
+<ul><li>
+<code><a href="../reference/release_excluded_datasets.html">release_excluded_datasets()</a></code> (new, exported) resolves the flagged-out <code>provider_dataset</code> labels from the notebooks in a workflows directory.</li>
+<li>
+<code><a href="../reference/read_ingest_yaml.html">read_ingest_yaml()</a></code> gains <code>in_release_only</code> (default <code>FALSE</code>).</li>
+<li>
+<code><a href="../reference/parse_qmd_frontmatter.html">parse_qmd_frontmatter()</a></code> returns a new <code>in_release</code> logical column.</li>
+<li>
+<code><a href="../reference/build_release_table_registry.html">build_release_table_registry()</a></code> omits flagged-out ingests entirely.</li>
+<li>
+<code><a href="../reference/core_shard_paths.html">core_shard_paths()</a></code>, <code><a href="../reference/assemble_core_table.html">assemble_core_table()</a></code>, <code><a href="../reference/merge_taxon_shards.html">merge_taxon_shards()</a></code> and <code><a href="../reference/assemble_core.html">assemble_core()</a></code> gain <code>exclude</code>, defaulting to <code><a href="../reference/release_excluded_datasets.html">release_excluded_datasets()</a></code>, so a flagged-out dataset’s core shards are never unioned into the release.</li>
+<li>
+<code><a href="../reference/build_targets_list.html">build_targets_list()</a></code> no longer makes a flagged-out ingest an <code>[auto]</code> dependency of the release caboose. The release ignores its outputs, so the edge only served to invalidate and re-freeze the whole release whenever an in-progress ingest changed. The ingest still runs as its own target.</li>
+</ul></li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.17.0" id="calcofi4db-2170">calcofi4db 2.17.0<a class="anchor" aria-label="anchor" href="#calcofi4db-2170"></a></h2>
 <ul><li>

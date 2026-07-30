@@ -5,7 +5,12 @@ Find the per-dataset parquet shards for a core table
 ## Usage
 
 ``` r
-core_shard_paths(table, root = ".", parquet_dir = "data/parquet")
+core_shard_paths(
+  table,
+  root = ".",
+  parquet_dir = "data/parquet",
+  exclude = release_excluded_datasets(root)
+)
 ```
 
 ## Arguments
@@ -21,6 +26,14 @@ core_shard_paths(table, root = ".", parquet_dir = "data/parquet")
 - parquet_dir:
 
   directory holding the per-dataset output dirs
+
+- exclude:
+
+  dataset dir names to skip; defaults to the ingests that declare
+  `calcofi.in_release: false` (see
+  [`release_excluded_datasets()`](https://calcofi.io/calcofi4db/reference/release_excluded_datasets.md)),
+  so an in-progress ingest's shards stay out of the release even though
+  its parquet is on disk
 
 ## Value
 

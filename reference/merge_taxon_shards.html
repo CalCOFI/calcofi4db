@@ -29,7 +29,7 @@ build_taxon_reference() did when it saw every source at once."><!-- Google tag (
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.17.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.18.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -75,7 +75,8 @@ plankton vocabularies, then everything else. This reproduces the coalescing
 <span>  root <span class="op">=</span> <span class="st">"."</span>,</span>
 <span>  priority <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"swfsc_ichthyo"</span>, <span class="st">"calcofi_bird_mammal_census"</span>, <span class="st">"cce-lter_zoodb"</span>,</span>
 <span>    <span class="st">"cce-lter_zooscan"</span>, <span class="st">"calcofi_phytoplankton"</span><span class="op">)</span>,</span>
-<span>  parquet_dir <span class="op">=</span> <span class="st">"data/parquet"</span></span>
+<span>  parquet_dir <span class="op">=</span> <span class="st">"data/parquet"</span>,</span>
+<span>  exclude <span class="op">=</span> <span class="fu"><a href="release_excluded_datasets.html">release_excluded_datasets</a></span><span class="op">(</span><span class="va">root</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -97,6 +98,10 @@ plankton vocabularies, then everything else. This reproduces the coalescing
 
 <dt id="arg-parquet-dir">parquet_dir<a class="anchor" aria-label="anchor" href="#arg-parquet-dir"></a></dt>
 <dd><p>directory holding the per-dataset output dirs</p></dd>
+
+
+<dt id="arg-exclude">exclude<a class="anchor" aria-label="anchor" href="#arg-exclude"></a></dt>
+<dd><p>dataset dir names to skip (see <code><a href="core_shard_paths.html">core_shard_paths()</a></code>)</p></dd>
 
 </dl></div>
     <div class="section level2">

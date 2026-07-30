@@ -14,7 +14,8 @@ assemble_core(
   con,
   root = ".",
   supplemental = TRUE,
-  parquet_dir = "data/parquet"
+  parquet_dir = "data/parquet",
+  exclude = release_excluded_datasets(root)
 )
 ```
 
@@ -35,6 +36,13 @@ assemble_core(
 - parquet_dir:
 
   directory holding the per-dataset output dirs
+
+- exclude:
+
+  dataset dir names to skip; defaults to the ingests declaring
+  `calcofi.in_release: false` (see
+  [`release_excluded_datasets()`](https://calcofi.io/calcofi4db/reference/release_excluded_datasets.md)).
+  Resolved once here and threaded to every shard read.
 
 ## Value
 

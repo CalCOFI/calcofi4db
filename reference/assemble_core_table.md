@@ -13,7 +13,8 @@ assemble_core_table(
   root = ".",
   id_col = NULL,
   order_by = NULL,
-  parquet_dir = "data/parquet"
+  parquet_dir = "data/parquet",
+  exclude = release_excluded_datasets(root)
 )
 ```
 
@@ -43,6 +44,11 @@ assemble_core_table(
 - parquet_dir:
 
   directory holding the per-dataset output dirs
+
+- exclude:
+
+  dataset dir names to skip (see
+  [`core_shard_paths()`](https://calcofi.io/calcofi4db/reference/core_shard_paths.md))
 
 ## Value
 

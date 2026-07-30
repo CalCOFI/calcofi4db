@@ -475,54 +475,84 @@ functions for local DuckDB wrangling (keys, IDs, table consolidation)
 
 - [`apply_data_corrections()`](https://calcofi.io/calcofi4db/reference/apply_data_corrections.md)
   : Apply Data Corrections
+
 - [`assign_deterministic_uuids()`](https://calcofi.io/calcofi4db/reference/assign_deterministic_uuids.md)
   : Assign deterministic UUIDs from composite key columns
+
 - [`assign_deterministic_uuids_md5()`](https://calcofi.io/calcofi4db/reference/assign_deterministic_uuids_md5.md)
   : Assign deterministic UUIDs using DuckDB-native md5
+
 - [`assign_sequential_ids()`](https://calcofi.io/calcofi4db/reference/assign_sequential_ids.md)
   : Assign Sequential IDs with Deterministic Sort Order
+
 - [`build_metadata_json()`](https://calcofi.io/calcofi4db/reference/build_metadata_json.md)
   : Build Metadata JSON for Parquet Outputs
+
 - [`build_relationships_json()`](https://calcofi.io/calcofi4db/reference/build_relationships_json.md)
   : Build Relationships JSON from dm Object
+
 - [`collect_cruise_key_mismatches()`](https://calcofi.io/calcofi4db/reference/collect_cruise_key_mismatches.md)
   : Collect Cruise Key Mismatches
+
 - [`collect_measurement_type_mismatches()`](https://calcofi.io/calcofi4db/reference/collect_measurement_type_mismatches.md)
   : Collect Measurement Type Mismatches
+
 - [`collect_ship_mismatches()`](https://calcofi.io/calcofi4db/reference/collect_ship_mismatches.md)
   : Collect Ship Mismatches
+
 - [`consolidate_ichthyo_tables()`](https://calcofi.io/calcofi4db/reference/consolidate_ichthyo_tables.md)
   : Consolidate Ichthyoplankton Tables into Tidy Format
+
 - [`convert_cruise_key_format()`](https://calcofi.io/calcofi4db/reference/convert_cruise_key_format.md)
   : Convert Old YYMMKK Cruise Key to YYYY-MM-NODC Format
+
 - [`create_cruise_key()`](https://calcofi.io/calcofi4db/reference/create_cruise_key.md)
   : Create Cruise Key from Ship NODC Code and Date
+
 - [`create_lookup_table()`](https://calcofi.io/calcofi4db/reference/create_lookup_table.md)
   : Create Lookup Table from Vocabulary Definitions
+
 - [`derive_measurement_type_datasets()`](https://calcofi.io/calcofi4db/reference/derive_measurement_type_datasets.md)
   : Derive measurement_type → contributing datasets from the data
+
 - [`enforce_column_types()`](https://calcofi.io/calcofi4db/reference/enforce_column_types.md)
   : Enforce Column Types Before Export
+
 - [`ingest_yaml_to_dataset_df()`](https://calcofi.io/calcofi4db/reference/ingest_yaml_to_dataset_df.md)
   : Build the dataset registry table from ingest YAML blocks
+
 - [`merge_metadata_json()`](https://calcofi.io/calcofi4db/reference/merge_metadata_json.md)
   : Merge Per-Ingest metadata.json into a Release-Level Sidecar
+
 - [`merge_relationships_json()`](https://calcofi.io/calcofi4db/reference/merge_relationships_json.md)
   : Merge Multiple Relationships JSON Files
+
 - [`propagate_natural_key()`](https://calcofi.io/calcofi4db/reference/propagate_natural_key.md)
   : Propagate Key from Parent to Child Table
+
 - [`read_calcofi_meta()`](https://calcofi.io/calcofi4db/reference/read_calcofi_meta.md)
   : Read the calcofi YAML block from a single workflow file
+
 - [`read_ingest_yaml()`](https://calcofi.io/calcofi4db/reference/read_ingest_yaml.md)
   : Read calcofi YAML blocks from ingest\_\*.qmd front matter
+
 - [`read_relationships_json()`](https://calcofi.io/calcofi4db/reference/read_relationships_json.md)
   : Read Relationships JSON and Optionally Apply to dm
+
+- [`release_excluded_datasets()`](https://calcofi.io/calcofi4db/reference/release_excluded_datasets.md)
+  :
+
+  Datasets held out of the release by `calcofi.in_release: false`
+
 - [`replace_uuid_with_id()`](https://calcofi.io/calcofi4db/reference/replace_uuid_with_id.md)
   : Replace UUIDs with Integer Foreign Keys
+
 - [`standardize_site_key()`](https://calcofi.io/calcofi4db/reference/standardize_site_key.md)
   : Standardize Site Key from Line and Station Columns
+
 - [`write_parquet_outputs()`](https://calcofi.io/calcofi4db/reference/write_parquet_outputs.md)
   : Write Tables to Parquet Files
+
 - [`write_spatial_manifest()`](https://calcofi.io/calcofi4db/reference/write_spatial_manifest.md)
   : Write Spatial Manifest
 

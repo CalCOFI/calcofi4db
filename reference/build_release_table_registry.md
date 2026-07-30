@@ -24,6 +24,13 @@ build_release_table_registry(workflows_dir = here::here())
 Tibble with columns: table, ingest, parquet_dir, gcs_prefix,
 partitioned, supplemental, canonical
 
+## Details
+
+Ingests that declare `calcofi.in_release: false` are omitted entirely —
+an in-progress ingest can write its parquet outputs without them
+entering the release. See
+[`release_excluded_datasets()`](https://calcofi.io/calcofi4db/reference/release_excluded_datasets.md).
+
 ## Examples
 
 ``` r
