@@ -4,13 +4,23 @@
 \alias{read_ingest_yaml}
 \title{Read calcofi YAML blocks from ingest_*.qmd front matter}
 \usage{
-read_ingest_yaml(workflow_dir, pattern = "^ingest_.*\\\\.qmd$")
+read_ingest_yaml(
+  workflow_dir,
+  pattern = "^ingest_.*\\\\.qmd$",
+  in_release_only = FALSE
+)
 }
 \arguments{
 \item{workflow_dir}{Directory containing the \code{ingest_*.qmd} files.}
 
 \item{pattern}{Regular expression matching ingest filenames
 (default \code{"^ingest_.*\\\\.qmd$"}).}
+
+\item{in_release_only}{Drop ingests that declare
+\code{calcofi.in_release: false} (default \code{FALSE}, i.e. return every
+ingest). \code{release_database.qmd} passes \code{TRUE} so an in-progress
+ingest does not reach the release's \code{dataset} table, ERD or
+\code{metadata.json}. See \code{\link[=release_excluded_datasets]{release_excluded_datasets()}}.}
 }
 \value{
 A named list keyed by \code{provider_dataset}. Each element is the

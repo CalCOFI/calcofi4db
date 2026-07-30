@@ -10,7 +10,8 @@ assemble_core_table(
   root = ".",
   id_col = NULL,
   order_by = NULL,
-  parquet_dir = "data/parquet"
+  parquet_dir = "data/parquet",
+  exclude = release_excluded_datasets(root)
 )
 }
 \arguments{
@@ -26,6 +27,8 @@ assemble_core_table(
 across re-runs of unchanged data}
 
 \item{parquet_dir}{directory holding the per-dataset output dirs}
+
+\item{exclude}{dataset dir names to skip (see \code{\link[=core_shard_paths]{core_shard_paths()}})}
 }
 \value{
 (invisibly) the row count written, or 0 when no shard exists

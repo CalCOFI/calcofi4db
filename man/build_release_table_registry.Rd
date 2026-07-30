@@ -20,6 +20,11 @@ ingests, marks the first occurrence as canonical. Excludes supplemental
 tables. Used by \code{release_database.qmd} to auto-discover table sources
 for GCS server-side copy.
 }
+\details{
+Ingests that declare \code{calcofi.in_release: false} are omitted entirely — an
+in-progress ingest can write its parquet outputs without them entering the
+release. See \code{\link[=release_excluded_datasets]{release_excluded_datasets()}}.
+}
 \examples{
 \dontrun{
 registry <- build_release_table_registry()

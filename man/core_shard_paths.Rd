@@ -4,7 +4,12 @@
 \alias{core_shard_paths}
 \title{Find the per-dataset parquet shards for a core table}
 \usage{
-core_shard_paths(table, root = ".", parquet_dir = "data/parquet")
+core_shard_paths(
+  table,
+  root = ".",
+  parquet_dir = "data/parquet",
+  exclude = release_excluded_datasets(root)
+)
 }
 \arguments{
 \item{table}{core table name (e.g. \code{"obs"})}
@@ -12,6 +17,11 @@ core_shard_paths(table, root = ".", parquet_dir = "data/parquet")
 \item{root}{workflows repo root (contains \verb{data/parquet/})}
 
 \item{parquet_dir}{directory holding the per-dataset output dirs}
+
+\item{exclude}{dataset dir names to skip; defaults to the ingests that
+declare \code{calcofi.in_release: false} (see \code{\link[=release_excluded_datasets]{release_excluded_datasets()}}), so
+an in-progress ingest's shards stay out of the release even though its
+parquet is on disk}
 }
 \value{
 character vector of readable parquet paths/globs, one per dataset

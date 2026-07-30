@@ -9,7 +9,8 @@ merge_taxon_shards(
   root = ".",
   priority = c("swfsc_ichthyo", "calcofi_bird_mammal_census", "cce-lter_zoodb",
     "cce-lter_zooscan", "calcofi_phytoplankton"),
-  parquet_dir = "data/parquet"
+  parquet_dir = "data/parquet",
+  exclude = release_excluded_datasets(root)
 )
 }
 \arguments{
@@ -20,6 +21,8 @@ merge_taxon_shards(
 \item{priority}{dataset dirs in descending priority}
 
 \item{parquet_dir}{directory holding the per-dataset output dirs}
+
+\item{exclude}{dataset dir names to skip (see \code{\link[=core_shard_paths]{core_shard_paths()}})}
 }
 \value{
 (invisibly) the row count of the merged \code{taxon}

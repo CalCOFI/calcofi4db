@@ -8,7 +8,8 @@ assemble_core(
   con,
   root = ".",
   supplemental = TRUE,
-  parquet_dir = "data/parquet"
+  parquet_dir = "data/parquet",
+  exclude = release_excluded_datasets(root)
 )
 }
 \arguments{
@@ -19,6 +20,10 @@ assemble_core(
 \item{supplemental}{include \code{obs_ctd_full} (default TRUE)}
 
 \item{parquet_dir}{directory holding the per-dataset output dirs}
+
+\item{exclude}{dataset dir names to skip; defaults to the ingests declaring
+\code{calcofi.in_release: false} (see \code{\link[=release_excluded_datasets]{release_excluded_datasets()}}). Resolved
+once here and threaded to every shard read.}
 }
 \value{
 (invisibly) a named list of row counts

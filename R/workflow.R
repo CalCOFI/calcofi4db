@@ -538,6 +538,10 @@ integrate_to_working_ducklake <- function(
 #' tables. Used by `release_database.qmd` to auto-discover table sources
 #' for GCS server-side copy.
 #'
+#' Ingests that declare `calcofi.in_release: false` are omitted entirely — an
+#' in-progress ingest can write its parquet outputs without them entering the
+#' release. See [release_excluded_datasets()].
+#'
 #' @param workflows_dir Path to the workflows directory (default: `here::here()`)
 #'
 #' @return Tibble with columns: table, ingest, parquet_dir, gcs_prefix,
@@ -560,7 +564,7 @@ build_release_table_registry <- function(workflows_dir = here::here()) {
   wf <- parse_qmd_frontmatter(workflows_dir)
 
   ingest_dirs <- wf |>
-    dplyr::filter(workflow_type %in% c("ingest", "spatial")) |>
+    dplyr::filter(workflow_type %in% c("ingest", "spatial"), in_release) |>
     dplyr::mutate(parquet_dir = file.path(workflows_dir, dirname(output)))
 
   registry <- purrr::map_dfr(seq_len(nrow(ingest_dirs)), function(i) {
@@ -640,7 +644,9 @@ build_release_table_registry <- function(workflows_dir = here::here()) {
 #'
 #' @return Tibble with columns: `qmd_file`, `target_name`, `workflow_type`,
 #'   `dependency` (list column), `output`, `modifies` (list column of
-#'   dependency table names this ingest inserts/modifies)
+#'   dependency table names this ingest inserts/modifies), `in_release`
+#'   (logical; `calcofi.in_release`, defaulting to `TRUE` — see
+#'   [release_excluded_datasets()])
 #' @export
 #' @concept workflow
 #'
@@ -680,7 +686,9 @@ parse_qmd_frontmatter <- function(
       workflow_type = cc$workflow_type  %||% NA_character_,
       dependency    = list(cc$dependency %||% character(0)),
       output        = cc$output        %||% NA_character_,
-      modifies      = list(cc$modifies  %||% character(0)))
+      modifies      = list(cc$modifies  %||% character(0)),
+      # opt OUT explicitly: an ingest with no `in_release:` key is in the release
+      in_release    = isTRUE(cc$in_release %||% TRUE))
   }))
 
   if (length(results) == 0) {
@@ -690,7 +698,8 @@ parse_qmd_frontmatter <- function(
       workflow_type = character(),
       dependency    = list(),
       output        = character(),
-      modifies      = list()))
+      modifies      = list(),
+      in_release    = logical()))
   }
 
   dplyr::bind_rows(results)
@@ -775,8 +784,14 @@ build_targets_list <- function(
     }
   }
 
-  # resolve [auto] dependencies → all ingest + spatial targets
-  auto_targets <- wf$target_name[wf$workflow_type %in% c("ingest", "spatial")]
+  # resolve [auto] dependencies → all ingest + spatial targets that are IN the
+  # release. An ingest flagged `in_release: false` is deliberately not a
+  # dependency of the release caboose: the release ignores its outputs, so an
+  # edge would only invalidate (and re-freeze) the whole release whenever an
+  # in-progress ingest changed. It still runs as its own target. Flipping the
+  # flag rewrites this list, so no manual invalidation is needed.
+  auto_targets <- wf$target_name[
+    wf$workflow_type %in% c("ingest", "spatial") & wf$in_release]
 
   # build corrections_csv target
   correction_paths <- file.path(workflows_dir, corrections)

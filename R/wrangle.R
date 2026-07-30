@@ -2175,6 +2175,11 @@ merge_relationships_json <- function(paths, output_path) {
 #' @param workflow_dir Directory containing the \code{ingest_*.qmd} files.
 #' @param pattern Regular expression matching ingest filenames
 #'   (default \code{"^ingest_.*\\\\.qmd$"}).
+#' @param in_release_only Drop ingests that declare
+#'   \code{calcofi.in_release: false} (default \code{FALSE}, i.e. return every
+#'   ingest). \code{release_database.qmd} passes \code{TRUE} so an in-progress
+#'   ingest does not reach the release's \code{dataset} table, ERD or
+#'   \code{metadata.json}. See [release_excluded_datasets()].
 #'
 #' @return A named list keyed by \code{provider_dataset}. Each element is the
 #'   parsed \code{calcofi} block, augmented with \code{provider_dataset} and
@@ -2189,7 +2194,8 @@ merge_relationships_json <- function(paths, output_path) {
 #' names(ingest_yaml)            # "swfsc_ichthyo" "calcofi_bottle" ...
 #' ingest_yaml$calcofi_bottle$tables_owned
 #' }
-read_ingest_yaml <- function(workflow_dir, pattern = "^ingest_.*\\.qmd$") {
+read_ingest_yaml <- function(workflow_dir, pattern = "^ingest_.*\\.qmd$",
+                             in_release_only = FALSE) {
   stopifnot(dir.exists(workflow_dir))
   qmds <- list.files(workflow_dir, pattern = pattern, full.names = TRUE)
   out <- list()
@@ -2198,9 +2204,47 @@ read_ingest_yaml <- function(workflow_dir, pattern = "^ingest_.*\\.qmd$") {
     if (is.null(cc) || is.null(cc$provider) || is.null(cc$dataset)) {
       next
     }
+    if (in_release_only && !isTRUE(cc$in_release %||% TRUE)) {
+      next
+    }
     out[[cc$provider_dataset]] <- cc
   }
   out
+}
+
+#' Datasets held out of the release by `calcofi.in_release: false`
+#'
+#' An ingest under development can be run end-to-end — writing its own
+#' `data/parquet/{provider}_{dataset}/` outputs, manifest and sidecars — while
+#' being kept out of the frozen release, by adding \code{in_release: false} to
+#' its \code{calcofi:} YAML block. This returns those datasets' labels, which is
+#' what every release-side discovery step filters on: the table registry
+#' ([build_release_table_registry()]), the core shard union
+#' ([core_shard_paths()]), and \code{release_database.qmd}'s
+#' \code{relationships.json} / \code{metadata.json} / \code{manifest.json} globs.
+#'
+#' Omitting the key means the ingest IS in the release, so existing notebooks are
+#' unaffected.
+#'
+#' @param workflow_dir Directory containing the \code{ingest_*.qmd} files.
+#' @param pattern Regular expression matching ingest filenames.
+#'
+#' @return Character vector of \code{provider_dataset} labels (the
+#'   \code{data/parquet/} subdirectory names) to exclude; empty when every
+#'   ingest is in the release.
+#' @export
+#' @concept wrangle
+#'
+#' @examples
+#' \dontrun{
+#' release_excluded_datasets("workflows")   # "dfw_dungeness-crab"
+#' }
+release_excluded_datasets <- function(workflow_dir,
+                                      pattern = "^ingest_.*\\.qmd$") {
+  if (!dir.exists(workflow_dir)) return(character())
+  all_ds <- names(read_ingest_yaml(workflow_dir, pattern))
+  keep   <- names(read_ingest_yaml(workflow_dir, pattern, in_release_only = TRUE))
+  setdiff(all_ds, keep)
 }
 
 #' Read the calcofi YAML block from a single workflow file

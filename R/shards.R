@@ -14,12 +14,18 @@
 #' @param root workflows repo root (contains `data/parquet/`)
 #' @param table core table name (e.g. `"obs"`)
 #' @param parquet_dir directory holding the per-dataset output dirs
+#' @param exclude dataset dir names to skip; defaults to the ingests that
+#'   declare `calcofi.in_release: false` (see [release_excluded_datasets()]), so
+#'   an in-progress ingest's shards stay out of the release even though its
+#'   parquet is on disk
 #' @return character vector of readable parquet paths/globs, one per dataset
 #' @export
 #' @concept shards
-core_shard_paths <- function(table, root = ".", parquet_dir = "data/parquet") {
+core_shard_paths <- function(table, root = ".", parquet_dir = "data/parquet",
+                             exclude = release_excluded_datasets(root)) {
   base <- file.path(root, parquet_dir)
   dirs <- list.dirs(base, recursive = FALSE)
+  dirs <- dirs[!basename(dirs) %in% exclude]
   out <- character()
   for (d in dirs) {
     f <- file.path(d, paste0(table, ".parquet"))
@@ -52,12 +58,14 @@ core_shard_paths <- function(table, root = ".", parquet_dir = "data/parquet") {
 #' @param order_by optional ORDER BY used when renumbering, so ids are stable
 #'   across re-runs of unchanged data
 #' @param parquet_dir directory holding the per-dataset output dirs
+#' @param exclude dataset dir names to skip (see [core_shard_paths()])
 #' @return (invisibly) the row count written, or 0 when no shard exists
 #' @export
 #' @concept shards
 assemble_core_table <- function(con, table, root = ".", id_col = NULL,
-                                order_by = NULL, parquet_dir = "data/parquet") {
-  paths <- core_shard_paths(table, root, parquet_dir)
+                                order_by = NULL, parquet_dir = "data/parquet",
+                                exclude = release_excluded_datasets(root)) {
+  paths <- core_shard_paths(table, root, parquet_dir, exclude = exclude)
   if (!length(paths)) {
     message("assemble_core_table(): no shards found for ", table)
     return(invisible(0L))
@@ -96,6 +104,7 @@ assemble_core_table <- function(con, table, root = ".", id_col = NULL,
 #' @param root workflows repo root
 #' @param priority dataset dirs in descending priority
 #' @param parquet_dir directory holding the per-dataset output dirs
+#' @param exclude dataset dir names to skip (see [core_shard_paths()])
 #' @return (invisibly) the row count of the merged `taxon`
 #' @export
 #' @concept shards
@@ -104,9 +113,11 @@ merge_taxon_shards <- function(con, root = ".",
                                             "calcofi_bird_mammal_census",
                                             "cce-lter_zoodb", "cce-lter_zooscan",
                                             "calcofi_phytoplankton"),
-                               parquet_dir = "data/parquet") {
+                               parquet_dir = "data/parquet",
+                               exclude = release_excluded_datasets(root)) {
   base  <- file.path(root, parquet_dir)
   dirs  <- list.dirs(base, recursive = FALSE)
+  dirs  <- dirs[!basename(dirs) %in% exclude]
   paths <- Filter(file.exists, file.path(dirs, "taxon.parquet"))
   if (!length(paths)) {
     message("merge_taxon_shards(): no taxon shards found")
@@ -157,13 +168,22 @@ merge_taxon_shards <- function(con, root = ".",
 #' @param root workflows repo root
 #' @param supplemental include `obs_ctd_full` (default TRUE)
 #' @param parquet_dir directory holding the per-dataset output dirs
+#' @param exclude dataset dir names to skip; defaults to the ingests declaring
+#'   `calcofi.in_release: false` (see [release_excluded_datasets()]). Resolved
+#'   once here and threaded to every shard read.
 #' @return (invisibly) a named list of row counts
 #' @export
 #' @concept shards
 assemble_core <- function(con, root = ".", supplemental = TRUE,
-                          parquet_dir = "data/parquet") {
+                          parquet_dir = "data/parquet",
+                          exclude = release_excluded_datasets(root)) {
+  if (length(exclude))
+    message(glue::glue(
+      "assemble_core(): excluding {length(exclude)} dataset(s) flagged ",
+      "in_release: false — {paste(exclude, collapse = ', ')}"))
   out <- list()
-  out$sample <- assemble_core_table(con, "sample", root, parquet_dir = parquet_dir)
+  out$sample <- assemble_core_table(
+    con, "sample", root, parquet_dir = parquet_dir, exclude = exclude)
 
   dup <- DBI::dbGetQuery(con,
     "SELECT sample_key, COUNT(*) n FROM sample GROUP BY 1 HAVING COUNT(*) > 1
@@ -175,25 +195,27 @@ assemble_core <- function(con, root = ".", supplemental = TRUE,
   out$obs <- assemble_core_table(
     con, "obs", root, id_col = "obs_id",
     order_by = "dataset_key, grid_key NULLS LAST, depth_min_m NULLS LAST, measurement_type",
-    parquet_dir = parquet_dir)
+    parquet_dir = parquet_dir, exclude = exclude)
   out$obs_attribute <- assemble_core_table(
     con, "obs_attribute", root, id_col = "obs_attribute_id",
     order_by = "dataset_key, sample_key, measurement_type, bin_value NULLS LAST",
-    parquet_dir = parquet_dir)
+    parquet_dir = parquet_dir, exclude = exclude)
   out$sample_measurement <- assemble_core_table(
     con, "sample_measurement", root, id_col = "sample_measurement_id",
     order_by = "dataset_key, sample_key, measurement_type",
-    parquet_dir = parquet_dir)
+    parquet_dir = parquet_dir, exclude = exclude)
   if (isTRUE(supplemental))
     out$obs_ctd_full <- assemble_core_table(
       con, "obs_ctd_full", root, id_col = "obs_id",
       order_by = "cruise_key, grid_key NULLS LAST, depth_min_m NULLS LAST, measurement_type",
-      parquet_dir = parquet_dir)
+      parquet_dir = parquet_dir, exclude = exclude)
 
-  out$taxon <- merge_taxon_shards(con, root, parquet_dir = parquet_dir)
+  out$taxon <- merge_taxon_shards(
+    con, root, parquet_dir = parquet_dir, exclude = exclude)
 
   for (t in c("dataset_taxon", "taxon_group")) {
-    n <- assemble_core_table(con, t, root, parquet_dir = parquet_dir)
+    n <- assemble_core_table(
+      con, t, root, parquet_dir = parquet_dir, exclude = exclude)
     if (n > 0) {
       key <- if (t == "dataset_taxon") "ds_taxon_key" else "taxon_group_key, taxon_key"
       DBI::dbExecute(con, glue::glue(
