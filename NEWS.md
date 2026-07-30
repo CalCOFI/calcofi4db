@@ -1,3 +1,28 @@
+# calcofi4db 2.19.1
+
+- **Fix: `derive_measurement_type_datasets()` attributed every measurement type
+  to every dataset sharing its table.** It took `SELECT DISTINCT
+  measurement_type` per table and then unioned *all* of that table's datasets
+  onto *each* type — a cross product. Since `obs` holds 14 dataset_keys and 116
+  distinct types, all 116 types inherited all 14 datasets.
+
+  This shipped in `v2026.07.30`'s `metadata.json`, and because that map
+  supersedes the CSV `_source_datasets` hint when present, it drove the
+  calcofi.io/db-schema Measurements tab: `abundance` ("specimen count per net
+  tow") was listed as belonging to `calcofi_ctd-cast`, `euphausiid_abundance` to
+  all 14 datasets, and filtering on `calcofi_ctd-cast` returned 116 types instead
+  of its actual 54. The parquet `_source_datasets` column was correct throughout —
+  only the derived sidecar was wrong.
+
+  Now grouped by `(dataset_key, measurement_type)`. A table carrying
+  `measurement_type` but no `dataset_key` (a shared reference rather than a
+  per-dataset shard) still falls back to table-level attribution, which is the
+  best available there. 6 regression assertions, including the exact
+  `abundance`-must-not-claim-ctd-cast case.
+
+  Regenerating `metadata.json` requires re-running the release metadata step;
+  released parquet is unaffected.
+
 # calcofi4db 2.19.0
 
 - **Fix: shared registries could be silently corrupted by their own round trip**

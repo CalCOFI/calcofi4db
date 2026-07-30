@@ -2711,6 +2711,32 @@ derive_measurement_type_datasets <- function(con, table_datasets, from_fn = iden
   out <- list()
   for (tbl in names(table_datasets)) {
     src <- from_fn(tbl)
+
+    # Group by BOTH columns. Taking DISTINCT measurement_type and then unioning
+    # every dataset in the table onto every type is a cross product: `obs` holds
+    # 14 dataset_keys and 116 types, so all 116 types inherited all 14 datasets.
+    # That shipped in v2026.07.30's metadata.json and made the schema site's
+    # Measurements tab claim `abundance` (net-tow specimen counts) belongs to
+    # calcofi_ctd-cast, and that ctd-cast has 116 measurement types rather than
+    # its actual 54.
+    pairs <- tryCatch(
+      DBI::dbGetQuery(con, glue::glue(
+        "SELECT DISTINCT dataset_key AS ds, measurement_type AS t FROM {src} ",
+        "WHERE measurement_type IS NOT NULL AND dataset_key IS NOT NULL")),
+      error = function(e) NULL)
+
+    if (!is.null(pairs) && nrow(pairs)) {
+      for (i in seq_len(nrow(pairs))) {
+        ty <- pairs$t[i]
+        if (is.na(ty) || !nzchar(ty)) next
+        out[[ty]] <- union(out[[ty]], pairs$ds[i])
+      }
+      next
+    }
+
+    # Fallback for a table with measurement_type but NO dataset_key (a shared
+    # reference rather than a per-dataset shard): the table-level attribution in
+    # `table_datasets` is the best available, so keep the old behaviour there.
     types <- tryCatch(
       DBI::dbGetQuery(con, glue::glue(
         "SELECT DISTINCT measurement_type AS t FROM {src} ",
