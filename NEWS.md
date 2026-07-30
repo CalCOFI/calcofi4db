@@ -1,3 +1,12 @@
+# calcofi4db 2.20.0
+
+- **Exported the generic core-projection shape builders**: `sample_arm_self()`,
+  `compat_measurement_sql()` and `ns_key()` (were `.`-internal). A dataset's
+  projection belongs in the ingest notebook that owns it, and these are what keep
+  that a short declaration rather than copied SQL — most `build_sample_reference()`
+  arms are a single `sample_arm_self()` call with a few column expressions. No
+  behaviour change; internal call sites renamed.
+
 # calcofi4db 2.19.1
 
 - **Fix: `derive_measurement_type_datasets()` attributed every measurement type
