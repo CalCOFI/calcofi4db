@@ -716,6 +716,11 @@ check for other functions or datasets not captured by above categories
 - [`check_registry_na_strings()`](https://calcofi.io/calcofi4db/reference/check_registry_na_strings.md)
   : Reject sentinel strings that should have been empty cells
 
+- [`compat_measurement_sql()`](https://calcofi.io/calcofi4db/reference/compat_measurement_sql.md)
+  :
+
+  Rebuild a per-dataset measurement table as a VIEW over `obs`
+
 - [`core_output_tables()`](https://calcofi.io/calcofi4db/reference/core_output_tables.md)
   : Core tables an ingest writes to parquet
 
@@ -762,6 +767,10 @@ check for other functions or datasets not captured by above categories
 
   Merge the per-dataset `taxon` shards into one authoritative reference
 
+- [`ns_key()`](https://calcofi.io/calcofi4db/reference/ns_key.md) :
+
+  Namespaced `sample_key` expression: `dataset_key:sample_type:id`
+
 - [`plan_dataset_netcdf()`](https://calcofi.io/calcofi4db/reference/plan_dataset_netcdf.md)
   : Plan the netCDF shape for a dataset
 
@@ -775,6 +784,11 @@ check for other functions or datasets not captured by above categories
 
 - [`report_ship_matches()`](https://calcofi.io/calcofi4db/reference/report_ship_matches.md)
   : Report Ship Matching Status for a Dataset
+
+- [`sample_arm_self()`](https://calcofi.io/calcofi4db/reference/sample_arm_self.md)
+  :
+
+  Build a `sample` arm for a single self-contained event table
 
 - [`standardize_species()`](https://calcofi.io/calcofi4db/reference/standardize_species.md)
   : Standardize Species Identifiers Using WoRMS/ITIS/GBIF APIs

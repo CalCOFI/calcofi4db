@@ -1,5 +1,20 @@
 # Changelog
 
+## calcofi4db 2.20.0
+
+- **Exported the generic core-projection shape builders**:
+  [`sample_arm_self()`](https://calcofi.io/calcofi4db/reference/sample_arm_self.md),
+  [`compat_measurement_sql()`](https://calcofi.io/calcofi4db/reference/compat_measurement_sql.md)
+  and [`ns_key()`](https://calcofi.io/calcofi4db/reference/ns_key.md)
+  (were `.`-internal). A dataset’s projection belongs in the ingest
+  notebook that owns it, and these are what keep that a short
+  declaration rather than copied SQL — most
+  [`build_sample_reference()`](https://calcofi.io/calcofi4db/reference/build_sample_reference.md)
+  arms are a single
+  [`sample_arm_self()`](https://calcofi.io/calcofi4db/reference/sample_arm_self.md)
+  call with a few column expressions. No behaviour change; internal call
+  sites renamed.
+
 ## calcofi4db 2.19.1
 
 - **Fix:

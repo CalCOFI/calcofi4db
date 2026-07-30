@@ -43,6 +43,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/commit_version_and_permalink.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/compare_local_vs_archive.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/compare_releases.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/compat_measurement_sql.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/complete_version_release.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/consolidate_ichthyo_tables.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/convert_cruise_key_format.html</loc></url>
@@ -120,6 +121,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/merge_metadata_json.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/merge_relationships_json.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/merge_taxon_shards.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/ns_key.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/parse_qmd_frontmatter.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/plan_dataset_netcdf.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/preview_tables.html</loc></url>
@@ -142,6 +144,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/render_integrity_message.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/replace_uuid_with_id.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/report_ship_matches.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/sample_arm_self.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/save_duckdb_to_gcs.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/save_working_ducklake.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/set_duckdb_comments.html</loc></url>

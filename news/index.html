@@ -46,6 +46,11 @@
     </div>
 
     <div class="section level2">
+<h2 class="pkg-version" data-toc-text="2.20.0" id="calcofi4db-2200">calcofi4db 2.20.0<a class="anchor" aria-label="anchor" href="#calcofi4db-2200"></a></h2>
+<ul><li>
+<strong>Exported the generic core-projection shape builders</strong>: <code><a href="../reference/sample_arm_self.html">sample_arm_self()</a></code>, <code><a href="../reference/compat_measurement_sql.html">compat_measurement_sql()</a></code> and <code><a href="../reference/ns_key.html">ns_key()</a></code> (were <code>.</code>-internal). A dataset’s projection belongs in the ingest notebook that owns it, and these are what keep that a short declaration rather than copied SQL — most <code><a href="../reference/build_sample_reference.html">build_sample_reference()</a></code> arms are a single <code><a href="../reference/sample_arm_self.html">sample_arm_self()</a></code> call with a few column expressions. No behaviour change; internal call sites renamed.</li>
+</ul></div>
+    <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.19.1" id="calcofi4db-2191">calcofi4db 2.19.1<a class="anchor" aria-label="anchor" href="#calcofi4db-2191"></a></h2>
 <ul><li>
 <p><strong>Fix: <code><a href="../reference/derive_measurement_type_datasets.html">derive_measurement_type_datasets()</a></code> attributed every measurement type to every dataset sharing its table.</strong> It took <code>SELECT DISTINCT measurement_type</code> per table and then unioned <em>all</em> of that table’s datasets onto <em>each</em> type — a cross product. Since <code>obs</code> holds 14 dataset_keys and 116 distinct types, all 116 types inherited all 14 datasets.</p>
