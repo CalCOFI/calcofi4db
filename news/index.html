@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.19.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.19.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -45,6 +45,15 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="2.19.1" id="calcofi4db-2191">calcofi4db 2.19.1<a class="anchor" aria-label="anchor" href="#calcofi4db-2191"></a></h2>
+<ul><li>
+<p><strong>Fix: <code><a href="../reference/derive_measurement_type_datasets.html">derive_measurement_type_datasets()</a></code> attributed every measurement type to every dataset sharing its table.</strong> It took <code>SELECT DISTINCT measurement_type</code> per table and then unioned <em>all</em> of that table’s datasets onto <em>each</em> type — a cross product. Since <code>obs</code> holds 14 dataset_keys and 116 distinct types, all 116 types inherited all 14 datasets.</p>
+<p>This shipped in <code>v2026.07.30</code>’s <code>metadata.json</code>, and because that map supersedes the CSV <code>_source_datasets</code> hint when present, it drove the calcofi.io/db-schema Measurements tab: <code>abundance</code> (“specimen count per net tow”) was listed as belonging to <code>calcofi_ctd-cast</code>, <code>euphausiid_abundance</code> to all 14 datasets, and filtering on <code>calcofi_ctd-cast</code> returned 116 types instead of its actual 54. The parquet <code>_source_datasets</code> column was correct throughout — only the derived sidecar was wrong.</p>
+<p>Now grouped by <code>(dataset_key, measurement_type)</code>. A table carrying <code>measurement_type</code> but no <code>dataset_key</code> (a shared reference rather than a per-dataset shard) still falls back to table-level attribution, which is the best available there. 6 regression assertions, including the exact <code>abundance</code>-must-not-claim-ctd-cast case.</p>
+<p>Regenerating <code>metadata.json</code> requires re-running the release metadata step; released parquet is unaffected.</p>
+</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.19.0" id="calcofi4db-2190">calcofi4db 2.19.0<a class="anchor" aria-label="anchor" href="#calcofi4db-2190"></a></h2>
 <ul><li>
