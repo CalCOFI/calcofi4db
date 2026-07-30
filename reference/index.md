@@ -430,6 +430,11 @@ check for other functions or datasets not captured by above categories
 - [`derive_cruise_key_on_casts()`](https://calcofi.io/calcofi4db/reference/derive_cruise_key_on_casts.md)
   : Derive Cruise Key on Bottle Casts via Ship Matching
 
+- [`discover_sample_levels()`](https://calcofi.io/calcofi4db/reference/discover_sample_levels.md)
+  :
+
+  Discover a dataset's sampling hierarchy from the core `sample` table
+
 - [`emit_core_tables()`](https://calcofi.io/calcofi4db/reference/emit_core_tables.md)
   : Project one dataset into the consolidated core tables
 
@@ -456,6 +461,9 @@ check for other functions or datasets not captured by above categories
 
   Merge the per-dataset `taxon` shards into one authoritative reference
 
+- [`plan_dataset_netcdf()`](https://calcofi.io/calcofi4db/reference/plan_dataset_netcdf.md)
+  : Plan the netCDF shape for a dataset
+
 - [`report_ship_matches()`](https://calcofi.io/calcofi4db/reference/report_ship_matches.md)
   : Report Ship Matching Status for a Dataset
 
@@ -464,6 +472,9 @@ check for other functions or datasets not captured by above categories
 
 - [`standardize_species_local()`](https://calcofi.io/calcofi4db/reference/standardize_species_local.md)
   : Standardize Species Using Local spp.duckdb Lookups
+
+- [`summarise_netcdf_plan()`](https://calcofi.io/calcofi4db/reference/summarise_netcdf_plan.md)
+  : Summarise a netCDF plan as one row
 
 - [`taxon_key_of()`](https://calcofi.io/calcofi4db/reference/taxon_key_of.md)
   :

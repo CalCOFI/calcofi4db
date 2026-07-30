@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.16.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.17.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -45,6 +45,22 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="2.17.0" id="calcofi4db-2170">calcofi4db 2.17.0<a class="anchor" aria-label="anchor" href="#calcofi4db-2170"></a></h2>
+<ul><li>
+<p><strong>New: dataset-agnostic netCDF planning</strong> — <code><a href="../reference/discover_sample_levels.html">discover_sample_levels()</a></code>, <code><a href="../reference/plan_dataset_netcdf.html">plan_dataset_netcdf()</a></code> and <code><a href="../reference/summarise_netcdf_plan.html">summarise_netcdf_plan()</a></code> (<code>R/netcdf.R</code>). These recover a dataset’s sampling hierarchy by walking the core <code>sample</code> <code>parent_sample_key</code> adjacency list, and decide whether it publishes as a flat CF Discrete Sampling Geometry profile (<code>featureType=profile</code>) or as nested netCDF-4 groups — with no per-dataset configuration.</p>
+<p>This replaces judgement that was previously hardcoded once per dataset in each <code>publish_{dataset}_to-netcdf.qmd</code>. The old rationale (“the nesting differs per dataset, which is why these are notebooks rather than one generic script”) predates the consolidated core: now that every ingest emits <code>sample</code> with <code>sample_type</code> + <code>parent_sample_key</code>, the nesting is <em>data</em> rather than code, so one generic publish step can serve every dataset.</p>
+<p><code><a href="../reference/plan_dataset_netcdf.html">plan_dataset_netcdf()</a></code> returns <code>measurement_types</code> as the union across the whole dataset, which is a fix as much as a feature: the published <code>ctd-cast_full.nc</code> declared 32 of 54 measurement types because that notebook inferred its variable list from a single cruise partition (bottle nutrients were not folded into the CTD files until 2008, so the alphabetically-first 1998 cruise had no column for them, and every later-introduced type — including all <code>btl_*</code> nutrients — was silently absent from a file advertised as full resolution).</p>
+<p>Failure modes are surfaced rather than swallowed: unresolved parents are counted as <code>n_orphan</code> instead of being dropped, a level’s parent is a majority vote so a single mislabelled row cannot invent a level, self-referential (within-level) chains are not treated as nesting, and a genuine cycle errors instead of hanging.</p>
+</li>
+</ul></div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="2.16.1" id="calcofi4db-2161">calcofi4db 2.16.1<a class="anchor" aria-label="anchor" href="#calcofi4db-2161"></a></h2>
+<ul><li>
+<p><strong>Fix: drop the redundant <code>bottom_depth</code> arm</strong> added to <code>.sample_measurement_arm_sql("calcofi_bottle")</code> in 2.14.0. <code>bottom_depth</code> already reaches <code>sample_measurement</code>: the bottle ingest pivots the source <code>Bottom_D</code> column into <code>cast_condition</code> (33,363 rows) and drops it from <code>casts</code>, so the extra <code>UNION ALL SELECT ... bottom_depth_m FROM casts</code> was both duplicative and a binder error against a column that no longer exists by the time the arm runs. <code><a href="../reference/create_compat_views.html">create_compat_views()</a></code> no longer filters <code>bottom_depth</code> out of the rebuilt <code>cast_condition</code> either — it is a genuine cast condition, and excluding it silently dropped a real row.</p>
+<p>Registering <code>bottom_depth</code> in <code>metadata/measurement_type.csv</code> (workflows) was still required and is unaffected: the vocabulary genuinely lacked it, which the release FK check on <code>sample_measurement.measurement_type</code> now catches.</p>
+</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.16.0" id="calcofi4db-2160">calcofi4db 2.16.0<a class="anchor" aria-label="anchor" href="#calcofi4db-2160"></a></h2>
 <ul><li>

@@ -1,5 +1,62 @@
 # Changelog
 
+## calcofi4db 2.17.0
+
+- **New: dataset-agnostic netCDF planning** —
+  [`discover_sample_levels()`](https://calcofi.io/calcofi4db/reference/discover_sample_levels.md),
+  [`plan_dataset_netcdf()`](https://calcofi.io/calcofi4db/reference/plan_dataset_netcdf.md)
+  and
+  [`summarise_netcdf_plan()`](https://calcofi.io/calcofi4db/reference/summarise_netcdf_plan.md)
+  (`R/netcdf.R`). These recover a dataset’s sampling hierarchy by
+  walking the core `sample` `parent_sample_key` adjacency list, and
+  decide whether it publishes as a flat CF Discrete Sampling Geometry
+  profile (`featureType=profile`) or as nested netCDF-4 groups — with no
+  per-dataset configuration.
+
+  This replaces judgement that was previously hardcoded once per dataset
+  in each `publish_{dataset}_to-netcdf.qmd`. The old rationale (“the
+  nesting differs per dataset, which is why these are notebooks rather
+  than one generic script”) predates the consolidated core: now that
+  every ingest emits `sample` with `sample_type` + `parent_sample_key`,
+  the nesting is *data* rather than code, so one generic publish step
+  can serve every dataset.
+
+  [`plan_dataset_netcdf()`](https://calcofi.io/calcofi4db/reference/plan_dataset_netcdf.md)
+  returns `measurement_types` as the union across the whole dataset,
+  which is a fix as much as a feature: the published `ctd-cast_full.nc`
+  declared 32 of 54 measurement types because that notebook inferred its
+  variable list from a single cruise partition (bottle nutrients were
+  not folded into the CTD files until 2008, so the alphabetically-first
+  1998 cruise had no column for them, and every later-introduced type —
+  including all `btl_*` nutrients — was silently absent from a file
+  advertised as full resolution).
+
+  Failure modes are surfaced rather than swallowed: unresolved parents
+  are counted as `n_orphan` instead of being dropped, a level’s parent
+  is a majority vote so a single mislabelled row cannot invent a level,
+  self-referential (within-level) chains are not treated as nesting, and
+  a genuine cycle errors instead of hanging.
+
+## calcofi4db 2.16.1
+
+- **Fix: drop the redundant `bottom_depth` arm** added to
+  `.sample_measurement_arm_sql("calcofi_bottle")` in 2.14.0.
+  `bottom_depth` already reaches `sample_measurement`: the bottle ingest
+  pivots the source `Bottom_D` column into `cast_condition` (33,363
+  rows) and drops it from `casts`, so the extra
+  `UNION ALL SELECT ... bottom_depth_m FROM casts` was both duplicative
+  and a binder error against a column that no longer exists by the time
+  the arm runs.
+  [`create_compat_views()`](https://calcofi.io/calcofi4db/reference/create_compat_views.md)
+  no longer filters `bottom_depth` out of the rebuilt `cast_condition`
+  either — it is a genuine cast condition, and excluding it silently
+  dropped a real row.
+
+  Registering `bottom_depth` in `metadata/measurement_type.csv`
+  (workflows) was still required and is unaffected: the vocabulary
+  genuinely lacked it, which the release FK check on
+  `sample_measurement.measurement_type` now catches.
+
 ## calcofi4db 2.16.0
 
 - **[`create_compat_views()`](https://calcofi.io/calcofi4db/reference/create_compat_views.md)

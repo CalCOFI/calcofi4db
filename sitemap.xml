@@ -64,6 +64,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/derive_measurement_type_datasets.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/detect_csv_changes.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/determine_field_types.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/discover_sample_levels.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/display_csv_changes.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/dot-convert_wkb_to_geometry.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/dot-discover_parquet_sources.html</loc></url>
@@ -119,6 +120,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/merge_relationships_json.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/merge_taxon_shards.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/parse_qmd_frontmatter.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/plan_dataset_netcdf.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/preview_tables.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/print_csv_change_stats.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/propagate_natural_key.html</loc></url>
@@ -149,6 +151,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/standardize_species_local.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/strip_provenance_columns.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/suggest_next_version.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/summarise_netcdf_plan.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/sync_to_gcs.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/sync_to_gcs_archive.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/taxon_key_of.html</loc></url>
