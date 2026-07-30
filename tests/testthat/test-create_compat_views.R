@@ -146,19 +146,22 @@ test_that("site rebuilds with site_key and order_occ after promotion", {
   expect_equal(got$cruise_key, src$cruise_key)
 })
 
-test_that("bottom_depth_m becomes a sample_measurement on the cast", {
+test_that("bottle cast conditions (incl. bottom_depth) reach sample_measurement", {
   skip_if_not_installed("duckdb")
   con <- get_duckdb_con(":memory:")
   on.exit(close_duckdb(con))
 
+  # NOTE no bottom_depth_m on `casts`: the ingest pivots the source Bottom_D into
+  # cast_condition and drops the column, so bottom_depth arrives as a CONDITION.
   DBI::dbExecute(con, "CREATE TABLE casts AS
     SELECT 5::INTEGER cast_id, 'st1-ln1'::VARCHAR grid_key, '090.0 060.0'::VARCHAR site_key,
            '2018-04-33RR'::VARCHAR cruise_key, 2::SMALLINT order_occ,
            33.0::DOUBLE latitude, -119.0::DOUBLE longitude,
-           TIMESTAMP '2018-04-05 12:00:00' datetime_start_utc, 1350.0::DOUBLE bottom_depth_m")
+           TIMESTAMP '2018-04-05 12:00:00' datetime_start_utc")
   DBI::dbExecute(con, "CREATE TABLE cast_condition AS
     SELECT 1::INTEGER cast_condition_id, 5.0::DOUBLE cast_id,
-           'wind_speed'::VARCHAR condition_type, 12.0::DOUBLE condition_value")
+           'wind_speed'::VARCHAR condition_type, 12.0::DOUBLE condition_value
+    UNION ALL SELECT 2, 5.0, 'bottom_depth', 1350.0")
 
   build_sample_reference(con, datasets = "calcofi_bottle")
   append_sample_measurement(con, calcofi4db:::.sample_measurement_arm_sql("calcofi_bottle"))
@@ -171,10 +174,12 @@ test_that("bottom_depth_m becomes a sample_measurement on the cast", {
   # both attach to the cast event, not the bottle
   expect_true(all(sm$sample_key == "calcofi_bottle:cast:5"))
 
-  # and cast_condition must NOT gain a phantom bottom_depth row on rebuild
+  # rebuilding cast_condition from the core must return BOTH conditions
   create_compat_views(con, "calcofi_bottle")
-  cc <- DBI::dbGetQuery(con, "SELECT condition_type FROM cast_condition")
-  expect_equal(cc$condition_type, "wind_speed")
+  cc <- DBI::dbGetQuery(con,
+    "SELECT condition_type, condition_value FROM cast_condition ORDER BY condition_type")
+  expect_equal(cc$condition_type, c("bottom_depth", "wind_speed"))
+  expect_equal(cc$condition_value, c(1350, 12))
 })
 
 test_that("bottle casts/bottle rebuild from a renamed sample shard", {

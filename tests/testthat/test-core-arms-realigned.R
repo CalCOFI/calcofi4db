@@ -302,7 +302,7 @@ test_that("_measurement_taxon is restricted to the emitting dataset", {
     life_stage = c("egg", "phyllosoma"), bin_value = NA_real_,
     stringsAsFactors = FALSE)
 
-  calcofi4db:::.ensure_measurement_taxon(con, mt, dataset_key = "swfsc_cufes")
+  calcofi4db:::ensure_measurement_taxon(con, mt, dataset_key = "swfsc_cufes")
   got <- DBI::dbGetQuery(con,
     "SELECT dataset_key, raw_measurement_type, taxon_key FROM _measurement_taxon")
   expect_equal(nrow(got), 1L)

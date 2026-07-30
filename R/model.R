@@ -641,7 +641,27 @@ build_sample_reference <- function(con, sample_tbl = "sample", datasets = NULL) 
 # life_stage, bin_value). Restricted to `dataset_key` so an ingest never emits
 # another dataset's rows. Always created — an absent registry yields an empty
 # table (arms project zero rows) rather than a catalog error.
-.ensure_measurement_taxon <- function(con, measurement_taxon = NULL,
+#' Stage the `_measurement_taxon` crosswalk in a connection
+#'
+#' Materializes `metadata/measurement_taxon.csv` as the `_measurement_taxon` table
+#' an `obs`/`obs_attribute` projection INNER JOINs to split a taxon-bearing
+#' measurement_type name (`sardine_eggs`, `phyllosoma_stage_3`) into
+#' `(taxon_key, canonical type, life_stage, bin_value)`.
+#'
+#' Exported because a dataset's projection lives in its own ingest notebook, and
+#' the derived `taxon_key` is the part you must not hand-roll: it is
+#' [taxon_key_of()] over `worms_id`/`itis_id`, so a `'worms:' || worms_id` string
+#' built inline silently mis-keys any ITIS-resolved taxon.
+#'
+#' @param con a DuckDB connection
+#' @param measurement_taxon the crosswalk data.frame (or NULL for an empty table)
+#' @param dataset_key restrict to this dataset, so an ingest never stages another
+#'   dataset's rows
+#' @param tbl target table name
+#' @return (invisibly) `tbl`
+#' @export
+#' @concept model
+ensure_measurement_taxon <- function(con, measurement_taxon = NULL,
                                       dataset_key = NULL, tbl = "_measurement_taxon") {
   cols <- c("dataset_key", "raw_measurement_type", "target", "measurement_type",
             "taxon_scientific_name", "worms_id", "itis_id", "life_stage", "bin_value")
@@ -1014,7 +1034,7 @@ emit_core_tables <- function(con, dataset_key, sample = TRUE,
                              measurement_taxon = NULL, overrides = NULL,
                              taxa = TRUE) {
   out <- list()
-  .ensure_measurement_taxon(con, measurement_taxon, dataset_key = dataset_key)
+  ensure_measurement_taxon(con, measurement_taxon, dataset_key = dataset_key)
   if (isTRUE(taxa)) {
     out <- c(out, .build_taxa_slices(con, dataset_key, measurement_taxon, overrides))
   } else {
