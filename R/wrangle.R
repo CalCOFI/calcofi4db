@@ -2536,7 +2536,9 @@ merge_metadata_json <- function(
   # measurement_types block
   measurement_types <- list()
   if (!is.null(measurement_type_csv) && file.exists(measurement_type_csv)) {
-    d_mt <- readr::read_csv(measurement_type_csv, show_col_types = FALSE)
+    # validated read: a write_csv(na = "NA") round trip would otherwise put
+    # literal "NA" strings into the schema site's metadata.json (see R/registry.R)
+    d_mt <- read_measurement_type(measurement_type_csv)
     for (i in seq_len(nrow(d_mt))) {
       mt <- d_mt$measurement_type[i]
       if (is.na(mt) || mt == "") next
@@ -2800,8 +2802,7 @@ collect_measurement_type_mismatches <- function(con, measurement_type_csv) {
   db_types <- DBI::dbGetQuery(con,
     "SELECT DISTINCT measurement_type FROM measurement_type")$measurement_type
 
-  csv_types <- readr::read_csv(
-    measurement_type_csv, show_col_types = FALSE)$measurement_type
+  csv_types <- read_measurement_type(measurement_type_csv)$measurement_type
 
   new_types <- setdiff(db_types, csv_types)
 

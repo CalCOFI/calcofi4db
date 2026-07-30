@@ -1,3 +1,31 @@
+# calcofi4db 2.19.0
+
+- **Fix: shared registries could be silently corrupted by their own round trip**
+  (`R/registry.R`, new). `readr::write_csv()` defaults to `na = "NA"`, so an empty
+  cell in `metadata/measurement_type.csv` came back as the two-character string
+  `"NA"`. That is invisible from R — `read_csv()` reads `"NA"` straight back to
+  `NA` — but *not* from DuckDB's `read_csv_auto`, whose default `nullstr` is the
+  empty string only. `release_database.qmd` loaded the registry that way, so the
+  released `measurement_type` table shipped literal `"NA"` values: 161 rows of
+  `_qual_column`, 192 of `_prec_column`, plus `units`, `is_canonical`, `grain` and
+  `_source_column`. Nine ingest notebooks wrote the file without `na = ""`; only
+  one did it correctly.
+
+  - `check_registry_na_strings()` (new, exported) rejects sentinel strings
+    (`"NA"`, `"NaN"`, `"NULL"`, `"N/A"`, `"na"`) in a registry, naming the columns
+    and rows and pointing at the cause.
+  - `read_measurement_type()` (new, exported) reads the registry **strictly**
+    (`na = ""`, so only genuinely empty cells become `NA`) and validates. The
+    strict read is load-bearing: a default `read_csv()` converts `"NA"` back to
+    `NA`, so no validator downstream of one could ever see the corruption.
+  - `register_measurement_types()` (new, exported) replaces the read /
+    `bind_rows` / `write_csv` cycle each ingest hand-rolled: appends only genuinely
+    new types, never overwrites an existing row, refuses to widen the registry with
+    unknown columns, and always writes `na = ""`.
+  - `build_metadata_json()` and `collect_measurement_type_mismatches()` now read
+    the registry through `read_measurement_type()`, so a corrupted file fails
+    rather than reaching the schema site's `metadata.json`.
+
 # calcofi4db 2.18.0
 
 - **New: hold an in-progress ingest out of the release** — an ingest notebook can
