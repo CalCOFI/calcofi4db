@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.18.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.19.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -1191,6 +1191,13 @@
 
         <dt>
 
+          <code><a href="check_registry_na_strings.html">check_registry_na_strings()</a></code>
+
+        </dt>
+        <dd>Reject sentinel strings that should have been empty cells</dd>
+
+        <dt>
+
           <code><a href="core_output_tables.html">core_output_tables()</a></code>
 
         </dt>
@@ -1293,6 +1300,20 @@
 
         </dt>
         <dd>Plan the netCDF shape for a dataset</dd>
+
+        <dt>
+
+          <code><a href="read_measurement_type.html">read_measurement_type()</a></code>
+
+        </dt>
+        <dd>Read <code>metadata/measurement_type.csv</code>, refusing a corrupted registry</dd>
+
+        <dt>
+
+          <code><a href="register_measurement_types.html">register_measurement_types()</a></code>
+
+        </dt>
+        <dd>Append new measurement types to the shared registry, safely</dd>
 
         <dt>
 

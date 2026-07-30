@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.18.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.19.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -45,6 +45,20 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="2.19.0" id="calcofi4db-2190">calcofi4db 2.19.0<a class="anchor" aria-label="anchor" href="#calcofi4db-2190"></a></h2>
+<ul><li>
+<p><strong>Fix: shared registries could be silently corrupted by their own round trip</strong> (<code>R/registry.R</code>, new). <code><a href="https://readr.tidyverse.org/reference/write_delim.html" class="external-link">readr::write_csv()</a></code> defaults to <code>na = "NA"</code>, so an empty cell in <code>metadata/measurement_type.csv</code> came back as the two-character string <code>"NA"</code>. That is invisible from R — <code>read_csv()</code> reads <code>"NA"</code> straight back to <code>NA</code> — but <em>not</em> from DuckDB’s <code>read_csv_auto</code>, whose default <code>nullstr</code> is the empty string only. <code>release_database.qmd</code> loaded the registry that way, so the released <code>measurement_type</code> table shipped literal <code>"NA"</code> values: 161 rows of <code>_qual_column</code>, 192 of <code>_prec_column</code>, plus <code>units</code>, <code>is_canonical</code>, <code>grain</code> and <code>_source_column</code>. Nine ingest notebooks wrote the file without <code>na = ""</code>; only one did it correctly.</p>
+<ul><li>
+<code><a href="../reference/check_registry_na_strings.html">check_registry_na_strings()</a></code> (new, exported) rejects sentinel strings (<code>"NA"</code>, <code>"NaN"</code>, <code>"NULL"</code>, <code>"N/A"</code>, <code>"na"</code>) in a registry, naming the columns and rows and pointing at the cause.</li>
+<li>
+<code><a href="../reference/read_measurement_type.html">read_measurement_type()</a></code> (new, exported) reads the registry <strong>strictly</strong> (<code>na = ""</code>, so only genuinely empty cells become <code>NA</code>) and validates. The strict read is load-bearing: a default <code>read_csv()</code> converts <code>"NA"</code> back to <code>NA</code>, so no validator downstream of one could ever see the corruption.</li>
+<li>
+<code><a href="../reference/register_measurement_types.html">register_measurement_types()</a></code> (new, exported) replaces the read / <code>bind_rows</code> / <code>write_csv</code> cycle each ingest hand-rolled: appends only genuinely new types, never overwrites an existing row, refuses to widen the registry with unknown columns, and always writes <code>na = ""</code>.</li>
+<li>
+<code><a href="../reference/build_metadata_json.html">build_metadata_json()</a></code> and <code><a href="../reference/collect_measurement_type_mismatches.html">collect_measurement_type_mismatches()</a></code> now read the registry through <code><a href="../reference/read_measurement_type.html">read_measurement_type()</a></code>, so a corrupted file fails rather than reaching the schema site’s <code>metadata.json</code>.</li>
+</ul></li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.18.0" id="calcofi4db-2180">calcofi4db 2.18.0<a class="anchor" aria-label="anchor" href="#calcofi4db-2180"></a></h2>
 <ul><li>

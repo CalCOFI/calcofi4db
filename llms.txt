@@ -713,6 +713,9 @@ check for other functions or datasets not captured by above categories
 - [`build_taxon_table()`](https://calcofi.io/calcofi4db/reference/build_taxon_table.md)
   : Build Taxonomic Hierarchy Table from WoRMS
 
+- [`check_registry_na_strings()`](https://calcofi.io/calcofi4db/reference/check_registry_na_strings.md)
+  : Reject sentinel strings that should have been empty cells
+
 - [`core_output_tables()`](https://calcofi.io/calcofi4db/reference/core_output_tables.md)
   : Core tables an ingest writes to parquet
 
@@ -761,6 +764,14 @@ check for other functions or datasets not captured by above categories
 
 - [`plan_dataset_netcdf()`](https://calcofi.io/calcofi4db/reference/plan_dataset_netcdf.md)
   : Plan the netCDF shape for a dataset
+
+- [`read_measurement_type()`](https://calcofi.io/calcofi4db/reference/read_measurement_type.md)
+  :
+
+  Read `metadata/measurement_type.csv`, refusing a corrupted registry
+
+- [`register_measurement_types()`](https://calcofi.io/calcofi4db/reference/register_measurement_types.md)
+  : Append new measurement types to the shared registry, safely
 
 - [`report_ship_matches()`](https://calcofi.io/calcofi4db/reference/report_ship_matches.md)
   : Report Ship Matching Status for a Dataset
