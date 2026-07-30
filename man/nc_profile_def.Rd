@@ -2,7 +2,7 @@
 % Please edit documentation in R/netcdf.R
 \name{nc_profile_def}
 \alias{nc_profile_def}
-\title{Define a CF Discrete-Sampling-Geometry profile file}
+\title{Define a CF Discrete-Sampling-Geometry file (profile or trajectory)}
 \usage{
 nc_profile_def(
   n_profile,
@@ -10,7 +10,8 @@ nc_profile_def(
   profile_proto,
   obs_types,
   var_meta = list(),
-  strlen = 64L
+  strlen = 64L,
+  obs_cols = "depth"
 )
 }
 \arguments{
@@ -29,19 +30,28 @@ each becomes its own double variable, which is the point of the widening.}
 \item{var_meta}{Named list from \code{\link[=measurement_var_meta]{measurement_var_meta()}}.}
 
 \item{strlen}{Fixed character length for string variables.}
+
+\item{obs_cols}{Coordinate columns that live on the \strong{observation} dimension.
+\code{"depth"} (the default) gives a CF profile; \code{c("time", "latitude", "longitude", "depth")} gives a CF trajectory, where position varies along
+the track rather than being a property of the instance.}
 }
 \value{
 \verb{list(dims = list(profile, obs, strlen), vars = <named list>)}.
-\code{vars} always includes \code{rowSize} (the ragged-array index) and \code{depth}.
+\code{vars} always includes \code{rowSize} (the ragged-array index) and every
+\code{obs_cols} entry.
 }
 \description{
-A single sampling level with a depth axis \emph{is} a CF profile, so it is written
-as one — \code{featureType=profile} with a contiguous ragged array — and needs no
-extension to the standard. This defines the dimensions and variables; feed the
-\code{vars} to \code{ncdf4::nc_create()} and then call \code{\link[=nc_profile_write]{nc_profile_write()}} one or more
-times.
+Both CF \code{profile} and CF \code{trajectory} are \emph{contiguous ragged arrays}: an
+instance dimension, an observation dimension, and a \code{rowSize} count saying how
+many observations belong to each instance. The two differ only in which
+coordinates sit on which dimension — a profile's time/latitude/longitude are
+fixed per instance, while a trajectory's vary along the track — so one writer
+serves both, and \code{obs_cols} is what selects between them.
 }
 \details{
+This defines the dimensions and variables; feed the \code{vars} to
+\code{ncdf4::nc_create()} and then call \code{\link[=nc_profile_write]{nc_profile_write()}} one or more times.
+
 Dimensions must be sized at creation time, which is why \code{n_profile}/\code{n_obs}
 are arguments rather than being inferred from the data: a multi-hundred-million
 row table is written in chunks, and a wrong guess means rewriting a multi-GB

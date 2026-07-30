@@ -15,7 +15,9 @@ nc_level_vars(
 )
 }
 \arguments{
-\item{group}{Group name, e.g. \code{"tow"}, \code{"occurrence"}, \code{"length_bin"}.}
+\item{group}{Group name, e.g. \code{"tow"}, \code{"occurrence"}, \code{"length_bin"}. Pass
+\code{""} to write at the file root instead of in a group, which is what a CF
+\code{featureType=point} collection is — one flat dimension with no nesting.}
 
 \item{df}{data.frame for this level, ordered so children are contiguous.}
 

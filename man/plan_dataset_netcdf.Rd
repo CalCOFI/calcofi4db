@@ -4,7 +4,12 @@
 \alias{plan_dataset_netcdf}
 \title{Plan the netCDF shape for a dataset}
 \usage{
-plan_dataset_netcdf(con, dataset_key, obs_tbl = "obs")
+plan_dataset_netcdf(
+  con,
+  dataset_key,
+  obs_tbl = "obs",
+  moving_sample_types = "underway"
+)
 }
 \arguments{
 \item{con}{DuckDB connection carrying the core tables}
@@ -13,15 +18,20 @@ plan_dataset_netcdf(con, dataset_key, obs_tbl = "obs")
 
 \item{obs_tbl}{Observation table to plan from (default \code{"obs"}); pass
 \code{"obs_ctd_full"} to plan the supplemental full-resolution CTD scans.}
+
+\item{moving_sample_types}{\code{sample_type} values that denote a moving platform,
+and so a CF trajectory rather than a collection of points.}
 }
 \value{
 A list with:
 \describe{
 \item{dataset_key, obs_tbl}{echoed inputs}
 \item{levels}{the \code{\link[=discover_sample_levels]{discover_sample_levels()}} tibble}
-\item{shape}{\code{"profile"} or \code{"groups"}}
-\item{feature_type}{\code{"profile"} for CF DSG, else \code{NA}}
+\item{shape}{\code{"profile"}, \code{"trajectory"}, \code{"point"} or \code{"groups"}}
+\item{feature_type}{the CF \code{featureType}, or \code{NA} for \code{"groups"}}
 \item{has_depth_axis}{whether \code{obs} carries a usable depth axis}
+\item{depths_per_instance}{median distinct depths per sampling instance —
+the discriminator between a vertical profile and a single-depth event}
 \item{measurement_types}{every \code{measurement_type} in \code{obs_tbl}, the union
 across ALL partitions}
 \item{attribute_types}{\code{obs_attribute} measurement types, each of which
@@ -36,12 +46,40 @@ variable groups either way. Replaces the per-dataset judgement previously
 baked into each \verb{publish_*_to-netcdf.qmd}.
 }
 \details{
-\strong{Shape rule.} One sampling level plus a depth axis is exactly a CF profile,
-so it is emitted as one (\code{featureType=profile}, contiguous ragged array) and
-needs no extension to the standard. More than one level has no CF feature
-type, so it becomes netCDF-4 groups with explicit \code{parent_index} links. Being
-explicit about which half of that split a file falls in is what lets the file
-claim CF compliance honestly rather than approximately.
+\strong{Shape rule.} Four outcomes, decided from the data:\tabular{lllll}{
+   levels \tab depths per instance \tab sample_type \tab shape \tab CF \cr
+   1 \tab > 1 \tab any \tab \code{profile} \tab \code{featureType=profile}, ragged array \cr
+   1 \tab <= 1 \tab \code{underway} \tab \code{trajectory} \tab \code{featureType=trajectory}, ragged array per cruise \cr
+   1 \tab <= 1 \tab other \tab \code{point} \tab \code{featureType=point}, one flat dimension \cr
+   0 or > 1 \tab any \tab any \tab \code{groups} \tab none — netCDF-4 groups + \code{parent_index} \cr
+}
+
+
+A depth axis is required for \code{profile} but \strong{optional} for \code{point}: CF's point
+feature needs only time and position, so a net tow with no recorded depth is
+still an honest point collection, where writing it as a single-group netCDF-4
+file would make no CF claim at all and gain nothing.
+
+\strong{Why \code{depths_per_instance} and not merely "has a depth axis".} A CF profile
+is a \emph{vertical series at one horizontal position}. Almost every CalCOFI
+dataset has a depth on its observations, but only \code{calcofi_ctd-cast} has many
+depths per event (median 74); a tow, a transect, an underway record and a
+region pool each carry a single depth. Deciding on "one level + a depth axis"
+alone therefore stamped \code{featureType=profile} on 10 of 15 datasets that are
+nothing of the kind — a file that claims a feature type it does not have is
+worse than one that claims none, because CF-aware tools act on the claim.
+
+\strong{Why \code{underway} is named explicitly.} \code{sample_type} is a controlled
+vocabulary in the core model (site/tow/net/cast/bottle/underway/transect/
+region_pool), and a moving platform is not inferable from row counts: an
+underway series looks exactly like a collection of points until you know the
+platform was under way between them. Naming the one vocabulary term that means
+"moving" is configuration, not a special case.
+
+More than one level has no CF feature type at all, so it becomes netCDF-4
+groups with explicit \code{parent_index} links. Being explicit about which of the
+four a file falls in is what lets it claim CF compliance honestly rather than
+approximately.
 
 \strong{\code{measurement_types} is a union, deliberately.} Sampling one partition is
 how \code{ctd-cast_full.nc} came to declare 32 of 54 variables: bottle nutrients
@@ -53,6 +91,8 @@ was silently dropped from a file advertised as full resolution.
 \dontrun{
 con <- cc_get_db()
 plan_dataset_netcdf(con, "calcofi_ctd-cast")$shape   # "profile"
+plan_dataset_netcdf(con, "calcofi_mets")$shape       # "trajectory"
+plan_dataset_netcdf(con, "cce-lter_zooscan")$shape   # "point"
 plan_dataset_netcdf(con, "swfsc_ichthyo")$shape      # "groups"
 }
 }

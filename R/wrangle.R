@@ -1928,7 +1928,121 @@ build_metadata_json <- function(
   message(glue::glue(
     "Wrote metadata.json: {length(tables_meta)} tables, {length(columns_meta)} columns"))
 
+  # Report documentation gaps at the point of writing. These ship verbatim to the
+  # release metadata.json and on to cc_describe_table() / cc_db_catalog(), and
+  # nothing else surfaces them — the scan used to be a snippet in the ingest-new
+  # skill that a human was expected to run once, by hand, after the first render.
+  # It lives here rather than in finalize_ingest() so the three ingests that still
+  # hand-roll their outputs are covered too.
+  print(scan_metadata_gaps(metadata))
+
   metadata_path
+}
+
+#' Scan a metadata sidecar for missing documentation
+#'
+#' Empty table/column descriptions and missing units are invisible until a
+#' consumer hits them: they travel from an ingest's `metadata.json` into the
+#' release sidecar and out through [calcofi4r] `cc_describe_table()` /
+#' `cc_db_catalog()`, where they render as blank documentation. [build_metadata_json()]
+#' calls this on every write.
+#'
+#' @param metadata Either the in-memory metadata list, or a path to a
+#'   `metadata.json` file.
+#' @param unit_exempt Regular expression matched against the **bare** column name
+#'   (table prefix stripped) for columns where a missing `units` is expected
+#'   rather than a gap — keys, identifiers, names, flags, timestamps, free text
+#'   and the long-format value columns are not unit-bearing measurements.
+#'
+#' @return An object of class `cc_metadata_gaps`: a list with `n_tables`,
+#'   `n_columns`, and the character vectors `tables_no_desc`, `columns_no_desc`
+#'   and `columns_no_units`. Has a `print()` method, so a notebook chunk can just
+#'   call it.
+#'
+#' @details
+#' `units` is only meaningful for a measured quantity, so reporting every
+#' `*_key`, name and timestamp as unit-less would bury the real gaps in noise —
+#' which is why `unit_exempt` exists rather than a flat count. The exemption is
+#' about *reporting*: nothing here changes what is written.
+#'
+#' @export
+#' @concept wrangle
+#' @examples
+#' md <- list(
+#'   tables  = list(obs = list(description_md = "")),
+#'   columns = list(`obs.temperature` = list(description_md = "temp", units = NULL),
+#'                  `obs.sample_key`  = list(description_md = "",     units = NULL)))
+#' scan_metadata_gaps(md)
+scan_metadata_gaps <- function(
+    metadata,
+    unit_exempt = paste0(
+      "(_key|_id|_uuid|_seq|_md|_url|_qual|_flag|_code|_name|_type|_status)$",
+      "|^(latitude|longitude|geom|datetime|date|time|notes|comments|description)$",
+      # long-format value columns are DELIBERATELY unit-less: the unit lives in
+      # measurement_type, one per row, which is the whole reason for the shape.
+      # Flagging them would tell a maintainer to do something actively wrong.
+      "|^(measurement_value|measurement_prec|bin_value|condition_value)$",
+      # registry/vocabulary columns and internal provenance hints
+      "|^_|^(realm|grain|units|is_canonical|life_stage|stage|order_occ|rank",
+      "|rank_order|count|n|sample_type|taxonomic_status|provider|dataset)$")) {
+  if (is.character(metadata) && length(metadata) == 1) {
+    if (!file.exists(metadata)) stop(glue::glue("not found: {metadata}"))
+    metadata <- jsonlite::fromJSON(metadata, simplifyVector = FALSE)
+  }
+  stopifnot(is.list(metadata))
+  tbls <- metadata$tables  %||% list()
+  cols <- metadata$columns %||% list()
+
+  blank <- function(x) is.null(x) || !length(x) ||
+    is.na(x[[1]]) || !nzchar(as.character(x[[1]]))
+
+  no_tdesc <- names(tbls)[vapply(tbls, function(t) blank(t$description_md), logical(1))]
+  no_cdesc <- names(cols)[vapply(cols, function(c) blank(c$description_md), logical(1))]
+  no_units <- names(cols)[vapply(cols, function(c) blank(c$units), logical(1))]
+  # A units gap only counts where a unit could exist. The exemption is matched
+  # against the bare column name but the QUALIFIED name is what is kept — an
+  # earlier version re-selected every column sharing a bare name, so one table's
+  # missing unit was reported against another table's documented column
+  # (`obs.depth_min_m` has units "m" and was still listed).
+  no_units <- no_units[!grepl(unit_exempt, sub("^[^.]+\\.", "", no_units))]
+
+  structure(list(
+    n_tables         = length(tbls),
+    n_columns        = length(cols),
+    tables_no_desc   = no_tdesc %||% character(),
+    columns_no_desc  = no_cdesc %||% character(),
+    columns_no_units = no_units %||% character()),
+    class = "cc_metadata_gaps")
+}
+
+#' @export
+print.cc_metadata_gaps <- function(x, max_show = 12, ...) {
+  n_t <- length(x$tables_no_desc)
+  n_c <- length(x$columns_no_desc)
+  n_u <- length(x$columns_no_units)
+  if (!n_t && !n_c && !n_u) {
+    cat(glue::glue("metadata.json documentation: complete ",
+                   "({x$n_tables} tables, {x$n_columns} columns)\n\n"))
+    return(invisible(x))
+  }
+  cat(glue::glue(
+    "metadata.json documentation gaps ",
+    "({x$n_tables} tables, {x$n_columns} columns) — these render blank in ",
+    "cc_describe_table() / cc_db_catalog():\n\n"))
+  shw <- function(label, v) {
+    if (!length(v)) return(invisible(NULL))
+    more <- if (length(v) > max_show)
+      glue::glue(" (+{length(v) - max_show} more)") else ""
+    cat(glue::glue("  {label}: {length(v)}\n"))
+    cat("    ", paste(utils::head(v, max_show), collapse = ", "),
+        as.character(more), "\n", sep = "")
+  }
+  shw("tables with no description_md", x$tables_no_desc)
+  shw("columns with no description_md", x$columns_no_desc)
+  shw("measurement columns with no units", x$columns_no_units)
+  cat("  backfill via metadata/{provider}/{dataset}/flds_redefine.csv, ",
+      "then re-run\n", sep = "")
+  invisible(x)
 }
 
 #' Build Relationships JSON from dm Object

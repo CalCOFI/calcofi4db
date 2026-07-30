@@ -43,6 +43,8 @@
 #'     \item{parent_sample_type}{the parent level, or `NA` for a root}
 #'     \item{depth}{0 for a root, 1 for its children, …}
 #'     \item{n_orphan}{rows whose `parent_sample_key` does not resolve}
+#'     \item{n_external_parent}{rows whose parent resolves into a **different**
+#'       dataset — a cross-dataset bridge, not a level of this file}
 #'   }
 #'   Returns a zero-row tibble when the dataset has no `sample` rows.
 #'
@@ -53,6 +55,13 @@
 #' counted in `n_orphan` rather than dropped, because an orphan is a data problem
 #' the caller must see — silently discarding it is how a level's row count stops
 #' matching the table it came from.
+#'
+#' **Cross-dataset parents are not levels.** `sample_key` is globally unique, so a
+#' `parent_sample_key` can point into another dataset — `calcofi_dic` parents 6 of
+#' its bottles onto `calcofi_bottle` casts, which is how the DIC/bottle dedup
+#' works. Those rows are counted in `n_external_parent` and the level is treated
+#' as a root *of this file*, because the parent's rows are not part of this
+#' dataset and so cannot be one of its groups.
 #'
 #' @examples
 #' \dontrun{
@@ -79,24 +88,35 @@ discover_sample_levels <- function(con, dataset_key) {
       parent_sample_type = character(), depth = integer(), n_orphan = integer()))
   }
 
-  # majority-vote parent per level + unresolved-parent count
+  # majority-vote parent per level, splitting three cases apart: a parent in the
+  # SAME dataset is a nesting level here; a parent in ANOTHER dataset is a
+  # cross-dataset bridge and cannot be a level of this file (its rows are not part
+  # of this dataset); an unresolved parent is an orphan.
   edges <- DBI::dbGetQuery(con, glue::glue("
     WITH s AS (SELECT * FROM sample WHERE dataset_key = '{dataset_key}')
     SELECT c.sample_type,
            p.sample_type                                   AS parent_sample_type,
+           p.sample_key IS NULL                            AS unresolved,
+           p.dataset_key IS NOT NULL
+             AND p.dataset_key <> c.dataset_key            AS external,
            COUNT(*)                                        AS n
     FROM s c LEFT JOIN sample p ON c.parent_sample_key = p.sample_key
     WHERE c.parent_sample_key IS NOT NULL
-    GROUP BY 1, 2"))
+    GROUP BY 1, 2, 3, 4"))
 
-  orphan <- edges[is.na(edges$parent_sample_type), c("sample_type", "n")]
-  named  <- edges[!is.na(edges$parent_sample_type), ]
+  orphan   <- edges[edges$unresolved, c("sample_type", "n")]
+  external <- edges[!edges$unresolved & edges$external, c("sample_type", "n")]
+  named    <- edges[!edges$unresolved & !edges$external, ]
 
   parent_of <- stats::setNames(rep(NA_character_, nrow(lv)), lv$sample_type)
   for (st in unique(named$sample_type)) {
     cand <- named[named$sample_type == st, ]
     parent_of[[st]] <- cand$parent_sample_type[which.max(cand$n)]
   }
+  # belt and braces: a parent naming a level this dataset does not have cannot be
+  # walked, and indexing it crashed the depth walk rather than degrading. Any such
+  # parent is treated as absent, which makes the level a root of THIS file.
+  parent_of[!is.na(parent_of) & !parent_of %in% names(parent_of)] <- NA_character_
 
   # a self-referential level (parent == itself) is not a nesting level: it is a
   # within-level chain, and treating it as its own parent would loop forever
@@ -123,8 +143,11 @@ discover_sample_levels <- function(con, dataset_key) {
     parent_sample_type = unname(parent_of[lv$sample_type]),
     depth              = unname(depth_of[lv$sample_type]),
     n_orphan           = as.integer(
-      orphan$n[match(lv$sample_type, orphan$sample_type)]))
+      orphan$n[match(lv$sample_type, orphan$sample_type)]),
+    n_external_parent  = as.integer(
+      external$n[match(lv$sample_type, external$sample_type)]))
   out$n_orphan[is.na(out$n_orphan)] <- 0L
+  out$n_external_parent[is.na(out$n_external_parent)] <- 0L
   out[order(out$depth, out$sample_type), ]
 }
 
@@ -139,14 +162,18 @@ discover_sample_levels <- function(con, dataset_key) {
 #' @param dataset_key Dataset provenance stamp
 #' @param obs_tbl Observation table to plan from (default `"obs"`); pass
 #'   `"obs_ctd_full"` to plan the supplemental full-resolution CTD scans.
+#' @param moving_sample_types `sample_type` values that denote a moving platform,
+#'   and so a CF trajectory rather than a collection of points.
 #'
 #' @return A list with:
 #'   \describe{
 #'     \item{dataset_key, obs_tbl}{echoed inputs}
 #'     \item{levels}{the [discover_sample_levels()] tibble}
-#'     \item{shape}{`"profile"` or `"groups"`}
-#'     \item{feature_type}{`"profile"` for CF DSG, else `NA`}
+#'     \item{shape}{`"profile"`, `"trajectory"`, `"point"` or `"groups"`}
+#'     \item{feature_type}{the CF `featureType`, or `NA` for `"groups"`}
 #'     \item{has_depth_axis}{whether `obs` carries a usable depth axis}
+#'     \item{depths_per_instance}{median distinct depths per sampling instance —
+#'       the discriminator between a vertical profile and a single-depth event}
 #'     \item{measurement_types}{every `measurement_type` in `obs_tbl`, the union
 #'       across ALL partitions}
 #'     \item{attribute_types}{`obs_attribute` measurement types, each of which
@@ -155,12 +182,40 @@ discover_sample_levels <- function(con, dataset_key) {
 #'   }
 #'
 #' @details
-#' **Shape rule.** One sampling level plus a depth axis is exactly a CF profile,
-#' so it is emitted as one (`featureType=profile`, contiguous ragged array) and
-#' needs no extension to the standard. More than one level has no CF feature
-#' type, so it becomes netCDF-4 groups with explicit `parent_index` links. Being
-#' explicit about which half of that split a file falls in is what lets the file
-#' claim CF compliance honestly rather than approximately.
+#' **Shape rule.** Four outcomes, decided from the data:
+#'
+#' | levels | depths per instance | sample_type | shape | CF |
+#' |---|---|---|---|---|
+#' | 1 | > 1 | any | `profile` | `featureType=profile`, ragged array |
+#' | 1 | <= 1 | `underway` | `trajectory` | `featureType=trajectory`, ragged array per cruise |
+#' | 1 | <= 1 | other | `point` | `featureType=point`, one flat dimension |
+#' | 0 or > 1 | any | any | `groups` | none — netCDF-4 groups + `parent_index` |
+#'
+#' A depth axis is required for `profile` but **optional** for `point`: CF's point
+#' feature needs only time and position, so a net tow with no recorded depth is
+#' still an honest point collection, where writing it as a single-group netCDF-4
+#' file would make no CF claim at all and gain nothing.
+#'
+#' **Why `depths_per_instance` and not merely "has a depth axis".** A CF profile
+#' is a *vertical series at one horizontal position*. Almost every CalCOFI
+#' dataset has a depth on its observations, but only `calcofi_ctd-cast` has many
+#' depths per event (median 74); a tow, a transect, an underway record and a
+#' region pool each carry a single depth. Deciding on "one level + a depth axis"
+#' alone therefore stamped `featureType=profile` on 10 of 15 datasets that are
+#' nothing of the kind — a file that claims a feature type it does not have is
+#' worse than one that claims none, because CF-aware tools act on the claim.
+#'
+#' **Why `underway` is named explicitly.** `sample_type` is a controlled
+#' vocabulary in the core model (site/tow/net/cast/bottle/underway/transect/
+#' region_pool), and a moving platform is not inferable from row counts: an
+#' underway series looks exactly like a collection of points until you know the
+#' platform was under way between them. Naming the one vocabulary term that means
+#' "moving" is configuration, not a special case.
+#'
+#' More than one level has no CF feature type at all, so it becomes netCDF-4
+#' groups with explicit `parent_index` links. Being explicit about which of the
+#' four a file falls in is what lets it claim CF compliance honestly rather than
+#' approximately.
 #'
 #' **`measurement_types` is a union, deliberately.** Sampling one partition is
 #' how `ctd-cast_full.nc` came to declare 32 of 54 variables: bottle nutrients
@@ -172,12 +227,15 @@ discover_sample_levels <- function(con, dataset_key) {
 #' \dontrun{
 #' con <- cc_get_db()
 #' plan_dataset_netcdf(con, "calcofi_ctd-cast")$shape   # "profile"
+#' plan_dataset_netcdf(con, "calcofi_mets")$shape       # "trajectory"
+#' plan_dataset_netcdf(con, "cce-lter_zooscan")$shape   # "point"
 #' plan_dataset_netcdf(con, "swfsc_ichthyo")$shape      # "groups"
 #' }
 #' @export
 #' @concept publish
 #' @importFrom glue glue
-plan_dataset_netcdf <- function(con, dataset_key, obs_tbl = "obs") {
+plan_dataset_netcdf <- function(con, dataset_key, obs_tbl = "obs",
+                               moving_sample_types = "underway") {
   stopifnot(is.character(obs_tbl), length(obs_tbl) == 1)
   tbls <- DBI::dbListTables(con)
   if (!obs_tbl %in% tbls) stop(glue::glue("table '{obs_tbl}' not found"))
@@ -195,23 +253,39 @@ plan_dataset_netcdf <- function(con, dataset_key, obs_tbl = "obs") {
   attr_types <- distinct_of("obs_attribute", "measurement_type")
   eff_types  <- distinct_of("sample_measurement", "measurement_type")
 
-  depth_probe <- DBI::dbGetQuery(con, glue::glue(
-    "SELECT COUNT(depth_min_m) AS n_depth FROM {obs_tbl}
-      WHERE dataset_key = '{dataset_key}'"))$n_depth
-  has_depth <- isTRUE(depth_probe > 0)
+  # one pass answers both "is there a depth axis at all?" and "is it a vertical
+  # series?" — the second is what separates a CF profile from a single-depth event
+  probe <- DBI::dbGetQuery(con, glue::glue(
+    "WITH d AS (
+       SELECT sample_key, COUNT(DISTINCT depth_min_m) AS n_depth
+       FROM {obs_tbl} WHERE dataset_key = '{dataset_key}' GROUP BY 1)
+     SELECT COUNT(*) AS n_inst, COALESCE(MEDIAN(n_depth), 0) AS med_depth,
+            COALESCE(SUM(n_depth), 0) AS tot_depth
+     FROM d"))
+  has_depth  <- isTRUE(probe$tot_depth > 0)
+  med_depth  <- as.numeric(probe$med_depth)
 
-  shape <- if (nrow(levels) <= 1 && has_depth) "profile" else "groups"
+  shape <- if (nrow(levels) > 1 || !nrow(levels)) {
+    "groups"
+  } else if (has_depth && med_depth > 1) {
+    "profile"
+  } else if (any(levels$sample_type %in% moving_sample_types)) {
+    "trajectory"
+  } else {
+    "point"
+  }
 
   list(
-    dataset_key       = dataset_key,
-    obs_tbl           = obs_tbl,
-    levels            = levels,
-    shape             = shape,
-    feature_type      = if (shape == "profile") "profile" else NA_character_,
-    has_depth_axis    = has_depth,
-    measurement_types = meas,
-    attribute_types   = attr_types,
-    effort_types      = eff_types)
+    dataset_key         = dataset_key,
+    obs_tbl             = obs_tbl,
+    levels              = levels,
+    shape               = shape,
+    feature_type        = if (shape == "groups") NA_character_ else shape,
+    has_depth_axis      = has_depth,
+    depths_per_instance = med_depth,
+    measurement_types   = meas,
+    attribute_types     = attr_types,
+    effort_types        = eff_types)
 }
 
 #' Summarise a netCDF plan as one row
@@ -228,8 +302,10 @@ summarise_netcdf_plan <- function(plan) {
     dataset_key   = plan$dataset_key,
     obs_tbl       = plan$obs_tbl,
     shape         = plan$shape,
+    feature_type  = plan$feature_type %||% NA_character_,
     levels        = paste(plan$levels$sample_type, collapse = " -> "),
     n_levels      = nrow(plan$levels),
+    depths_per_instance = plan$depths_per_instance %||% NA_real_,
     n_meas_types  = length(plan$measurement_types),
     n_attr_groups = length(plan$attribute_types),
     n_effort      = length(plan$effort_types),
@@ -327,6 +403,90 @@ measurement_var_meta <- function(mt) {
   as.character(.nz(var_meta[[nm]]$units, ""))
 }
 
+# Variable names the writers create themselves. A measurement type colliding with
+# one of these would silently overwrite a coordinate.
+.NC_RESERVED <- c("time", "latitude", "longitude", "depth", "rowSize",
+                  "profile_id", "parent_index", "obs", "profile", "name_strlen")
+
+#' SQL that widens long `obs` rows into one column per measurement type
+#'
+#' The database keeps every quantity in a single `measurement_value` column, which
+#' CF forbids — a variable has one unit and one `standard_name`. This builds the
+#' pivot, at the **occurrence grain** rather than the event grain.
+#'
+#' @param dataset_key Dataset provenance stamp.
+#' @param measurement_types Character vector of types to widen into columns,
+#'   normally `plan_dataset_netcdf()$measurement_types` (the union across all
+#'   partitions).
+#' @param obs_tbl Table or view to read.
+#' @param grain Columns defining one output row. **The default includes
+#'   `taxon_key` and `life_stage` deliberately** — see Details.
+#' @param carry Columns functionally determined by `sample_key` (position, time,
+#'   `cruise_key`, `grid_key`) to carry through with `any_value()`.
+#' @param order_by Columns for the `ORDER BY`; defaults to `grain`. A contiguous
+#'   ragged array requires the instance column to sort first.
+#' @param count_col Optional name for a `COUNT(*)` column, so the caller can see
+#'   how many long rows collapsed into each wide row and assert that none were
+#'   silently dropped.
+#' @param value_col Column holding the measured value.
+#'
+#' @return A single SQL string.
+#'
+#' @details
+#' **Why the grain includes `taxon_key`.** For a biological dataset `obs` is one
+#' row per (event, taxon, life stage, measurement). Grouping by `sample_key`
+#' alone therefore collapses every taxon in a sample into one row: on
+#' `cce-lter_zooscan` that turns 34,109 occurrences over 23 taxa into 1,483 rows
+#' and loses 96% of the data, with `MAX()` silently choosing one taxon's value.
+#' The loss is invisible in the output — the file is well-formed and the
+#' variables have plausible values.
+#'
+#' A `measurement_type` outside `[A-Za-z0-9_]`, or colliding with a coordinate
+#' name the writers create, is rejected rather than quoted: both are also invalid
+#' or ambiguous as netCDF variable names.
+#'
+#' @export
+#' @concept publish
+#' @examples
+#' obs_wide_sql("cce-lter_zooscan", c("abundance", "biomass"),
+#'              carry = c("latitude", "longitude"))
+obs_wide_sql <- function(dataset_key, measurement_types, obs_tbl = "obs",
+                         grain = c("sample_key", "depth_min_m", "taxon_key",
+                                   "life_stage"),
+                         carry = character(), order_by = grain,
+                         count_col = NULL,
+                         value_col = "measurement_value") {
+  stopifnot(is.character(measurement_types), length(grain) >= 1)
+  bad <- grep("^[A-Za-z][A-Za-z0-9_]*$", measurement_types,
+              invert = TRUE, value = TRUE)
+  if (length(bad))
+    stop(glue::glue("measurement_type(s) are not usable as netCDF variable ",
+                    "names: {paste(bad, collapse = ', ')}"))
+  clash <- intersect(measurement_types, c(grain, carry, .NC_RESERVED))
+  if (length(clash))
+    stop(glue::glue("measurement_type(s) collide with a reserved or grain ",
+                    "column: {paste(clash, collapse = ', ')}"))
+
+  g <- paste(grain, collapse = ", ")
+  parts <- g
+  if (length(carry))
+    parts <- paste0(parts, ",\n    ", paste(
+      glue::glue("any_value({carry}) AS {carry}"), collapse = ",\n    "))
+  if (!is.null(count_col))
+    parts <- paste0(parts, ",\n    ", glue::glue("COUNT(*) AS {count_col}"))
+  if (length(measurement_types))
+    parts <- paste0(parts, ",\n    ", paste(glue::glue(
+      "MAX({value_col}) FILTER (WHERE measurement_type = '{measurement_types}')",
+      "::DOUBLE AS \"{measurement_types}\""), collapse = ",\n    "))
+
+  glue::glue(
+    "SELECT {parts}\n",
+    "FROM {obs_tbl}\n",
+    "WHERE dataset_key = '{dataset_key}'\n",
+    "GROUP BY {g}\n",
+    "ORDER BY {paste(order_by, collapse = ', ')}")
+}
+
 # ---- netCDF-4 groups: the nested (non-CF) shape -------------------------------
 
 # GROUPS IN ncdf4 — verified 2026-07-28, ncdf4 1.24.
@@ -340,6 +500,14 @@ measurement_var_meta <- function(mt) {
 # so it is a true HDF5/netCDF-4 group, not a variable with a slash in its name.
 # Dimensions are defined at the root and referenced from any group, which is what
 # lets a child level index into its parent.
+#
+# `group = ""` writes at the ROOT instead of in a group, which is what a CF
+# `featureType=point` file is: one flat dimension, no nesting, no ragged array.
+# That reuse is deliberate — a point collection and one level of a hierarchy are
+# the same write, and the only difference is where the variables land.
+.nc_prefix <- function(group) if (nzchar(group)) paste0(group, "_") else ""
+.nc_name   <- function(group, nm)
+  if (nzchar(group)) glue::glue("{group}/{nm}") else as.character(nm)
 
 #' Build the variable definitions for one level of a nested dataset
 #'
@@ -351,7 +519,9 @@ measurement_var_meta <- function(mt) {
 #' size bins, which turned 76,512 real ichthyo values into 369,978 repeated ones
 #' and inflated any naive `SUM()` of effort by ~5x.
 #'
-#' @param group Group name, e.g. `"tow"`, `"occurrence"`, `"length_bin"`.
+#' @param group Group name, e.g. `"tow"`, `"occurrence"`, `"length_bin"`. Pass
+#'   `""` to write at the file root instead of in a group, which is what a CF
+#'   `featureType=point` collection is — one flat dimension with no nesting.
 #' @param df data.frame for this level, ordered so children are contiguous.
 #' @param dim The `ncdim4` for this level.
 #' @param parent_dim Parent level's `ncdim4`, or `NULL` at the root.
@@ -367,12 +537,12 @@ nc_level_vars <- function(group, df, dim, parent_dim = NULL, parent_index = NULL
                           var_meta = list(), strlen = 64L) {
   .need_ncdf4()
   stopifnot(is.data.frame(df))
-  d_str <- ncdf4::ncdim_def(glue::glue("{group}_strlen"), "", seq_len(strlen),
-                            create_dimvar = FALSE)
+  d_str <- ncdf4::ncdim_def(glue::glue("{.nc_prefix(group)}strlen"), "",
+                            seq_len(strlen), create_dimvar = FALSE)
   vars <- list()
   for (nm in names(df)) {
     x  <- df[[nm]]
-    nc_nm <- glue::glue("{group}/{nm}")
+    nc_nm <- .nc_name(group, nm)
     vars[[nm]] <- if (is.character(x) || is.factor(x)) {
       ncdf4::ncvar_def(nc_nm, "", list(d_str, dim), prec = "char")
     } else if (is.integer(x)) {
@@ -385,7 +555,7 @@ nc_level_vars <- function(group, df, dim, parent_dim = NULL, parent_index = NULL
   }
   if (!is.null(parent_index) && !is.null(parent_dim))
     vars[["__parent_index"]] <- ncdf4::ncvar_def(
-      glue::glue("{group}/parent_index"), "", dim, prec = "integer")
+      .nc_name(group, "parent_index"), "", dim, prec = "integer")
   vars
 }
 
@@ -414,7 +584,7 @@ nc_level_put <- function(nc, group, df, vars, parent_index = NULL,
     if (is.character(x)) x[is.na(x)] <- ""
     ncdf4::ncvar_put(nc, vars[[nm]], x)
     md <- var_meta[[nm]] %||% list()
-    vn <- glue::glue("{group}/{nm}")
+    vn <- .nc_name(group, nm)
     ncdf4::ncatt_put(nc, vn, "long_name",
                      as.character(.nz(md$long_name, gsub("_", " ", nm))))
     sn <- .nz(md$standard_name, NA_character_)
@@ -422,7 +592,7 @@ nc_level_put <- function(nc, group, df, vars, parent_index = NULL,
   }
   if (!is.null(parent_index) && !is.null(vars[["__parent_index"]])) {
     ncdf4::ncvar_put(nc, vars[["__parent_index"]], as.integer(parent_index))
-    vn <- glue::glue("{group}/parent_index")
+    vn <- .nc_name(group, "parent_index")
     ncdf4::ncatt_put(nc, vn, "long_name",
                      glue::glue("1-based index into the {parent_group} group"))
     ncdf4::ncatt_put(nc, vn, "comment", paste(
@@ -437,13 +607,17 @@ nc_level_put <- function(nc, group, df, vars, parent_index = NULL,
 
 # ---- CF profile: the flat, fully-CF shape -------------------------------------
 
-#' Define a CF Discrete-Sampling-Geometry profile file
+#' Define a CF Discrete-Sampling-Geometry file (profile or trajectory)
 #'
-#' A single sampling level with a depth axis *is* a CF profile, so it is written
-#' as one — `featureType=profile` with a contiguous ragged array — and needs no
-#' extension to the standard. This defines the dimensions and variables; feed the
-#' `vars` to `ncdf4::nc_create()` and then call [nc_profile_write()] one or more
-#' times.
+#' Both CF `profile` and CF `trajectory` are *contiguous ragged arrays*: an
+#' instance dimension, an observation dimension, and a `rowSize` count saying how
+#' many observations belong to each instance. The two differ only in which
+#' coordinates sit on which dimension — a profile's time/latitude/longitude are
+#' fixed per instance, while a trajectory's vary along the track — so one writer
+#' serves both, and `obs_cols` is what selects between them.
+#'
+#' This defines the dimensions and variables; feed the `vars` to
+#' `ncdf4::nc_create()` and then call [nc_profile_write()] one or more times.
 #'
 #' Dimensions must be sized at creation time, which is why `n_profile`/`n_obs`
 #' are arguments rather than being inferred from the data: a multi-hundred-million
@@ -460,16 +634,26 @@ nc_level_put <- function(nc, group, df, vars, parent_index = NULL,
 #'   each becomes its own double variable, which is the point of the widening.
 #' @param var_meta Named list from [measurement_var_meta()].
 #' @param strlen Fixed character length for string variables.
+#' @param obs_cols Coordinate columns that live on the **observation** dimension.
+#'   `"depth"` (the default) gives a CF profile; `c("time", "latitude",
+#'   "longitude", "depth")` gives a CF trajectory, where position varies along
+#'   the track rather than being a property of the instance.
 #'
 #' @return `list(dims = list(profile, obs, strlen), vars = <named list>)`.
-#'   `vars` always includes `rowSize` (the ragged-array index) and `depth`.
+#'   `vars` always includes `rowSize` (the ragged-array index) and every
+#'   `obs_cols` entry.
 #' @export
 #' @concept publish
 nc_profile_def <- function(n_profile, n_obs, profile_proto, obs_types,
-                           var_meta = list(), strlen = 64L) {
+                           var_meta = list(), strlen = 64L,
+                           obs_cols = "depth") {
   .need_ncdf4()
-  stopifnot(is.data.frame(profile_proto), n_profile >= 1, n_obs >= 1,
-            !"depth" %in% names(profile_proto))
+  stopifnot(is.data.frame(profile_proto), n_profile >= 1, n_obs >= 1)
+  clash <- intersect(obs_cols, names(profile_proto))
+  if (length(clash))
+    stop(glue::glue(
+      "column(s) {paste(clash, collapse = ', ')} are declared on BOTH the ",
+      "instance and observation dimension — a variable has one shape"))
   d_prof <- ncdf4::ncdim_def("profile", "", seq_len(n_profile), create_dimvar = FALSE)
   d_obs  <- ncdf4::ncdim_def("obs",     "", seq_len(n_obs),     create_dimvar = FALSE)
   d_str  <- ncdf4::ncdim_def("name_strlen", "", seq_len(strlen), create_dimvar = FALSE)
@@ -488,9 +672,7 @@ nc_profile_def <- function(n_profile, n_obs, profile_proto, obs_types,
     }
   }
   vars[["rowSize"]] <- ncdf4::ncvar_def("rowSize", "", d_prof, prec = "integer")
-  vars[["depth"]]   <- ncdf4::ncvar_def("depth", "m", d_obs, prec = "double",
-                                        missval = NC_FILL_DOUBLE)
-  for (nm in obs_types)
+  for (nm in c(obs_cols, obs_types))
     vars[[nm]] <- ncdf4::ncvar_def(nm, .nc_units(nm, var_meta), d_obs,
                                    prec = "double", missval = NC_FILL_DOUBLE)
   list(dims = list(profile = d_prof, obs = d_obs, strlen = d_str), vars = vars)
@@ -507,15 +689,18 @@ nc_profile_def <- function(n_profile, n_obs, profile_proto, obs_types,
 #'
 #' @param nc Open `ncdf4` handle created from [nc_profile_def()]'s `vars`.
 #' @param vars The `vars` element of [nc_profile_def()].
-#' @param wide Wide data.frame, one row per (profile, depth), **ordered by
-#'   profile then depth** so each profile's rows are contiguous. Must contain
-#'   `profile_id_col`, `depth`, and the profile-level and obs-level columns.
-#' @param profile_cols Character vector of profile-level column names.
+#' @param wide Wide data.frame, one row per (instance, observation), **ordered by
+#'   instance then depth (or time)** so each instance's rows are contiguous. Must
+#'   contain `profile_id_col`, every `obs_cols` entry, and the instance-level and
+#'   obs-level columns.
+#' @param profile_cols Character vector of instance-level column names.
 #' @param obs_types Character vector of obs-level measurement column names.
-#' @param profile_id_col Column identifying the profile.
+#' @param profile_id_col Column identifying the instance (profile or trajectory).
 #' @param start_profile,start_obs 1-based write offsets into the profile and obs
 #'   dimensions.
 #' @param strlen Fixed character length, matching [nc_profile_def()].
+#' @param obs_cols Coordinate columns on the observation dimension, matching
+#'   [nc_profile_def()].
 #'
 #' @return `list(n_profile, n_obs)` — the counts written, for advancing the
 #'   offsets on the next chunk.
@@ -531,11 +716,11 @@ nc_profile_def <- function(n_profile, n_obs, profile_proto, obs_types,
 #' @concept publish
 nc_profile_write <- function(nc, vars, wide, profile_cols, obs_types,
                              profile_id_col = "profile_id",
-                             start_profile = 1L, start_obs = 1L, strlen = 64L) {
+                             start_profile = 1L, start_obs = 1L, strlen = 64L,
+                             obs_cols = "depth") {
   .need_ncdf4()
-  stopifnot(is.data.frame(wide), profile_id_col %in% names(wide),
-            "depth" %in% names(wide))
-  miss <- setdiff(c(profile_cols, obs_types), names(wide))
+  stopifnot(is.data.frame(wide), profile_id_col %in% names(wide))
+  miss <- setdiff(c(profile_cols, obs_cols, obs_types), names(wide))
   if (length(miss))
     stop(glue::glue("wide is missing column(s): {paste(miss, collapse = ', ')}"))
   if (!nrow(wide)) return(list(n_profile = 0L, n_obs = 0L))
@@ -544,9 +729,10 @@ nc_profile_write <- function(nc, vars, wide, profile_cols, obs_types,
   r   <- rle(as.character(ids))
   if (length(r$values) != length(unique(ids)))
     stop(glue::glue(
-      "profile rows are not contiguous ({length(r$values)} runs for ",
-      "{length(unique(ids))} profiles) — ORDER BY {profile_id_col}, depth ",
-      "before writing, or the ragged array assigns depths to the wrong profile"))
+      "instance rows are not contiguous ({length(r$values)} runs for ",
+      "{length(unique(ids))} instances) — ORDER BY {profile_id_col}, ",
+      "{obs_cols[[1]]} before writing, or the ragged array assigns ",
+      "observations to the wrong instance"))
   first_ix <- match(r$values, as.character(ids))
   n_p <- length(r$values)
 
@@ -568,55 +754,70 @@ nc_profile_write <- function(nc, vars, wide, profile_cols, obs_types,
   }
   ncdf4::ncvar_put(nc, vars[["rowSize"]], as.integer(r$lengths),
                    start = start_profile, count = n_p)
-  ncdf4::ncvar_put(nc, vars[["depth"]], as.numeric(wide$depth),
-                   start = start_obs, count = nrow(wide))
-  for (nm in obs_types)
+  for (nm in c(obs_cols, obs_types))
     ncdf4::ncvar_put(nc, vars[[nm]], as.numeric(wide[[nm]]),
                      start = start_obs, count = nrow(wide))
 
   list(n_profile = n_p, n_obs = nrow(wide))
 }
 
-#' Write the CF Discrete-Sampling-Geometry attributes of a profile file
+#' Write the CF Discrete-Sampling-Geometry attributes
 #'
-#' These attributes are what make the file a CF *profile dataset* rather than a
-#' table that happens to be stored in netCDF: `cf_role` marks the instance
-#' identifier and `sample_dimension` on `rowSize` declares the contiguous ragged
-#' array. Without them a CF-aware reader sees two unrelated dimensions.
+#' These attributes are what make the file a CF *profile*, *trajectory* or
+#' *point* dataset rather than a table that happens to be stored in netCDF:
+#' `cf_role` marks the instance identifier and `sample_dimension` on `rowSize`
+#' declares the contiguous ragged array. Without them a CF-aware reader sees
+#' unrelated dimensions.
 #'
 #' @param nc Open `ncdf4` handle.
 #' @param obs_types Obs-level measurement variable names.
 #' @param var_meta Named list from [measurement_var_meta()].
-#' @param profile_vars Profile-level variable names present in the file; the
+#' @param profile_vars Instance-level variable names present in the file; the
 #'   coordinate ones among them get their `standard_name`/`axis`.
-#' @param profile_id_var The instance-identifier variable.
+#' @param profile_id_var The instance-identifier variable, or `NULL` for a point
+#'   collection, which has no instances.
+#' @param feature_type `"profile"`, `"trajectory"` or `"point"`. Sets the
+#'   `cf_role` of `profile_id_var` (`profile_id` vs `trajectory_id`) and, for
+#'   `"point"`, skips the ragged-array attributes entirely.
+#' @param obs_cols Coordinate columns on the observation dimension.
 #'
 #' @return `TRUE`, invisibly.
 #' @export
 #' @concept publish
 nc_profile_atts <- function(nc, obs_types, var_meta = list(),
                             profile_vars = character(),
-                            profile_id_var = "profile_id") {
+                            profile_id_var = "profile_id",
+                            feature_type = c("profile", "trajectory", "point"),
+                            obs_cols = "depth") {
   .need_ncdf4()
-  if (profile_id_var %in% c(profile_vars, names(nc$var))) {
-    ncdf4::ncatt_put(nc, profile_id_var, "cf_role", "profile_id")
-    ncdf4::ncatt_put(nc, profile_id_var, "long_name", "Profile identifier")
+  feature_type <- match.arg(feature_type)
+  # a point collection has no instances, so it has no cf_role to assign
+  role <- c(profile = "profile_id", trajectory = "trajectory_id",
+            point = NA_character_)[[feature_type]]
+  if (!is.null(profile_id_var) && !is.na(role) &&
+      profile_id_var %in% c(profile_vars, names(nc$var))) {
+    ncdf4::ncatt_put(nc, profile_id_var, "cf_role", role)
+    ncdf4::ncatt_put(nc, profile_id_var, "long_name",
+                     if (identical(role, "trajectory_id")) "Trajectory identifier"
+                     else "Profile identifier")
   }
   axis_of <- c(time = "T", latitude = "Y", longitude = "X", depth = "Z")
-  for (nm in intersect(names(axis_of), c(profile_vars, "depth"))) {
+  for (nm in intersect(names(axis_of), c(profile_vars, obs_cols))) {
     ncdf4::ncatt_put(nc, nm, "standard_name", nm)
     ncdf4::ncatt_put(nc, nm, "axis", unname(axis_of[[nm]]))
+    if (identical(nm, "depth")) ncdf4::ncatt_put(nc, nm, "positive", "down")
   }
-  ncdf4::ncatt_put(nc, "depth", "standard_name", "depth")
-  ncdf4::ncatt_put(nc, "depth", "axis", "Z")
-  ncdf4::ncatt_put(nc, "depth", "positive", "down")
-  ncdf4::ncatt_put(nc, "rowSize", "long_name",
-                   "Number of observations for this profile")
-  ncdf4::ncatt_put(nc, "rowSize", "sample_dimension", "obs")
+  if (!identical(feature_type, "point")) {
+    ncdf4::ncatt_put(nc, "rowSize", "long_name",
+                     glue::glue("Number of observations for this {feature_type}"))
+    ncdf4::ncatt_put(nc, "rowSize", "sample_dimension", "obs")
+  }
 
-  coords <- paste(intersect(c("time", "latitude", "longitude"), profile_vars),
-                  collapse = " ")
-  coords <- trimws(paste(coords, "depth"))
+  # a variable's `coordinates` must name every coordinate it depends on, whether
+  # that coordinate sits on the instance dimension (profile) or varies along the
+  # observation dimension (trajectory)
+  coords <- paste(intersect(c("time", "latitude", "longitude", "depth"),
+                            unique(c(profile_vars, obs_cols))), collapse = " ")
   for (nm in obs_types) {
     md <- var_meta[[nm]] %||% list()
     ncdf4::ncatt_put(nc, nm, "long_name",

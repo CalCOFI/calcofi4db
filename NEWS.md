@@ -1,5 +1,74 @@
 # calcofi4db 2.21.0
 
+- **New: `scan_metadata_gaps()`, called automatically by `build_metadata_json()`.**
+  Empty table/column descriptions and missing units travel from an ingest's
+  `metadata.json` into the release sidecar and out through
+  `calcofi4r::cc_describe_table()` / `cc_db_catalog()`, where they render as blank
+  documentation — and nothing surfaced them. The check existed only as a snippet in
+  the `ingest-new` skill that a human was expected to run once, by hand, after the
+  first render; it appeared in **no** notebook. Running it inside
+  `build_metadata_json()` (rather than `finalize_ingest()`) covers the three ingests
+  that still hand-roll their outputs too. Across the 16 current sidecars it finds
+  **29 tables and 395 columns with no description, and 223 unit-less measurement
+  columns**.
+
+  A missing `units` is reported only where a unit could exist: keys, names, flags,
+  timestamps, vocabulary columns and the long-format `measurement_value` /
+  `measurement_prec` are exempt. The last of those matters — the unit lives in
+  `measurement_type`, one per row, so flagging the value column would tell a
+  maintainer to do something actively wrong. Un-exempted, the same scan reported
+  484 "gaps", more than half of them noise.
+- **`plan_dataset_netcdf()` now distinguishes four shapes, not two.** The old rule
+  — one sampling level plus a depth axis is a CF profile — held for the two
+  datasets that had publish notebooks, and broke as soon as it was applied to all
+  15. *Every* CalCOFI dataset carries a depth on its observations, but only
+  `calcofi_ctd-cast` has many depths per event (median **74**); a tow, a transect,
+  an underway record and a region pool each carry exactly one. The rule therefore
+  stamped `featureType=profile` on **10 of 15** datasets that are nothing of the
+  kind, and a file claiming a feature type it does not have is worse than one
+  claiming none, because CF-aware tools act on the claim.
+
+  | levels | depths/instance | `sample_type` | shape |
+  |---|---|---|---|
+  | 1 | > 1 | any | `profile` (ragged array) |
+  | 1 | <= 1 | `underway` | `trajectory` (ragged array per cruise) |
+  | 1 | <= 1 | other | `point` (one flat dimension) |
+  | > 1 | any | any | `groups` (netCDF-4 + `parent_index`, no CF claim) |
+
+  New `depths_per_instance` in the plan and in `summarise_netcdf_plan()` makes the
+  discriminator visible rather than implicit. `moving_sample_types` (default
+  `"underway"`) names the vocabulary terms that mean "moving platform" — that is
+  not inferable from row counts, since an underway series looks exactly like
+  scattered points until you know the ship was under way between them.
+- **Fix: `discover_sample_levels()` crashed on a cross-dataset parent.** The
+  parent join was not dataset-scoped, and `sample_key` is globally unique, so
+  `calcofi_dic` — which parents 6 of its bottles onto `calcofi_bottle` **casts**,
+  the mechanism behind the DIC/bottle dedup — resolved to a `sample_type` that
+  `calcofi_dic` does not have. The depth walk then indexed a name that was not
+  there: `subscript out of bounds`, mid-loop over all 15 datasets. Such a parent is
+  now reported in a new `n_external_parent` column and the level is treated as a
+  root *of that file*, since the parent's rows are not part of the dataset and so
+  cannot be one of its groups. An unresolved parent (`n_orphan`) and an external
+  one are counted separately; every row stays accounted for.
+- **New: `obs_wide_sql()`** builds the long→wide pivot at the **occurrence grain**
+  (`sample_key`, `depth_min_m`, `taxon_key`, `life_stage`), not the event grain.
+  Grouping by `sample_key` alone collapses every taxon in a sample into one row —
+  on `cce-lter_zooscan` that is 34,109 occurrences over 23 taxa reduced to 1,483
+  rows, 96% of the data gone, with `MAX()` silently choosing one taxon's value and
+  the resulting file still well-formed and plausible. Also rejects a
+  `measurement_type` that cannot be a netCDF variable name or that collides with a
+  coordinate the writers create, and takes an optional `count_col` so a caller can
+  assert that no value was silently discarded at the grain.
+- **The DSG writers cover trajectory and point, not just profile.** CF profile and
+  CF trajectory are the *same* contiguous ragged array and differ only in which
+  dimension the coordinates sit on, so `nc_profile_def()`/`nc_profile_write()`
+  gained `obs_cols` (default `"depth"` = profile; `c("time","latitude",
+  "longitude","depth")` = trajectory) and `nc_profile_atts()` gained
+  `feature_type`, which selects `cf_role` (`profile_id` vs `trajectory_id`) and
+  omits the ragged-array attributes for a point collection. `nc_level_vars()` /
+  `nc_level_put()` accept `group = ""` to write at the file root, which is exactly
+  what a `featureType=point` file is — so the point shape needed no new writer.
+  Declaring one column on both dimensions is now an error.
 - **Exported `ensure_measurement_taxon()`** (was `.`-internal). Staging the
   `_measurement_taxon` crosswalk is part of a per-dataset projection, and the
   derived `taxon_key` is the piece that must not be hand-rolled: it is

@@ -2,14 +2,16 @@
 % Please edit documentation in R/netcdf.R
 \name{nc_profile_atts}
 \alias{nc_profile_atts}
-\title{Write the CF Discrete-Sampling-Geometry attributes of a profile file}
+\title{Write the CF Discrete-Sampling-Geometry attributes}
 \usage{
 nc_profile_atts(
   nc,
   obs_types,
   var_meta = list(),
   profile_vars = character(),
-  profile_id_var = "profile_id"
+  profile_id_var = "profile_id",
+  feature_type = c("profile", "trajectory", "point"),
+  obs_cols = "depth"
 )
 }
 \arguments{
@@ -19,18 +21,26 @@ nc_profile_atts(
 
 \item{var_meta}{Named list from \code{\link[=measurement_var_meta]{measurement_var_meta()}}.}
 
-\item{profile_vars}{Profile-level variable names present in the file; the
+\item{profile_vars}{Instance-level variable names present in the file; the
 coordinate ones among them get their \code{standard_name}/\code{axis}.}
 
-\item{profile_id_var}{The instance-identifier variable.}
+\item{profile_id_var}{The instance-identifier variable, or \code{NULL} for a point
+collection, which has no instances.}
+
+\item{feature_type}{\code{"profile"}, \code{"trajectory"} or \code{"point"}. Sets the
+\code{cf_role} of \code{profile_id_var} (\code{profile_id} vs \code{trajectory_id}) and, for
+\code{"point"}, skips the ragged-array attributes entirely.}
+
+\item{obs_cols}{Coordinate columns on the observation dimension.}
 }
 \value{
 \code{TRUE}, invisibly.
 }
 \description{
-These attributes are what make the file a CF \emph{profile dataset} rather than a
-table that happens to be stored in netCDF: \code{cf_role} marks the instance
-identifier and \code{sample_dimension} on \code{rowSize} declares the contiguous ragged
-array. Without them a CF-aware reader sees two unrelated dimensions.
+These attributes are what make the file a CF \emph{profile}, \emph{trajectory} or
+\emph{point} dataset rather than a table that happens to be stored in netCDF:
+\code{cf_role} marks the instance identifier and \code{sample_dimension} on \code{rowSize}
+declares the contiguous ragged array. Without them a CF-aware reader sees
+unrelated dimensions.
 }
 \concept{publish}

@@ -129,7 +129,7 @@ test_that("multiple levels plan as netCDF-4 groups, with attribute groups split 
   expect_equal(p$effort_types, "volume_sampled")
 })
 
-test_that("a single level with NO depth axis is not mistaken for a profile", {
+test_that("a single level with NO depth axis is a point collection, not a profile", {
   s <- data.frame(
     dataset_key = "calcofi_phytoplankton", sample_key = "R1",
     sample_type = "region_pool", parent_sample_key = NA_character_,
@@ -143,7 +143,10 @@ test_that("a single level with NO depth axis is not mistaken for a profile", {
 
   p <- plan_dataset_netcdf(con, "calcofi_phytoplankton")
   expect_false(p$has_depth_axis)
-  expect_equal(p$shape, "groups")   # no depth axis -> not a CF profile
+  # CF's point feature needs only time and position, so a missing depth axis rules
+  # out a profile without ruling out a CF claim altogether
+  expect_equal(p$shape, "point")
+  expect_equal(p$feature_type, "point")
 })
 
 test_that("summarise_netcdf_plan renders one row per dataset", {
@@ -459,4 +462,271 @@ test_that("nc_global_atts lets a per-file override win", {
   expect_equal(a$title, "Authored title")
   expect_equal(a$cf_scope, "custom scope")
   expect_equal(a$comment, "hand-written")
+})
+
+# ---- shape rule: four outcomes, not two --------------------------------------
+# Every CalCOFI dataset carries a depth on its observations, but only ctd-cast
+# has MANY depths per event. Deciding on "one level + a depth axis" alone stamped
+# featureType=profile on tows, transects, underway tracks and region pools.
+
+one_level <- function(ds, sample_type = "tow", n = 2) data.frame(
+  dataset_key = ds, sample_key = paste0("K", seq_len(n)),
+  sample_type = sample_type, parent_sample_key = NA_character_,
+  stringsAsFactors = FALSE)
+
+test_that("many depths per instance is a profile; one depth is not", {
+  s <- one_level("calcofi_ctd-cast", "cast")
+  o <- data.frame(
+    dataset_key = "calcofi_ctd-cast",
+    sample_key = c("K1", "K1", "K1", "K2", "K2"),
+    measurement_type = "temperature_ave",
+    depth_min_m = c(0, 10, 20, 0, 10), stringsAsFactors = FALSE)
+  con <- new_nc_fixture(s, o); on.exit(DBI::dbDisconnect(con, shutdown = TRUE))
+
+  p <- plan_dataset_netcdf(con, "calcofi_ctd-cast")
+  expect_equal(p$shape, "profile")
+  expect_equal(p$feature_type, "profile")
+  expect_gt(p$depths_per_instance, 1)
+})
+
+test_that("a single-depth net tow is a point collection, not a profile", {
+  s <- one_level("cce-lter_zooscan", "tow")
+  o <- data.frame(
+    dataset_key = "cce-lter_zooscan", sample_key = c("K1", "K2"),
+    measurement_type = "abundance", depth_min_m = c(210, 210),
+    stringsAsFactors = FALSE)
+  con <- new_nc_fixture(s, o); on.exit(DBI::dbDisconnect(con, shutdown = TRUE))
+
+  p <- plan_dataset_netcdf(con, "cce-lter_zooscan")
+  expect_equal(p$shape, "point")
+  expect_equal(p$feature_type, "point")
+  expect_equal(p$depths_per_instance, 1)
+})
+
+test_that("an underway series is a trajectory, not a point collection", {
+  # a moving platform is not inferable from row counts: underway data looks
+  # exactly like scattered points until you know the ship was under way
+  s <- one_level("calcofi_mets", "underway")
+  o <- data.frame(
+    dataset_key = "calcofi_mets", sample_key = c("K1", "K2"),
+    measurement_type = "temperature", depth_min_m = c(3, 3),
+    stringsAsFactors = FALSE)
+  con <- new_nc_fixture(s, o); on.exit(DBI::dbDisconnect(con, shutdown = TRUE))
+
+  p <- plan_dataset_netcdf(con, "calcofi_mets")
+  expect_equal(p$shape, "trajectory")
+  expect_equal(p$feature_type, "trajectory")
+})
+
+test_that("a depth-less single level is a point collection; no level at all is not", {
+  s <- one_level("cce-lter_euphausiids", "tow")
+  o <- data.frame(
+    dataset_key = "cce-lter_euphausiids", sample_key = c("K1", "K2"),
+    measurement_type = "abundance", depth_min_m = NA_real_,
+    stringsAsFactors = FALSE)
+  con <- new_nc_fixture(s, o); on.exit(DBI::dbDisconnect(con, shutdown = TRUE))
+
+  p <- plan_dataset_netcdf(con, "cce-lter_euphausiids")
+  expect_false(p$has_depth_axis)
+  expect_equal(p$shape, "point")
+
+  # a dataset with no sample rows has nothing to anchor a feature type to
+  p0 <- plan_dataset_netcdf(con, "not_a_dataset")
+  expect_equal(p0$shape, "groups")
+  expect_true(is.na(p0$feature_type))
+})
+
+test_that("summarise_netcdf_plan reports the feature type and depth density", {
+  s <- one_level("calcofi_mets", "underway")
+  o <- data.frame(dataset_key = "calcofi_mets", sample_key = "K1",
+                  measurement_type = "temperature", depth_min_m = 3,
+                  stringsAsFactors = FALSE)
+  con <- new_nc_fixture(s, o); on.exit(DBI::dbDisconnect(con, shutdown = TRUE))
+
+  r <- summarise_netcdf_plan(plan_dataset_netcdf(con, "calcofi_mets"))
+  expect_equal(r$feature_type, "trajectory")
+  expect_equal(r$depths_per_instance, 1)
+})
+
+# ---- trajectory and point writing --------------------------------------------
+
+test_that("a trajectory puts its coordinates on the observation dimension", {
+  skip_if_not_installed("ncdf4")
+  # the structural difference from a profile: position varies along the track, so
+  # time/lat/lon are per-observation, not per-instance
+  w <- data.frame(
+    cruise_key = c("C1", "C1", "C2"),
+    time       = c(1.5e9, 1.5e9 + 60, 1.6e9),
+    latitude   = c(33.0, 33.1, 34.0),
+    longitude  = c(-119.0, -119.1, -120.0),
+    depth      = c(3, 3, 3),
+    temperature = c(15.5, 15.6, 16.5),
+    stringsAsFactors = FALSE)
+  OBS <- c("time", "latitude", "longitude", "depth")
+  f <- nc_tmp()
+
+  d <- nc_profile_def(2, 3, w["cruise_key"], "temperature", obs_cols = OBS)
+  nc <- ncdf4::nc_create(f, unname(d$vars), force_v4 = TRUE)
+  n <- nc_profile_write(nc, d$vars, w, "cruise_key", "temperature",
+                        profile_id_col = "cruise_key", obs_cols = OBS)
+  nc_profile_atts(nc, "temperature", profile_vars = "cruise_key",
+                  profile_id_var = "cruise_key", feature_type = "trajectory",
+                  obs_cols = OBS)
+  ncdf4::nc_close(nc)
+
+  expect_equal(n, list(n_profile = 2L, n_obs = 3L))
+  o <- ncdf4::nc_open(f); on.exit(ncdf4::nc_close(o))
+  expect_equal(as.integer(ncdf4::ncvar_get(o, "rowSize")), c(2L, 1L))
+  # 3 positions, one per observation — NOT 2 collapsed onto the instances
+  expect_equal(length(ncdf4::ncvar_get(o, "latitude")), 3L)
+  expect_equal(as.vector(ncdf4::ncvar_get(o, "latitude")), c(33.0, 33.1, 34.0))
+  expect_equal(ncdf4::ncatt_get(o, "cruise_key", "cf_role")$value, "trajectory_id")
+  expect_equal(ncdf4::ncatt_get(o, "temperature", "coordinates")$value,
+               "time latitude longitude depth")
+})
+
+test_that("declaring a column on both dimensions is refused", {
+  skip_if_not_installed("ncdf4")
+  expect_error(
+    nc_profile_def(1, 1, data.frame(latitude = 33), "x",
+                   obs_cols = c("latitude", "depth")),
+    "BOTH the instance and observation dimension")
+})
+
+test_that("a point collection writes flat at the root with no ragged array", {
+  skip_if_not_installed("ncdf4")
+  w <- data.frame(
+    sample_key = c("T1", "T2"), time = c(1.5e9, 1.6e9),
+    latitude = c(33, 34), longitude = c(-119, -120), depth = c(210, 210),
+    abundance = c(5, 9), stringsAsFactors = FALSE)
+  f <- nc_tmp()
+  vm <- measurement_var_meta(data.frame(
+    measurement_type = "abundance", units = "count/m3",
+    description = "specimen abundance", stringsAsFactors = FALSE))
+
+  d_obs <- ncdf4::ncdim_def("obs", "", seq_len(nrow(w)), create_dimvar = FALSE)
+  v  <- nc_level_vars("", w, d_obs, var_meta = vm)     # "" => file root
+  nc <- ncdf4::nc_create(f, unname(v), force_v4 = TRUE)
+  nc_level_put(nc, "", w, v, var_meta = vm)
+  nc_profile_atts(nc, "abundance", vm, profile_vars = character(),
+                  profile_id_var = NULL, feature_type = "point",
+                  obs_cols = c("time", "latitude", "longitude", "depth"))
+  ncdf4::nc_close(nc)
+
+  o <- ncdf4::nc_open(f); on.exit(ncdf4::nc_close(o))
+  # root, not a group: no slash anywhere in the variable names
+  expect_false(any(grepl("/", names(o$var))))
+  expect_equal(as.vector(ncdf4::ncvar_get(o, "abundance")), c(5, 9))
+  expect_equal(as.vector(ncdf4::ncvar_get(o, "sample_key")), c("T1", "T2"))
+  expect_equal(ncdf4::ncatt_get(o, "abundance", "units")$value, "count/m3")
+  expect_equal(ncdf4::ncatt_get(o, "depth", "positive")$value, "down")
+  # a point collection has no instances, so no rowSize and no cf_role
+  expect_false("rowSize" %in% names(o$var))
+  expect_false(ncdf4::ncatt_get(o, "sample_key", "cf_role")$hasatt)
+})
+
+test_that("a cross-dataset parent is an external link, not a level or a crash", {
+  # REGRESSION (real release data): calcofi_dic parents 6 of its bottles onto
+  # calcofi_bottle CASTS. sample_key is globally unique, so the parent join
+  # resolved to a sample_type ('cast') that calcofi_dic does not have, and the
+  # depth walk indexed a name that was not there — "subscript out of bounds",
+  # mid-loop over 15 datasets.
+  s <- rbind(
+    data.frame(dataset_key = "calcofi_bottle", sample_key = "B:cast:1",
+               sample_type = "cast", parent_sample_key = NA_character_,
+               stringsAsFactors = FALSE),
+    data.frame(dataset_key = "calcofi_dic",
+               sample_key = c("D:bottle:1", "D:bottle:2"),
+               sample_type = "bottle",
+               parent_sample_key = c("B:cast:1", NA_character_),
+               stringsAsFactors = FALSE))
+  con <- new_nc_fixture(s); on.exit(DBI::dbDisconnect(con, shutdown = TRUE))
+
+  lv <- discover_sample_levels(con, "calcofi_dic")
+  expect_equal(nrow(lv), 1L)
+  expect_equal(lv$sample_type, "bottle")
+  # a root OF THIS FILE: the parent's rows belong to another dataset
+  expect_true(is.na(lv$parent_sample_type))
+  expect_equal(lv$depth, 0L)
+  # the bridge is reported, not silently dropped, and it is not an orphan
+  expect_equal(lv$n_external_parent, 1L)
+  expect_equal(lv$n_orphan, 0L)
+})
+
+test_that("an unresolved parent and an external parent are counted separately", {
+  s <- rbind(
+    data.frame(dataset_key = "other", sample_key = "O:cast:1",
+               sample_type = "cast", parent_sample_key = NA_character_,
+               stringsAsFactors = FALSE),
+    data.frame(dataset_key = "ds", sample_key = c("K1", "K2", "K3"),
+               sample_type = "bottle",
+               parent_sample_key = c("O:cast:1", "GONE", NA_character_),
+               stringsAsFactors = FALSE))
+  con <- new_nc_fixture(s); on.exit(DBI::dbDisconnect(con, shutdown = TRUE))
+
+  lv <- discover_sample_levels(con, "ds")
+  expect_equal(lv$n_external_parent, 1L)
+  expect_equal(lv$n_orphan, 1L)
+  expect_equal(lv$n, 3L)             # every row still accounted for
+})
+
+# ---- widening ----------------------------------------------------------------
+
+wide_con <- function() {
+  con <- DBI::dbConnect(duckdb::duckdb())
+  DBI::dbWriteTable(con, "obs", data.frame(
+    dataset_key = "ds", sample_key = c("K1", "K1", "K1", "K1", "K2"),
+    depth_min_m = c(210, 210, 210, 210, 210),
+    taxon_key   = c("worms:1", "worms:1", "worms:2", "worms:2", "worms:1"),
+    life_stage  = NA_character_,
+    latitude    = c(33, 33, 33, 33, 34),
+    measurement_type  = c("abundance", "biomass", "abundance", "biomass", "abundance"),
+    measurement_value = c(5, 0.5, 9, 0.9, 2),
+    stringsAsFactors = FALSE), overwrite = TRUE)
+  con
+}
+
+test_that("widening keeps one row per taxon, not per sample", {
+  # REGRESSION: grouping by sample_key alone collapsed 34,109 zooscan occurrences
+  # over 23 taxa into 1,483 rows — 96% of the data gone, with MAX() silently
+  # picking one taxon's value and the output still well-formed.
+  con <- wide_con(); on.exit(DBI::dbDisconnect(con, shutdown = TRUE))
+  w <- DBI::dbGetQuery(con, obs_wide_sql("ds", c("abundance", "biomass"),
+                                         carry = "latitude"))
+
+  expect_equal(nrow(w), 3L)                       # K1/taxon1, K1/taxon2, K2/taxon1
+  expect_equal(w$abundance, c(5, 9, 2))
+  expect_equal(w$biomass, c(0.5, 0.9, NA))
+  expect_equal(w$latitude, c(33, 33, 34))
+
+  # and the event-grain version is exactly the collapse being guarded against
+  ev <- DBI::dbGetQuery(con, obs_wide_sql("ds", c("abundance", "biomass"),
+                                          grain = "sample_key"))
+  expect_equal(nrow(ev), 2L)
+})
+
+test_that("the collapse count exposes duplicate rows at the grain", {
+  con <- wide_con(); on.exit(DBI::dbDisconnect(con, shutdown = TRUE))
+  w <- DBI::dbGetQuery(con, obs_wide_sql("ds", c("abundance", "biomass"),
+                                         count_col = "n_long"))
+  # 2 long rows (abundance + biomass) per occurrence, 1 for the singleton
+  expect_equal(w$n_long, c(2L, 2L, 1L))
+  # more long rows than types would mean MAX() discarded a value
+  expect_true(all(w$n_long <= 2L))
+})
+
+test_that("a measurement type that cannot be a netCDF variable name is refused", {
+  expect_error(obs_wide_sql("ds", "bad name"), "not usable as netCDF variable")
+  expect_error(obs_wide_sql("ds", "o'brien"),  "not usable as netCDF variable")
+  expect_error(obs_wide_sql("ds", "depth"),    "reserved or grain column")
+  expect_error(obs_wide_sql("ds", "sample_key"), "reserved or grain column")
+})
+
+test_that("widening with no measurement types still returns the grain", {
+  # pic_zooplankton is a tow registry: samples but no observations
+  con <- wide_con(); on.exit(DBI::dbDisconnect(con, shutdown = TRUE))
+  w <- DBI::dbGetQuery(con, obs_wide_sql("ds", character(), carry = "latitude"))
+  expect_equal(nrow(w), 3L)
+  expect_setequal(names(w),
+                  c("sample_key", "depth_min_m", "taxon_key", "life_stage", "latitude"))
 })

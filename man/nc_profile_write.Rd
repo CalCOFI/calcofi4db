@@ -13,7 +13,8 @@ nc_profile_write(
   profile_id_col = "profile_id",
   start_profile = 1L,
   start_obs = 1L,
-  strlen = 64L
+  strlen = 64L,
+  obs_cols = "depth"
 )
 }
 \arguments{
@@ -21,20 +22,24 @@ nc_profile_write(
 
 \item{vars}{The \code{vars} element of \code{\link[=nc_profile_def]{nc_profile_def()}}.}
 
-\item{wide}{Wide data.frame, one row per (profile, depth), \strong{ordered by
-profile then depth} so each profile's rows are contiguous. Must contain
-\code{profile_id_col}, \code{depth}, and the profile-level and obs-level columns.}
+\item{wide}{Wide data.frame, one row per (instance, observation), \strong{ordered by
+instance then depth (or time)} so each instance's rows are contiguous. Must
+contain \code{profile_id_col}, every \code{obs_cols} entry, and the instance-level and
+obs-level columns.}
 
-\item{profile_cols}{Character vector of profile-level column names.}
+\item{profile_cols}{Character vector of instance-level column names.}
 
 \item{obs_types}{Character vector of obs-level measurement column names.}
 
-\item{profile_id_col}{Column identifying the profile.}
+\item{profile_id_col}{Column identifying the instance (profile or trajectory).}
 
 \item{start_profile, start_obs}{1-based write offsets into the profile and obs
 dimensions.}
 
 \item{strlen}{Fixed character length, matching \code{\link[=nc_profile_def]{nc_profile_def()}}.}
+
+\item{obs_cols}{Coordinate columns on the observation dimension, matching
+\code{\link[=nc_profile_def]{nc_profile_def()}}.}
 }
 \value{
 \code{list(n_profile, n_obs)} — the counts written, for advancing the

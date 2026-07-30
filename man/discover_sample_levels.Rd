@@ -19,6 +19,8 @@ A tibble, one row per \code{sample_type}, ordered root-first:
 \item{parent_sample_type}{the parent level, or \code{NA} for a root}
 \item{depth}{0 for a root, 1 for its children, …}
 \item{n_orphan}{rows whose \code{parent_sample_key} does not resolve}
+\item{n_external_parent}{rows whose parent resolves into a \strong{different}
+dataset — a cross-dataset bridge, not a level of this file}
 }
 Returns a zero-row tibble when the dataset has no \code{sample} rows.
 }
@@ -39,6 +41,13 @@ should not invent a whole extra level. Rows whose parent does not resolve are
 counted in \code{n_orphan} rather than dropped, because an orphan is a data problem
 the caller must see — silently discarding it is how a level's row count stops
 matching the table it came from.
+
+\strong{Cross-dataset parents are not levels.} \code{sample_key} is globally unique, so a
+\code{parent_sample_key} can point into another dataset — \code{calcofi_dic} parents 6 of
+its bottles onto \code{calcofi_bottle} casts, which is how the DIC/bottle dedup
+works. Those rows are counted in \code{n_external_parent} and the level is treated
+as a root \emph{of this file}, because the parent's rows are not part of this
+dataset and so cannot be one of its groups.
 }
 \examples{
 \dontrun{
