@@ -1,7 +1,57 @@
 # Changelog
 
+## calcofi4db 2.21.0
+
+- **Exported
+  [`ensure_measurement_taxon()`](https://calcofi.io/calcofi4db/reference/ensure_measurement_taxon.md)**
+  (was `.`-internal). Staging the `_measurement_taxon` crosswalk is part
+  of a per-dataset projection, and the derived `taxon_key` is the piece
+  that must not be hand-rolled: it is
+  [`taxon_key_of()`](https://calcofi.io/calcofi4db/reference/taxon_key_of.md)
+  over `worms_id`/`itis_id`, so a `'worms:' || worms_id` string built
+  inline in SQL silently mis-keys any ITIS-resolved taxon.
+
 ## calcofi4db 2.20.0
 
+- **The netCDF writers moved into the package**, joining the planner
+  added in 2.19.x, so one generic publish notebook can serve every
+  dataset:
+  [`nc_level_vars()`](https://calcofi.io/calcofi4db/reference/nc_level_vars.md)
+  /
+  [`nc_level_put()`](https://calcofi.io/calcofi4db/reference/nc_level_put.md)
+  (netCDF-4 groups, previously in `workflows/libs/publish_netcdf.R`),
+  plus the CF profile half that each notebook had hand-rolled —
+  [`nc_profile_def()`](https://calcofi.io/calcofi4db/reference/nc_profile_def.md)
+  /
+  [`nc_profile_write()`](https://calcofi.io/calcofi4db/reference/nc_profile_write.md)
+  /
+  [`nc_profile_atts()`](https://calcofi.io/calcofi4db/reference/nc_profile_atts.md)
+  — and the two metadata derivations,
+  [`measurement_var_meta()`](https://calcofi.io/calcofi4db/reference/measurement_var_meta.md)
+  (registry → per-variable units/long_name/standard_name) and
+  [`nc_global_atts()`](https://calcofi.io/calcofi4db/reference/nc_global_atts.md)
+  (ingest `dataset_meta` → CF/ACDD globals). New assertions the
+  notebooks could not make:
+  - [`nc_profile_write()`](https://calcofi.io/calcofi4db/reference/nc_profile_write.md)
+    takes write offsets, so the single-shot and chunked-by-partition
+    paths are the same tested code (the 216M-row `obs_ctd_full` is
+    written one cruise at a time); a test asserts the two agree
+    value-for-value.
+  - **Non-contiguous profile rows are now an error.** A contiguous
+    ragged array encodes each profile as a run of `rowSize` consecutive
+    rows, so unordered input produced a file that read cleanly and
+    assigned depths to the wrong casts.
+  - **An identifier longer than `strlen` is an error** rather than a
+    silent truncation, and `NA` in a character column is written as
+    empty rather than as the literal string `"NA"`.
+  - `valid_min`/`valid_max` are emitted only when `measurement_type.csv`
+    actually carries them.
+- **[`nc_global_atts()`](https://calcofi.io/calcofi4db/reference/nc_global_atts.md)
+  dates a file by its release, not by wall clock.** A
+  [`Sys.time()`](https://rdrr.io/r/base/Sys.time.html) `date_created`
+  put a fresh timestamp inside every build, so no rebuild could ever be
+  byte-identical to an earlier release and the publisher’s “bytes
+  written once” sha256 check silently degraded to “always re-upload”.
 - **Exported the generic core-projection shape builders**:
   [`sample_arm_self()`](https://calcofi.io/calcofi4db/reference/sample_arm_self.md),
   [`compat_measurement_sql()`](https://calcofi.io/calcofi4db/reference/compat_measurement_sql.md)

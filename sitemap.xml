@@ -77,6 +77,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/emit_core_tables.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/enforce_column_types.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ensure_interim_ships.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/ensure_measurement_taxon.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/export_parquet.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/fetch_ship_ices.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/finalize_ingest.html</loc></url>
@@ -118,9 +119,16 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/match_by_site_datetime.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/match_nearest_by_depth.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/match_ships.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/measurement_var_meta.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/merge_metadata_json.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/merge_relationships_json.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/merge_taxon_shards.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/nc_global_atts.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/nc_level_put.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/nc_level_vars.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/nc_profile_atts.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/nc_profile_def.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/nc_profile_write.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ns_key.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/parse_qmd_frontmatter.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/plan_dataset_netcdf.html</loc></url>

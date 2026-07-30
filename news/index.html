@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.19.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.21.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -46,8 +46,26 @@
     </div>
 
     <div class="section level2">
+<h2 class="pkg-version" data-toc-text="2.21.0" id="calcofi4db-2210">calcofi4db 2.21.0<a class="anchor" aria-label="anchor" href="#calcofi4db-2210"></a></h2>
+<ul><li>
+<strong>Exported <code><a href="../reference/ensure_measurement_taxon.html">ensure_measurement_taxon()</a></code></strong> (was <code>.</code>-internal). Staging the <code>_measurement_taxon</code> crosswalk is part of a per-dataset projection, and the derived <code>taxon_key</code> is the piece that must not be hand-rolled: it is <code><a href="../reference/taxon_key_of.html">taxon_key_of()</a></code> over <code>worms_id</code>/<code>itis_id</code>, so a <code>'worms:' || worms_id</code> string built inline in SQL silently mis-keys any ITIS-resolved taxon.</li>
+</ul></div>
+    <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.20.0" id="calcofi4db-2200">calcofi4db 2.20.0<a class="anchor" aria-label="anchor" href="#calcofi4db-2200"></a></h2>
 <ul><li>
+<strong>The netCDF writers moved into the package</strong>, joining the planner added in 2.19.x, so one generic publish notebook can serve every dataset: <code><a href="../reference/nc_level_vars.html">nc_level_vars()</a></code> / <code><a href="../reference/nc_level_put.html">nc_level_put()</a></code> (netCDF-4 groups, previously in <code>workflows/libs/publish_netcdf.R</code>), plus the CF profile half that each notebook had hand-rolled — <code><a href="../reference/nc_profile_def.html">nc_profile_def()</a></code> / <code><a href="../reference/nc_profile_write.html">nc_profile_write()</a></code> / <code><a href="../reference/nc_profile_atts.html">nc_profile_atts()</a></code> — and the two metadata derivations, <code><a href="../reference/measurement_var_meta.html">measurement_var_meta()</a></code> (registry → per-variable units/long_name/standard_name) and <code><a href="../reference/nc_global_atts.html">nc_global_atts()</a></code> (ingest <code>dataset_meta</code> → CF/ACDD globals). New assertions the notebooks could not make:
+<ul><li>
+<code><a href="../reference/nc_profile_write.html">nc_profile_write()</a></code> takes write offsets, so the single-shot and chunked-by-partition paths are the same tested code (the 216M-row <code>obs_ctd_full</code> is written one cruise at a time); a test asserts the two agree value-for-value.</li>
+<li>
+<strong>Non-contiguous profile rows are now an error.</strong> A contiguous ragged array encodes each profile as a run of <code>rowSize</code> consecutive rows, so unordered input produced a file that read cleanly and assigned depths to the wrong casts.</li>
+<li>
+<strong>An identifier longer than <code>strlen</code> is an error</strong> rather than a silent truncation, and <code>NA</code> in a character column is written as empty rather than as the literal string <code>"NA"</code>.</li>
+<li>
+<code>valid_min</code>/<code>valid_max</code> are emitted only when <code>measurement_type.csv</code> actually carries them.</li>
+</ul></li>
+<li>
+<strong><code><a href="../reference/nc_global_atts.html">nc_global_atts()</a></code> dates a file by its release, not by wall clock.</strong> A <code><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time()</a></code> <code>date_created</code> put a fresh timestamp inside every build, so no rebuild could ever be byte-identical to an earlier release and the publisher’s “bytes written once” sha256 check silently degraded to “always re-upload”.</li>
+<li>
 <strong>Exported the generic core-projection shape builders</strong>: <code><a href="../reference/sample_arm_self.html">sample_arm_self()</a></code>, <code><a href="../reference/compat_measurement_sql.html">compat_measurement_sql()</a></code> and <code><a href="../reference/ns_key.html">ns_key()</a></code> (were <code>.</code>-internal). A dataset’s projection belongs in the ingest notebook that owns it, and these are what keep that a short declaration rather than copied SQL — most <code><a href="../reference/build_sample_reference.html">build_sample_reference()</a></code> arms are a single <code><a href="../reference/sample_arm_self.html">sample_arm_self()</a></code> call with a few column expressions. No behaviour change; internal call sites renamed.</li>
 </ul></div>
     <div class="section level2">

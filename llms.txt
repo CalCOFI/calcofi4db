@@ -747,6 +747,11 @@ check for other functions or datasets not captured by above categories
 - [`ensure_interim_ships()`](https://calcofi.io/calcofi4db/reference/ensure_interim_ships.md)
   : Ensure Interim Ship Entries for Unmatched Ships
 
+- [`ensure_measurement_taxon()`](https://calcofi.io/calcofi4db/reference/ensure_measurement_taxon.md)
+  :
+
+  Stage the `_measurement_taxon` crosswalk in a connection
+
 - [`fetch_ship_ices()`](https://calcofi.io/calcofi4db/reference/fetch_ship_ices.md)
   : Fetch Ship Codes from ICES Reference Codes API
 
@@ -762,10 +767,36 @@ check for other functions or datasets not captured by above categories
 - [`match_ships()`](https://calcofi.io/calcofi4db/reference/match_ships.md)
   : Match Ship Codes Across Datasets Using Multi-Source References
 
+- [`measurement_var_meta()`](https://calcofi.io/calcofi4db/reference/measurement_var_meta.md)
+  :
+
+  CF variable metadata from the `measurement_type` registry
+
 - [`merge_taxon_shards()`](https://calcofi.io/calcofi4db/reference/merge_taxon_shards.md)
   :
 
   Merge the per-dataset `taxon` shards into one authoritative reference
+
+- [`nc_global_atts()`](https://calcofi.io/calcofi4db/reference/nc_global_atts.md)
+  : Build the CF/ACDD global attributes for a published dataset
+
+- [`nc_level_put()`](https://calcofi.io/calcofi4db/reference/nc_level_put.md)
+  :
+
+  Write the data and attributes for one level defined by
+  [`nc_level_vars()`](https://calcofi.io/calcofi4db/reference/nc_level_vars.md)
+
+- [`nc_level_vars()`](https://calcofi.io/calcofi4db/reference/nc_level_vars.md)
+  : Build the variable definitions for one level of a nested dataset
+
+- [`nc_profile_atts()`](https://calcofi.io/calcofi4db/reference/nc_profile_atts.md)
+  : Write the CF Discrete-Sampling-Geometry attributes of a profile file
+
+- [`nc_profile_def()`](https://calcofi.io/calcofi4db/reference/nc_profile_def.md)
+  : Define a CF Discrete-Sampling-Geometry profile file
+
+- [`nc_profile_write()`](https://calcofi.io/calcofi4db/reference/nc_profile_write.md)
+  : Write one chunk of a CF profile file
 
 - [`ns_key()`](https://calcofi.io/calcofi4db/reference/ns_key.md) :
 
