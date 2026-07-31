@@ -7,7 +7,7 @@ test_that("net rebuilds from the core with its hierarchy and effort intact", {
   con <- new_ichthyo_fixture()
   on.exit(close_duckdb(con))
 
-  build_sample_reference(con, datasets = "swfsc_ichthyo")
+  build_ich_sample(con)
   append_sample_measurement(con, ich_sample_measurement_sql)
 
   # capture the source before the VIEW shadows the table
@@ -16,7 +16,7 @@ test_that("net rebuilds from the core with its hierarchy and effort intact", {
            prop_sorted, smallplankton, totalplankton
     FROM net ORDER BY net_uuid")
 
-  made <- create_compat_views(con, "swfsc_ichthyo")
+  made <- make_compat_views(con, ich_compat_specs())
   expect_true(all(c("site", "tow", "net") %in% made))
 
   got <- DBI::dbGetQuery(con, "
@@ -37,11 +37,13 @@ test_that("tow rebuilds with its parent site and gear code", {
   con <- new_ichthyo_fixture()
   on.exit(close_duckdb(con))
 
-  build_sample_reference(con, datasets = "swfsc_ichthyo")
+  build_ich_sample(con)
   src <- DBI::dbGetQuery(con,
     "SELECT tow_uuid, site_uuid, tow_type_key, datetime_start_utc FROM tow")
 
-  create_compat_views(con, "swfsc_ichthyo")
+  # only the views under test: `net` pivots sample_measurement, which this test
+  # does not build, and DuckDB binds a view at CREATE time
+  make_compat_views(con, ich_compat_specs()[c("site", "tow")])
   got <- DBI::dbGetQuery(con,
     "SELECT tow_uuid, site_uuid, tow_type_key, datetime_start_utc FROM tow")
 
@@ -55,9 +57,9 @@ test_that("the three-level site -> tow -> net chain still joins after rebuild", 
   con <- new_ichthyo_fixture()
   on.exit(close_duckdb(con))
 
-  build_sample_reference(con, datasets = "swfsc_ichthyo")
+  build_ich_sample(con)
   append_sample_measurement(con, ich_sample_measurement_sql)
-  create_compat_views(con, "swfsc_ichthyo")
+  make_compat_views(con, ich_compat_specs())
 
   # the join that consumers actually write, run entirely against VIEWs
   j <- DBI::dbGetQuery(con, "
@@ -88,8 +90,19 @@ test_that("a measurement triple rebuilds from obs", {
            'zooplankton_abundance'::VARCHAR measurement_type, 12.5::DOUBLE measurement_value
     UNION ALL SELECT 2, 1, 7, 'zooplankton_biomass_carbon', 0.8")
 
-  emit_core_tables(con, "cce-lter_zoodb", taxa = FALSE)
-  create_compat_views(con, "cce-lter_zoodb")
+  append_sample(con, sample_arm_self(
+    "cce-lter_zoodb", "zoodb_sample", "sample_id", "tow", site_expr = "site_key",
+    depth_min = "min_depth_m", depth_max = "max_depth_m"))
+  append_obs(con, "
+    SELECT 'bio', 'cce-lter_zoodb', 'cce-lter_zoodb:tow:' || CAST(sp.sample_id AS VARCHAR),
+           sp.grid_key, sp.cruise_key, sp.latitude, sp.longitude,
+           CAST(sp.datetime_start_utc AS TIMESTAMP), sp.min_depth_m, sp.max_depth_m,
+           NULL::VARCHAR, NULL::VARCHAR, m.measurement_type, m.measurement_value,
+           NULL::VARCHAR, NULL::DOUBLE
+    FROM zoodb_measurement m JOIN zoodb_sample sp USING (sample_id)")
+
+  make_compat_views(con, list(zoodb_measurement = compat_measurement_sql(
+    "cce-lter_zoodb", "tow", "sample_id", "measurement_id")))
 
   got <- DBI::dbGetQuery(con,
     "SELECT sample_id, measurement_type, measurement_value FROM zoodb_measurement
@@ -101,13 +114,6 @@ test_that("a measurement triple rebuilds from obs", {
   expect_equal(got$measurement_value, c(12.5, 0.8))
 })
 
-test_that("create_compat_views() is a no-op for a dataset with no spec", {
-  skip_if_not_installed("duckdb")
-  con <- get_duckdb_con(":memory:")
-  on.exit(close_duckdb(con))
-  expect_equal(create_compat_views(con, "pic_zooplankton"), character())
-})
-
 # promoted core columns -------------------------------------------------------
 # site_key and order_occ are event-level and cross-dataset (site_key appears on
 # 13 of 18 source event tables), so they live on `sample` rather than being lost
@@ -117,7 +123,7 @@ test_that("sample carries site_key and order_occ, inherited down the hierarchy",
   con <- new_ichthyo_fixture()
   on.exit(close_duckdb(con))
 
-  build_sample_reference(con, datasets = "swfsc_ichthyo")
+  build_ich_sample(con)
   s <- DBI::dbGetQuery(con,
     "SELECT sample_type, site_key, order_occ FROM sample ORDER BY sample_type")
 
@@ -132,11 +138,11 @@ test_that("site rebuilds with site_key and order_occ after promotion", {
   con <- new_ichthyo_fixture()
   on.exit(close_duckdb(con))
 
-  build_sample_reference(con, datasets = "swfsc_ichthyo")
+  build_ich_sample(con)
   src <- DBI::dbGetQuery(con,
     "SELECT site_uuid, site_key, order_occ, cruise_key FROM site")
 
-  create_compat_views(con, "swfsc_ichthyo")
+  make_compat_views(con, ich_compat_specs()["site"])
   got <- DBI::dbGetQuery(con,
     "SELECT site_uuid, site_key, order_occ, cruise_key FROM site")
 
@@ -163,8 +169,9 @@ test_that("bottle cast conditions (incl. bottom_depth) reach sample_measurement"
            'wind_speed'::VARCHAR condition_type, 12.0::DOUBLE condition_value
     UNION ALL SELECT 2, 5.0, 'bottom_depth', 1350.0")
 
-  build_sample_reference(con, datasets = "calcofi_bottle")
-  append_sample_measurement(con, calcofi4db:::.sample_measurement_arm_sql("calcofi_bottle"))
+  # cast events only: this fixture has no `bottle` table
+  append_sample(con, btl_sample_sql[["cast"]])
+  append_sample_measurement(con, btl_sample_measurement_sql)
 
   sm <- DBI::dbGetQuery(con,
     "SELECT sample_key, measurement_type, measurement_value FROM sample_measurement
@@ -175,7 +182,7 @@ test_that("bottle cast conditions (incl. bottom_depth) reach sample_measurement"
   expect_true(all(sm$sample_key == "calcofi_bottle:cast:5"))
 
   # rebuilding cast_condition from the core must return BOTH conditions
-  create_compat_views(con, "calcofi_bottle")
+  make_compat_views(con, btl_compat_specs()[c("casts", "cast_condition")])
   cc <- DBI::dbGetQuery(con,
     "SELECT condition_type, condition_value FROM cast_condition ORDER BY condition_type")
   expect_equal(cc$condition_type, c("bottom_depth", "wind_speed"))
@@ -204,7 +211,10 @@ test_that("bottle casts/bottle rebuild from a renamed sample shard", {
            33.0, -119.0, TIMESTAMP '2018-04-05 12:00:00', 20.0, NULL")
   DBI::dbExecute(con, "ALTER TABLE _bottle_sample ADD COLUMN geom VARCHAR")
 
-  made <- create_compat_views(con, "calcofi_bottle", sample_tbl = "_bottle_sample")
+  # cast_condition is left out: it reads sample_measurement, which dic does not
+  # have at this point — only the two event tables come back from the shard
+  specs <- btl_compat_specs(sample_tbl = "_bottle_sample")
+  made  <- make_compat_views(con, specs[c("casts", "bottle")])
   expect_true(all(c("casts", "bottle") %in% made))
 
   ca <- DBI::dbGetQuery(con, "SELECT cast_id, site_key, grid_key, order_occ FROM casts")

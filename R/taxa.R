@@ -100,6 +100,10 @@ isTRUE_vec <- function(x) !is.na(x) & as.logical(x)
     scientific_name = character(n), common_name = character(n),
     rank = character(n), taxonomic_status = character(n),
     parent_worms_id = integer(n),
+    # the resolved parent key. Carried rather than derived at the end, because an
+    # ITIS-keyed taxon (the Aves rule) has an ITIS parent, and pasting
+    # "worms:<parent_worms_id>" would mint a key that resolves to nothing.
+    parent_taxon_key = character(n),
     kingdom = character(n), phylum = character(n), class = character(n),
     order_taxon = character(n), family = character(n),
     is_bird = logical(n))
@@ -205,7 +209,7 @@ isTRUE_vec <- function(x) !is.na(x) & as.logical(x)
   mf <- .read_cols(con, "mesopelagic_fish_taxon",
     c("scientific_name", "worms_id", "rank"))
   if (!is.null(mf)) arms$mesopelagic <- .as_taxon_rows(data.frame(
-    dataset_key = "ucsd_sio_mesopelagic-fish", ds_prefix = "ucsd_sio_mesopelagic-fish",
+    dataset_key = "sio_mesopelagic-fish", ds_prefix = "sio_mesopelagic-fish",
     ds_taxa_code = mf$scientific_name, ds_scientific_name = mf$scientific_name,
     worms_id = mf$worms_id, scientific_name = mf$scientific_name,
     rank = mf$rank, is_bird = FALSE, stringsAsFactors = FALSE))
@@ -217,13 +221,13 @@ isTRUE_vec <- function(x) !is.na(x) & as.logical(x)
   if (!is.null(bm)) {
     if (!is.null(bm$include_flag)) bm <- bm[isTRUE_vec(bm$include_flag), , drop = FALSE]
     r <- .as_taxon_rows(data.frame(
-      dataset_key = "calcofi_bird_mammal_census", ds_prefix = "calcofi_bird_mammal_census",
+      dataset_key = "farallon_bird-mammal", ds_prefix = "farallon_bird-mammal",
       ds_taxa_code = bm$species_code, ds_scientific_name = bm$scientific_name,
       ds_common_name = bm$common_name, itis_id = bm$itis_id,
       scientific_name = bm$scientific_name, common_name = bm$common_name,
       is_bird = isTRUE_vec(bm$is_bird), stringsAsFactors = FALSE))
     # mammals: resolve worms_id from overrides keyed by species_code
-    r <- .apply_overrides(r, overrides, "calcofi_bird_mammal_census", bm$species_code)
+    r <- .apply_overrides(r, overrides, "farallon_bird-mammal", bm$species_code)
     # coarse fallbacks for unidentified: bird -> Aves (itis 174371), mammal -> Mammalia (worms 1837)
     unid <- isTRUE_vec(bm$is_unidentified)
     r$itis_id[unid & isTRUE_vec(bm$is_bird)]   <- 174371L
@@ -315,22 +319,63 @@ build_taxon_reference <- function(con, measurement_taxon = NULL, overrides = NUL
   # 1. dataset-local taxa (read BEFORE we overwrite `taxon`)
   rows <- .taxon_norm_sources(con, measurement_taxon, overrides)
   rows$.prio <- dplyr::case_when(
-    rows$dataset_key %in% c("calcofi", "calcofi_bird_mammal_census") ~ 2L,
+    rows$dataset_key %in% c("calcofi", "farallon_bird-mammal") ~ 2L,
     rows$dataset_key %in% c("cce-lter_zoodb", "cce-lter_zooscan",
                             "calcofi_phytoplankton") ~ 3L, TRUE ~ 4L)
 
-  # 2. WoRMS lineage ancestors from the existing `taxon` hierarchy (authority)
+  # 2. WoRMS/ITIS lineage ancestors from the `taxon` hierarchy (the authority).
+  # Built either by build_taxon_hierarchy() (swfsc_ichthyo, from a local species
+  # DB) or by ensure_taxon_lineage() (every other dataset, from the cached WoRMS
+  # classification). Without one of those, a taxon reaches the release with a key
+  # and a name and NOTHING else — no rank, no parent, no classification — and
+  # "all Decapoda" silently matches nothing.
   hier <- .read_cols(con, "taxon",
-    c("taxonID", "parentNameUsageID", "scientificName", "taxonRank", "taxonomicStatus"))
+    c("taxonID", "parentNameUsageID", "scientificName", "taxonRank",
+      "taxonomicStatus", "authority"))
   if (!is.null(hier)) {
+    # an ITIS-authority row keys itis:<tsn>, a WoRMS one worms:<aphia> — the same
+    # rule taxon_key_of() applies, so the lineage joins the vocabulary it came from
+    is_itis <- !is.na(hier$authority) & hier$authority == "ITIS"
     hrows <- .as_taxon_rows(data.frame(
-      dataset_key = NA_character_, worms_id = hier$taxonID,
+      dataset_key = NA_character_,
+      worms_id = ifelse(is_itis, NA_integer_, hier$taxonID),
+      itis_id  = ifelse(is_itis, hier$taxonID, NA_integer_),
       scientific_name = hier$scientificName, rank = hier$taxonRank,
-      taxonomic_status = hier$taxonomicStatus, parent_worms_id = hier$parentNameUsageID,
-      is_bird = FALSE, stringsAsFactors = FALSE))
-    hrows$taxon_key <- taxon_key_of(hrows$worms_id, hrows$itis_id, FALSE)
+      taxonomic_status = hier$taxonomicStatus,
+      parent_worms_id = ifelse(is_itis, NA_integer_, hier$parentNameUsageID),
+      parent_taxon_key = taxon_key_of(
+        ifelse(is_itis, NA_integer_, hier$parentNameUsageID),
+        ifelse(is_itis, hier$parentNameUsageID, NA_integer_), is_itis),
+      is_bird = is_itis, stringsAsFactors = FALSE))
+    hrows$taxon_key <- taxon_key_of(hrows$worms_id, hrows$itis_id, is_itis)
     hrows$.prio <- 1L
     rows <- dplyr::bind_rows(rows, hrows[!is.na(hrows$taxon_key), ])
+  }
+
+  # 2b. the flattened classification staged by ensure_taxon_lineage(): kingdom /
+  # phylum / class / order / family per taxon, from its own WoRMS chain. Highest
+  # priority, because it IS the authority — and it is the only source that ever
+  # populated `family` (no dataset did, not even ichthyo).
+  flat <- .read_cols(con, "_taxon_lineage_flat", c(
+    "requested_id", "authority", "rank", "parent_id", "scientific_name",
+    "kingdom", "phylum", "class", "order_taxon", "family"))
+  if (!is.null(flat) && nrow(flat)) {
+    f_itis <- !is.na(flat$authority) & flat$authority == "ITIS"
+    frows <- .as_taxon_rows(data.frame(
+      dataset_key = NA_character_,
+      worms_id = ifelse(f_itis, NA_integer_, flat$requested_id),
+      itis_id  = ifelse(f_itis, flat$requested_id, NA_integer_),
+      scientific_name = flat$scientific_name, rank = flat$rank,
+      parent_worms_id = ifelse(f_itis, NA_integer_, flat$parent_id),
+      parent_taxon_key = taxon_key_of(
+        ifelse(f_itis, NA_integer_, flat$parent_id),
+        ifelse(f_itis, flat$parent_id, NA_integer_), f_itis),
+      kingdom = flat$kingdom, phylum = flat$phylum, class = flat$class,
+      order_taxon = flat$order_taxon, family = flat$family,
+      is_bird = f_itis, stringsAsFactors = FALSE))
+    frows$taxon_key <- taxon_key_of(frows$worms_id, frows$itis_id, f_itis)
+    frows$.prio <- 0L
+    rows <- dplyr::bind_rows(rows, frows[!is.na(frows$taxon_key), ])
   }
 
   # 3. rank ordering (fold in taxa_rank)
@@ -350,6 +395,7 @@ build_taxon_reference <- function(con, measurement_taxon = NULL, overrides = NUL
       rank             = first_nn(.data$rank,             .data$.prio),
       taxonomic_status = first_nn(.data$taxonomic_status, .data$.prio),
       parent_worms_id  = first_nn(.data$parent_worms_id,  .data$.prio),
+      parent_taxon_key = first_nn(.data$parent_taxon_key, .data$.prio),
       kingdom          = first_nn(.data$kingdom,          .data$.prio),
       phylum           = first_nn(.data$phylum,           .data$.prio),
       class            = first_nn(.data$class,            .data$.prio),
@@ -357,9 +403,16 @@ build_taxon_reference <- function(con, measurement_taxon = NULL, overrides = NUL
       family           = first_nn(.data$family,           .data$.prio),
       .groups = "drop") |>
     dplyr::mutate(
+      # ncbi_id / inat_id: declared by the core model, populated by no source we
+      # have. Kept as typed NULLs rather than dropped so the release schema does
+      # not change under consumers the day a source does supply them.
       ncbi_id = NA_integer_, inat_id = NA_integer_,
-      parent_taxon_key = ifelse(is.na(.data$parent_worms_id), NA_character_,
-                                paste0("worms:", .data$parent_worms_id)))
+      # a carried parent key wins; otherwise fall back to the WoRMS id, which is
+      # what every source that supplies only `parent_worms_id` means
+      parent_taxon_key = dplyr::coalesce(
+        .data$parent_taxon_key,
+        ifelse(is.na(.data$parent_worms_id), NA_character_,
+               paste0("worms:", .data$parent_worms_id))))
   if (!is.null(rank_ord))
     taxon <- dplyr::left_join(taxon, rank_ord, by = c("rank" = "taxonRank"))
   else taxon$rank_order <- NA_integer_
@@ -404,7 +457,7 @@ build_taxon_group <- function(con, measurement_taxon = NULL, overrides = NULL,
     taxon_key = ph$taxon_key, stringsAsFactors = FALSE)
 
   # seabird vs marine-mammal split (from the bird_mammal arm)
-  bm <- rows[rows$dataset_key == "calcofi_bird_mammal_census", , drop = FALSE]
+  bm <- rows[rows$dataset_key == "farallon_bird-mammal", , drop = FALSE]
   if (nrow(bm)) grp$bm <- data.frame(
     taxon_group_key = ifelse(bm$is_bird, "calcofi:seabirds", "calcofi:marine_mammals"),
     description = ifelse(bm$is_bird, "Seabirds (CalCOFI seabird & mammal census)",
@@ -423,3 +476,61 @@ build_taxon_group <- function(con, measurement_taxon = NULL, overrides = NULL,
 .empty_group <- function()
   data.frame(taxon_group_key = character(), description = character(),
              taxon_key = character(), stringsAsFactors = FALSE)
+
+# prune_taxon_shard ------------------------------------------------------------
+
+#' Prune the taxa references to one dataset's shard
+#'
+#' `build_taxon_reference()` / `build_dataset_taxon()` / `build_taxon_group()`
+#' read *whichever* taxon sources are present in `con`, which inside an ingest is
+#' normally just that dataset's vocabulary — but not always. An ingest may have
+#' loaded another dataset's tables as references, and `swfsc_ichthyo` holds a
+#' WoRMS **lineage hierarchy** (`build_taxon_hierarchy()`) that is broader than
+#' the taxa its own observations reach. This trims all three to this dataset's
+#' shard so the release union stays small and the shards stay disjoint-ish.
+#'
+#' Lineage **ancestors are kept**: descendant expansion walks
+#' `parent_taxon_key`, so dropping an ancestor would break the chain. The kept
+#' set is therefore the transitive parent closure of `dataset_taxon.taxon_key`,
+#' not just the directly-referenced taxa.
+#'
+#' Generic — there is nothing dataset-specific here beyond the `dataset_key`
+#' argument. Call it after the three builders in an ingest that either holds a
+#' hierarchy table or has other datasets' vocabulary tables in scope.
+#'
+#' @param con a DuckDB connection holding `taxon` / `dataset_taxon` (and
+#'   optionally `taxon_group`) as built by the three builders
+#' @param dataset_key provider_dataset to keep
+#' @return (invisibly) a named list of the surviving row counts
+#' @export
+#' @concept taxonomy
+prune_taxon_shard <- function(con, dataset_key) {
+  present <- DBI::dbListTables(con)
+  if (!all(c("taxon", "dataset_taxon") %in% present))
+    stop("prune_taxon_shard(): needs `taxon` and `dataset_taxon` in `con`.")
+
+  DBI::dbExecute(con, glue::glue(
+    "DELETE FROM dataset_taxon WHERE dataset_key <> '{dataset_key}'"))
+  DBI::dbExecute(con, "
+    CREATE OR REPLACE TEMP TABLE _tx_keep AS
+    WITH RECURSIVE seed AS (
+      SELECT taxon_key FROM dataset_taxon WHERE taxon_key IS NOT NULL
+    ), chain AS (
+      SELECT taxon_key FROM seed
+      UNION
+      SELECT t.parent_taxon_key FROM taxon t JOIN chain c ON t.taxon_key = c.taxon_key
+      WHERE t.parent_taxon_key IS NOT NULL
+    ) SELECT DISTINCT taxon_key FROM chain WHERE taxon_key IS NOT NULL")
+  DBI::dbExecute(con,
+    "DELETE FROM taxon WHERE taxon_key NOT IN (SELECT taxon_key FROM _tx_keep)")
+  if ("taxon_group" %in% present)
+    DBI::dbExecute(con,
+      "DELETE FROM taxon_group WHERE taxon_key NOT IN (SELECT taxon_key FROM taxon)")
+  DBI::dbExecute(con, "DROP TABLE IF EXISTS _tx_keep")
+
+  out <- list()
+  for (t in intersect(c("taxon", "dataset_taxon", "taxon_group"), present))
+    out[[t]] <- DBI::dbGetQuery(
+      con, glue::glue("SELECT COUNT(*) AS n FROM {t}"))$n
+  invisible(out)
+}

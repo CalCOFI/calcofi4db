@@ -17,7 +17,9 @@ assemble_core(
 
 \item{root}{workflows repo root}
 
-\item{supplemental}{include \code{obs_ctd_full} (default TRUE)}
+\item{supplemental}{\code{TRUE} (default) to include every supplemental
+full-resolution table the ingests declare, \code{FALSE} for none, or an explicit
+character vector of table names. See \code{\link[=supplemental_core_tables]{supplemental_core_tables()}}.}
 
 \item{parquet_dir}{directory holding the per-dataset output dirs}
 

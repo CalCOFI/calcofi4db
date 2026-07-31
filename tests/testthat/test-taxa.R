@@ -39,7 +39,7 @@ new_taxa_fixture <- function() {
 }
 
 taxa_overrides <- function() data.frame(
-  dataset_key    = c("calcofi_bird_mammal_census", "calcofi_phytoplankton"),
+  dataset_key    = c("farallon_bird-mammal", "calcofi_phytoplankton"),
   match_column   = c("species_code", "taxa"),
   match_value    = c("BLWH", "diatom, centric"),
   worms_id       = c(137090L, 148899L),
@@ -75,8 +75,8 @@ test_that("build_dataset_taxon mints prefixed ds_taxon_keys resolving to global 
   expect_equal(key("cce-lter_zoodb:3")$taxon_key,   "worms:146421")
   expect_equal(key("cce-lter_zooscan:1")$taxon_key, "worms:146421")
   # seabird -> itis:, marine mammal -> worms: (override)
-  expect_equal(key("calcofi_bird_mammal_census:GRCO")$taxon_key, "itis:174715")
-  expect_equal(key("calcofi_bird_mammal_census:BLWH")$taxon_key, "worms:137090")
+  expect_equal(key("farallon_bird-mammal:GRCO")$taxon_key, "itis:174715")
+  expect_equal(key("farallon_bird-mammal:BLWH")$taxon_key, "worms:137090")
   # coarse phyto functional group resolved via override
   expect_equal(key("calcofi_phytoplankton:316")$taxon_key, "worms:148899")
   # composite cufes egg type contributes a taxon crosswalk row too
@@ -127,4 +127,57 @@ test_that("build_taxon_group seeds phyto + seabird/mammal groupings", {
   # the mammal group holds the blue whale's global key
   mam <- g[g$taxon_group_key == "calcofi:marine_mammals", ]
   expect_true("worms:137090" %in% mam$taxon_key)
+})
+
+# prune_taxon_shard ------------------------------------------------------------
+
+test_that("prune_taxon_shard keeps this dataset's vocabulary plus its ancestors", {
+  con <- new_taxa_fixture()
+  on.exit(close_duckdb(con))
+
+  build_taxon_reference(con, taxa_measurement(), taxa_overrides())
+  build_dataset_taxon(con,   taxa_measurement(), taxa_overrides())
+  build_taxon_group(con,     taxa_measurement(), taxa_overrides())
+
+  before <- DBI::dbGetQuery(con, "SELECT COUNT(*) n FROM dataset_taxon")$n
+  dangling_before <- DBI::dbGetQuery(con, "
+    SELECT COUNT(*) n FROM taxon c LEFT JOIN taxon p ON c.parent_taxon_key = p.taxon_key
+    WHERE c.parent_taxon_key IS NOT NULL AND p.taxon_key IS NULL")$n
+  expect_gt(length(unique(DBI::dbGetQuery(
+    con, "SELECT dataset_key FROM dataset_taxon")$dataset_key)), 1L)
+
+  n <- prune_taxon_shard(con, "swfsc_ichthyo")
+
+  ds <- DBI::dbGetQuery(con, "SELECT dataset_key, taxon_key FROM dataset_taxon")
+  expect_equal(unique(ds$dataset_key), "swfsc_ichthyo")
+  expect_lt(nrow(ds), before)
+  expect_equal(n$dataset_taxon, nrow(ds))
+
+  # the sardine's WoRMS lineage ancestor (Sardinops, 125464) is NOT in
+  # dataset_taxon but must survive, or descendant expansion breaks its chain
+  tx <- DBI::dbGetQuery(con, "SELECT taxon_key FROM taxon ORDER BY taxon_key")$taxon_key
+  expect_true("worms:217452" %in% tx)   # directly referenced
+  expect_true("worms:125464" %in% tx)   # ancestor only
+  # another dataset's taxon is gone
+  expect_false("worms:146421" %in% tx)  # Appendicularia (zoodb/zooscan)
+  expect_false("itis:174715"  %in% tx)  # Great Cormorant (bird_mammal)
+
+  # pruning must not ORPHAN a parent that was resolvable before it. (The fixture
+  # starts with one dangling parent of its own: Sardinops' parent 125463 is not in
+  # the synthetic hierarchy at all, so it could never be kept.)
+  expect_equal(DBI::dbGetQuery(con, "
+    SELECT COUNT(*) n FROM taxon c LEFT JOIN taxon p ON c.parent_taxon_key = p.taxon_key
+    WHERE c.parent_taxon_key IS NOT NULL AND p.taxon_key IS NULL")$n, dangling_before)
+
+  # taxon_group is trimmed to the surviving taxa
+  expect_equal(DBI::dbGetQuery(con, "
+    SELECT COUNT(*) n FROM taxon_group g LEFT JOIN taxon t USING (taxon_key)
+    WHERE t.taxon_key IS NULL")$n, 0L)
+})
+
+test_that("prune_taxon_shard errors rather than silently no-op without the refs", {
+  skip_if_not_installed("duckdb")
+  con <- get_duckdb_con(":memory:")
+  on.exit(close_duckdb(con))
+  expect_error(prune_taxon_shard(con, "swfsc_ichthyo"), "dataset_taxon")
 })

@@ -7,7 +7,7 @@
 core_output_tables(con, extra = NULL)
 }
 \arguments{
-\item{con}{a DuckDB connection after \code{\link[=emit_core_tables]{emit_core_tables()}}}
+\item{con}{a DuckDB connection after the notebook's core projection has run}
 
 \item{extra}{additional table names to append (shared refs the ingest owns,
 e.g. \code{c("grid", "cruise", "ship", "lookup")} for \code{swfsc_ichthyo})}
@@ -16,8 +16,8 @@ e.g. \code{c("grid", "cruise", "ship", "lookup")} for \code{swfsc_ichthyo})}
 character vector of table names, core family first
 }
 \description{
-The shard set \code{\link[=emit_core_tables]{emit_core_tables()}} produces, filtered to those actually
-present and non-empty in \code{con}. Use it to drive \code{write_parquet_outputs()} so a
-dataset with no \code{obs_attribute} (most of them) does not emit an empty file.
+The core shard set, filtered to those actually present and non-empty in \code{con}.
+Use it to drive \code{write_parquet_outputs()} so a dataset with no \code{obs_attribute}
+(most of them) does not emit an empty file.
 }
 \concept{model}

@@ -723,7 +723,7 @@ test_that("a measurement type that cannot be a netCDF variable name is refused",
 })
 
 test_that("widening with no measurement types still returns the grain", {
-  # pic_zooplankton is a tow registry: samples but no observations
+  # sio_pic-zooplankton is a tow registry: samples but no observations
   con <- wide_con(); on.exit(DBI::dbDisconnect(con, shutdown = TRUE))
   w <- DBI::dbGetQuery(con, obs_wide_sql("ds", character(), carry = "latitude"))
   expect_equal(nrow(w), 3L)

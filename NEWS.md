@@ -1,3 +1,170 @@
+# calcofi4db 3.2.0
+
+## Also in this release
+
+- **`supplemental_core_tables()`** — reads every ingest's `calcofi.tables_owned`
+  and returns the tables flagged `supplemental: true` (`obs_ctd_full`,
+  `obs_mets_full`): the full-resolution products hosted alongside the thinned core
+  but hidden from the default table list and the ERD. Only `obs`-shaped tables are
+  returned, since [assemble_core()] renumbers `obs_id` and orders by the core's
+  columns — `calcofi_mets` previously declared the raw `mets_measurement` here,
+  which carried neither an `obs_id` nor a coordinate. `release_database.qmd`
+  depends on it.
+
+## Provider renames (breaking: three `dataset_key` values change)
+
+Provider is the **curating organization** — not the hosting portal, and not a
+collection or lab within the org. Three keys were wrong on that test and are now
+corrected, in `.taxon_norm_sources()`, `merge_taxon_shards()`'s priority vector
+and the tests:
+
+| from | to | why |
+|---|---|---|
+| `calcofi_bird_mammal_census` | `farallon_bird-mammal` | Farallon Institute (William Sydeman, PI) — CalCOFI is the sampling program, not the curator |
+| `pic_zooplankton` | `sio_pic-zooplankton` | the Pelagic Invertebrate Collection is the *dataset*; SIO is the org |
+| `ucsd_sio_mesopelagic-fish` | `sio_mesopelagic-fish` | redundant prefix |
+
+`dataset_key` is stamped on every `obs` / `sample` row and is what consumers
+filter on, so this changes the released data, not just file names. See the
+workflows repo for the matching notebook/registry/GCS renames.
+
+# calcofi4db 3.1.0
+
+## Taxon lineage: taxa no longer reach the release as bare keys
+
+`build_taxon_reference()` takes `rank` / `parent_taxon_key` / classification from
+a DwC-shaped hierarchy table named `taxon` in the connection. **Exactly one ingest
+ever built one** — `swfsc_ichthyo`, via `build_taxon_hierarchy()` over its own
+species list. Every other dataset's taxa therefore reached the release with a
+`taxon_key` and a `scientific_name` and nothing else:
+
+| dataset | taxa | with `rank` | with `parent_taxon_key` |
+|---|---|---|---|
+| `swfsc_ichthyo` | 1687 | 1687 | 1686 |
+| `calcofi_bird_mammal_census` | 128 | 32 | **0** |
+| `ucsd_sio_mesopelagic-fish` | 90 | 90 | **0** |
+| `cce-lter_euphausiids` | 38 | **0** | **0** |
+| `cce-lter_zoodb` | 33 | 33 | **0** |
+| `calcofi_phytoplankton` | 26 | 11 | **0** |
+| `swfsc_cufes` | 6 | **0** | **0** |
+| `cdfw_dungeness-crab` | 3 | **0** | **0** |
+| `calcofi_phyllosoma` | 1 | **0** | **0** |
+
+So a hierarchy rollup — "all Decapoda" — silently returned nothing for the
+*Metacarcinus magister* records, and **no error was raised anywhere along the
+way**. `family` was populated by no dataset at all, ichthyo included.
+
+**New: `ensure_taxon_lineage(con, measurement_taxon, overrides, cache_csv)`.**
+Resolves every authority id this dataset's vocabulary reaches — from its own taxon
+tables *and* from `measurement_taxon.csv`, which is where the wholly-bare taxa came
+from — fetches each one's WoRMS classification (or ITIS, for the Aves-keyed
+seabirds), and stages it as that same `taxon` hierarchy table. Call it before the
+three builders; `build_taxon_reference()` needs no new argument, because it already
+reads that table as its authority. An existing hierarchy is **merged, not
+replaced**, so `swfsc_ichthyo` keeps what it builds and gains only what is missing.
+
+**New: `fetch_taxon_lineage()`**, the cache underneath it. One row per (requested
+taxon, ancestor-or-self), written to a reviewable CSV
+(`metadata/taxon_lineage.csv` in the workflows repo) so a re-run costs no API calls
+and works offline. A taxon the authority cannot resolve stays bare rather than
+aborting the other three hundred. The cache is **global and shared**, but the
+return value is scoped to the ids asked for — returning the whole cache put every
+dataset's lineage into every shard (`calcofi_phyllosoma`: 1 taxon becoming 2,101),
+and only `swfsc_ichthyo` looked right, because it prunes afterwards. Pinned by a
+regression test.
+
+Two things follow from the shape of that cache:
+
+- **Ancestors become `taxon` rows.** Descendant expansion walks
+  `parent_taxon_key`, so a chain with a missing link is a broken rollup;
+  `prune_taxon_shard()` correspondingly keeps the transitive parent closure.
+- **`kingdom` / `phylum` / `class` / `order_taxon` / `family` are flattened** onto
+  each taxon from its own chain, at the highest coalesce priority — WoRMS is the
+  authority, and it is the only source that ever populated `family`.
+
+### `parent_taxon_key` is carried, not pasted
+
+It used to be derived at the end as `paste0("worms:", parent_worms_id)`. That is
+wrong for an ITIS-keyed taxon: `taxon_key_of()` keys Aves on `itis:`, so a seabird
+whose parent was minted `worms:<tsn>` got a key resolving to nothing. It is now a
+carried column on the normalized taxon frame, coalesced like every other field,
+with the old paste kept only as the fallback for sources that supply just
+`parent_worms_id`.
+
+### `ncbi_id` / `inat_id`
+
+Populated by no source we have. Kept as declared-but-NULL columns rather than
+dropped, so the release schema does not change under consumers the day one does.
+
+# calcofi4db 3.0.0
+
+## Breaking: the per-dataset core projections now live in the ingest notebooks
+
+`R/model.R` carried **~600 lines of dataset-specific SQL across six functions** — a
+`switch(dataset_key, ...)` per core table. Every arm is gone. Each dataset's
+projection into `sample` / `obs` / `obs_attribute` / `sample_measurement` is now
+declared in the ingest notebook that owns the dataset (`ingest_{provider}_{dataset}.qmd`,
+"Emit Core Tables"), which is where its grain rules belong and where they can be
+asserted against the real data.
+
+**Removed** (no replacement — write the projection in the notebook):
+
+| removed | arms it held |
+|---|---|
+| `build_sample_reference()` | 18 |
+| `emit_core_tables()` | the wrapper |
+| `create_compat_views()` | 16 compat specs |
+| `.obs_arm_sql()` (private) | 14 |
+| `.obs_attribute_arm_sql()` (private) | 3 |
+| `.sample_measurement_arm_sql()` (private) | 2 |
+
+Two things made this necessary. First, reading a migrated notebook made the switch
+look mandatory, so a new ingest (`cdfw_dungeness-crab`) was written without emitting
+the core at all. Second and worse: **a projection that exists twice drifts.**
+`release_database.qmd` re-derived the core using its own inline copy of every arm,
+and by the time the two were compared they had separated in four places, each a
+silent data error — euphausiids flattened all 37 species to `worms:110513`
+(Euphausiidae) and nulled `life_stage`; bird_mammal summed every unresolved species
+on a transect into one NULL-taxon row; phytoplankton emitted **zero** observations;
+cufes and phyllosoma lost their taxa entirely. The release is now a pure union of
+parquet shards precisely so there is only one copy to keep correct.
+
+Nothing was lost from the package that a notebook cannot say for itself: every
+`append_*` helper always took an arbitrary `SELECT`, and `emit_core_tables()` was
+only ever a convenience wrapper over them.
+
+## New: the generic shapes those notebooks declare against
+
+The arms were mostly *declarative calls to private helpers*, which is **why** the
+projections had to live here — you cannot declare a projection from a notebook if
+the vocabulary for declaring one is private. Now exported:
+
+- **`compat_event_sql()`** — rebuild a per-dataset event table as a VIEW over the
+  core: source id from the namespaced `sample_key`, containment FK from
+  `parent_sample_key`, effort columns pivoted back out of `sample_measurement`.
+  Was `.compat_event_sql()`; `.compat_specs()` was nothing but 16 calls to it.
+- **`prune_taxon_shard(con, dataset_key)`** — trim `taxon` / `dataset_taxon` /
+  `taxon_group` to one dataset's shard, **keeping the transitive parent closure**
+  (descendant expansion walks `parent_taxon_key`, so dropping an ancestor breaks
+  the chain). This was the load-bearing half of the private `.build_taxa_slices()`,
+  and it matters for `swfsc_ichthyo`, whose WoRMS lineage table is broader than the
+  taxa its own observations reach.
+
+Joining `sample_arm_self()`, `compat_measurement_sql()`, `ns_key()` and
+`ensure_measurement_taxon()` (2.20.0/2.21.0), a migrated notebook now reads as a
+declaration rather than copied SQL.
+
+## Tests
+
+The per-dataset grain tests went with the arms — re-testing them here would mean a
+second copy of every projection in the package, which is the exact duplication that
+let the two copies drift. Each notebook asserts its own rules instead (grain, row
+parity, FK integrity, `taxon_key` *resolution* rather than mere non-NULLness, and
+regression guards for all four historical divergences). What remains, and grew, is
+coverage of the generic machinery: `test-append_sample.R`, `test-compat_views.R`,
+`test-measurement_taxon.R`, plus `prune_taxon_shard()` cases in `test-taxa.R`.
+375 tests, all passing.
+
 # calcofi4db 2.21.0
 
 - **New: `scan_metadata_gaps()`, called automatically by `build_metadata_json()`.**

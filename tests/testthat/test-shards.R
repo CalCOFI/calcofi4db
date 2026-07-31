@@ -123,3 +123,45 @@ test_that("core_shard_paths() finds both file and hive-partitioned shards", {
   expect_true(any(grepl("ds_a/obs\\.parquet$", p)))
   expect_true(any(grepl("ds_b/obs/\\*\\*/\\*\\.parquet$", p)))
 })
+
+# ---- supplemental discovery --------------------------------------------------
+
+qmd_with <- function(dir, name, provider, dataset, owned) {
+  writeLines(c(
+    "---", "title: t", "calcofi:",
+    glue::glue("  provider: {provider}"),
+    glue::glue("  dataset: {dataset}"),
+    "  tables_owned:", owned, "---", "", "body"),
+    file.path(dir, name))
+}
+
+test_that("supplemental tables are discovered from the ingest YAML", {
+  d <- withr::local_tempdir()
+  qmd_with(d, "ingest_calcofi_ctd-cast.qmd", "calcofi", "ctd-cast", c(
+    "    - {table: obs, shared: true}",
+    "    - {table: obs_ctd_full, supplemental: true}"))
+  qmd_with(d, "ingest_calcofi_mets.qmd", "calcofi", "mets", c(
+    "    - {table: obs, shared: true}",
+    "    - {table: obs_mets_full, supplemental: true}"))
+  qmd_with(d, "ingest_swfsc_ichthyo.qmd", "swfsc", "ichthyo", c(
+    "    - {table: obs, shared: true}"))
+
+  expect_equal(supplemental_core_tables(d), c("obs_ctd_full", "obs_mets_full"))
+  expect_equal(supplemental_core_tables(d, FALSE), character())
+  expect_equal(supplemental_core_tables(d, "obs_only_this"), "obs_only_this")
+})
+
+test_that("a non-obs-shaped supplemental is not offered to the assembler", {
+  # calcofi_mets used to declare the raw mets_measurement here: no obs_id, no
+  # coordinates. assemble_core() renumbers obs_id and orders by core columns, so
+  # handing it such a table would fail — or worse, publish something unusable.
+  d <- withr::local_tempdir()
+  qmd_with(d, "ingest_calcofi_mets.qmd", "calcofi", "mets", c(
+    "    - {table: obs, shared: true}",
+    "    - {table: mets_measurement, supplemental: true}"))
+  expect_equal(supplemental_core_tables(d), character())
+})
+
+test_that("no ingests means no supplemental tables, not an error", {
+  expect_equal(supplemental_core_tables(withr::local_tempdir()), character())
+})

@@ -22,12 +22,13 @@ test_that("a type shared by two datasets lists both, sorted", {
   con <- DBI::dbConnect(duckdb::duckdb())
   on.exit(DBI::dbDisconnect(con, shutdown = TRUE))
   DBI::dbWriteTable(con, "obs", data.frame(
-    dataset_key = c("ucsd_sio_mesopelagic-fish", "swfsc_ichthyo"),
+    dataset_key = c("sio_mesopelagic-fish", "swfsc_ichthyo"),
     measurement_type = c("abundance", "abundance"),
     stringsAsFactors = FALSE), overwrite = TRUE)
 
+  # sorted, so the order is alphabetical rather than insertion order
   got <- derive_measurement_type_datasets(con, list(obs = c("a", "b")))
-  expect_equal(got$abundance, c("swfsc_ichthyo", "ucsd_sio_mesopelagic-fish"))
+  expect_equal(got$abundance, c("sio_mesopelagic-fish", "swfsc_ichthyo"))
 })
 
 test_that("a table with measurement_type but no dataset_key falls back to table-level", {

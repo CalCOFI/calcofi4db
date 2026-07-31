@@ -110,7 +110,7 @@ assemble_core_table <- function(con, table, root = ".", id_col = NULL,
 #' @concept shards
 merge_taxon_shards <- function(con, root = ".",
                                priority = c("swfsc_ichthyo",
-                                            "calcofi_bird_mammal_census",
+                                            "farallon_bird-mammal",
                                             "cce-lter_zoodb", "cce-lter_zooscan",
                                             "calcofi_phytoplankton"),
                                parquet_dir = "data/parquet",
@@ -156,6 +156,47 @@ merge_taxon_shards <- function(con, root = ".",
   invisible(n)
 }
 
+#' Supplemental full-resolution tables declared by the ingests
+#'
+#' Reads every ingest's `calcofi.tables_owned` and returns the tables flagged
+#' `supplemental: true` — the full-resolution products that ship alongside the
+#' thinned core (`obs_ctd_full`, `obs_mets_full`), hosted and tagged to the
+#' release but hidden from the default table list and the ERD.
+#'
+#' @param root workflows repo root.
+#' @param which `TRUE` for all declared, `FALSE` for none, or an explicit
+#'   character vector (returned as given, so a caller can override).
+#'
+#' @return Character vector of table names, possibly empty.
+#'
+#' @details
+#' Only `obs`-shaped tables (named `obs_*`) are returned. A supplemental table
+#' that is not a slice of the core cannot be assembled by [assemble_core()],
+#' which renumbers `obs_id` and orders by the core's columns — `calcofi_mets`
+#' previously declared the raw `mets_measurement` here, which carried neither an
+#' `obs_id` nor any coordinate and could not be published usefully.
+#'
+#' @export
+#' @concept shards
+#' @examples
+#' \dontrun{
+#' supplemental_core_tables("workflows")   # "obs_ctd_full" "obs_mets_full"
+#' }
+supplemental_core_tables <- function(root = ".", which = TRUE) {
+  if (isFALSE(which)) return(character())
+  if (!isTRUE(which)) return(as.character(which))
+  iy <- tryCatch(read_ingest_yaml(root), error = function(e) list())
+  tbls <- unlist(lapply(iy, function(cc) {
+    to <- cc$tables_owned
+    if (is.null(to)) return(NULL)
+    hit <- Filter(function(t) isTRUE(t$supplemental), to)
+    vapply(hit, function(t) as.character(t$table), character(1))
+  }), use.names = FALSE)
+  tbls <- unique(tbls %||% character())
+  # obs-shaped only: assemble_core() renumbers obs_id and orders by core columns
+  sort(grep("^obs_", tbls, value = TRUE))
+}
+
 #' Assemble the whole consolidated core from the ingest shards
 #'
 #' Convenience wrapper: `sample`, `obs`, `obs_attribute`, `sample_measurement`
@@ -166,7 +207,9 @@ merge_taxon_shards <- function(con, root = ".",
 #'
 #' @param con a DuckDB connection
 #' @param root workflows repo root
-#' @param supplemental include `obs_ctd_full` (default TRUE)
+#' @param supplemental `TRUE` (default) to include every supplemental
+#'   full-resolution table the ingests declare, `FALSE` for none, or an explicit
+#'   character vector of table names. See [supplemental_core_tables()].
 #' @param parquet_dir directory holding the per-dataset output dirs
 #' @param exclude dataset dir names to skip; defaults to the ingests declaring
 #'   `calcofi.in_release: false` (see [release_excluded_datasets()]). Resolved
@@ -204,9 +247,13 @@ assemble_core <- function(con, root = ".", supplemental = TRUE,
     con, "sample_measurement", root, id_col = "sample_measurement_id",
     order_by = "dataset_key, sample_key, measurement_type",
     parquet_dir = parquet_dir, exclude = exclude)
-  if (isTRUE(supplemental))
-    out$obs_ctd_full <- assemble_core_table(
-      con, "obs_ctd_full", root, id_col = "obs_id",
+  # Supplemental full-resolution tables are DISCOVERED from the ingests, not
+  # hardcoded: `obs_ctd_full` was the only one until `calcofi_mets` added
+  # `obs_mets_full`, and a hardcoded name silently drops any new one from the
+  # release while the ingest still writes it.
+  for (t in supplemental_core_tables(root, supplemental))
+    out[[t]] <- assemble_core_table(
+      con, t, root, id_col = "obs_id",
       order_by = "cruise_key, grid_key NULLS LAST, depth_min_m NULLS LAST, measurement_type",
       parquet_dir = parquet_dir, exclude = exclude)
 

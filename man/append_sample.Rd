@@ -22,7 +22,8 @@ append_sample(con, select_sql, sample_tbl = "sample")
 \code{longitude}, \code{datetime}, \code{depth_min_m}, \code{depth_max_m}, \code{tow_type} by name;
 \code{geom} is minted here as \code{ST_Point(longitude, latitude)}. \code{tow_type} is the net
 gear code (ichthyo tow/net grains: C1/CB/CV/PV oblique/vertical, MT manta), NULL
-for gears/datasets without one. Prefer \code{\link[=build_sample_reference]{build_sample_reference()}} for the central
-Phase-2 build; use this for per-dataset (Phase 3) appends.
+for gears/datasets without one. Call it once per event level — a multi-level
+dataset (ichthyo \code{site}->\code{tow}->\code{net}, bottle \code{cast}->\code{bottle}) appends one arm
+per level, and \code{\link[=sample_arm_self]{sample_arm_self()}} writes the single-level case for you.
 }
 \concept{model}
