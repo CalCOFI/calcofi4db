@@ -547,6 +547,9 @@ functions for local DuckDB wrangling (keys, IDs, table consolidation)
 - [`replace_uuid_with_id()`](https://calcofi.io/calcofi4db/reference/replace_uuid_with_id.md)
   : Replace UUIDs with Integer Foreign Keys
 
+- [`scan_metadata_gaps()`](https://calcofi.io/calcofi4db/reference/scan_metadata_gaps.md)
+  : Scan a metadata sidecar for missing documentation
+
 - [`standardize_site_key()`](https://calcofi.io/calcofi4db/reference/standardize_site_key.md)
   : Standardize Site Key from Line and Station Columns
 
@@ -691,12 +694,6 @@ check for other functions or datasets not captured by above categories
   Build the shared `grid` reference table (deterministic,
   dataset-independent)
 
-- [`build_sample_reference()`](https://calcofi.io/calcofi4db/reference/build_sample_reference.md)
-  :
-
-  Build the shared `sample` event dimension from the per-dataset event
-  tables
-
 - [`build_taxon_group()`](https://calcofi.io/calcofi4db/reference/build_taxon_group.md)
   :
 
@@ -716,6 +713,11 @@ check for other functions or datasets not captured by above categories
 - [`check_registry_na_strings()`](https://calcofi.io/calcofi4db/reference/check_registry_na_strings.md)
   : Reject sentinel strings that should have been empty cells
 
+- [`compat_event_sql()`](https://calcofi.io/calcofi4db/reference/compat_event_sql.md)
+  :
+
+  Rebuild a per-dataset event table as a VIEW over the core `sample`
+
 - [`compat_measurement_sql()`](https://calcofi.io/calcofi4db/reference/compat_measurement_sql.md)
   :
 
@@ -730,9 +732,6 @@ check for other functions or datasets not captured by above categories
 - [`core_shard_paths()`](https://calcofi.io/calcofi4db/reference/core_shard_paths.md)
   : Find the per-dataset parquet shards for a core table
 
-- [`create_compat_views()`](https://calcofi.io/calcofi4db/reference/create_compat_views.md)
-  : Recreate per-dataset tables as VIEWs over the consolidated core
-
 - [`derive_cruise_key_on_casts()`](https://calcofi.io/calcofi4db/reference/derive_cruise_key_on_casts.md)
   : Derive Cruise Key on Bottle Casts via Ship Matching
 
@@ -740,9 +739,6 @@ check for other functions or datasets not captured by above categories
   :
 
   Discover a dataset's sampling hierarchy from the core `sample` table
-
-- [`emit_core_tables()`](https://calcofi.io/calcofi4db/reference/emit_core_tables.md)
-  : Project one dataset into the consolidated core tables
 
 - [`ensure_interim_ships()`](https://calcofi.io/calcofi4db/reference/ensure_interim_ships.md)
   : Ensure Interim Ship Entries for Unmatched Ships
@@ -752,8 +748,18 @@ check for other functions or datasets not captured by above categories
 
   Stage the `_measurement_taxon` crosswalk in a connection
 
+- [`ensure_taxon_lineage()`](https://calcofi.io/calcofi4db/reference/ensure_taxon_lineage.md)
+  :
+
+  Materialize the WoRMS/ITIS lineage
+  [`build_taxon_reference()`](https://calcofi.io/calcofi4db/reference/build_taxon_reference.md)
+  reads
+
 - [`fetch_ship_ices()`](https://calcofi.io/calcofi4db/reference/fetch_ship_ices.md)
   : Fetch Ship Codes from ICES Reference Codes API
+
+- [`fetch_taxon_lineage()`](https://calcofi.io/calcofi4db/reference/fetch_taxon_lineage.md)
+  : Fetch (and cache) the WoRMS/ITIS lineage for a set of taxon ids
 
 - [`load_gcs_parquet_to_duckdb()`](https://calcofi.io/calcofi4db/reference/load_gcs_parquet_to_duckdb.md)
   : Load a GCS Parquet File into DuckDB
@@ -790,10 +796,10 @@ check for other functions or datasets not captured by above categories
   : Build the variable definitions for one level of a nested dataset
 
 - [`nc_profile_atts()`](https://calcofi.io/calcofi4db/reference/nc_profile_atts.md)
-  : Write the CF Discrete-Sampling-Geometry attributes of a profile file
+  : Write the CF Discrete-Sampling-Geometry attributes
 
 - [`nc_profile_def()`](https://calcofi.io/calcofi4db/reference/nc_profile_def.md)
-  : Define a CF Discrete-Sampling-Geometry profile file
+  : Define a CF Discrete-Sampling-Geometry file (profile or trajectory)
 
 - [`nc_profile_write()`](https://calcofi.io/calcofi4db/reference/nc_profile_write.md)
   : Write one chunk of a CF profile file
@@ -802,8 +808,16 @@ check for other functions or datasets not captured by above categories
 
   Namespaced `sample_key` expression: `dataset_key:sample_type:id`
 
+- [`obs_wide_sql()`](https://calcofi.io/calcofi4db/reference/obs_wide_sql.md)
+  :
+
+  SQL that widens long `obs` rows into one column per measurement type
+
 - [`plan_dataset_netcdf()`](https://calcofi.io/calcofi4db/reference/plan_dataset_netcdf.md)
   : Plan the netCDF shape for a dataset
+
+- [`prune_taxon_shard()`](https://calcofi.io/calcofi4db/reference/prune_taxon_shard.md)
+  : Prune the taxa references to one dataset's shard
 
 - [`read_measurement_type()`](https://calcofi.io/calcofi4db/reference/read_measurement_type.md)
   :
@@ -829,6 +843,9 @@ check for other functions or datasets not captured by above categories
 
 - [`summarise_netcdf_plan()`](https://calcofi.io/calcofi4db/reference/summarise_netcdf_plan.md)
   : Summarise a netCDF plan as one row
+
+- [`supplemental_core_tables()`](https://calcofi.io/calcofi4db/reference/supplemental_core_tables.md)
+  : Supplemental full-resolution tables declared by the ingests
 
 - [`taxon_key_of()`](https://calcofi.io/calcofi4db/reference/taxon_key_of.md)
   :

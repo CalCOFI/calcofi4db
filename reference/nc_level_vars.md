@@ -26,7 +26,10 @@ nc_level_vars(
 
 - group:
 
-  Group name, e.g. `"tow"`, `"occurrence"`, `"length_bin"`.
+  Group name, e.g. `"tow"`, `"occurrence"`, `"length_bin"`. Pass `""` to
+  write at the file root instead of in a group, which is what a CF
+  `featureType=point` collection is — one flat dimension with no
+  nesting.
 
 - df:
 

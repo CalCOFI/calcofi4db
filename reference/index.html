@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.21.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -808,6 +808,13 @@
 
         <dt>
 
+          <code><a href="scan_metadata_gaps.html">scan_metadata_gaps()</a></code>
+
+        </dt>
+        <dd>Scan a metadata sidecar for missing documentation</dd>
+
+        <dt>
+
           <code><a href="standardize_site_key.html">standardize_site_key()</a></code>
 
         </dt>
@@ -1156,13 +1163,6 @@
 
         <dt>
 
-          <code><a href="build_sample_reference.html">build_sample_reference()</a></code>
-
-        </dt>
-        <dd>Build the shared <code>sample</code> event dimension from the per-dataset event tables</dd>
-
-        <dt>
-
           <code><a href="build_taxon_group.html">build_taxon_group()</a></code>
 
         </dt>
@@ -1198,6 +1198,13 @@
 
         <dt>
 
+          <code><a href="compat_event_sql.html">compat_event_sql()</a></code>
+
+        </dt>
+        <dd>Rebuild a per-dataset event table as a VIEW over the core <code>sample</code></dd>
+
+        <dt>
+
           <code><a href="compat_measurement_sql.html">compat_measurement_sql()</a></code>
 
         </dt>
@@ -1226,13 +1233,6 @@
 
         <dt>
 
-          <code><a href="create_compat_views.html">create_compat_views()</a></code>
-
-        </dt>
-        <dd>Recreate per-dataset tables as VIEWs over the consolidated core</dd>
-
-        <dt>
-
           <code><a href="derive_cruise_key_on_casts.html">derive_cruise_key_on_casts()</a></code>
 
         </dt>
@@ -1244,13 +1244,6 @@
 
         </dt>
         <dd>Discover a dataset's sampling hierarchy from the core <code>sample</code> table</dd>
-
-        <dt>
-
-          <code><a href="emit_core_tables.html">emit_core_tables()</a></code>
-
-        </dt>
-        <dd>Project one dataset into the consolidated core tables</dd>
 
         <dt>
 
@@ -1268,10 +1261,24 @@
 
         <dt>
 
+          <code><a href="ensure_taxon_lineage.html">ensure_taxon_lineage()</a></code>
+
+        </dt>
+        <dd>Materialize the WoRMS/ITIS lineage <code><a href="../reference/build_taxon_reference.html">build_taxon_reference()</a></code> reads</dd>
+
+        <dt>
+
           <code><a href="fetch_ship_ices.html">fetch_ship_ices()</a></code>
 
         </dt>
         <dd>Fetch Ship Codes from ICES Reference Codes API</dd>
+
+        <dt>
+
+          <code><a href="fetch_taxon_lineage.html">fetch_taxon_lineage()</a></code>
+
+        </dt>
+        <dd>Fetch (and cache) the WoRMS/ITIS lineage for a set of taxon ids</dd>
 
         <dt>
 
@@ -1341,14 +1348,14 @@
           <code><a href="nc_profile_atts.html">nc_profile_atts()</a></code>
 
         </dt>
-        <dd>Write the CF Discrete-Sampling-Geometry attributes of a profile file</dd>
+        <dd>Write the CF Discrete-Sampling-Geometry attributes</dd>
 
         <dt>
 
           <code><a href="nc_profile_def.html">nc_profile_def()</a></code>
 
         </dt>
-        <dd>Define a CF Discrete-Sampling-Geometry profile file</dd>
+        <dd>Define a CF Discrete-Sampling-Geometry file (profile or trajectory)</dd>
 
         <dt>
 
@@ -1366,10 +1373,24 @@
 
         <dt>
 
+          <code><a href="obs_wide_sql.html">obs_wide_sql()</a></code>
+
+        </dt>
+        <dd>SQL that widens long <code>obs</code> rows into one column per measurement type</dd>
+
+        <dt>
+
           <code><a href="plan_dataset_netcdf.html">plan_dataset_netcdf()</a></code>
 
         </dt>
         <dd>Plan the netCDF shape for a dataset</dd>
+
+        <dt>
+
+          <code><a href="prune_taxon_shard.html">prune_taxon_shard()</a></code>
+
+        </dt>
+        <dd>Prune the taxa references to one dataset's shard</dd>
 
         <dt>
 
@@ -1419,6 +1440,13 @@
 
         </dt>
         <dd>Summarise a netCDF plan as one row</dd>
+
+        <dt>
+
+          <code><a href="supplemental_core_tables.html">supplemental_core_tables()</a></code>
+
+        </dt>
+        <dd>Supplemental full-resolution tables declared by the ingests</dd>
 
         <dt>
 

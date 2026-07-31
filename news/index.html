@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.21.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -46,9 +46,178 @@
     </div>
 
     <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.2.0" id="calcofi4db-320">calcofi4db 3.2.0<a class="anchor" aria-label="anchor" href="#calcofi4db-320"></a></h2>
+<div class="section level3">
+<h3 id="also-in-this-release-3-2-0">Also in this release<a class="anchor" aria-label="anchor" href="#also-in-this-release-3-2-0"></a></h3>
+<ul><li>
+<strong><code><a href="../reference/supplemental_core_tables.html">supplemental_core_tables()</a></code></strong> — reads every ingest’s <code>calcofi.tables_owned</code> and returns the tables flagged <code>supplemental: true</code> (<code>obs_ctd_full</code>, <code>obs_mets_full</code>): the full-resolution products hosted alongside the thinned core but hidden from the default table list and the ERD. Only <code>obs</code>-shaped tables are returned, since [assemble_core()] renumbers <code>obs_id</code> and orders by the core’s columns — <code>calcofi_mets</code> previously declared the raw <code>mets_measurement</code> here, which carried neither an <code>obs_id</code> nor a coordinate. <code>release_database.qmd</code> depends on it.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="provider-renames-breaking-three-dataset_key-values-change-3-2-0">Provider renames (breaking: three <code>dataset_key</code> values change)<a class="anchor" aria-label="anchor" href="#provider-renames-breaking-three-dataset_key-values-change-3-2-0"></a></h3>
+<p>Provider is the <strong>curating organization</strong> — not the hosting portal, and not a collection or lab within the org. Three keys were wrong on that test and are now corrected, in <code>.taxon_norm_sources()</code>, <code><a href="../reference/merge_taxon_shards.html">merge_taxon_shards()</a></code>’s priority vector and the tests:</p>
+<table class="table"><colgroup><col width="33%"><col width="33%"><col width="33%"></colgroup><thead><tr><th>from</th>
+<th>to</th>
+<th>why</th>
+</tr></thead><tbody><tr><td><code>calcofi_bird_mammal_census</code></td>
+<td><code>farallon_bird-mammal</code></td>
+<td>Farallon Institute (William Sydeman, PI) — CalCOFI is the sampling program, not the curator</td>
+</tr><tr><td><code>pic_zooplankton</code></td>
+<td><code>sio_pic-zooplankton</code></td>
+<td>the Pelagic Invertebrate Collection is the <em>dataset</em>; SIO is the org</td>
+</tr><tr><td><code>ucsd_sio_mesopelagic-fish</code></td>
+<td><code>sio_mesopelagic-fish</code></td>
+<td>redundant prefix</td>
+</tr></tbody></table><p><code>dataset_key</code> is stamped on every <code>obs</code> / <code>sample</code> row and is what consumers filter on, so this changes the released data, not just file names. See the workflows repo for the matching notebook/registry/GCS renames.</p>
+</div>
+</div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.1.0" id="calcofi4db-310">calcofi4db 3.1.0<a class="anchor" aria-label="anchor" href="#calcofi4db-310"></a></h2>
+<div class="section level3">
+<h3 id="taxon-lineage-taxa-no-longer-reach-the-release-as-bare-keys-3-1-0">Taxon lineage: taxa no longer reach the release as bare keys<a class="anchor" aria-label="anchor" href="#taxon-lineage-taxa-no-longer-reach-the-release-as-bare-keys-3-1-0"></a></h3>
+<p><code><a href="../reference/build_taxon_reference.html">build_taxon_reference()</a></code> takes <code>rank</code> / <code>parent_taxon_key</code> / classification from a DwC-shaped hierarchy table named <code>taxon</code> in the connection. <strong>Exactly one ingest ever built one</strong> — <code>swfsc_ichthyo</code>, via <code><a href="../reference/build_taxon_hierarchy.html">build_taxon_hierarchy()</a></code> over its own species list. Every other dataset’s taxa therefore reached the release with a <code>taxon_key</code> and a <code>scientific_name</code> and nothing else:</p>
+<table class="table"><thead><tr><th>dataset</th>
+<th>taxa</th>
+<th>with <code>rank</code>
+</th>
+<th>with <code>parent_taxon_key</code>
+</th>
+</tr></thead><tbody><tr><td><code>swfsc_ichthyo</code></td>
+<td>1687</td>
+<td>1687</td>
+<td>1686</td>
+</tr><tr><td><code>calcofi_bird_mammal_census</code></td>
+<td>128</td>
+<td>32</td>
+<td><strong>0</strong></td>
+</tr><tr><td><code>ucsd_sio_mesopelagic-fish</code></td>
+<td>90</td>
+<td>90</td>
+<td><strong>0</strong></td>
+</tr><tr><td><code>cce-lter_euphausiids</code></td>
+<td>38</td>
+<td><strong>0</strong></td>
+<td><strong>0</strong></td>
+</tr><tr><td><code>cce-lter_zoodb</code></td>
+<td>33</td>
+<td>33</td>
+<td><strong>0</strong></td>
+</tr><tr><td><code>calcofi_phytoplankton</code></td>
+<td>26</td>
+<td>11</td>
+<td><strong>0</strong></td>
+</tr><tr><td><code>swfsc_cufes</code></td>
+<td>6</td>
+<td><strong>0</strong></td>
+<td><strong>0</strong></td>
+</tr><tr><td><code>cdfw_dungeness-crab</code></td>
+<td>3</td>
+<td><strong>0</strong></td>
+<td><strong>0</strong></td>
+</tr><tr><td><code>calcofi_phyllosoma</code></td>
+<td>1</td>
+<td><strong>0</strong></td>
+<td><strong>0</strong></td>
+</tr></tbody></table><p>So a hierarchy rollup — “all Decapoda” — silently returned nothing for the <em>Metacarcinus magister</em> records, and <strong>no error was raised anywhere along the way</strong>. <code>family</code> was populated by no dataset at all, ichthyo included.</p>
+<p><strong>New: <code>ensure_taxon_lineage(con, measurement_taxon, overrides, cache_csv)</code>.</strong> Resolves every authority id this dataset’s vocabulary reaches — from its own taxon tables <em>and</em> from <code>measurement_taxon.csv</code>, which is where the wholly-bare taxa came from — fetches each one’s WoRMS classification (or ITIS, for the Aves-keyed seabirds), and stages it as that same <code>taxon</code> hierarchy table. Call it before the three builders; <code><a href="../reference/build_taxon_reference.html">build_taxon_reference()</a></code> needs no new argument, because it already reads that table as its authority. An existing hierarchy is <strong>merged, not replaced</strong>, so <code>swfsc_ichthyo</code> keeps what it builds and gains only what is missing.</p>
+<p><strong>New: <code><a href="../reference/fetch_taxon_lineage.html">fetch_taxon_lineage()</a></code></strong>, the cache underneath it. One row per (requested taxon, ancestor-or-self), written to a reviewable CSV (<code>metadata/taxon_lineage.csv</code> in the workflows repo) so a re-run costs no API calls and works offline. A taxon the authority cannot resolve stays bare rather than aborting the other three hundred. The cache is <strong>global and shared</strong>, but the return value is scoped to the ids asked for — returning the whole cache put every dataset’s lineage into every shard (<code>calcofi_phyllosoma</code>: 1 taxon becoming 2,101), and only <code>swfsc_ichthyo</code> looked right, because it prunes afterwards. Pinned by a regression test.</p>
+<p>Two things follow from the shape of that cache:</p>
+<ul><li>
+<strong>Ancestors become <code>taxon</code> rows.</strong> Descendant expansion walks <code>parent_taxon_key</code>, so a chain with a missing link is a broken rollup; <code><a href="../reference/prune_taxon_shard.html">prune_taxon_shard()</a></code> correspondingly keeps the transitive parent closure.</li>
+<li>
+<strong><code>kingdom</code> / <code>phylum</code> / <code>class</code> / <code>order_taxon</code> / <code>family</code> are flattened</strong> onto each taxon from its own chain, at the highest coalesce priority — WoRMS is the authority, and it is the only source that ever populated <code>family</code>.</li>
+</ul><div class="section level4">
+<h4 id="parent_taxon_key-is-carried-not-pasted-3-1-0">
+<code>parent_taxon_key</code> is carried, not pasted<a class="anchor" aria-label="anchor" href="#parent_taxon_key-is-carried-not-pasted-3-1-0"></a></h4>
+<p>It used to be derived at the end as <code>paste0("worms:", parent_worms_id)</code>. That is wrong for an ITIS-keyed taxon: <code><a href="../reference/taxon_key_of.html">taxon_key_of()</a></code> keys Aves on <code>itis:</code>, so a seabird whose parent was minted <code>worms:&lt;tsn&gt;</code> got a key resolving to nothing. It is now a carried column on the normalized taxon frame, coalesced like every other field, with the old paste kept only as the fallback for sources that supply just <code>parent_worms_id</code>.</p>
+</div>
+<div class="section level4">
+<h4 id="ncbi_id--inat_id-3-1-0">
+<code>ncbi_id</code> / <code>inat_id</code>
+<a class="anchor" aria-label="anchor" href="#ncbi_id--inat_id-3-1-0"></a></h4>
+<p>Populated by no source we have. Kept as declared-but-NULL columns rather than dropped, so the release schema does not change under consumers the day one does.</p>
+</div>
+</div>
+</div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.0.0" id="calcofi4db-300">calcofi4db 3.0.0<a class="anchor" aria-label="anchor" href="#calcofi4db-300"></a></h2>
+<div class="section level3">
+<h3 id="breaking-the-per-dataset-core-projections-now-live-in-the-ingest-notebooks-3-0-0">Breaking: the per-dataset core projections now live in the ingest notebooks<a class="anchor" aria-label="anchor" href="#breaking-the-per-dataset-core-projections-now-live-in-the-ingest-notebooks-3-0-0"></a></h3>
+<p><code>R/model.R</code> carried <strong>~600 lines of dataset-specific SQL across six functions</strong> — a <code>switch(dataset_key, ...)</code> per core table. Every arm is gone. Each dataset’s projection into <code>sample</code> / <code>obs</code> / <code>obs_attribute</code> / <code>sample_measurement</code> is now declared in the ingest notebook that owns the dataset (<code>ingest_{provider}_{dataset}.qmd</code>, “Emit Core Tables”), which is where its grain rules belong and where they can be asserted against the real data.</p>
+<p><strong>Removed</strong> (no replacement — write the projection in the notebook):</p>
+<table class="table"><thead><tr><th>removed</th>
+<th>arms it held</th>
+</tr></thead><tbody><tr><td><code>build_sample_reference()</code></td>
+<td>18</td>
+</tr><tr><td><code>emit_core_tables()</code></td>
+<td>the wrapper</td>
+</tr><tr><td><code>create_compat_views()</code></td>
+<td>16 compat specs</td>
+</tr><tr><td>
+<code>.obs_arm_sql()</code> (private)</td>
+<td>14</td>
+</tr><tr><td>
+<code>.obs_attribute_arm_sql()</code> (private)</td>
+<td>3</td>
+</tr><tr><td>
+<code>.sample_measurement_arm_sql()</code> (private)</td>
+<td>2</td>
+</tr></tbody></table><p>Two things made this necessary. First, reading a migrated notebook made the switch look mandatory, so a new ingest (<code>cdfw_dungeness-crab</code>) was written without emitting the core at all. Second and worse: <strong>a projection that exists twice drifts.</strong> <code>release_database.qmd</code> re-derived the core using its own inline copy of every arm, and by the time the two were compared they had separated in four places, each a silent data error — euphausiids flattened all 37 species to <code>worms:110513</code> (Euphausiidae) and nulled <code>life_stage</code>; bird_mammal summed every unresolved species on a transect into one NULL-taxon row; phytoplankton emitted <strong>zero</strong> observations; cufes and phyllosoma lost their taxa entirely. The release is now a pure union of parquet shards precisely so there is only one copy to keep correct.</p>
+<p>Nothing was lost from the package that a notebook cannot say for itself: every <code>append_*</code> helper always took an arbitrary <code>SELECT</code>, and <code>emit_core_tables()</code> was only ever a convenience wrapper over them.</p>
+</div>
+<div class="section level3">
+<h3 id="new-the-generic-shapes-those-notebooks-declare-against-3-0-0">New: the generic shapes those notebooks declare against<a class="anchor" aria-label="anchor" href="#new-the-generic-shapes-those-notebooks-declare-against-3-0-0"></a></h3>
+<p>The arms were mostly <em>declarative calls to private helpers</em>, which is <strong>why</strong> the projections had to live here — you cannot declare a projection from a notebook if the vocabulary for declaring one is private. Now exported:</p>
+<ul><li>
+<strong><code><a href="../reference/compat_event_sql.html">compat_event_sql()</a></code></strong> — rebuild a per-dataset event table as a VIEW over the core: source id from the namespaced <code>sample_key</code>, containment FK from <code>parent_sample_key</code>, effort columns pivoted back out of <code>sample_measurement</code>. Was <code>.compat_event_sql()</code>; <code>.compat_specs()</code> was nothing but 16 calls to it.</li>
+<li>
+<strong><code>prune_taxon_shard(con, dataset_key)</code></strong> — trim <code>taxon</code> / <code>dataset_taxon</code> / <code>taxon_group</code> to one dataset’s shard, <strong>keeping the transitive parent closure</strong> (descendant expansion walks <code>parent_taxon_key</code>, so dropping an ancestor breaks the chain). This was the load-bearing half of the private <code>.build_taxa_slices()</code>, and it matters for <code>swfsc_ichthyo</code>, whose WoRMS lineage table is broader than the taxa its own observations reach.</li>
+</ul><p>Joining <code><a href="../reference/sample_arm_self.html">sample_arm_self()</a></code>, <code><a href="../reference/compat_measurement_sql.html">compat_measurement_sql()</a></code>, <code><a href="../reference/ns_key.html">ns_key()</a></code> and <code><a href="../reference/ensure_measurement_taxon.html">ensure_measurement_taxon()</a></code> (2.20.0/2.21.0), a migrated notebook now reads as a declaration rather than copied SQL.</p>
+</div>
+<div class="section level3">
+<h3 id="tests-3-0-0">Tests<a class="anchor" aria-label="anchor" href="#tests-3-0-0"></a></h3>
+<p>The per-dataset grain tests went with the arms — re-testing them here would mean a second copy of every projection in the package, which is the exact duplication that let the two copies drift. Each notebook asserts its own rules instead (grain, row parity, FK integrity, <code>taxon_key</code> <em>resolution</em> rather than mere non-NULLness, and regression guards for all four historical divergences). What remains, and grew, is coverage of the generic machinery: <code>test-append_sample.R</code>, <code>test-compat_views.R</code>, <code>test-measurement_taxon.R</code>, plus <code><a href="../reference/prune_taxon_shard.html">prune_taxon_shard()</a></code> cases in <code>test-taxa.R</code>. 375 tests, all passing.</p>
+</div>
+</div>
+    <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.21.0" id="calcofi4db-2210">calcofi4db 2.21.0<a class="anchor" aria-label="anchor" href="#calcofi4db-2210"></a></h2>
 <ul><li>
-<strong>Exported <code><a href="../reference/ensure_measurement_taxon.html">ensure_measurement_taxon()</a></code></strong> (was <code>.</code>-internal). Staging the <code>_measurement_taxon</code> crosswalk is part of a per-dataset projection, and the derived <code>taxon_key</code> is the piece that must not be hand-rolled: it is <code><a href="../reference/taxon_key_of.html">taxon_key_of()</a></code> over <code>worms_id</code>/<code>itis_id</code>, so a <code>'worms:' || worms_id</code> string built inline in SQL silently mis-keys any ITIS-resolved taxon.</li>
+<p><strong>New: <code><a href="../reference/scan_metadata_gaps.html">scan_metadata_gaps()</a></code>, called automatically by <code><a href="../reference/build_metadata_json.html">build_metadata_json()</a></code>.</strong> Empty table/column descriptions and missing units travel from an ingest’s <code>metadata.json</code> into the release sidecar and out through <code>calcofi4r::cc_describe_table()</code> / <code>cc_db_catalog()</code>, where they render as blank documentation — and nothing surfaced them. The check existed only as a snippet in the <code>ingest-new</code> skill that a human was expected to run once, by hand, after the first render; it appeared in <strong>no</strong> notebook. Running it inside <code><a href="../reference/build_metadata_json.html">build_metadata_json()</a></code> (rather than <code><a href="../reference/finalize_ingest.html">finalize_ingest()</a></code>) covers the three ingests that still hand-roll their outputs too. Across the 16 current sidecars it finds <strong>29 tables and 395 columns with no description, and 223 unit-less measurement columns</strong>.</p>
+<p>A missing <code>units</code> is reported only where a unit could exist: keys, names, flags, timestamps, vocabulary columns and the long-format <code>measurement_value</code> / <code>measurement_prec</code> are exempt. The last of those matters — the unit lives in <code>measurement_type</code>, one per row, so flagging the value column would tell a maintainer to do something actively wrong. Un-exempted, the same scan reported 484 “gaps”, more than half of them noise.</p>
+</li>
+<li>
+<p><strong><code><a href="../reference/plan_dataset_netcdf.html">plan_dataset_netcdf()</a></code> now distinguishes four shapes, not two.</strong> The old rule — one sampling level plus a depth axis is a CF profile — held for the two datasets that had publish notebooks, and broke as soon as it was applied to all</p>
+<ol start="15" style="list-style-type: decimal"><li>
+<em>Every</em> CalCOFI dataset carries a depth on its observations, but only <code>calcofi_ctd-cast</code> has many depths per event (median <strong>74</strong>); a tow, a transect, an underway record and a region pool each carry exactly one. The rule therefore stamped <code>featureType=profile</code> on <strong>10 of 15</strong> datasets that are nothing of the kind, and a file claiming a feature type it does not have is worse than one claiming none, because CF-aware tools act on the claim.</li>
+</ol><table class="table"><thead><tr><th>levels</th>
+<th>depths/instance</th>
+<th><code>sample_type</code></th>
+<th>shape</th>
+</tr></thead><tbody><tr><td>1</td>
+<td>&gt; 1</td>
+<td>any</td>
+<td>
+<code>profile</code> (ragged array)</td>
+</tr><tr><td>1</td>
+<td>&lt;= 1</td>
+<td><code>underway</code></td>
+<td>
+<code>trajectory</code> (ragged array per cruise)</td>
+</tr><tr><td>1</td>
+<td>&lt;= 1</td>
+<td>other</td>
+<td>
+<code>point</code> (one flat dimension)</td>
+</tr><tr><td>&gt; 1</td>
+<td>any</td>
+<td>any</td>
+<td>
+<code>groups</code> (netCDF-4 + <code>parent_index</code>, no CF claim)</td>
+</tr></tbody></table><p>New <code>depths_per_instance</code> in the plan and in <code><a href="../reference/summarise_netcdf_plan.html">summarise_netcdf_plan()</a></code> makes the discriminator visible rather than implicit. <code>moving_sample_types</code> (default <code>"underway"</code>) names the vocabulary terms that mean “moving platform” — that is not inferable from row counts, since an underway series looks exactly like scattered points until you know the ship was under way between them.</p>
+</li>
+<li><p><strong>Fix: <code><a href="../reference/discover_sample_levels.html">discover_sample_levels()</a></code> crashed on a cross-dataset parent.</strong> The parent join was not dataset-scoped, and <code>sample_key</code> is globally unique, so <code>calcofi_dic</code> — which parents 6 of its bottles onto <code>calcofi_bottle</code> <strong>casts</strong>, the mechanism behind the DIC/bottle dedup — resolved to a <code>sample_type</code> that <code>calcofi_dic</code> does not have. The depth walk then indexed a name that was not there: <code>subscript out of bounds</code>, mid-loop over all 15 datasets. Such a parent is now reported in a new <code>n_external_parent</code> column and the level is treated as a root <em>of that file</em>, since the parent’s rows are not part of the dataset and so cannot be one of its groups. An unresolved parent (<code>n_orphan</code>) and an external one are counted separately; every row stays accounted for.</p></li>
+<li><p><strong>New: <code><a href="../reference/obs_wide_sql.html">obs_wide_sql()</a></code></strong> builds the long→wide pivot at the <strong>occurrence grain</strong> (<code>sample_key</code>, <code>depth_min_m</code>, <code>taxon_key</code>, <code>life_stage</code>), not the event grain. Grouping by <code>sample_key</code> alone collapses every taxon in a sample into one row — on <code>cce-lter_zooscan</code> that is 34,109 occurrences over 23 taxa reduced to 1,483 rows, 96% of the data gone, with <code>MAX()</code> silently choosing one taxon’s value and the resulting file still well-formed and plausible. Also rejects a <code>measurement_type</code> that cannot be a netCDF variable name or that collides with a coordinate the writers create, and takes an optional <code>count_col</code> so a caller can assert that no value was silently discarded at the grain.</p></li>
+<li><p><strong>The DSG writers cover trajectory and point, not just profile.</strong> CF profile and CF trajectory are the <em>same</em> contiguous ragged array and differ only in which dimension the coordinates sit on, so <code><a href="../reference/nc_profile_def.html">nc_profile_def()</a></code>/<code><a href="../reference/nc_profile_write.html">nc_profile_write()</a></code> gained <code>obs_cols</code> (default <code>"depth"</code> = profile; <code>c("time","latitude", "longitude","depth")</code> = trajectory) and <code><a href="../reference/nc_profile_atts.html">nc_profile_atts()</a></code> gained <code>feature_type</code>, which selects <code>cf_role</code> (<code>profile_id</code> vs <code>trajectory_id</code>) and omits the ragged-array attributes for a point collection. <code><a href="../reference/nc_level_vars.html">nc_level_vars()</a></code> / <code><a href="../reference/nc_level_put.html">nc_level_put()</a></code> accept <code>group = ""</code> to write at the file root, which is exactly what a <code>featureType=point</code> file is — so the point shape needed no new writer. Declaring one column on both dimensions is now an error.</p></li>
+<li><p><strong>Exported <code><a href="../reference/ensure_measurement_taxon.html">ensure_measurement_taxon()</a></code></strong> (was <code>.</code>-internal). Staging the <code>_measurement_taxon</code> crosswalk is part of a per-dataset projection, and the derived <code>taxon_key</code> is the piece that must not be hand-rolled: it is <code><a href="../reference/taxon_key_of.html">taxon_key_of()</a></code> over <code>worms_id</code>/<code>itis_id</code>, so a <code>'worms:' || worms_id</code> string built inline in SQL silently mis-keys any ITIS-resolved taxon.</p></li>
 </ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.20.0" id="calcofi4db-2200">calcofi4db 2.20.0<a class="anchor" aria-label="anchor" href="#calcofi4db-2200"></a></h2>
@@ -66,7 +235,7 @@
 <li>
 <strong><code><a href="../reference/nc_global_atts.html">nc_global_atts()</a></code> dates a file by its release, not by wall clock.</strong> A <code><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time()</a></code> <code>date_created</code> put a fresh timestamp inside every build, so no rebuild could ever be byte-identical to an earlier release and the publisher’s “bytes written once” sha256 check silently degraded to “always re-upload”.</li>
 <li>
-<strong>Exported the generic core-projection shape builders</strong>: <code><a href="../reference/sample_arm_self.html">sample_arm_self()</a></code>, <code><a href="../reference/compat_measurement_sql.html">compat_measurement_sql()</a></code> and <code><a href="../reference/ns_key.html">ns_key()</a></code> (were <code>.</code>-internal). A dataset’s projection belongs in the ingest notebook that owns it, and these are what keep that a short declaration rather than copied SQL — most <code><a href="../reference/build_sample_reference.html">build_sample_reference()</a></code> arms are a single <code><a href="../reference/sample_arm_self.html">sample_arm_self()</a></code> call with a few column expressions. No behaviour change; internal call sites renamed.</li>
+<strong>Exported the generic core-projection shape builders</strong>: <code><a href="../reference/sample_arm_self.html">sample_arm_self()</a></code>, <code><a href="../reference/compat_measurement_sql.html">compat_measurement_sql()</a></code> and <code><a href="../reference/ns_key.html">ns_key()</a></code> (were <code>.</code>-internal). A dataset’s projection belongs in the ingest notebook that owns it, and these are what keep that a short declaration rather than copied SQL — most <code>build_sample_reference()</code> arms are a single <code><a href="../reference/sample_arm_self.html">sample_arm_self()</a></code> call with a few column expressions. No behaviour change; internal call sites renamed.</li>
 </ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.19.1" id="calcofi4db-2191">calcofi4db 2.19.1<a class="anchor" aria-label="anchor" href="#calcofi4db-2191"></a></h2>
@@ -122,15 +291,15 @@
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.16.1" id="calcofi4db-2161">calcofi4db 2.16.1<a class="anchor" aria-label="anchor" href="#calcofi4db-2161"></a></h2>
 <ul><li>
-<p><strong>Fix: drop the redundant <code>bottom_depth</code> arm</strong> added to <code>.sample_measurement_arm_sql("calcofi_bottle")</code> in 2.14.0. <code>bottom_depth</code> already reaches <code>sample_measurement</code>: the bottle ingest pivots the source <code>Bottom_D</code> column into <code>cast_condition</code> (33,363 rows) and drops it from <code>casts</code>, so the extra <code>UNION ALL SELECT ... bottom_depth_m FROM casts</code> was both duplicative and a binder error against a column that no longer exists by the time the arm runs. <code><a href="../reference/create_compat_views.html">create_compat_views()</a></code> no longer filters <code>bottom_depth</code> out of the rebuilt <code>cast_condition</code> either — it is a genuine cast condition, and excluding it silently dropped a real row.</p>
+<p><strong>Fix: drop the redundant <code>bottom_depth</code> arm</strong> added to <code>.sample_measurement_arm_sql("calcofi_bottle")</code> in 2.14.0. <code>bottom_depth</code> already reaches <code>sample_measurement</code>: the bottle ingest pivots the source <code>Bottom_D</code> column into <code>cast_condition</code> (33,363 rows) and drops it from <code>casts</code>, so the extra <code>UNION ALL SELECT ... bottom_depth_m FROM casts</code> was both duplicative and a binder error against a column that no longer exists by the time the arm runs. <code>create_compat_views()</code> no longer filters <code>bottom_depth</code> out of the rebuilt <code>cast_condition</code> either — it is a genuine cast condition, and excluding it silently dropped a real row.</p>
 <p>Registering <code>bottom_depth</code> in <code>metadata/measurement_type.csv</code> (workflows) was still required and is unaffected: the vocabulary genuinely lacked it, which the release FK check on <code>sample_measurement.measurement_type</code> now catches.</p>
 </li>
 </ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.16.0" id="calcofi4db-2160">calcofi4db 2.16.0<a class="anchor" aria-label="anchor" href="#calcofi4db-2160"></a></h2>
 <ul><li>
-<p><strong><code><a href="../reference/create_compat_views.html">create_compat_views()</a></code> rebuilds <code>casts</code> and <code>bottle</code></strong> from the core, and gained a <code>sample_tbl</code> argument. <code>calcofi_dic</code> matches its samples against <code>calcofi_bottle</code>’s cast/bottle event tables (<code><a href="../reference/match_by_site_datetime.html">match_by_site_datetime()</a></code> then <code><a href="../reference/match_nearest_by_depth.html">match_nearest_by_depth()</a></code>), which stopped existing once bottle began publishing the core — the one ingest that depends on another’s <em>event</em> tables rather than just the shared references. <code>cast_id</code>/<code>bottle_id</code> come back from the namespaced <code>sample_key</code> and the cast FK from <code>parent_sample_key</code>.</p>
-<p><code>sample_tbl</code> matters for correctness, not convenience: dic builds its own <code>sample</code> later in <code><a href="../reference/emit_core_tables.html">emit_core_tables()</a></code>, so loading bottle’s shard as plain <code>sample</code> would have it replaced mid-render and the views would break. dic loads it as <code>_bottle_sample</code> and points the views there.</p>
+<p><strong><code>create_compat_views()</code> rebuilds <code>casts</code> and <code>bottle</code></strong> from the core, and gained a <code>sample_tbl</code> argument. <code>calcofi_dic</code> matches its samples against <code>calcofi_bottle</code>’s cast/bottle event tables (<code><a href="../reference/match_by_site_datetime.html">match_by_site_datetime()</a></code> then <code><a href="../reference/match_nearest_by_depth.html">match_nearest_by_depth()</a></code>), which stopped existing once bottle began publishing the core — the one ingest that depends on another’s <em>event</em> tables rather than just the shared references. <code>cast_id</code>/<code>bottle_id</code> come back from the namespaced <code>sample_key</code> and the cast FK from <code>parent_sample_key</code>.</p>
+<p><code>sample_tbl</code> matters for correctness, not convenience: dic builds its own <code>sample</code> later in <code>emit_core_tables()</code>, so loading bottle’s shard as plain <code>sample</code> would have it replaced mid-render and the views would break. dic loads it as <code>_bottle_sample</code> and points the views there.</p>
 </li>
 </ul></div>
     <div class="section level2">
@@ -141,13 +310,13 @@
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.14.0" id="calcofi4db-2140">calcofi4db 2.14.0<a class="anchor" aria-label="anchor" href="#calcofi4db-2140"></a></h2>
 <ul><li><p><strong><code>site_key</code> and <code>order_occ</code> promoted onto the core <code>sample</code> table.</strong> Both are event-level and cross-dataset — <code>site_key</code> appears on 13 of the 18 source event tables and is the station natural key (<code>grid_key</code> is the <em>derived</em> grid cell, not the source’s own id); <code>order_occ</code> is the order of station occupation. Previously both were dropped by consolidation, which made <code>site</code>, <code>casts</code> and <code>ctd_cast</code> unreconstructable from the core. Source spelling varies (<code>order_occ</code> vs <code>ord_occ</code>) and CTD stores it as text, so it is normalised to <code>INTEGER</code>. <code>tow</code>/<code>net</code> inherit both from their parent site, as they already do for <code>grid_key</code>/<code>cruise_key</code>.</p></li>
-<li><p><strong><code>bottom_depth_m</code> now projects into <code>sample_measurement</code></strong> as <code>bottom_depth</code> on the cast event — it describes the sampling event (how deep the water was), not an observation, so it belongs with the other event-level effort measures rather than in <code>obs</code>. <code><a href="../reference/create_compat_views.html">create_compat_views()</a></code> excludes it when rebuilding <code>cast_condition</code>, so no phantom condition row appears.</p></li>
-<li><p><strong><code><a href="../reference/create_compat_views.html">create_compat_views()</a></code></strong> rebuilds the retired per-dataset tables as VIEWs over the core: the source id from the namespaced <code>sample_key</code>, the containment FK from <code>parent_sample_key</code>, event effort by pivoting <code>sample_measurement</code> out of long form, and the measurement triples from <code>obs</code>. Verified against the shipped data — <code>net</code> (76,512), <code>tow</code> (75,506) and <code>site</code> (61,104) round-trip identically for every column the core models. It is <strong>exact for those columns and lossy for the rest</strong>; see <code><a href="../reference/create_compat_views.html">?create_compat_views</a></code> for what does not come back (notably CTD scan-grain columns, since <code>sample</code> holds one row per physical cast).</p></li>
+<li><p><strong><code>bottom_depth_m</code> now projects into <code>sample_measurement</code></strong> as <code>bottom_depth</code> on the cast event — it describes the sampling event (how deep the water was), not an observation, so it belongs with the other event-level effort measures rather than in <code>obs</code>. <code>create_compat_views()</code> excludes it when rebuilding <code>cast_condition</code>, so no phantom condition row appears.</p></li>
+<li><p><strong><code>create_compat_views()</code></strong> rebuilds the retired per-dataset tables as VIEWs over the core: the source id from the namespaced <code>sample_key</code>, the containment FK from <code>parent_sample_key</code>, event effort by pivoting <code>sample_measurement</code> out of long form, and the measurement triples from <code>obs</code>. Verified against the shipped data — <code>net</code> (76,512), <code>tow</code> (75,506) and <code>site</code> (61,104) round-trip identically for every column the core models. It is <strong>exact for those columns and lossy for the rest</strong>; see <code>?create_compat_views</code> for what does not come back (notably CTD scan-grain columns, since <code>sample</code> holds one row per physical cast).</p></li>
 <li><p>Fixed <code>.sample_arm_self()</code> emitting <code>site_key AS site_key</code>, which DuckDB resolves against the alias being defined in the same <code>SELECT</code> (lateral column alias) rather than the source column; all caller-supplied expressions are now table-qualified.</p></li>
 </ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.13.0" id="calcofi4db-2130">calcofi4db 2.13.0<a class="anchor" aria-label="anchor" href="#calcofi4db-2130"></a></h2>
-<ul><li><p><strong><code><a href="../reference/emit_core_tables.html">emit_core_tables()</a></code> is now the authoritative core projection.</strong> It gains <code>measurement_taxon</code> / <code>overrides</code> / <code>taxa</code> arguments and builds this dataset’s slice of <code>taxon</code> / <code>dataset_taxon</code> / <code>taxon_group</code>, so <code>obs.taxon_key</code> resolves at ingest time. Each ingest can now emit the consolidated core as its parquet output instead of per-dataset tables that <code>release_database.qmd</code> re-derives.</p></li>
+<ul><li><p><strong><code>emit_core_tables()</code> is now the authoritative core projection.</strong> It gains <code>measurement_taxon</code> / <code>overrides</code> / <code>taxa</code> arguments and builds this dataset’s slice of <code>taxon</code> / <code>dataset_taxon</code> / <code>taxon_group</code>, so <code>obs.taxon_key</code> resolves at ingest time. Each ingest can now emit the consolidated core as its parquet output instead of per-dataset tables that <code>release_database.qmd</code> re-derives.</p></li>
 <li>
 <p><strong>Realigned four <code>obs</code> arms that had drifted from the release projection.</strong> The projection existed twice — here and inline in <code>release_database.qmd</code> — and the copies had separated:</p>
 <ul><li>
@@ -173,14 +342,14 @@
 <li>
 <strong>Core arms for two new datasets.</strong> <code>ucsd_sio_mesopelagic-fish</code> (MOHT trawl, self-leaf <code>tow</code> grain, <code>bio</code> realm, <code>taxon_key</code> crosswalked from the source’s scientific names via a new <code>mesopelagic_fish_taxon</code> arm in <code><a href="../reference/build_dataset_taxon.html">build_dataset_taxon()</a></code>) and <code>cce-lter_picoplankton-bacteria</code> (self-leaf <code>bottle</code> grain, <code>env</code> realm — the four flow-cytometry counts are a measurement vocabulary, not taxa) now project into <code>sample</code> + <code>obs</code>, so both reach the frozen release instead of stopping at per-dataset parquet.</li>
 <li>
-<strong><code><a href="../reference/emit_core_tables.html">emit_core_tables()</a></code> no longer requires <code>dataset_taxon</code> to pre-exist.</strong> Every bio arm <code>LEFT JOIN</code>s <code>dataset_taxon</code>, but that crosswalk is built centrally by the release (<code><a href="../reference/build_dataset_taxon.html">build_dataset_taxon()</a></code>), so calling <code><a href="../reference/emit_core_tables.html">emit_core_tables()</a></code> from an ingest raised <code>Catalog Error: Table with name dataset_taxon does not exist</code> for ichthyo / zoodb / zooscan / bird_mammal / euphausiids. An empty stub is now created when absent: the ingest-local projection runs with <code>taxon_key</code> NULL and the release resolves it for real.</li>
+<strong><code>emit_core_tables()</code> no longer requires <code>dataset_taxon</code> to pre-exist.</strong> Every bio arm <code>LEFT JOIN</code>s <code>dataset_taxon</code>, but that crosswalk is built centrally by the release (<code><a href="../reference/build_dataset_taxon.html">build_dataset_taxon()</a></code>), so calling <code>emit_core_tables()</code> from an ingest raised <code>Catalog Error: Table with name dataset_taxon does not exist</code> for ichthyo / zoodb / zooscan / bird_mammal / euphausiids. An empty stub is now created when absent: the ingest-local projection runs with <code>taxon_key</code> NULL and the release resolves it for real.</li>
 <li>
 <strong><code>euphausiids</code> projects into the core with real taxonomy.</strong> The species- and life-stage-resolved BTEDB export replaces the old single-<code>Abundance</code> column, so <code>.obs_arm_sql("cce-lter_euphausiids")</code> now resolves <code>taxon_key</code> through <code>dataset_taxon</code> and carries <code>life_stage</code> on the <code>obs</code> headline (as zoodb / zooscan do) instead of leaving both NULL. <code><a href="../reference/build_dataset_taxon.html">build_dataset_taxon()</a></code> / <code><a href="../reference/build_taxon_reference.html">build_taxon_reference()</a></code> gained a <code>euphausiids_taxon</code> source arm, so the 37 BTEDB species crosswalk to WoRMS AphiaIDs rather than resolving through <code>metadata/measurement_taxon.csv</code>.</li>
 </ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.10.0" id="calcofi4db-2100">calcofi4db 2.10.0<a class="anchor" aria-label="anchor" href="#calcofi4db-2100"></a></h2>
 <ul><li>
-<strong><code>tow_type</code> (net gear) promoted into the core <code>sample</code> table.</strong> <code><a href="../reference/build_sample_reference.html">build_sample_reference()</a></code> / <code><a href="../reference/append_sample.html">append_sample()</a></code> now carry a <code>tow_type</code> column (added to the <code>sample</code> schema): the CalCOFI ichthyo net gear code (<code>C1</code>/<code>CB</code>/<code>CV</code>/<code>PV</code> oblique &amp; vertical tows, <code>MT</code> manta surface tows), denormalized onto both the <code>tow</code> and <code>net</code> sample rows and <code>NULL</code> for gears / datasets without one. Consumers (e.g. <code>db-viz-hex</code> CPUE) can now read net gear straight from <code>sample</code> instead of re-deriving it from per-dataset ingest tables.</li>
+<strong><code>tow_type</code> (net gear) promoted into the core <code>sample</code> table.</strong> <code>build_sample_reference()</code> / <code><a href="../reference/append_sample.html">append_sample()</a></code> now carry a <code>tow_type</code> column (added to the <code>sample</code> schema): the CalCOFI ichthyo net gear code (<code>C1</code>/<code>CB</code>/<code>CV</code>/<code>PV</code> oblique &amp; vertical tows, <code>MT</code> manta surface tows), denormalized onto both the <code>tow</code> and <code>net</code> sample rows and <code>NULL</code> for gears / datasets without one. Consumers (e.g. <code>db-viz-hex</code> CPUE) can now read net gear straight from <code>sample</code> instead of re-deriving it from per-dataset ingest tables.</li>
 </ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.9.0" id="calcofi4db-290">calcofi4db 2.9.0<a class="anchor" aria-label="anchor" href="#calcofi4db-290"></a></h2>
@@ -189,7 +358,7 @@
 <li>
 <strong><code>append_obs_freq()</code> → <code><a href="../reference/append_obs_attribute.html">append_obs_attribute()</a></code></strong> (table <code>obs_freq</code> → <code>obs_attribute</code>): generalizes the (bin, count) frequency table to any sub-occurrence attribution — length-/stage-frequency plus categorical breakdowns such as seabird behavior. Columns unchanged (<code>bin_value</code>/<code>bin_label</code>/<code>count</code>).</li>
 <li>
-<strong><code>obs.taxon_id</code> → <code>obs.taxon_key</code></strong> in the <code>obs</code> / <code>obs_attribute</code> DDL and the <code>append_*</code> helpers; the bio <code><a href="../reference/emit_core_tables.html">emit_core_tables()</a></code> arms resolve the global <code>taxon_key</code> via <code>dataset_taxon</code> instead of emitting dataset-local ids.</li>
+<strong><code>obs.taxon_id</code> → <code>obs.taxon_key</code></strong> in the <code>obs</code> / <code>obs_attribute</code> DDL and the <code>append_*</code> helpers; the bio <code>emit_core_tables()</code> arms resolve the global <code>taxon_key</code> via <code>dataset_taxon</code> instead of emitting dataset-local ids.</li>
 </ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="2.8.2" id="calcofi4db-282">calcofi4db 2.8.2<a class="anchor" aria-label="anchor" href="#calcofi4db-282"></a></h2>

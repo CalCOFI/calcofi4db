@@ -19,7 +19,8 @@ nc_profile_write(
   profile_id_col = "profile_id",
   start_profile = 1L,
   start_obs = 1L,
-  strlen = 64L
+  strlen = 64L,
+  obs_cols = "depth"
 )
 ```
 
@@ -38,14 +39,14 @@ nc_profile_write(
 
 - wide:
 
-  Wide data.frame, one row per (profile, depth), **ordered by profile
-  then depth** so each profile's rows are contiguous. Must contain
-  `profile_id_col`, `depth`, and the profile-level and obs-level
-  columns.
+  Wide data.frame, one row per (instance, observation), **ordered by
+  instance then depth (or time)** so each instance's rows are
+  contiguous. Must contain `profile_id_col`, every `obs_cols` entry, and
+  the instance-level and obs-level columns.
 
 - profile_cols:
 
-  Character vector of profile-level column names.
+  Character vector of instance-level column names.
 
 - obs_types:
 
@@ -53,7 +54,7 @@ nc_profile_write(
 
 - profile_id_col:
 
-  Column identifying the profile.
+  Column identifying the instance (profile or trajectory).
 
 - start_profile, start_obs:
 
@@ -62,6 +63,11 @@ nc_profile_write(
 - strlen:
 
   Fixed character length, matching
+  [`nc_profile_def()`](https://calcofi.io/calcofi4db/reference/nc_profile_def.md).
+
+- obs_cols:
+
+  Coordinate columns on the observation dimension, matching
   [`nc_profile_def()`](https://calcofi.io/calcofi4db/reference/nc_profile_def.md).
 
 ## Value

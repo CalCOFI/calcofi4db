@@ -6,10 +6,11 @@
 `depth_max_m`, `tow_type` by name; `geom` is minted here as
 `ST_Point(longitude, latitude)`. `tow_type` is the net gear code
 (ichthyo tow/net grains: C1/CB/CV/PV oblique/vertical, MT manta), NULL
-for gears/datasets without one. Prefer
-[`build_sample_reference()`](https://calcofi.io/calcofi4db/reference/build_sample_reference.md)
-for the central Phase-2 build; use this for per-dataset (Phase 3)
-appends.
+for gears/datasets without one. Call it once per event level — a
+multi-level dataset (ichthyo `site`-\>`tow`-\>`net`, bottle
+`cast`-\>`bottle`) appends one arm per level, and
+[`sample_arm_self()`](https://calcofi.io/calcofi4db/reference/sample_arm_self.md)
+writes the single-level case for you.
 
 ## Usage
 

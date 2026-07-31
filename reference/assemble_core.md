@@ -31,7 +31,10 @@ assemble_core(
 
 - supplemental:
 
-  include `obs_ctd_full` (default TRUE)
+  `TRUE` (default) to include every supplemental full-resolution table
+  the ingests declare, `FALSE` for none, or an explicit character vector
+  of table names. See
+  [`supplemental_core_tables()`](https://calcofi.io/calcofi4db/reference/supplemental_core_tables.md).
 
 - parquet_dir:
 

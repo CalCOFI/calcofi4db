@@ -23,7 +23,7 @@ publish_*_to-netcdf.qmd notebooks."><!-- Google tag (gtag.js) --><script async s
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.21.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -93,6 +93,10 @@ generic replacement for the hand-written level lists in the per-dataset
 <dt>n_orphan</dt>
 <dd><p>rows whose <code>parent_sample_key</code> does not resolve</p></dd>
 
+<dt>n_external_parent</dt>
+<dd><p>rows whose parent resolves into a <strong>different</strong>
+dataset — a cross-dataset bridge, not a level of this file</p></dd>
+
 
 </dl><p>Returns a zero-row tibble when the dataset has no <code>sample</code> rows.</p>
     </div>
@@ -107,6 +111,12 @@ should not invent a whole extra level. Rows whose parent does not resolve are
 counted in <code>n_orphan</code> rather than dropped, because an orphan is a data problem
 the caller must see — silently discarding it is how a level's row count stops
 matching the table it came from.</p>
+<p><strong>Cross-dataset parents are not levels.</strong> <code>sample_key</code> is globally unique, so a
+<code>parent_sample_key</code> can point into another dataset — <code>calcofi_dic</code> parents 6 of
+its bottles onto <code>calcofi_bottle</code> casts, which is how the DIC/bottle dedup
+works. Those rows are counted in <code>n_external_parent</code> and the level is treated
+as a root <em>of this file</em>, because the parent's rows are not part of this
+dataset and so cannot be one of its groups.</p>
     </div>
 
     <div class="section level2">

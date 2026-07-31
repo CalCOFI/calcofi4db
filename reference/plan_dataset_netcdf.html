@@ -23,7 +23,7 @@ baked into each publish_*_to-netcdf.qmd."><!-- Google tag (gtag.js) --><script a
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.21.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -61,7 +61,12 @@ baked into each <code>publish_*_to-netcdf.qmd</code>.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">plan_dataset_netcdf</span><span class="op">(</span><span class="va">con</span>, <span class="va">dataset_key</span>, obs_tbl <span class="op">=</span> <span class="st">"obs"</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">plan_dataset_netcdf</span><span class="op">(</span></span>
+<span>  <span class="va">con</span>,</span>
+<span>  <span class="va">dataset_key</span>,</span>
+<span>  obs_tbl <span class="op">=</span> <span class="st">"obs"</span>,</span>
+<span>  moving_sample_types <span class="op">=</span> <span class="st">"underway"</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -80,6 +85,11 @@ baked into each <code>publish_*_to-netcdf.qmd</code>.</p>
 <dd><p>Observation table to plan from (default <code>"obs"</code>); pass
 <code>"obs_ctd_full"</code> to plan the supplemental full-resolution CTD scans.</p></dd>
 
+
+<dt id="arg-moving-sample-types">moving_sample_types<a class="anchor" aria-label="anchor" href="#arg-moving-sample-types"></a></dt>
+<dd><p><code>sample_type</code> values that denote a moving platform,
+and so a CF trajectory rather than a collection of points.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -90,13 +100,17 @@ baked into each <code>publish_*_to-netcdf.qmd</code>.</p>
 <dd><p>the <code><a href="discover_sample_levels.html">discover_sample_levels()</a></code> tibble</p></dd>
 
 <dt>shape</dt>
-<dd><p><code>"profile"</code> or <code>"groups"</code></p></dd>
+<dd><p><code>"profile"</code>, <code>"trajectory"</code>, <code>"point"</code> or <code>"groups"</code></p></dd>
 
 <dt>feature_type</dt>
-<dd><p><code>"profile"</code> for CF DSG, else <code>NA</code></p></dd>
+<dd><p>the CF <code>featureType</code>, or <code>NA</code> for <code>"groups"</code></p></dd>
 
 <dt>has_depth_axis</dt>
 <dd><p>whether <code>obs</code> carries a usable depth axis</p></dd>
+
+<dt>depths_per_instance</dt>
+<dd><p>median distinct depths per sampling instance —
+the discriminator between a vertical profile and a single-depth event</p></dd>
 
 <dt>measurement_types</dt>
 <dd><p>every <code>measurement_type</code> in <code>obs_tbl</code>, the union
@@ -113,12 +127,28 @@ becomes its own group (they carry different units)</p></dd>
 </dl></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p><strong>Shape rule.</strong> One sampling level plus a depth axis is exactly a CF profile,
-so it is emitted as one (<code>featureType=profile</code>, contiguous ragged array) and
-needs no extension to the standard. More than one level has no CF feature
-type, so it becomes netCDF-4 groups with explicit <code>parent_index</code> links. Being
-explicit about which half of that split a file falls in is what lets the file
-claim CF compliance honestly rather than approximately.</p>
+    <p><strong>Shape rule.</strong> Four outcomes, decided from the data:</p><table class="table table"><tr><td>levels</td><td>depths per instance</td><td>sample_type</td><td>shape</td><td>CF</td></tr><tr><td>1</td><td>&gt; 1</td><td>any</td><td><code>profile</code></td><td><code>featureType=profile</code>, ragged array</td></tr><tr><td>1</td><td>&lt;= 1</td><td><code>underway</code></td><td><code>trajectory</code></td><td><code>featureType=trajectory</code>, ragged array per cruise</td></tr><tr><td>1</td><td>&lt;= 1</td><td>other</td><td><code>point</code></td><td><code>featureType=point</code>, one flat dimension</td></tr><tr><td>0 or &gt; 1</td><td>any</td><td>any</td><td><code>groups</code></td><td>none — netCDF-4 groups + <code>parent_index</code></td></tr></table><p>A depth axis is required for <code>profile</code> but <strong>optional</strong> for <code>point</code>: CF's point
+feature needs only time and position, so a net tow with no recorded depth is
+still an honest point collection, where writing it as a single-group netCDF-4
+file would make no CF claim at all and gain nothing.</p>
+<p><strong>Why <code>depths_per_instance</code> and not merely "has a depth axis".</strong> A CF profile
+is a <em>vertical series at one horizontal position</em>. Almost every CalCOFI
+dataset has a depth on its observations, but only <code>calcofi_ctd-cast</code> has many
+depths per event (median 74); a tow, a transect, an underway record and a
+region pool each carry a single depth. Deciding on "one level + a depth axis"
+alone therefore stamped <code>featureType=profile</code> on 10 of 15 datasets that are
+nothing of the kind — a file that claims a feature type it does not have is
+worse than one that claims none, because CF-aware tools act on the claim.</p>
+<p><strong>Why <code>underway</code> is named explicitly.</strong> <code>sample_type</code> is a controlled
+vocabulary in the core model (site/tow/net/cast/bottle/underway/transect/
+region_pool), and a moving platform is not inferable from row counts: an
+underway series looks exactly like a collection of points until you know the
+platform was under way between them. Naming the one vocabulary term that means
+"moving" is configuration, not a special case.</p>
+<p>More than one level has no CF feature type at all, so it becomes netCDF-4
+groups with explicit <code>parent_index</code> links. Being explicit about which of the
+four a file falls in is what lets it claim CF compliance honestly rather than
+approximately.</p>
 <p><strong><code>measurement_types</code> is a union, deliberately.</strong> Sampling one partition is
 how <code>ctd-cast_full.nc</code> came to declare 32 of 54 variables: bottle nutrients
 were not folded into the CTD files until 2008, so the alphabetically-first
@@ -131,6 +161,8 @@ was silently dropped from a file advertised as full resolution.</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
 <span class="r-in"><span><span class="va">con</span> <span class="op">&lt;-</span> <span class="fu">cc_get_db</span><span class="op">(</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu">plan_dataset_netcdf</span><span class="op">(</span><span class="va">con</span>, <span class="st">"calcofi_ctd-cast"</span><span class="op">)</span><span class="op">$</span><span class="va">shape</span>   <span class="co"># "profile"</span></span></span>
+<span class="r-in"><span><span class="fu">plan_dataset_netcdf</span><span class="op">(</span><span class="va">con</span>, <span class="st">"calcofi_mets"</span><span class="op">)</span><span class="op">$</span><span class="va">shape</span>       <span class="co"># "trajectory"</span></span></span>
+<span class="r-in"><span><span class="fu">plan_dataset_netcdf</span><span class="op">(</span><span class="va">con</span>, <span class="st">"cce-lter_zooscan"</span><span class="op">)</span><span class="op">$</span><span class="va">shape</span>   <span class="co"># "point"</span></span></span>
 <span class="r-in"><span><span class="fu">plan_dataset_netcdf</span><span class="op">(</span><span class="va">con</span>, <span class="st">"swfsc_ichthyo"</span><span class="op">)</span><span class="op">$</span><span class="va">shape</span>      <span class="co"># "groups"</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 </code></pre></div>

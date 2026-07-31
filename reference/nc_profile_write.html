@@ -27,7 +27,7 @@ with advancing offsets to stream a table too large to materialize — the
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.21.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -76,7 +76,8 @@ with advancing offsets to stream a table too large to materialize — the
 <span>  profile_id_col <span class="op">=</span> <span class="st">"profile_id"</span>,</span>
 <span>  start_profile <span class="op">=</span> <span class="fl">1L</span>,</span>
 <span>  start_obs <span class="op">=</span> <span class="fl">1L</span>,</span>
-<span>  strlen <span class="op">=</span> <span class="fl">64L</span></span>
+<span>  strlen <span class="op">=</span> <span class="fl">64L</span>,</span>
+<span>  obs_cols <span class="op">=</span> <span class="st">"depth"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -93,13 +94,14 @@ with advancing offsets to stream a table too large to materialize — the
 
 
 <dt id="arg-wide">wide<a class="anchor" aria-label="anchor" href="#arg-wide"></a></dt>
-<dd><p>Wide data.frame, one row per (profile, depth), <strong>ordered by
-profile then depth</strong> so each profile's rows are contiguous. Must contain
-<code>profile_id_col</code>, <code>depth</code>, and the profile-level and obs-level columns.</p></dd>
+<dd><p>Wide data.frame, one row per (instance, observation), <strong>ordered by
+instance then depth (or time)</strong> so each instance's rows are contiguous. Must
+contain <code>profile_id_col</code>, every <code>obs_cols</code> entry, and the instance-level and
+obs-level columns.</p></dd>
 
 
 <dt id="arg-profile-cols">profile_cols<a class="anchor" aria-label="anchor" href="#arg-profile-cols"></a></dt>
-<dd><p>Character vector of profile-level column names.</p></dd>
+<dd><p>Character vector of instance-level column names.</p></dd>
 
 
 <dt id="arg-obs-types">obs_types<a class="anchor" aria-label="anchor" href="#arg-obs-types"></a></dt>
@@ -107,7 +109,7 @@ profile then depth</strong> so each profile's rows are contiguous. Must contain
 
 
 <dt id="arg-profile-id-col">profile_id_col<a class="anchor" aria-label="anchor" href="#arg-profile-id-col"></a></dt>
-<dd><p>Column identifying the profile.</p></dd>
+<dd><p>Column identifying the instance (profile or trajectory).</p></dd>
 
 
 <dt id="arg-start-profile-start-obs">start_profile, start_obs<a class="anchor" aria-label="anchor" href="#arg-start-profile-start-obs"></a></dt>
@@ -117,6 +119,11 @@ dimensions.</p></dd>
 
 <dt id="arg-strlen">strlen<a class="anchor" aria-label="anchor" href="#arg-strlen"></a></dt>
 <dd><p>Fixed character length, matching <code><a href="nc_profile_def.html">nc_profile_def()</a></code>.</p></dd>
+
+
+<dt id="arg-obs-cols">obs_cols<a class="anchor" aria-label="anchor" href="#arg-obs-cols"></a></dt>
+<dd><p>Coordinate columns on the observation dimension, matching
+<code><a href="nc_profile_def.html">nc_profile_def()</a></code>.</p></dd>
 
 </dl></div>
     <div class="section level2">

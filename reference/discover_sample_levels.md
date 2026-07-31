@@ -45,6 +45,11 @@ A tibble, one row per `sample_type`, ordered root-first:
 
   rows whose `parent_sample_key` does not resolve
 
+- n_external_parent:
+
+  rows whose parent resolves into a **different** dataset — a
+  cross-dataset bridge, not a level of this file
+
 Returns a zero-row tibble when the dataset has no `sample` rows.
 
 ## Details
@@ -59,6 +64,14 @@ mislabelled row should not invent a whole extra level. Rows whose parent
 does not resolve are counted in `n_orphan` rather than dropped, because
 an orphan is a data problem the caller must see — silently discarding it
 is how a level's row count stops matching the table it came from.
+
+**Cross-dataset parents are not levels.** `sample_key` is globally
+unique, so a `parent_sample_key` can point into another dataset —
+`calcofi_dic` parents 6 of its bottles onto `calcofi_bottle` casts,
+which is how the DIC/bottle dedup works. Those rows are counted in
+`n_external_parent` and the level is treated as a root *of this file*,
+because the parent's rows are not part of this dataset and so cannot be
+one of its groups.
 
 ## Examples
 

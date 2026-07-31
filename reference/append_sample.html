@@ -4,14 +4,16 @@ root_sample_key, dataset_key, grid_key, cruise_key, latitude,
 longitude, datetime, depth_min_m, depth_max_m, tow_type by name;
 geom is minted here as ST_Point(longitude, latitude). tow_type is the net
 gear code (ichthyo tow/net grains: C1/CB/CV/PV oblique/vertical, MT manta), NULL
-for gears/datasets without one. Prefer build_sample_reference() for the central
-Phase-2 build; use this for per-dataset (Phase 3) appends."><meta property="og:description" content="select_sql must yield sample_key, sample_type, parent_sample_key,
+for gears/datasets without one. Call it once per event level — a multi-level
+dataset (ichthyo site-&amp;gt;tow-&amp;gt;net, bottle cast-&amp;gt;bottle) appends one arm
+per level, and sample_arm_self() writes the single-level case for you."><meta property="og:description" content="select_sql must yield sample_key, sample_type, parent_sample_key,
 root_sample_key, dataset_key, grid_key, cruise_key, latitude,
 longitude, datetime, depth_min_m, depth_max_m, tow_type by name;
 geom is minted here as ST_Point(longitude, latitude). tow_type is the net
 gear code (ichthyo tow/net grains: C1/CB/CV/PV oblique/vertical, MT manta), NULL
-for gears/datasets without one. Prefer build_sample_reference() for the central
-Phase-2 build; use this for per-dataset (Phase 3) appends."><!-- Google tag (gtag.js) --><script async src="https://www.googletagmanager.com/gtag/js?id=G-0HVK8TDMCF"></script><script>
+for gears/datasets without one. Call it once per event level — a multi-level
+dataset (ichthyo site-&amp;gt;tow-&amp;gt;net, bottle cast-&amp;gt;bottle) appends one arm
+per level, and sample_arm_self() writes the single-level case for you."><!-- Google tag (gtag.js) --><script async src="https://www.googletagmanager.com/gtag/js?id=G-0HVK8TDMCF"></script><script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
@@ -29,7 +31,7 @@ Phase-2 build; use this for per-dataset (Phase 3) appends."><!-- Google tag (gta
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">2.21.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.2.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -64,8 +66,9 @@ Phase-2 build; use this for per-dataset (Phase 3) appends."><!-- Google tag (gta
 <code>longitude</code>, <code>datetime</code>, <code>depth_min_m</code>, <code>depth_max_m</code>, <code>tow_type</code> by name;
 <code>geom</code> is minted here as <code>ST_Point(longitude, latitude)</code>. <code>tow_type</code> is the net
 gear code (ichthyo tow/net grains: C1/CB/CV/PV oblique/vertical, MT manta), NULL
-for gears/datasets without one. Prefer <code><a href="build_sample_reference.html">build_sample_reference()</a></code> for the central
-Phase-2 build; use this for per-dataset (Phase 3) appends.</p>
+for gears/datasets without one. Call it once per event level — a multi-level
+dataset (ichthyo <code>site</code>-&gt;<code>tow</code>-&gt;<code>net</code>, bottle <code>cast</code>-&gt;<code>bottle</code>) appends one arm
+per level, and <code><a href="sample_arm_self.html">sample_arm_self()</a></code> writes the single-level case for you.</p>
     </div>
 
     <div class="section level2">

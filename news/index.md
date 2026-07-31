@@ -1,6 +1,301 @@
 # Changelog
 
+## calcofi4db 3.2.0
+
+### Also in this release
+
+- **[`supplemental_core_tables()`](https://calcofi.io/calcofi4db/reference/supplemental_core_tables.md)**
+  — reads every ingest’s `calcofi.tables_owned` and returns the tables
+  flagged `supplemental: true` (`obs_ctd_full`, `obs_mets_full`): the
+  full-resolution products hosted alongside the thinned core but hidden
+  from the default table list and the ERD. Only `obs`-shaped tables are
+  returned, since \[assemble_core()\] renumbers `obs_id` and orders by
+  the core’s columns — `calcofi_mets` previously declared the raw
+  `mets_measurement` here, which carried neither an `obs_id` nor a
+  coordinate. `release_database.qmd` depends on it.
+
+### Provider renames (breaking: three `dataset_key` values change)
+
+Provider is the **curating organization** — not the hosting portal, and
+not a collection or lab within the org. Three keys were wrong on that
+test and are now corrected, in `.taxon_norm_sources()`,
+[`merge_taxon_shards()`](https://calcofi.io/calcofi4db/reference/merge_taxon_shards.md)’s
+priority vector and the tests:
+
+| from | to | why |
+|----|----|----|
+| `calcofi_bird_mammal_census` | `farallon_bird-mammal` | Farallon Institute (William Sydeman, PI) — CalCOFI is the sampling program, not the curator |
+| `pic_zooplankton` | `sio_pic-zooplankton` | the Pelagic Invertebrate Collection is the *dataset*; SIO is the org |
+| `ucsd_sio_mesopelagic-fish` | `sio_mesopelagic-fish` | redundant prefix |
+
+`dataset_key` is stamped on every `obs` / `sample` row and is what
+consumers filter on, so this changes the released data, not just file
+names. See the workflows repo for the matching notebook/registry/GCS
+renames.
+
+## calcofi4db 3.1.0
+
+### Taxon lineage: taxa no longer reach the release as bare keys
+
+[`build_taxon_reference()`](https://calcofi.io/calcofi4db/reference/build_taxon_reference.md)
+takes `rank` / `parent_taxon_key` / classification from a DwC-shaped
+hierarchy table named `taxon` in the connection. **Exactly one ingest
+ever built one** — `swfsc_ichthyo`, via
+[`build_taxon_hierarchy()`](https://calcofi.io/calcofi4db/reference/build_taxon_hierarchy.md)
+over its own species list. Every other dataset’s taxa therefore reached
+the release with a `taxon_key` and a `scientific_name` and nothing else:
+
+| dataset                      | taxa | with `rank` | with `parent_taxon_key` |
+|------------------------------|------|-------------|-------------------------|
+| `swfsc_ichthyo`              | 1687 | 1687        | 1686                    |
+| `calcofi_bird_mammal_census` | 128  | 32          | **0**                   |
+| `ucsd_sio_mesopelagic-fish`  | 90   | 90          | **0**                   |
+| `cce-lter_euphausiids`       | 38   | **0**       | **0**                   |
+| `cce-lter_zoodb`             | 33   | 33          | **0**                   |
+| `calcofi_phytoplankton`      | 26   | 11          | **0**                   |
+| `swfsc_cufes`                | 6    | **0**       | **0**                   |
+| `cdfw_dungeness-crab`        | 3    | **0**       | **0**                   |
+| `calcofi_phyllosoma`         | 1    | **0**       | **0**                   |
+
+So a hierarchy rollup — “all Decapoda” — silently returned nothing for
+the *Metacarcinus magister* records, and **no error was raised anywhere
+along the way**. `family` was populated by no dataset at all, ichthyo
+included.
+
+**New:
+`ensure_taxon_lineage(con, measurement_taxon, overrides, cache_csv)`.**
+Resolves every authority id this dataset’s vocabulary reaches — from its
+own taxon tables *and* from `measurement_taxon.csv`, which is where the
+wholly-bare taxa came from — fetches each one’s WoRMS classification (or
+ITIS, for the Aves-keyed seabirds), and stages it as that same `taxon`
+hierarchy table. Call it before the three builders;
+[`build_taxon_reference()`](https://calcofi.io/calcofi4db/reference/build_taxon_reference.md)
+needs no new argument, because it already reads that table as its
+authority. An existing hierarchy is **merged, not replaced**, so
+`swfsc_ichthyo` keeps what it builds and gains only what is missing.
+
+**New:
+[`fetch_taxon_lineage()`](https://calcofi.io/calcofi4db/reference/fetch_taxon_lineage.md)**,
+the cache underneath it. One row per (requested taxon,
+ancestor-or-self), written to a reviewable CSV
+(`metadata/taxon_lineage.csv` in the workflows repo) so a re-run costs
+no API calls and works offline. A taxon the authority cannot resolve
+stays bare rather than aborting the other three hundred. The cache is
+**global and shared**, but the return value is scoped to the ids asked
+for — returning the whole cache put every dataset’s lineage into every
+shard (`calcofi_phyllosoma`: 1 taxon becoming 2,101), and only
+`swfsc_ichthyo` looked right, because it prunes afterwards. Pinned by a
+regression test.
+
+Two things follow from the shape of that cache:
+
+- **Ancestors become `taxon` rows.** Descendant expansion walks
+  `parent_taxon_key`, so a chain with a missing link is a broken rollup;
+  [`prune_taxon_shard()`](https://calcofi.io/calcofi4db/reference/prune_taxon_shard.md)
+  correspondingly keeps the transitive parent closure.
+- **`kingdom` / `phylum` / `class` / `order_taxon` / `family` are
+  flattened** onto each taxon from its own chain, at the highest
+  coalesce priority — WoRMS is the authority, and it is the only source
+  that ever populated `family`.
+
+#### `parent_taxon_key` is carried, not pasted
+
+It used to be derived at the end as `paste0("worms:", parent_worms_id)`.
+That is wrong for an ITIS-keyed taxon:
+[`taxon_key_of()`](https://calcofi.io/calcofi4db/reference/taxon_key_of.md)
+keys Aves on `itis:`, so a seabird whose parent was minted `worms:<tsn>`
+got a key resolving to nothing. It is now a carried column on the
+normalized taxon frame, coalesced like every other field, with the old
+paste kept only as the fallback for sources that supply just
+`parent_worms_id`.
+
+#### `ncbi_id` / `inat_id`
+
+Populated by no source we have. Kept as declared-but-NULL columns rather
+than dropped, so the release schema does not change under consumers the
+day one does.
+
+## calcofi4db 3.0.0
+
+### Breaking: the per-dataset core projections now live in the ingest notebooks
+
+`R/model.R` carried **~600 lines of dataset-specific SQL across six
+functions** — a `switch(dataset_key, ...)` per core table. Every arm is
+gone. Each dataset’s projection into `sample` / `obs` / `obs_attribute`
+/ `sample_measurement` is now declared in the ingest notebook that owns
+the dataset (`ingest_{provider}_{dataset}.qmd`, “Emit Core Tables”),
+which is where its grain rules belong and where they can be asserted
+against the real data.
+
+**Removed** (no replacement — write the projection in the notebook):
+
+| removed                                   | arms it held    |
+|-------------------------------------------|-----------------|
+| `build_sample_reference()`                | 18              |
+| `emit_core_tables()`                      | the wrapper     |
+| `create_compat_views()`                   | 16 compat specs |
+| `.obs_arm_sql()` (private)                | 14              |
+| `.obs_attribute_arm_sql()` (private)      | 3               |
+| `.sample_measurement_arm_sql()` (private) | 2               |
+
+Two things made this necessary. First, reading a migrated notebook made
+the switch look mandatory, so a new ingest (`cdfw_dungeness-crab`) was
+written without emitting the core at all. Second and worse: **a
+projection that exists twice drifts.** `release_database.qmd` re-derived
+the core using its own inline copy of every arm, and by the time the two
+were compared they had separated in four places, each a silent data
+error — euphausiids flattened all 37 species to `worms:110513`
+(Euphausiidae) and nulled `life_stage`; bird_mammal summed every
+unresolved species on a transect into one NULL-taxon row; phytoplankton
+emitted **zero** observations; cufes and phyllosoma lost their taxa
+entirely. The release is now a pure union of parquet shards precisely so
+there is only one copy to keep correct.
+
+Nothing was lost from the package that a notebook cannot say for itself:
+every `append_*` helper always took an arbitrary `SELECT`, and
+`emit_core_tables()` was only ever a convenience wrapper over them.
+
+### New: the generic shapes those notebooks declare against
+
+The arms were mostly *declarative calls to private helpers*, which is
+**why** the projections had to live here — you cannot declare a
+projection from a notebook if the vocabulary for declaring one is
+private. Now exported:
+
+- **[`compat_event_sql()`](https://calcofi.io/calcofi4db/reference/compat_event_sql.md)**
+  — rebuild a per-dataset event table as a VIEW over the core: source id
+  from the namespaced `sample_key`, containment FK from
+  `parent_sample_key`, effort columns pivoted back out of
+  `sample_measurement`. Was `.compat_event_sql()`; `.compat_specs()` was
+  nothing but 16 calls to it.
+- **`prune_taxon_shard(con, dataset_key)`** — trim `taxon` /
+  `dataset_taxon` / `taxon_group` to one dataset’s shard, **keeping the
+  transitive parent closure** (descendant expansion walks
+  `parent_taxon_key`, so dropping an ancestor breaks the chain). This
+  was the load-bearing half of the private `.build_taxa_slices()`, and
+  it matters for `swfsc_ichthyo`, whose WoRMS lineage table is broader
+  than the taxa its own observations reach.
+
+Joining
+[`sample_arm_self()`](https://calcofi.io/calcofi4db/reference/sample_arm_self.md),
+[`compat_measurement_sql()`](https://calcofi.io/calcofi4db/reference/compat_measurement_sql.md),
+[`ns_key()`](https://calcofi.io/calcofi4db/reference/ns_key.md) and
+[`ensure_measurement_taxon()`](https://calcofi.io/calcofi4db/reference/ensure_measurement_taxon.md)
+(2.20.0/2.21.0), a migrated notebook now reads as a declaration rather
+than copied SQL.
+
+### Tests
+
+The per-dataset grain tests went with the arms — re-testing them here
+would mean a second copy of every projection in the package, which is
+the exact duplication that let the two copies drift. Each notebook
+asserts its own rules instead (grain, row parity, FK integrity,
+`taxon_key` *resolution* rather than mere non-NULLness, and regression
+guards for all four historical divergences). What remains, and grew, is
+coverage of the generic machinery: `test-append_sample.R`,
+`test-compat_views.R`, `test-measurement_taxon.R`, plus
+[`prune_taxon_shard()`](https://calcofi.io/calcofi4db/reference/prune_taxon_shard.md)
+cases in `test-taxa.R`. 375 tests, all passing.
+
 ## calcofi4db 2.21.0
+
+- **New:
+  [`scan_metadata_gaps()`](https://calcofi.io/calcofi4db/reference/scan_metadata_gaps.md),
+  called automatically by
+  [`build_metadata_json()`](https://calcofi.io/calcofi4db/reference/build_metadata_json.md).**
+  Empty table/column descriptions and missing units travel from an
+  ingest’s `metadata.json` into the release sidecar and out through
+  `calcofi4r::cc_describe_table()` / `cc_db_catalog()`, where they
+  render as blank documentation — and nothing surfaced them. The check
+  existed only as a snippet in the `ingest-new` skill that a human was
+  expected to run once, by hand, after the first render; it appeared in
+  **no** notebook. Running it inside
+  [`build_metadata_json()`](https://calcofi.io/calcofi4db/reference/build_metadata_json.md)
+  (rather than
+  [`finalize_ingest()`](https://calcofi.io/calcofi4db/reference/finalize_ingest.md))
+  covers the three ingests that still hand-roll their outputs too.
+  Across the 16 current sidecars it finds **29 tables and 395 columns
+  with no description, and 223 unit-less measurement columns**.
+
+  A missing `units` is reported only where a unit could exist: keys,
+  names, flags, timestamps, vocabulary columns and the long-format
+  `measurement_value` / `measurement_prec` are exempt. The last of those
+  matters — the unit lives in `measurement_type`, one per row, so
+  flagging the value column would tell a maintainer to do something
+  actively wrong. Un-exempted, the same scan reported 484 “gaps”, more
+  than half of them noise.
+
+- **[`plan_dataset_netcdf()`](https://calcofi.io/calcofi4db/reference/plan_dataset_netcdf.md)
+  now distinguishes four shapes, not two.** The old rule — one sampling
+  level plus a depth axis is a CF profile — held for the two datasets
+  that had publish notebooks, and broke as soon as it was applied to all
+
+  15. *Every* CalCOFI dataset carries a depth on its observations, but
+      only `calcofi_ctd-cast` has many depths per event (median **74**);
+      a tow, a transect, an underway record and a region pool each carry
+      exactly one. The rule therefore stamped `featureType=profile` on
+      **10 of 15** datasets that are nothing of the kind, and a file
+      claiming a feature type it does not have is worse than one
+      claiming none, because CF-aware tools act on the claim.
+
+  | levels | depths/instance | `sample_type` | shape |
+  |----|----|----|----|
+  | 1 | \> 1 | any | `profile` (ragged array) |
+  | 1 | \<= 1 | `underway` | `trajectory` (ragged array per cruise) |
+  | 1 | \<= 1 | other | `point` (one flat dimension) |
+  | \> 1 | any | any | `groups` (netCDF-4 + `parent_index`, no CF claim) |
+
+  New `depths_per_instance` in the plan and in
+  [`summarise_netcdf_plan()`](https://calcofi.io/calcofi4db/reference/summarise_netcdf_plan.md)
+  makes the discriminator visible rather than implicit.
+  `moving_sample_types` (default `"underway"`) names the vocabulary
+  terms that mean “moving platform” — that is not inferable from row
+  counts, since an underway series looks exactly like scattered points
+  until you know the ship was under way between them.
+
+- **Fix:
+  [`discover_sample_levels()`](https://calcofi.io/calcofi4db/reference/discover_sample_levels.md)
+  crashed on a cross-dataset parent.** The parent join was not
+  dataset-scoped, and `sample_key` is globally unique, so `calcofi_dic`
+  — which parents 6 of its bottles onto `calcofi_bottle` **casts**, the
+  mechanism behind the DIC/bottle dedup — resolved to a `sample_type`
+  that `calcofi_dic` does not have. The depth walk then indexed a name
+  that was not there: `subscript out of bounds`, mid-loop over all 15
+  datasets. Such a parent is now reported in a new `n_external_parent`
+  column and the level is treated as a root *of that file*, since the
+  parent’s rows are not part of the dataset and so cannot be one of its
+  groups. An unresolved parent (`n_orphan`) and an external one are
+  counted separately; every row stays accounted for.
+
+- **New:
+  [`obs_wide_sql()`](https://calcofi.io/calcofi4db/reference/obs_wide_sql.md)**
+  builds the long→wide pivot at the **occurrence grain** (`sample_key`,
+  `depth_min_m`, `taxon_key`, `life_stage`), not the event grain.
+  Grouping by `sample_key` alone collapses every taxon in a sample into
+  one row — on `cce-lter_zooscan` that is 34,109 occurrences over 23
+  taxa reduced to 1,483 rows, 96% of the data gone, with `MAX()`
+  silently choosing one taxon’s value and the resulting file still
+  well-formed and plausible. Also rejects a `measurement_type` that
+  cannot be a netCDF variable name or that collides with a coordinate
+  the writers create, and takes an optional `count_col` so a caller can
+  assert that no value was silently discarded at the grain.
+
+- **The DSG writers cover trajectory and point, not just profile.** CF
+  profile and CF trajectory are the *same* contiguous ragged array and
+  differ only in which dimension the coordinates sit on, so
+  [`nc_profile_def()`](https://calcofi.io/calcofi4db/reference/nc_profile_def.md)/[`nc_profile_write()`](https://calcofi.io/calcofi4db/reference/nc_profile_write.md)
+  gained `obs_cols` (default `"depth"` = profile;
+  `c("time","latitude", "longitude","depth")` = trajectory) and
+  [`nc_profile_atts()`](https://calcofi.io/calcofi4db/reference/nc_profile_atts.md)
+  gained `feature_type`, which selects `cf_role` (`profile_id` vs
+  `trajectory_id`) and omits the ragged-array attributes for a point
+  collection.
+  [`nc_level_vars()`](https://calcofi.io/calcofi4db/reference/nc_level_vars.md)
+  /
+  [`nc_level_put()`](https://calcofi.io/calcofi4db/reference/nc_level_put.md)
+  accept `group = ""` to write at the file root, which is exactly what a
+  `featureType=point` file is — so the point shape needed no new writer.
+  Declaring one column on both dimensions is now an error.
 
 - **Exported
   [`ensure_measurement_taxon()`](https://calcofi.io/calcofi4db/reference/ensure_measurement_taxon.md)**
@@ -58,8 +353,7 @@
   and [`ns_key()`](https://calcofi.io/calcofi4db/reference/ns_key.md)
   (were `.`-internal). A dataset’s projection belongs in the ingest
   notebook that owns it, and these are what keep that a short
-  declaration rather than copied SQL — most
-  [`build_sample_reference()`](https://calcofi.io/calcofi4db/reference/build_sample_reference.md)
+  declaration rather than copied SQL — most `build_sample_reference()`
   arms are a single
   [`sample_arm_self()`](https://calcofi.io/calcofi4db/reference/sample_arm_self.md)
   call with a few column expressions. No behaviour change; internal call
@@ -214,11 +508,9 @@
   rows) and drops it from `casts`, so the extra
   `UNION ALL SELECT ... bottom_depth_m FROM casts` was both duplicative
   and a binder error against a column that no longer exists by the time
-  the arm runs.
-  [`create_compat_views()`](https://calcofi.io/calcofi4db/reference/create_compat_views.md)
-  no longer filters `bottom_depth` out of the rebuilt `cast_condition`
-  either — it is a genuine cast condition, and excluding it silently
-  dropped a real row.
+  the arm runs. `create_compat_views()` no longer filters `bottom_depth`
+  out of the rebuilt `cast_condition` either — it is a genuine cast
+  condition, and excluding it silently dropped a real row.
 
   Registering `bottom_depth` in `metadata/measurement_type.csv`
   (workflows) was still required and is unaffected: the vocabulary
@@ -227,10 +519,9 @@
 
 ## calcofi4db 2.16.0
 
-- **[`create_compat_views()`](https://calcofi.io/calcofi4db/reference/create_compat_views.md)
-  rebuilds `casts` and `bottle`** from the core, and gained a
-  `sample_tbl` argument. `calcofi_dic` matches its samples against
-  `calcofi_bottle`’s cast/bottle event tables
+- **`create_compat_views()` rebuilds `casts` and `bottle`** from the
+  core, and gained a `sample_tbl` argument. `calcofi_dic` matches its
+  samples against `calcofi_bottle`’s cast/bottle event tables
   ([`match_by_site_datetime()`](https://calcofi.io/calcofi4db/reference/match_by_site_datetime.md)
   then
   [`match_nearest_by_depth()`](https://calcofi.io/calcofi4db/reference/match_nearest_by_depth.md)),
@@ -240,11 +531,10 @@
   `sample_key` and the cast FK from `parent_sample_key`.
 
   `sample_tbl` matters for correctness, not convenience: dic builds its
-  own `sample` later in
-  [`emit_core_tables()`](https://calcofi.io/calcofi4db/reference/emit_core_tables.md),
-  so loading bottle’s shard as plain `sample` would have it replaced
-  mid-render and the views would break. dic loads it as `_bottle_sample`
-  and points the views there.
+  own `sample` later in `emit_core_tables()`, so loading bottle’s shard
+  as plain `sample` would have it replaced mid-render and the views
+  would break. dic loads it as `_bottle_sample` and points the views
+  there.
 
 ## calcofi4db 2.15.0
 
@@ -278,21 +568,19 @@
   `bottom_depth` on the cast event — it describes the sampling event
   (how deep the water was), not an observation, so it belongs with the
   other event-level effort measures rather than in `obs`.
-  [`create_compat_views()`](https://calcofi.io/calcofi4db/reference/create_compat_views.md)
-  excludes it when rebuilding `cast_condition`, so no phantom condition
-  row appears.
+  `create_compat_views()` excludes it when rebuilding `cast_condition`,
+  so no phantom condition row appears.
 
-- **[`create_compat_views()`](https://calcofi.io/calcofi4db/reference/create_compat_views.md)**
-  rebuilds the retired per-dataset tables as VIEWs over the core: the
-  source id from the namespaced `sample_key`, the containment FK from
-  `parent_sample_key`, event effort by pivoting `sample_measurement` out
-  of long form, and the measurement triples from `obs`. Verified against
-  the shipped data — `net` (76,512), `tow` (75,506) and `site` (61,104)
-  round-trip identically for every column the core models. It is **exact
-  for those columns and lossy for the rest**; see
-  [`?create_compat_views`](https://calcofi.io/calcofi4db/reference/create_compat_views.md)
-  for what does not come back (notably CTD scan-grain columns, since
-  `sample` holds one row per physical cast).
+- **`create_compat_views()`** rebuilds the retired per-dataset tables as
+  VIEWs over the core: the source id from the namespaced `sample_key`,
+  the containment FK from `parent_sample_key`, event effort by pivoting
+  `sample_measurement` out of long form, and the measurement triples
+  from `obs`. Verified against the shipped data — `net` (76,512), `tow`
+  (75,506) and `site` (61,104) round-trip identically for every column
+  the core models. It is **exact for those columns and lossy for the
+  rest**; see `?create_compat_views` for what does not come back
+  (notably CTD scan-grain columns, since `sample` holds one row per
+  physical cast).
 
 - Fixed `.sample_arm_self()` emitting `site_key AS site_key`, which
   DuckDB resolves against the alias being defined in the same `SELECT`
@@ -301,10 +589,9 @@
 
 ## calcofi4db 2.13.0
 
-- **[`emit_core_tables()`](https://calcofi.io/calcofi4db/reference/emit_core_tables.md)
-  is now the authoritative core projection.** It gains
-  `measurement_taxon` / `overrides` / `taxa` arguments and builds this
-  dataset’s slice of `taxon` / `dataset_taxon` / `taxon_group`, so
+- **`emit_core_tables()` is now the authoritative core projection.** It
+  gains `measurement_taxon` / `overrides` / `taxa` arguments and builds
+  this dataset’s slice of `taxon` / `dataset_taxon` / `taxon_group`, so
   `obs.taxon_key` resolves at ingest time. Each ingest can now emit the
   consolidated core as its parquet output instead of per-dataset tables
   that `release_database.qmd` re-derives.
@@ -369,14 +656,11 @@
   realm — the four flow-cytometry counts are a measurement vocabulary,
   not taxa) now project into `sample` + `obs`, so both reach the frozen
   release instead of stopping at per-dataset parquet.
-- **[`emit_core_tables()`](https://calcofi.io/calcofi4db/reference/emit_core_tables.md)
-  no longer requires `dataset_taxon` to pre-exist.** Every bio arm
-  `LEFT JOIN`s `dataset_taxon`, but that crosswalk is built centrally by
-  the release
+- **`emit_core_tables()` no longer requires `dataset_taxon` to
+  pre-exist.** Every bio arm `LEFT JOIN`s `dataset_taxon`, but that
+  crosswalk is built centrally by the release
   ([`build_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/build_dataset_taxon.md)),
-  so calling
-  [`emit_core_tables()`](https://calcofi.io/calcofi4db/reference/emit_core_tables.md)
-  from an ingest raised
+  so calling `emit_core_tables()` from an ingest raised
   `Catalog Error: Table with name dataset_taxon does not exist` for
   ichthyo / zoodb / zooscan / bird_mammal / euphausiids. An empty stub
   is now created when absent: the ingest-local projection runs with
@@ -397,8 +681,7 @@
 ## calcofi4db 2.10.0
 
 - **`tow_type` (net gear) promoted into the core `sample` table.**
-  [`build_sample_reference()`](https://calcofi.io/calcofi4db/reference/build_sample_reference.md)
-  /
+  `build_sample_reference()` /
   [`append_sample()`](https://calcofi.io/calcofi4db/reference/append_sample.md)
   now carry a `tow_type` column (added to the `sample` schema): the
   CalCOFI ichthyo net gear code (`C1`/`CB`/`CV`/`PV` oblique & vertical
@@ -431,10 +714,9 @@
   length-/stage-frequency plus categorical breakdowns such as seabird
   behavior. Columns unchanged (`bin_value`/`bin_label`/`count`).
 - **`obs.taxon_id` → `obs.taxon_key`** in the `obs` / `obs_attribute`
-  DDL and the `append_*` helpers; the bio
-  [`emit_core_tables()`](https://calcofi.io/calcofi4db/reference/emit_core_tables.md)
-  arms resolve the global `taxon_key` via `dataset_taxon` instead of
-  emitting dataset-local ids.
+  DDL and the `append_*` helpers; the bio `emit_core_tables()` arms
+  resolve the global `taxon_key` via `dataset_taxon` instead of emitting
+  dataset-local ids.
 
 ## calcofi4db 2.8.2
 

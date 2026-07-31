@@ -1,13 +1,12 @@
-# Define a CF Discrete-Sampling-Geometry profile file
+# Define a CF Discrete-Sampling-Geometry file (profile or trajectory)
 
-A single sampling level with a depth axis *is* a CF profile, so it is
-written as one — `featureType=profile` with a contiguous ragged array —
-and needs no extension to the standard. This defines the dimensions and
-variables; feed the `vars` to
-[`ncdf4::nc_create()`](https://rdrr.io/pkg/ncdf4/man/nc_create.html) and
-then call
-[`nc_profile_write()`](https://calcofi.io/calcofi4db/reference/nc_profile_write.md)
-one or more times.
+Both CF `profile` and CF `trajectory` are *contiguous ragged arrays*: an
+instance dimension, an observation dimension, and a `rowSize` count
+saying how many observations belong to each instance. The two differ
+only in which coordinates sit on which dimension — a profile's
+time/latitude/longitude are fixed per instance, while a trajectory's
+vary along the track — so one writer serves both, and `obs_cols` is what
+selects between them.
 
 ## Usage
 
@@ -18,7 +17,8 @@ nc_profile_def(
   profile_proto,
   obs_types,
   var_meta = list(),
-  strlen = 64L
+  strlen = 64L,
+  obs_cols = "depth"
 )
 ```
 
@@ -53,12 +53,27 @@ nc_profile_def(
 
   Fixed character length for string variables.
 
+- obs_cols:
+
+  Coordinate columns that live on the **observation** dimension.
+  `"depth"` (the default) gives a CF profile;
+  `c("time", "latitude", "longitude", "depth")` gives a CF trajectory,
+  where position varies along the track rather than being a property of
+  the instance.
+
 ## Value
 
 `list(dims = list(profile, obs, strlen), vars = <named list>)`. `vars`
-always includes `rowSize` (the ragged-array index) and `depth`.
+always includes `rowSize` (the ragged-array index) and every `obs_cols`
+entry.
 
 ## Details
+
+This defines the dimensions and variables; feed the `vars` to
+[`ncdf4::nc_create()`](https://rdrr.io/pkg/ncdf4/man/nc_create.html) and
+then call
+[`nc_profile_write()`](https://calcofi.io/calcofi4db/reference/nc_profile_write.md)
+one or more times.
 
 Dimensions must be sized at creation time, which is why
 `n_profile`/`n_obs` are arguments rather than being inferred from the

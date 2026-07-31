@@ -1,9 +1,7 @@
 # Core tables an ingest writes to parquet
 
-The shard set
-[`emit_core_tables()`](https://calcofi.io/calcofi4db/reference/emit_core_tables.md)
-produces, filtered to those actually present and non-empty in `con`. Use
-it to drive
+The core shard set, filtered to those actually present and non-empty in
+`con`. Use it to drive
 [`write_parquet_outputs()`](https://calcofi.io/calcofi4db/reference/write_parquet_outputs.md)
 so a dataset with no `obs_attribute` (most of them) does not emit an
 empty file.
@@ -18,8 +16,7 @@ core_output_tables(con, extra = NULL)
 
 - con:
 
-  a DuckDB connection after
-  [`emit_core_tables()`](https://calcofi.io/calcofi4db/reference/emit_core_tables.md)
+  a DuckDB connection after the notebook's core projection has run
 
 - extra:
 
