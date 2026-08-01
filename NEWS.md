@@ -29,6 +29,37 @@ core-projection `switch()` arms produced.
 
 New `Suggests: terra` (only for `qc_stage_reference(gebco_tif = )`).
 
+## Uploads: shipboard files -> the core model
+
+An uploaded cast can now be checked before it ever reaches a release. The design
+principle that makes it cheap: every rule targets `obs` / `sample`, so projecting
+a file into that shape runs the whole registry unchanged.
+
+- **`read_ctd_upload()`** — dispatches on extension: `.csv` (CalCOFI cast file),
+  `.cnv`, `.asc`, `.btl`. `.hex` is **refused with its reason** — it is raw A/D
+  counts and needs the `.xmlcon` calibration file, so any conversion without it
+  would be invented numbers.
+- **`sbe_split_header()`** — the trap that makes `.asc` hard: the header is
+  fixed-width and adjacent names run together (`Sbeox0ML/LSbeox0Mm/Kg`) in **179
+  of 200** CalCOFI files, so a whitespace split mis-assigns every column after the
+  collision. Names and numbers are right-aligned, so columns are cut at the data
+  rows' stop positions — and when the result is not self-consistent it **errors
+  rather than guessing**, asking for the `.cnv` whose header is unambiguous.
+  Measured: ~86% of `.asc` and ~47% of `.btl` read cleanly; the rest say why.
+- **`read_sbe_cnv()` / `read_sbe_asc()` / `read_sbe_btl()` / `read_sbe_header()`**
+  — including `bad_flag` → `NA`, and the `.btl` quirks (one `Date` header word over
+  three data fields; several tagged statistic rows per bottle).
+- **`ctd_map_columns()`** — CalCOFI names map through `measurement_type.csv`
+  `_source_column`; Sea-Bird names through the new
+  `metadata/sbe_name_map.csv`. **Unmapped columns are a result, not an error** —
+  they are where a format change announces itself.
+- **`ctd_upload_to_core()`** — the projection, applying the same `-99` /
+  `-9.99e-29` sentinel deletion and `"9.0"` → `"9"` quality-code repair the
+  pipeline already knows, because a new file is exactly where those arrive.
+- **`qc_upload_con()`** — an in-memory connection where the upload *is*
+  `obs` / `sample` / `obs_ctd_full`. Nothing touches a release; it dies with the
+  session.
+
 ## Cast profiles for review
 
 - **`qc_cast_profile()`** — the full-resolution scans for the physical cast a
