@@ -12,6 +12,17 @@
 # A rule's SQL MUST return at least:
 #   subject_key  what is being flagged (a sample_key) — the unit of review
 #   detail       one human-readable sentence naming the problem
+#
+# and, WHEN THE FINDING IS ABOUT A PARTICULAR SCAN rather than a whole cast:
+#   depth_min_m       the depth it concerns
+#   measurement_type  the variable it concerns
+#
+# Those two are a contract, not a convention. They are what lets a reviewer click
+# a finding and land on the right profile at the right depth without the app
+# knowing anything about the rule that produced it. A rule that omits them can
+# still run, but its findings are un-plottable — which is how the spike and
+# up/down rules behaved until they were made to declare them.
+#
 # Any further columns are passed through to the caller as-is.
 #
 # THIS ENGINE LIVES IN THE PACKAGE, not in the app that first used it. It ran as a
@@ -384,3 +395,113 @@ qc_stage_reference <- function(con, dir_workflows, gebco_tif = NULL,
 
   invisible(staged)
 }
+
+# cast profiles ----------------------------------------------------------------
+#
+# A finding is a key and a number. A reviewer cannot judge one without seeing the
+# value in the profile it came from — which means fetching the cast's scans, both
+# directions, at full resolution. That fetch has two traps in it, which is why it
+# is here with tests rather than inline in an app callback.
+
+#' Strip the direction suffix from a CTD cast `sample_key`
+#'
+#' CTD `sample_key`s end in the cast direction — `…:cast:9802_008d` /
+#' `…:cast:9802_008u` — so a station occupation that logged both directions is two
+#' `sample` rows sharing a base.
+#'
+#' THE OBVIOUS IMPLEMENTATION IS WRONG. `sub("d$", "", x)` is fine, but
+#' `gsub("d", "", x)` or `replace(x, 'd', '')` also eats the `d` in the
+#' `calcofi_ctd-cast` prefix and silently returns a key that matches nothing. The
+#' same trap is called out in `ctd_updown_disagreement.sql`, which is where it was
+#' first hit.
+#'
+#' @param sample_key character vector of cast keys
+#'
+#' @return the keys with a single trailing `d`/`u` removed; keys without one are
+#'   returned unchanged
+#' @export
+#' @concept qc
+#' @examples
+#' qc_cast_base("calcofi_ctd-cast:cast:9802_008d")
+qc_cast_base <- function(sample_key) {
+  sub("[du]$", "", sample_key)
+}
+
+#' Direction of a CTD cast `sample_key`
+#'
+#' @param sample_key character vector of cast keys
+#'
+#' @return `"down"`, `"up"`, or `NA` for a key with no direction suffix
+#' @export
+#' @concept qc
+qc_cast_direction <- function(sample_key) {
+  s <- substr(sample_key, nchar(sample_key), nchar(sample_key))
+  out <- rep(NA_character_, length(sample_key))
+  out[s == "d"] <- "down"
+  out[s == "u"] <- "up"
+  out[is.na(sample_key)] <- NA_character_
+  out
+}
+
+#' Fetch one physical cast's profile, both directions
+#'
+#' Returns the full-resolution scans for the cast a `sample_key` belongs to —
+#' **both** the down- and upcast, since the point of plotting a profile during
+#' review is to see them overlaid. `obs` carries only one direction per physical
+#' cast (that is what thinning does), so the default source is the supplemental
+#' `obs_ctd_full`.
+#'
+#' `cruise_key` is not a filter for the caller's convenience, it is a performance
+#' precondition: `obs_ctd_full` is hive-partitioned by `cruise_key`, so supplying
+#' it prunes ~212M rows to one cruise. When it is not supplied this looks it up
+#' from `sample` — one cheap query, rather than letting a profile fetch scan the
+#' whole archive.
+#'
+#' @param con a DBI connection carrying `obs_ctd_full` (or `obs_tbl`) and `sample`
+#' @param sample_key any one direction's key; both are returned
+#' @param measurement_types restrict to these types; `NULL` for all
+#' @param obs_tbl source table (`"obs_ctd_full"`, or `"obs"` for the thinned set)
+#' @param cruise_key partition to prune to; `NULL` looks it up from `sample`
+#'
+#' @return a data frame of `sample_key`, `cast_dir` (`down`/`up`), `depth_m`,
+#'   `measurement_type`, `measurement_value`, `measurement_qual`, `datetime`,
+#'   ordered by type, direction and depth
+#' @export
+#' @concept qc
+qc_cast_profile <- function(con, sample_key, measurement_types = NULL,
+                            obs_tbl = "obs_ctd_full", cruise_key = NULL) {
+  stopifnot("sample_key must be a single key" = length(sample_key) == 1)
+  base <- qc_cast_base(sample_key)
+
+  if (is.null(cruise_key) || is.na(cruise_key) || !nzchar(cruise_key)) {
+    ck <- try(DBI::dbGetQuery(con, glue::glue(
+      "SELECT DISTINCT cruise_key FROM sample
+       WHERE sample_key LIKE '{.sql_esc(base)}%'")), silent = TRUE)
+    cruise_key <- if (!inherits(ck, "try-error") && nrow(ck) == 1)
+      ck$cruise_key else NULL
+  }
+
+  where <- c(glue::glue("sample_key LIKE '{.sql_esc(base)}%'"))
+  if (!is.null(cruise_key) && !is.na(cruise_key) && nzchar(cruise_key))
+    where <- c(glue::glue("cruise_key = '{.sql_esc(cruise_key)}'"), where)
+  if (!is.null(measurement_types) && length(measurement_types)) {
+    lst <- paste0("'", .sql_esc(measurement_types), "'", collapse = ", ")
+    where <- c(where, glue::glue("measurement_type IN ({lst})"))
+  }
+
+  d <- DBI::dbGetQuery(con, glue::glue("
+    SELECT sample_key,
+           CASE right(sample_key, 1)
+             WHEN 'd' THEN 'down' WHEN 'u' THEN 'up' ELSE NULL END AS cast_dir,
+           depth_min_m AS depth_m,
+           measurement_type, measurement_value, measurement_qual, datetime
+    FROM {obs_tbl}
+    WHERE {paste(where, collapse = ' AND ')}
+    ORDER BY measurement_type, cast_dir, depth_m"))
+  d
+}
+
+# single-quote escaping for values interpolated into SQL. The keys here are
+# internal and well-formed, but a helper that builds SQL by interpolation should
+# not be the one place that assumes so.
+.sql_esc <- function(x) gsub("'", "''", as.character(x), fixed = TRUE)

@@ -222,3 +222,75 @@ test_that("qc_summarize distinguishes pass, flag, FAIL, skip and ERROR", {
                "input absent from obs: btl_temperature")
   expect_equal(s$note[s$rule_key == "r_err"], "Catalog Error")
 })
+
+# -- cast profiles -------------------------------------------------------------
+
+test_that("qc_cast_base strips only the direction suffix", {
+  # the regression this locks down: gsub("d", "") also eats the `d` in
+  # `calcofi_ctd-cast`, returning a key that matches nothing at all
+  expect_equal(qc_cast_base("calcofi_ctd-cast:cast:9802_008d"),
+               "calcofi_ctd-cast:cast:9802_008")
+  expect_equal(qc_cast_base("calcofi_ctd-cast:cast:9802_008u"),
+               "calcofi_ctd-cast:cast:9802_008")
+  # no suffix: unchanged, not truncated
+  expect_equal(qc_cast_base("calcofi_ctd-cast:cast:9802_008"),
+               "calcofi_ctd-cast:cast:9802_008")
+  expect_equal(qc_cast_base(c("a:1d", "a:1u")), c("a:1", "a:1"))
+})
+
+test_that("qc_cast_direction reads the suffix", {
+  expect_equal(
+    qc_cast_direction(c("x:1d", "x:1u", "x:1", NA_character_)),
+    c("down", "up", NA, NA))
+})
+
+test_that("qc_cast_profile returns both directions of one physical cast", {
+  con <- DBI::dbConnect(duckdb::duckdb())
+  withr::defer(DBI::dbDisconnect(con, shutdown = TRUE))
+
+  keys <- c("calcofi_ctd-cast:cast:9802_008d", "calcofi_ctd-cast:cast:9802_008u")
+  DBI::dbWriteTable(con, "sample", data.frame(
+    sample_key = c(keys, "calcofi_ctd-cast:cast:9802_009d"),
+    cruise_key = c("1998-02-31JD", "1998-02-31JD", "1998-02-31JD")))
+  DBI::dbWriteTable(con, "obs_ctd_full", data.frame(
+    sample_key = c(rep(keys, each = 2), "calcofi_ctd-cast:cast:9802_009d"),
+    cruise_key = "1998-02-31JD",
+    depth_min_m = c(10, 20, 10, 20, 10),
+    measurement_type = c("temperature_ave", "temperature_ave",
+                         "temperature_ave", "salinity_ave_corr",
+                         "temperature_ave"),
+    measurement_value = c(15.1, 13.2, 15.0, 33.4, 99),
+    measurement_qual = NA_character_,
+    datetime = as.POSIXct("1998-02-01 12:00:00", tz = "UTC")))
+
+  p <- qc_cast_profile(con, keys[1])
+  expect_setequal(unique(p$sample_key), keys)
+  expect_setequal(unique(p$cast_dir), c("down", "up"))
+  # the OTHER cast (…_009d) shares a cruise but not the base — it must not leak in
+  expect_false(any(p$measurement_value == 99))
+  expect_equal(nrow(p), 4L)
+
+  # asking from the upcast key returns the same physical cast
+  expect_equal(nrow(qc_cast_profile(con, keys[2])), 4L)
+
+  # type filter
+  pt <- qc_cast_profile(con, keys[1], measurement_types = "temperature_ave")
+  expect_equal(unique(pt$measurement_type), "temperature_ave")
+  expect_equal(nrow(pt), 3L)
+})
+
+test_that("qc_cast_profile can read the thinned obs too", {
+  con <- DBI::dbConnect(duckdb::duckdb())
+  withr::defer(DBI::dbDisconnect(con, shutdown = TRUE))
+  DBI::dbWriteTable(con, "sample", data.frame(
+    sample_key = "ds:cast:1d", cruise_key = "C1"))
+  DBI::dbWriteTable(con, "obs", data.frame(
+    sample_key = "ds:cast:1d", cruise_key = "C1", depth_min_m = 5,
+    measurement_type = "temperature_ave", measurement_value = 12,
+    measurement_qual = NA_character_,
+    datetime = as.POSIXct("2020-01-01", tz = "UTC")))
+
+  p <- qc_cast_profile(con, "ds:cast:1d", obs_tbl = "obs")
+  expect_equal(nrow(p), 1L)
+  expect_equal(p$cast_dir, "down")
+})
