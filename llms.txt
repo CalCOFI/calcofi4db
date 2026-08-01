@@ -740,6 +740,14 @@ check for other functions or datasets not captured by above categories
 - [`core_shard_paths()`](https://calcofi.io/calcofi4db/reference/core_shard_paths.md)
   : Find the per-dataset parquet shards for a core table
 
+- [`ctd_map_columns()`](https://calcofi.io/calcofi4db/reference/ctd_map_columns.md)
+  : Map an uploaded file's columns onto measurement types
+
+- [`ctd_upload_to_core()`](https://calcofi.io/calcofi4db/reference/ctd_upload_to_core.md)
+  :
+
+  Project an uploaded file into the core `obs` / `sample` shape
+
 - [`derive_cruise_key_on_casts()`](https://calcofi.io/calcofi4db/reference/derive_cruise_key_on_casts.md)
   : Derive Cruise Key on Bottle Casts via Ship Matching
 
@@ -868,10 +876,36 @@ check for other functions or datasets not captured by above categories
 - [`qc_summarize()`](https://calcofi.io/calcofi4db/reference/qc_summarize.md)
   : Collapse rule results into one row per rule
 
+- [`qc_upload_con()`](https://calcofi.io/calcofi4db/reference/qc_upload_con.md)
+  : A connection an uploaded cast can be QC'd on
+
+- [`read_ctd_upload()`](https://calcofi.io/calcofi4db/reference/read_ctd_upload.md)
+  : Read any supported CTD upload
+
 - [`read_measurement_type()`](https://calcofi.io/calcofi4db/reference/read_measurement_type.md)
   :
 
   Read `metadata/measurement_type.csv`, refusing a corrupted registry
+
+- [`read_sbe_asc()`](https://calcofi.io/calcofi4db/reference/read_sbe_asc.md)
+  :
+
+  Read a Sea-Bird `.asc` ASCII export
+
+- [`read_sbe_btl()`](https://calcofi.io/calcofi4db/reference/read_sbe_btl.md)
+  :
+
+  Read a Sea-Bird `.btl` bottle summary
+
+- [`read_sbe_cnv()`](https://calcofi.io/calcofi4db/reference/read_sbe_cnv.md)
+  :
+
+  Read a Sea-Bird `.cnv` converted data file
+
+- [`read_sbe_header()`](https://calcofi.io/calcofi4db/reference/read_sbe_header.md)
+  :
+
+  Parse a Sea-Bird `*` / `**` header block
 
 - [`register_measurement_types()`](https://calcofi.io/calcofi4db/reference/register_measurement_types.md)
   : Append new measurement types to the shared registry, safely
@@ -883,6 +917,9 @@ check for other functions or datasets not captured by above categories
   :
 
   Build a `sample` arm for a single self-contained event table
+
+- [`sbe_split_header()`](https://calcofi.io/calcofi4db/reference/sbe_split_header.md)
+  : Recover the column names from a fixed-width Sea-Bird ASCII header
 
 - [`standardize_species()`](https://calcofi.io/calcofi4db/reference/standardize_species.md)
   : Standardize Species Identifiers Using WoRMS/ITIS/GBIF APIs

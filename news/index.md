@@ -42,6 +42,50 @@ a scientific rule is the same drift that the per-dataset core-projection
 
 New `Suggests: terra` (only for `qc_stage_reference(gebco_tif = )`).
 
+### Uploads: shipboard files -\> the core model
+
+An uploaded cast can now be checked before it ever reaches a release.
+The design principle that makes it cheap: every rule targets `obs` /
+`sample`, so projecting a file into that shape runs the whole registry
+unchanged.
+
+- **[`read_ctd_upload()`](https://calcofi.io/calcofi4db/reference/read_ctd_upload.md)**
+  — dispatches on extension: `.csv` (CalCOFI cast file), `.cnv`, `.asc`,
+  `.btl`. `.hex` is **refused with its reason** — it is raw A/D counts
+  and needs the `.xmlcon` calibration file, so any conversion without it
+  would be invented numbers.
+- **[`sbe_split_header()`](https://calcofi.io/calcofi4db/reference/sbe_split_header.md)**
+  — the trap that makes `.asc` hard: the header is fixed-width and
+  adjacent names run together (`Sbeox0ML/LSbeox0Mm/Kg`) in **179 of
+  200** CalCOFI files, so a whitespace split mis-assigns every column
+  after the collision. Names and numbers are right-aligned, so columns
+  are cut at the data rows’ stop positions — and when the result is not
+  self-consistent it **errors rather than guessing**, asking for the
+  `.cnv` whose header is unambiguous. Measured: ~86% of `.asc` and ~47%
+  of `.btl` read cleanly; the rest say why.
+- **[`read_sbe_cnv()`](https://calcofi.io/calcofi4db/reference/read_sbe_cnv.md)
+  /
+  [`read_sbe_asc()`](https://calcofi.io/calcofi4db/reference/read_sbe_asc.md)
+  /
+  [`read_sbe_btl()`](https://calcofi.io/calcofi4db/reference/read_sbe_btl.md)
+  /
+  [`read_sbe_header()`](https://calcofi.io/calcofi4db/reference/read_sbe_header.md)**
+  — including `bad_flag` → `NA`, and the `.btl` quirks (one `Date`
+  header word over three data fields; several tagged statistic rows per
+  bottle).
+- **[`ctd_map_columns()`](https://calcofi.io/calcofi4db/reference/ctd_map_columns.md)**
+  — CalCOFI names map through `measurement_type.csv` `_source_column`;
+  Sea-Bird names through the new `metadata/sbe_name_map.csv`. **Unmapped
+  columns are a result, not an error** — they are where a format change
+  announces itself.
+- **[`ctd_upload_to_core()`](https://calcofi.io/calcofi4db/reference/ctd_upload_to_core.md)**
+  — the projection, applying the same `-99` / `-9.99e-29` sentinel
+  deletion and `"9.0"` → `"9"` quality-code repair the pipeline already
+  knows, because a new file is exactly where those arrive.
+- **[`qc_upload_con()`](https://calcofi.io/calcofi4db/reference/qc_upload_con.md)**
+  — an in-memory connection where the upload *is* `obs` / `sample` /
+  `obs_ctd_full`. Nothing touches a release; it dies with the session.
+
 ### Cast profiles for review
 
 - **[`qc_cast_profile()`](https://calcofi.io/calcofi4db/reference/qc_cast_profile.md)**

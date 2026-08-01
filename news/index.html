@@ -63,6 +63,22 @@
 </ul><p>New <code>Suggests: terra</code> (only for <code>qc_stage_reference(gebco_tif = )</code>).</p>
 </div>
 <div class="section level3">
+<h3 id="uploads-shipboard-files---the-core-model-3-3-0">Uploads: shipboard files -&gt; the core model<a class="anchor" aria-label="anchor" href="#uploads-shipboard-files---the-core-model-3-3-0"></a></h3>
+<p>An uploaded cast can now be checked before it ever reaches a release. The design principle that makes it cheap: every rule targets <code>obs</code> / <code>sample</code>, so projecting a file into that shape runs the whole registry unchanged.</p>
+<ul><li>
+<strong><code><a href="../reference/read_ctd_upload.html">read_ctd_upload()</a></code></strong> — dispatches on extension: <code>.csv</code> (CalCOFI cast file), <code>.cnv</code>, <code>.asc</code>, <code>.btl</code>. <code>.hex</code> is <strong>refused with its reason</strong> — it is raw A/D counts and needs the <code>.xmlcon</code> calibration file, so any conversion without it would be invented numbers.</li>
+<li>
+<strong><code><a href="../reference/sbe_split_header.html">sbe_split_header()</a></code></strong> — the trap that makes <code>.asc</code> hard: the header is fixed-width and adjacent names run together (<code>Sbeox0ML/LSbeox0Mm/Kg</code>) in <strong>179 of 200</strong> CalCOFI files, so a whitespace split mis-assigns every column after the collision. Names and numbers are right-aligned, so columns are cut at the data rows’ stop positions — and when the result is not self-consistent it <strong>errors rather than guessing</strong>, asking for the <code>.cnv</code> whose header is unambiguous. Measured: ~86% of <code>.asc</code> and ~47% of <code>.btl</code> read cleanly; the rest say why.</li>
+<li>
+<strong><code><a href="../reference/read_sbe_cnv.html">read_sbe_cnv()</a></code> / <code><a href="../reference/read_sbe_asc.html">read_sbe_asc()</a></code> / <code><a href="../reference/read_sbe_btl.html">read_sbe_btl()</a></code> / <code><a href="../reference/read_sbe_header.html">read_sbe_header()</a></code></strong> — including <code>bad_flag</code> → <code>NA</code>, and the <code>.btl</code> quirks (one <code>Date</code> header word over three data fields; several tagged statistic rows per bottle).</li>
+<li>
+<strong><code><a href="../reference/ctd_map_columns.html">ctd_map_columns()</a></code></strong> — CalCOFI names map through <code>measurement_type.csv</code> <code>_source_column</code>; Sea-Bird names through the new <code>metadata/sbe_name_map.csv</code>. <strong>Unmapped columns are a result, not an error</strong> — they are where a format change announces itself.</li>
+<li>
+<strong><code><a href="../reference/ctd_upload_to_core.html">ctd_upload_to_core()</a></code></strong> — the projection, applying the same <code>-99</code> / <code>-9.99e-29</code> sentinel deletion and <code>"9.0"</code> → <code>"9"</code> quality-code repair the pipeline already knows, because a new file is exactly where those arrive.</li>
+<li>
+<strong><code><a href="../reference/qc_upload_con.html">qc_upload_con()</a></code></strong> — an in-memory connection where the upload <em>is</em> <code>obs</code> / <code>sample</code> / <code>obs_ctd_full</code>. Nothing touches a release; it dies with the session.</li>
+</ul></div>
+<div class="section level3">
 <h3 id="cast-profiles-for-review-3-3-0">Cast profiles for review<a class="anchor" aria-label="anchor" href="#cast-profiles-for-review-3-3-0"></a></h3>
 <ul><li>
 <strong><code><a href="../reference/qc_cast_profile.html">qc_cast_profile()</a></code></strong> — the full-resolution scans for the physical cast a <code>sample_key</code> belongs to, <strong>both</strong> directions, since the point of plotting a profile during review is to see them overlaid. Two traps are why this is packaged rather than inline in an app callback: <code>cruise_key</code> is a performance <em>precondition</em> (<code>obs_ctd_full</code> is hive-partitioned by it, so an unscoped fetch scans ~212M rows) and is looked up when not supplied; and the direction suffix must be stripped without eating the <code>d</code> in <code>calcofi_ctd-cast</code>.</li>
