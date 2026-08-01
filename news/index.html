@@ -63,6 +63,14 @@
 </ul><p>New <code>Suggests: terra</code> (only for <code>qc_stage_reference(gebco_tif = )</code>).</p>
 </div>
 <div class="section level3">
+<h3 id="cast-profiles-for-review-3-3-0">Cast profiles for review<a class="anchor" aria-label="anchor" href="#cast-profiles-for-review-3-3-0"></a></h3>
+<ul><li>
+<strong><code><a href="../reference/qc_cast_profile.html">qc_cast_profile()</a></code></strong> — the full-resolution scans for the physical cast a <code>sample_key</code> belongs to, <strong>both</strong> directions, since the point of plotting a profile during review is to see them overlaid. Two traps are why this is packaged rather than inline in an app callback: <code>cruise_key</code> is a performance <em>precondition</em> (<code>obs_ctd_full</code> is hive-partitioned by it, so an unscoped fetch scans ~212M rows) and is looked up when not supplied; and the direction suffix must be stripped without eating the <code>d</code> in <code>calcofi_ctd-cast</code>.</li>
+<li>
+<strong><code><a href="../reference/qc_cast_base.html">qc_cast_base()</a></code> / <code><a href="../reference/qc_cast_direction.html">qc_cast_direction()</a></code></strong> — that suffix, handled once.</li>
+</ul><p>The rule contract gained two columns, documented in <code>R/qc.R</code>: a finding about a particular scan now returns <code>depth_min_m</code> <strong>and</strong> <code>measurement_type</code>, which is what lets a reviewer click a finding and land on the right profile at the right depth without the app knowing anything about the rule that produced it.</p>
+</div>
+<div class="section level3">
 <h3 id="input-fingerprinting--skip-an-ingests-heavy-path-when-nothing-changed-3-3-0">Input fingerprinting — skip an ingest’s heavy path when nothing changed<a class="anchor" aria-label="anchor" href="#input-fingerprinting--skip-an-ingests-heavy-path-when-nothing-changed-3-3-0"></a></h3>
 <p>An ingest is re-rendered for reasons that have nothing to do with its inputs: a narrative edit, a new diagnostic, a fixed typo. Re-running an hour of download → parse → pivot for those buys nothing, and it stops the notebook being usable as a living document — you do not add a paragraph to something that takes an hour to check. Same idea as <code><a href="../reference/write_parquet_outputs.html">write_parquet_outputs()</a></code>’s per-table content hash, lifted one level up to the whole ingest.</p>
 <ul><li>

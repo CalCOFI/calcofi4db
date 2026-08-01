@@ -42,6 +42,28 @@ a scientific rule is the same drift that the per-dataset core-projection
 
 New `Suggests: terra` (only for `qc_stage_reference(gebco_tif = )`).
 
+### Cast profiles for review
+
+- **[`qc_cast_profile()`](https://calcofi.io/calcofi4db/reference/qc_cast_profile.md)**
+  — the full-resolution scans for the physical cast a `sample_key`
+  belongs to, **both** directions, since the point of plotting a profile
+  during review is to see them overlaid. Two traps are why this is
+  packaged rather than inline in an app callback: `cruise_key` is a
+  performance *precondition* (`obs_ctd_full` is hive-partitioned by it,
+  so an unscoped fetch scans ~212M rows) and is looked up when not
+  supplied; and the direction suffix must be stripped without eating the
+  `d` in `calcofi_ctd-cast`.
+- **[`qc_cast_base()`](https://calcofi.io/calcofi4db/reference/qc_cast_base.md)
+  /
+  [`qc_cast_direction()`](https://calcofi.io/calcofi4db/reference/qc_cast_direction.md)**
+  — that suffix, handled once.
+
+The rule contract gained two columns, documented in `R/qc.R`: a finding
+about a particular scan now returns `depth_min_m` **and**
+`measurement_type`, which is what lets a reviewer click a finding and
+land on the right profile at the right depth without the app knowing
+anything about the rule that produced it.
+
 ### Input fingerprinting — skip an ingest’s heavy path when nothing changed
 
 An ingest is re-rendered for reasons that have nothing to do with its

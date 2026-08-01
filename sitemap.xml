@@ -140,6 +140,9 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/propagate_natural_key.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/prune_taxon_shard.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/put_gcs_file.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/qc_cast_base.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/qc_cast_direction.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/qc_cast_profile.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/qc_parse_params.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/qc_present_types.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/qc_read_rules.html</loc></url>

@@ -559,6 +559,19 @@ check for other functions or datasets not captured by above categories
 - [`prune_taxon_shard()`](https://calcofi.io/calcofi4db/reference/prune_taxon_shard.md)
   : Prune the taxa references to one dataset's shard
 
+- [`qc_cast_base()`](https://calcofi.io/calcofi4db/reference/qc_cast_base.md)
+  :
+
+  Strip the direction suffix from a CTD cast `sample_key`
+
+- [`qc_cast_direction()`](https://calcofi.io/calcofi4db/reference/qc_cast_direction.md)
+  :
+
+  Direction of a CTD cast `sample_key`
+
+- [`qc_cast_profile()`](https://calcofi.io/calcofi4db/reference/qc_cast_profile.md)
+  : Fetch one physical cast's profile, both directions
+
 - [`qc_parse_params()`](https://calcofi.io/calcofi4db/reference/qc_parse_params.md)
   :
 
