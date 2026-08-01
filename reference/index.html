@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -564,6 +564,13 @@
 
       <dl><dt>
 
+          <code><a href="changed_inputs.html">changed_inputs()</a></code>
+
+        </dt>
+        <dd>Which inputs changed since a recorded fingerprint</dd>
+
+        <dt>
+
           <code><a href="ingest_csv_to_db.html">ingest_csv_to_db()</a></code>
           <span class="badge lifecycle lifecycle-deprecated">deprecated</span>
         </dt>
@@ -575,6 +582,27 @@
           <span class="badge lifecycle lifecycle-deprecated">deprecated</span>
         </dt>
         <dd>Ingest a Dataset to PostgreSQL (DEPRECATED)</dd>
+
+        <dt>
+
+          <code><a href="input_fingerprint.html">input_fingerprint()</a></code>
+
+        </dt>
+        <dd>Fingerprint the inputs an ingest's outputs depend on</dd>
+
+        <dt>
+
+          <code><a href="read_input_fingerprint.html">read_input_fingerprint()</a></code>
+
+        </dt>
+        <dd>Read a previously recorded input fingerprint</dd>
+
+        <dt>
+
+          <code><a href="write_input_fingerprint.html">write_input_fingerprint()</a></code>
+
+        </dt>
+        <dd>Record an input fingerprint next to an ingest's outputs</dd>
       </dl></div><div class="section level2">
       <h2 id="version">Version<a class="anchor" aria-label="anchor" href="#version"></a></h2>
 
@@ -1391,6 +1419,62 @@
 
         </dt>
         <dd>Prune the taxa references to one dataset's shard</dd>
+
+        <dt>
+
+          <code><a href="qc_parse_params.html">qc_parse_params()</a></code>
+
+        </dt>
+        <dd>Parse a rule's <code>params</code> cell into a named list</dd>
+
+        <dt>
+
+          <code><a href="qc_present_types.html">qc_present_types()</a></code>
+
+        </dt>
+        <dd>Which measurement types actually exist for a dataset</dd>
+
+        <dt>
+
+          <code><a href="qc_read_rules.html">qc_read_rules()</a></code>
+
+        </dt>
+        <dd>Read the rule registry, attaching SQL text and parsed params</dd>
+
+        <dt>
+
+          <code><a href="qc_render_sql.html">qc_render_sql()</a></code>
+
+        </dt>
+        <dd>Substitute <code>{{param}}</code> placeholders into a rule's SQL</dd>
+
+        <dt>
+
+          <code><a href="qc_run_all.html">qc_run_all()</a></code>
+
+        </dt>
+        <dd>Run every rule in a registry, one at a time</dd>
+
+        <dt>
+
+          <code><a href="qc_run_rule.html">qc_run_rule()</a></code>
+
+        </dt>
+        <dd>Execute one rule, returning its findings</dd>
+
+        <dt>
+
+          <code><a href="qc_stage_reference.html">qc_stage_reference()</a></code>
+
+        </dt>
+        <dd>Stage the QC reference tables a rule registry expects</dd>
+
+        <dt>
+
+          <code><a href="qc_summarize.html">qc_summarize()</a></code>
+
+        </dt>
+        <dd>Collapse rule results into one row per rule</dd>
 
         <dt>
 

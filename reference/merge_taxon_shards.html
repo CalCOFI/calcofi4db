@@ -29,7 +29,7 @@ build_taxon_reference() did when it saw every source at once."><!-- Google tag (
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -73,7 +73,7 @@ plankton vocabularies, then everything else. This reproduces the coalescing
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">merge_taxon_shards</span><span class="op">(</span></span>
 <span>  <span class="va">con</span>,</span>
 <span>  root <span class="op">=</span> <span class="st">"."</span>,</span>
-<span>  priority <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"swfsc_ichthyo"</span>, <span class="st">"calcofi_bird_mammal_census"</span>, <span class="st">"cce-lter_zoodb"</span>,</span>
+<span>  priority <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"swfsc_ichthyo"</span>, <span class="st">"farallon_bird-mammal"</span>, <span class="st">"cce-lter_zoodb"</span>,</span>
 <span>    <span class="st">"cce-lter_zooscan"</span>, <span class="st">"calcofi_phytoplankton"</span><span class="op">)</span>,</span>
 <span>  parquet_dir <span class="op">=</span> <span class="st">"data/parquet"</span>,</span>
 <span>  exclude <span class="op">=</span> <span class="fu"><a href="release_excluded_datasets.html">release_excluded_datasets</a></span><span class="op">(</span><span class="va">root</span><span class="op">)</span></span>

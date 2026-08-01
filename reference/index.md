@@ -174,11 +174,19 @@ functions for referential integrity validation and flagging invalid rows
 functions for ingesting data into the database (PostgreSQL deprecated,
 use DuckLake)
 
+- [`changed_inputs()`](https://calcofi.io/calcofi4db/reference/changed_inputs.md)
+  : Which inputs changed since a recorded fingerprint
 - [`ingest_csv_to_db()`](https://calcofi.io/calcofi4db/reference/ingest_csv_to_db.md)
   **\[deprecated\]** : Ingest CSV data to PostgreSQL database
   (DEPRECATED)
 - [`ingest_dataset_pg()`](https://calcofi.io/calcofi4db/reference/ingest_dataset_pg.md)
   **\[deprecated\]** : Ingest a Dataset to PostgreSQL (DEPRECATED)
+- [`input_fingerprint()`](https://calcofi.io/calcofi4db/reference/input_fingerprint.md)
+  : Fingerprint the inputs an ingest's outputs depend on
+- [`read_input_fingerprint()`](https://calcofi.io/calcofi4db/reference/read_input_fingerprint.md)
+  : Read a previously recorded input fingerprint
+- [`write_input_fingerprint()`](https://calcofi.io/calcofi4db/reference/write_input_fingerprint.md)
+  : Record an input fingerprint next to an ingest's outputs
 
 ## Version
 
@@ -550,6 +558,34 @@ check for other functions or datasets not captured by above categories
 
 - [`prune_taxon_shard()`](https://calcofi.io/calcofi4db/reference/prune_taxon_shard.md)
   : Prune the taxa references to one dataset's shard
+
+- [`qc_parse_params()`](https://calcofi.io/calcofi4db/reference/qc_parse_params.md)
+  :
+
+  Parse a rule's `params` cell into a named list
+
+- [`qc_present_types()`](https://calcofi.io/calcofi4db/reference/qc_present_types.md)
+  : Which measurement types actually exist for a dataset
+
+- [`qc_read_rules()`](https://calcofi.io/calcofi4db/reference/qc_read_rules.md)
+  : Read the rule registry, attaching SQL text and parsed params
+
+- [`qc_render_sql()`](https://calcofi.io/calcofi4db/reference/qc_render_sql.md)
+  :
+
+  Substitute `{{param}}` placeholders into a rule's SQL
+
+- [`qc_run_all()`](https://calcofi.io/calcofi4db/reference/qc_run_all.md)
+  : Run every rule in a registry, one at a time
+
+- [`qc_run_rule()`](https://calcofi.io/calcofi4db/reference/qc_run_rule.md)
+  : Execute one rule, returning its findings
+
+- [`qc_stage_reference()`](https://calcofi.io/calcofi4db/reference/qc_stage_reference.md)
+  : Stage the QC reference tables a rule registry expects
+
+- [`qc_summarize()`](https://calcofi.io/calcofi4db/reference/qc_summarize.md)
+  : Collapse rule results into one row per rule
 
 - [`read_measurement_type()`](https://calcofi.io/calcofi4db/reference/read_measurement_type.md)
   :

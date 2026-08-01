@@ -1,6 +1,69 @@
 # Changelog
 
-## calcofi4db 3.2.0
+## calcofi4db 3.3.0
+
+### The QA/QC rule engine moves into the package
+
+The engine that runs `workflows/metadata/qc_rules/` (`rules.csv` +
+`sql/*.sql`) was a private copy inside `apps/ctd-qaqc/R/rules.R` while
+it had one caller. It now has two — the app, and
+`ingest_calcofi_ctd-cast.qmd`, which reports the condition of the data
+it just published — so it lives here instead, with tests. Two copies of
+a scientific rule is the same drift that the per-dataset core-projection
+[`switch()`](https://rdrr.io/r/base/switch.html) arms produced.
+
+- **[`qc_read_rules()`](https://calcofi.io/calcofi4db/reference/qc_read_rules.md)**
+  — read a rule registry, attaching each rule’s SQL text and parsed
+  `params`. Refuses a registry it cannot execute: an active rule with no
+  `sql_file`, or one pointing at an absent file, errors at read time
+  rather than becoming a rule that quietly checks nothing.
+- **[`qc_run_rule()`](https://calcofi.io/calcofi4db/reference/qc_run_rule.md)
+  /
+  [`qc_run_all()`](https://calcofi.io/calcofi4db/reference/qc_run_all.md)**
+  — execute rules. An unmet precondition (`requires_types` absent from
+  `obs`, or a `scope = "cruise"` rule with no cruise) returns `skipped`,
+  **never** a zero-row pass. A rule that reports green without having
+  checked anything is worse than no rule.
+- **[`qc_summarize()`](https://calcofi.io/calcofi4db/reference/qc_summarize.md)**
+  — one row per rule with a `status` of `pass` / `flag` / `FAIL` /
+  `ERROR` / `skip`.
+- **[`qc_parse_params()`](https://calcofi.io/calcofi4db/reference/qc_parse_params.md)
+  /
+  [`qc_render_sql()`](https://calcofi.io/calcofi4db/reference/qc_render_sql.md)**
+  — the `k=v;k=v` params cell and `{{placeholder}}` substitution. An
+  unsupplied placeholder errors.
+- **[`qc_stage_reference()`](https://calcofi.io/calcofi4db/reference/qc_stage_reference.md)**
+  — stage the reference data the rules join against (`measurement_type`
+  from the workflows registry, `measurement_qual`, the Access-master
+  climatology/station tables, and a GEBCO-derived `sample_seafloor`)
+  onto one connection. A missing input is left as a **missing table**,
+  so its rules error rather than returning zero rows and reading as
+  clean.
+
+New `Suggests: terra` (only for `qc_stage_reference(gebco_tif = )`).
+
+### Input fingerprinting — skip an ingest’s heavy path when nothing changed
+
+An ingest is re-rendered for reasons that have nothing to do with its
+inputs: a narrative edit, a new diagnostic, a fixed typo. Re-running an
+hour of download → parse → pivot for those buys nothing, and it stops
+the notebook being usable as a living document — you do not add a
+paragraph to something that takes an hour to check. Same idea as
+[`write_parquet_outputs()`](https://calcofi.io/calcofi4db/reference/write_parquet_outputs.md)’s
+per-table content hash, lifted one level up to the whole ingest.
+
+- **[`input_fingerprint()`](https://calcofi.io/calcofi4db/reference/input_fingerprint.md)**
+  — hash the source list and metadata registries an ingest’s outputs
+  depend on. A **missing** file is recorded as `"<missing>"` rather than
+  skipped, so deleting a registry invalidates the outputs.
+- **[`write_input_fingerprint()`](https://calcofi.io/calcofi4db/reference/write_input_fingerprint.md)
+  /
+  [`read_input_fingerprint()`](https://calcofi.io/calcofi4db/reference/read_input_fingerprint.md)**
+  — record and recall it beside the parquet. An absent or corrupt state
+  file reads as `NULL`, which falls through to a full run rather than
+  erroring.
+- **[`changed_inputs()`](https://calcofi.io/calcofi4db/reference/changed_inputs.md)**
+  — name *which* inputs moved, so a rebuild says why.
 
 ### Also in this release
 

@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -46,14 +46,39 @@
     </div>
 
     <div class="section level2">
-<h2 class="pkg-version" data-toc-text="3.2.0" id="calcofi4db-320">calcofi4db 3.2.0<a class="anchor" aria-label="anchor" href="#calcofi4db-320"></a></h2>
+<h2 class="pkg-version" data-toc-text="3.3.0" id="calcofi4db-330">calcofi4db 3.3.0<a class="anchor" aria-label="anchor" href="#calcofi4db-330"></a></h2>
 <div class="section level3">
-<h3 id="also-in-this-release-3-2-0">Also in this release<a class="anchor" aria-label="anchor" href="#also-in-this-release-3-2-0"></a></h3>
+<h3 id="the-qaqc-rule-engine-moves-into-the-package-3-3-0">The QA/QC rule engine moves into the package<a class="anchor" aria-label="anchor" href="#the-qaqc-rule-engine-moves-into-the-package-3-3-0"></a></h3>
+<p>The engine that runs <code>workflows/metadata/qc_rules/</code> (<code>rules.csv</code> + <code>sql/*.sql</code>) was a private copy inside <code>apps/ctd-qaqc/R/rules.R</code> while it had one caller. It now has two — the app, and <code>ingest_calcofi_ctd-cast.qmd</code>, which reports the condition of the data it just published — so it lives here instead, with tests. Two copies of a scientific rule is the same drift that the per-dataset core-projection <code><a href="https://rdrr.io/r/base/switch.html" class="external-link">switch()</a></code> arms produced.</p>
+<ul><li>
+<strong><code><a href="../reference/qc_read_rules.html">qc_read_rules()</a></code></strong> — read a rule registry, attaching each rule’s SQL text and parsed <code>params</code>. Refuses a registry it cannot execute: an active rule with no <code>sql_file</code>, or one pointing at an absent file, errors at read time rather than becoming a rule that quietly checks nothing.</li>
+<li>
+<strong><code><a href="../reference/qc_run_rule.html">qc_run_rule()</a></code> / <code><a href="../reference/qc_run_all.html">qc_run_all()</a></code></strong> — execute rules. An unmet precondition (<code>requires_types</code> absent from <code>obs</code>, or a <code>scope = "cruise"</code> rule with no cruise) returns <code>skipped</code>, <strong>never</strong> a zero-row pass. A rule that reports green without having checked anything is worse than no rule.</li>
+<li>
+<strong><code><a href="../reference/qc_summarize.html">qc_summarize()</a></code></strong> — one row per rule with a <code>status</code> of <code>pass</code> / <code>flag</code> / <code>FAIL</code> / <code>ERROR</code> / <code>skip</code>.</li>
+<li>
+<strong><code><a href="../reference/qc_parse_params.html">qc_parse_params()</a></code> / <code><a href="../reference/qc_render_sql.html">qc_render_sql()</a></code></strong> — the <code>k=v;k=v</code> params cell and <code>{{placeholder}}</code> substitution. An unsupplied placeholder errors.</li>
+<li>
+<strong><code><a href="../reference/qc_stage_reference.html">qc_stage_reference()</a></code></strong> — stage the reference data the rules join against (<code>measurement_type</code> from the workflows registry, <code>measurement_qual</code>, the Access-master climatology/station tables, and a GEBCO-derived <code>sample_seafloor</code>) onto one connection. A missing input is left as a <strong>missing table</strong>, so its rules error rather than returning zero rows and reading as clean.</li>
+</ul><p>New <code>Suggests: terra</code> (only for <code>qc_stage_reference(gebco_tif = )</code>).</p>
+</div>
+<div class="section level3">
+<h3 id="input-fingerprinting--skip-an-ingests-heavy-path-when-nothing-changed-3-3-0">Input fingerprinting — skip an ingest’s heavy path when nothing changed<a class="anchor" aria-label="anchor" href="#input-fingerprinting--skip-an-ingests-heavy-path-when-nothing-changed-3-3-0"></a></h3>
+<p>An ingest is re-rendered for reasons that have nothing to do with its inputs: a narrative edit, a new diagnostic, a fixed typo. Re-running an hour of download → parse → pivot for those buys nothing, and it stops the notebook being usable as a living document — you do not add a paragraph to something that takes an hour to check. Same idea as <code><a href="../reference/write_parquet_outputs.html">write_parquet_outputs()</a></code>’s per-table content hash, lifted one level up to the whole ingest.</p>
+<ul><li>
+<strong><code><a href="../reference/input_fingerprint.html">input_fingerprint()</a></code></strong> — hash the source list and metadata registries an ingest’s outputs depend on. A <strong>missing</strong> file is recorded as <code>"&lt;missing&gt;"</code> rather than skipped, so deleting a registry invalidates the outputs.</li>
+<li>
+<strong><code><a href="../reference/write_input_fingerprint.html">write_input_fingerprint()</a></code> / <code><a href="../reference/read_input_fingerprint.html">read_input_fingerprint()</a></code></strong> — record and recall it beside the parquet. An absent or corrupt state file reads as <code>NULL</code>, which falls through to a full run rather than erroring.</li>
+<li>
+<strong><code><a href="../reference/changed_inputs.html">changed_inputs()</a></code></strong> — name <em>which</em> inputs moved, so a rebuild says why.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="also-in-this-release-3-3-0">Also in this release<a class="anchor" aria-label="anchor" href="#also-in-this-release-3-3-0"></a></h3>
 <ul><li>
 <strong><code><a href="../reference/supplemental_core_tables.html">supplemental_core_tables()</a></code></strong> — reads every ingest’s <code>calcofi.tables_owned</code> and returns the tables flagged <code>supplemental: true</code> (<code>obs_ctd_full</code>, <code>obs_mets_full</code>): the full-resolution products hosted alongside the thinned core but hidden from the default table list and the ERD. Only <code>obs</code>-shaped tables are returned, since [assemble_core()] renumbers <code>obs_id</code> and orders by the core’s columns — <code>calcofi_mets</code> previously declared the raw <code>mets_measurement</code> here, which carried neither an <code>obs_id</code> nor a coordinate. <code>release_database.qmd</code> depends on it.</li>
 </ul></div>
 <div class="section level3">
-<h3 id="provider-renames-breaking-three-dataset_key-values-change-3-2-0">Provider renames (breaking: three <code>dataset_key</code> values change)<a class="anchor" aria-label="anchor" href="#provider-renames-breaking-three-dataset_key-values-change-3-2-0"></a></h3>
+<h3 id="provider-renames-breaking-three-dataset_key-values-change-3-3-0">Provider renames (breaking: three <code>dataset_key</code> values change)<a class="anchor" aria-label="anchor" href="#provider-renames-breaking-three-dataset_key-values-change-3-3-0"></a></h3>
 <p>Provider is the <strong>curating organization</strong> — not the hosting portal, and not a collection or lab within the org. Three keys were wrong on that test and are now corrected, in <code>.taxon_norm_sources()</code>, <code><a href="../reference/merge_taxon_shards.html">merge_taxon_shards()</a></code>’s priority vector and the tests:</p>
 <table class="table"><colgroup><col width="33%"><col width="33%"><col width="33%"></colgroup><thead><tr><th>from</th>
 <th>to</th>

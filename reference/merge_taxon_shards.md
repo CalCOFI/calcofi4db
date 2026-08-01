@@ -16,7 +16,7 @@ did when it saw every source at once.
 merge_taxon_shards(
   con,
   root = ".",
-  priority = c("swfsc_ichthyo", "calcofi_bird_mammal_census", "cce-lter_zoodb",
+  priority = c("swfsc_ichthyo", "farallon_bird-mammal", "cce-lter_zoodb",
     "cce-lter_zooscan", "calcofi_phytoplankton"),
   parquet_dir = "data/parquet",
   exclude = release_excluded_datasets(root)

@@ -30,6 +30,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/build_taxon_reference.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_taxon_table.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/calcofi4db-package.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/changed_inputs.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_data_integrity.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_multiple_datasets.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_registry_na_strings.html</loc></url>
@@ -106,6 +107,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/ingest_to_working.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ingest_yaml_to_dataset_df.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/init_schema_version_csv.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/input_fingerprint.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/integrate_to_working_ducklake.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/list_calcofi_files.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/list_frozen_releases.html</loc></url>
@@ -138,6 +140,14 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/propagate_natural_key.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/prune_taxon_shard.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/put_gcs_file.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/qc_parse_params.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/qc_present_types.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/qc_read_rules.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/qc_render_sql.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/qc_run_all.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/qc_run_rule.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/qc_stage_reference.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/qc_summarize.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/query_at_time.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_calcofi_meta.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_csv_files.html</loc></url>
@@ -145,6 +155,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/read_ingest_manifest.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_ingest_parquet.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_ingest_yaml.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/read_input_fingerprint.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_measurement_type.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_parquet_table.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_relationships_json.html</loc></url>
@@ -184,6 +195,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/validate_for_release.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/validate_lookup_values.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/write_ingest_outputs.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/write_input_fingerprint.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/write_parquet_outputs.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/write_parquet_table.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/write_spatial_manifest.html</loc></url>
