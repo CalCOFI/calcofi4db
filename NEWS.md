@@ -1,3 +1,71 @@
+# calcofi4db 3.4.0
+
+## `data_stage` on core `sample` — optional, trailing, opt-in
+
+The source CTD files mark preliminary cruises **"for non-publication use"** and
+warn that oxygen, nitrate and chlorophyll may change significantly after
+post-cruise calibration. `ingest_calcofi_ctd-cast.qmd` has always known which
+cruises are which, and the released `sample` had nowhere to put it — so the
+caveat stopped at the notebook (question `calcofi_ctd-cast_14`).
+
+- **`append_sample()` now accepts 15 **or** 16 columns.** The 16th, trailing, is
+  `data_stage`; a 15-column arm gets `NULL`. `select_sql` is bound positionally
+  and 16 ingests call it, so inserting the column into the contract would have
+  broken all 16 at once — trailing and optional means only the dataset that has a
+  meaningful stage changes, and the rest opt in later.
+- A 14- or 17-column arm now fails with a named error rather than DuckDB's
+  "table function has N columns but M names were given".
+- `sample` gains `data_stage VARCHAR`. `.ensure_sample_schema()` also ALTERs an
+  existing table, since each ingest's wrangling DB survives across runs and
+  `CREATE TABLE IF NOT EXISTS` alone would leave a pre-3.4.0 `sample` a column
+  short.
+
+Release assembly needed no change: `assemble_core_table()` unions the shards
+`BY NAME`, so a shard written before this release simply reads `NULL`.
+
+## The provider-question registry gets one reader and one vocabulary
+
+`metadata/{provider}/{dataset}/questions.csv` — 136 questions across 17 files —
+was read by each of the 16 ingest notebooks with its own `read_csv()` +
+`arrange(factor(priority, …))` + `select(…)`. The level vectors disagreed, so a
+status nobody listed sorted silently to the bottom and was never seen again;
+`ingest_calcofi_mets.qmd` ranked by a vector containing `"blocker"` and
+`"asked"`, neither of which is a status. Four spellings of "done" and two of
+"normal" had accumulated.
+
+- **`read_questions()`** — the one validated read. Strict (`na = ""`, everything
+  character, so an id suffix of `01` is never retyped to `1`), checks the
+  controlled vocabulary, and returns the questions ranked `blocker` → `low`.
+  An unknown `status`/`priority`, a duplicate `label` or a missing column is an
+  error naming the value, not a silent drop.
+- **`questions_datatable()`** — the standard render every notebook now calls.
+  Columns empty for every question are dropped, so a dataset with no answers yet
+  does not show two blank columns.
+- **`question_statuses()` / `question_priorities()`** — the vocabulary itself:
+  `open | proposed | answered | wontfix` and `blocker | high | normal | low`.
+
+**`proposed` is the new state and the point of the exercise**: we have already
+built or reasoned an answer and want it *confirmed*. `proposed_answer` carries
+it, so the provider approves a solution rather than being handed a problem.
+
+## The measurement registry can now state a depth range and a derivation
+
+`merge_metadata_json()` carries three more `measurement_type.csv` columns into
+the release sidecar's `measurement_types` block, alongside the existing
+`valid_min`/`valid_max`:
+
+- **`valid_depth_min_m` / `valid_depth_max_m`** — the depth range over which the
+  type is *defined*. `est_chlorophyll_a_*` is computed by applying the
+  fluorometer regression to 0–200 m alone, so a null at 300 m is by construction,
+  not missing data, and a completeness check had no way to know that.
+- **`derivation`** — free text on how a derived type was produced. The CTD files
+  publish every property three times (SBE-processed, `_CruiseCorr`, `_StaCorr`)
+  and the suffix was the only thing distinguishing them.
+
+Every one of these is **omitted** from the sidecar when the registry cell is
+empty. An emitted `"valid_max": null` reads as "no upper bound" — an assertion
+the registry never made.
+
 # calcofi4db 3.3.0
 
 ## The QA/QC rule engine moves into the package

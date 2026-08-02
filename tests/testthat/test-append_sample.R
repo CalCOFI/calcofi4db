@@ -72,6 +72,46 @@ test_that("a duplicated source id yields a duplicate sample_key the notebook mus
   expect_equal(dup$n, 2L)
 })
 
+test_that("append_sample() takes 15 or 16 columns; the 16th is data_stage", {
+  # `data_stage` is trailing and optional precisely so the 15 other ingests keep
+  # working untouched — the arity dispatch is what makes that true, so pin both.
+  con <- new_ichthyo_fixture()
+  on.exit(close_duckdb(con))
+
+  # 15 columns (the base contract) -> data_stage NULL
+  append_sample(con, ich_sample_sql[["site"]])
+  # 16 columns -> the trailing value lands in data_stage
+  append_sample(con, glue::glue(
+    "SELECT *, 'preliminary'::VARCHAR AS data_stage
+     FROM ({ich_sample_sql[['tow']]}) AS a(
+       sample_key, sample_type, parent_sample_key, root_sample_key, dataset_key,
+       grid_key, site_key, cruise_key, order_occ, latitude, longitude, datetime,
+       depth_min_m, depth_max_m, tow_type)"))
+
+  stage <- function(key) DBI::dbGetQuery(con, glue::glue(
+    "SELECT data_stage FROM sample WHERE sample_key = '{key}'"))$data_stage
+  expect_true(is.na(stage("swfsc_ichthyo:site:S1")))
+  expect_equal(stage("swfsc_ichthyo:tow:T1"), "preliminary")
+
+  # everything else about the 16-column arm is unchanged
+  expect_equal(
+    DBI::dbGetQuery(con,
+      "SELECT tow_type FROM sample WHERE sample_key = 'swfsc_ichthyo:tow:T1'")$tow_type,
+    "CB")
+})
+
+test_that("append_sample() rejects any other arity by name", {
+  con <- new_ichthyo_fixture()
+  on.exit(close_duckdb(con))
+
+  # DuckDB's own message ("table function has N columns but M names were given")
+  # does not say which contract was missed, so the helper has to
+  cols <- function(n) paste(rep("NULL::VARCHAR", n), collapse = ", ")
+  expect_error(append_sample(con, paste("SELECT", cols(14))),
+               "must yield 15 columns")
+  expect_error(append_sample(con, paste("SELECT", cols(17))), "got 17")
+})
+
 test_that("sample_arm_self qualifies caller-supplied column expressions", {
   # DuckDB resolves an unqualified `site_key AS site_key` against the alias being
   # defined in the same SELECT (lateral column alias) and errors rather than

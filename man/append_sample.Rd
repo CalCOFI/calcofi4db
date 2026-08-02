@@ -17,13 +17,23 @@ append_sample(con, select_sql, sample_tbl = "sample")
 (invisibly) the total row count of \code{sample_tbl} after the append
 }
 \description{
-\code{select_sql} must yield \code{sample_key}, \code{sample_type}, \code{parent_sample_key},
-\code{root_sample_key}, \code{dataset_key}, \code{grid_key}, \code{cruise_key}, \code{latitude},
-\code{longitude}, \code{datetime}, \code{depth_min_m}, \code{depth_max_m}, \code{tow_type} by name;
-\code{geom} is minted here as \code{ST_Point(longitude, latitude)}. \code{tow_type} is the net
-gear code (ichthyo tow/net grains: C1/CB/CV/PV oblique/vertical, MT manta), NULL
-for gears/datasets without one. Call it once per event level — a multi-level
+\code{select_sql} is bound \strong{positionally}, so it must yield either the 15 columns
+of the base contract — \code{sample_key}, \code{sample_type}, \code{parent_sample_key},
+\code{root_sample_key}, \code{dataset_key}, \code{grid_key}, \code{site_key}, \code{cruise_key},
+\code{order_occ}, \code{latitude}, \code{longitude}, \code{datetime}, \code{depth_min_m}, \code{depth_max_m},
+\code{tow_type} — or those 15 plus a trailing 16th, \code{data_stage}. \code{geom} is minted
+here as \code{ST_Point(longitude, latitude)}. \code{tow_type} is the net gear code
+(ichthyo tow/net grains: C1/CB/CV/PV oblique/vertical, MT manta), NULL for
+gears/datasets without one. Call it once per event level — a multi-level
 dataset (ichthyo \code{site}->\code{tow}->\code{net}, bottle \code{cast}->\code{bottle}) appends one arm
 per level, and \code{\link[=sample_arm_self]{sample_arm_self()}} writes the single-level case for you.
+}
+\details{
+\code{data_stage} is \strong{optional and trailing} on purpose: it records the source's
+own processing state for the event (\code{final} vs \code{preliminary} for CTD casts, per
+question \code{calcofi_ctd-cast_14}), which most datasets do not distinguish. Making
+it positional column 16 rather than inserting it into the contract lets a
+dataset opt in when it has a meaningful stage without touching the other arms —
+a 15-column arm gets \code{NULL} and keeps working unchanged.
 }
 \concept{model}

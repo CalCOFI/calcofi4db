@@ -138,7 +138,14 @@ ns_key <- function(dataset_key, sample_type, id_sql) {
        depth_min_m       DOUBLE,
        depth_max_m       DOUBLE,
        tow_type          VARCHAR,
+       data_stage        VARCHAR,
        geom              GEOMETRY)"))
+  # `data_stage` was added in 3.4.0. The wrangling DB survives across runs (each
+  # ingest restores from a checkpoint), so CREATE TABLE IF NOT EXISTS alone would
+  # leave a pre-3.4.0 `sample` a column short and the INSERT below would fail on
+  # a stale DB rather than on anything the caller did.
+  DBI::dbExecute(con, glue::glue(
+    "ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS data_stage VARCHAR"))
   invisible(tbl)
 }
 
@@ -245,14 +252,23 @@ append_sample_measurement <- function(con, select_sql, tbl = "sample_measurement
 
 #' Append event rows into the core `sample` dimension
 #'
-#' `select_sql` must yield `sample_key`, `sample_type`, `parent_sample_key`,
-#' `root_sample_key`, `dataset_key`, `grid_key`, `cruise_key`, `latitude`,
-#' `longitude`, `datetime`, `depth_min_m`, `depth_max_m`, `tow_type` by name;
-#' `geom` is minted here as `ST_Point(longitude, latitude)`. `tow_type` is the net
-#' gear code (ichthyo tow/net grains: C1/CB/CV/PV oblique/vertical, MT manta), NULL
-#' for gears/datasets without one. Call it once per event level — a multi-level
+#' `select_sql` is bound **positionally**, so it must yield either the 15 columns
+#' of the base contract — `sample_key`, `sample_type`, `parent_sample_key`,
+#' `root_sample_key`, `dataset_key`, `grid_key`, `site_key`, `cruise_key`,
+#' `order_occ`, `latitude`, `longitude`, `datetime`, `depth_min_m`, `depth_max_m`,
+#' `tow_type` — or those 15 plus a trailing 16th, `data_stage`. `geom` is minted
+#' here as `ST_Point(longitude, latitude)`. `tow_type` is the net gear code
+#' (ichthyo tow/net grains: C1/CB/CV/PV oblique/vertical, MT manta), NULL for
+#' gears/datasets without one. Call it once per event level — a multi-level
 #' dataset (ichthyo `site`->`tow`->`net`, bottle `cast`->`bottle`) appends one arm
 #' per level, and [sample_arm_self()] writes the single-level case for you.
+#'
+#' `data_stage` is **optional and trailing** on purpose: it records the source's
+#' own processing state for the event (`final` vs `preliminary` for CTD casts, per
+#' question `calcofi_ctd-cast_14`), which most datasets do not distinguish. Making
+#' it positional column 16 rather than inserting it into the contract lets a
+#' dataset opt in when it has a meaningful stage without touching the other arms —
+#' a 15-column arm gets `NULL` and keeps working unchanged.
 #' @inheritParams append_obs
 #' @param sample_tbl target table (default `"sample"`)
 #' @return (invisibly) the total row count of `sample_tbl` after the append
@@ -261,19 +277,34 @@ append_sample_measurement <- function(con, select_sql, tbl = "sample_measurement
 append_sample <- function(con, select_sql, sample_tbl = "sample") {
   .load_spatial(con)
   .ensure_sample_schema(con, sample_tbl)
+
+  src_cols <- c(
+    "sample_key", "sample_type", "parent_sample_key", "root_sample_key",
+    "dataset_key", "grid_key", "site_key", "cruise_key", "order_occ",
+    "latitude", "longitude", "datetime", "depth_min_m", "depth_max_m", "tow_type")
+  # DESCRIBE, not a LIMIT 0 scan: the arity has to be known before the positional
+  # alias list is written, and a 15-vs-16 mismatch must be a named error rather
+  # than DuckDB's "table function has N columns but M names were given".
+  n_col <- nrow(DBI::dbGetQuery(con, glue::glue("DESCRIBE ({select_sql})")))
+  if (!n_col %in% c(15L, 16L))
+    stop("append_sample(): `select_sql` must yield 15 columns (the base contract) ",
+         "or 16 (with `data_stage` trailing); got ", n_col, ".", call. = FALSE)
+  has_stage <- n_col == 16L
+  if (has_stage) src_cols <- c(src_cols, "data_stage")
+  stage_sel <- if (has_stage) "data_stage" else "NULL::VARCHAR AS data_stage"
+  src_alias <- paste(src_cols, collapse = ", ")
+
   DBI::dbExecute(con, glue::glue(
     "INSERT INTO {sample_tbl}
        (sample_key, sample_type, parent_sample_key, root_sample_key,
         dataset_key, grid_key, site_key, cruise_key, order_occ, latitude, longitude, datetime,
-        depth_min_m, depth_max_m, tow_type, geom)
+        depth_min_m, depth_max_m, tow_type, data_stage, geom)
      SELECT sample_key, sample_type, parent_sample_key, root_sample_key,
             dataset_key, grid_key, site_key, cruise_key, order_occ, latitude, longitude, datetime,
-            depth_min_m, depth_max_m, tow_type,
+            depth_min_m, depth_max_m, tow_type, {stage_sel},
             CASE WHEN latitude IS NULL OR longitude IS NULL THEN NULL
                  ELSE ST_Point(longitude, latitude) END AS geom
-     FROM ( {select_sql} ) AS src(sample_key, sample_type, parent_sample_key, root_sample_key,
-            dataset_key, grid_key, site_key, cruise_key, order_occ, latitude, longitude, datetime,
-            depth_min_m, depth_max_m, tow_type)"))
+     FROM ( {select_sql} ) AS src({src_alias})"))
   invisible(DBI::dbGetQuery(
     con, glue::glue("SELECT COUNT(*) AS n FROM {sample_tbl}"))$n)
 }

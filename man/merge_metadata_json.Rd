@@ -38,7 +38,13 @@ columns.}
 
 \item{measurement_type_csv}{Optional path to
 \code{metadata/measurement_type.csv}. When supplied, populates the
-\code{measurement_types} block with one entry per canonical type.}
+\code{measurement_types} block with one entry per canonical type:
+\code{description}, \code{units}, \code{is_canonical}, \code{datasets}, the
+value range (\code{valid_min}/\code{valid_max}), the depth range over which
+the type is defined (\code{valid_depth_min_m}/\code{valid_depth_max_m}) and
+the free-text \code{derivation}. Every optional field is omitted when the
+registry cell is empty — an emitted \code{null} would read as an assertion
+("no upper bound") rather than an absence.}
 
 \item{dataset_csv}{Optional path to \code{metadata/dataset.csv}. Deprecated
 fallback for the \code{datasets} block; superseded by \code{ingest_yaml}.

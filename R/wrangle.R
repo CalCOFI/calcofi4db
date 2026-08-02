@@ -2492,7 +2492,13 @@ ingest_yaml_to_dataset_df <- function(ingest_yaml) {
 #'   columns.
 #' @param measurement_type_csv Optional path to
 #'   \code{metadata/measurement_type.csv}. When supplied, populates the
-#'   \code{measurement_types} block with one entry per canonical type.
+#'   \code{measurement_types} block with one entry per canonical type:
+#'   \code{description}, \code{units}, \code{is_canonical}, \code{datasets}, the
+#'   value range (\code{valid_min}/\code{valid_max}), the depth range over which
+#'   the type is defined (\code{valid_depth_min_m}/\code{valid_depth_max_m}) and
+#'   the free-text \code{derivation}. Every optional field is omitted when the
+#'   registry cell is empty — an emitted \code{null} would read as an assertion
+#'   ("no upper bound") rather than an absence.
 #' @param dataset_csv Optional path to \code{metadata/dataset.csv}. Deprecated
 #'   fallback for the \code{datasets} block; superseded by \code{ingest_yaml}.
 #'   When both are supplied, \code{ingest_yaml} wins.
@@ -2668,14 +2674,40 @@ merge_metadata_json <- function(
         ds_vec <- trimws(strsplit(d_mt$`_source_datasets`[i], ";")[[1]])
         ds_vec <- ds_vec[nzchar(ds_vec)]
       }
-      measurement_types[[mt]] <- list(
+      # optional registry cell -> NULL when absent or empty, so the sidecar only
+      # carries what the registry actually asserts (an emitted `valid_max: null`
+      # reads as "no upper bound stated", which is not the same as "unbounded")
+      opt <- function(nm, as = identity) {
+        if (!nm %in% names(d_mt)) return(NULL)
+        v <- d_mt[[nm]][i]
+        if (is.na(v) || (is.character(v) && !nzchar(v))) return(NULL)
+        as(v)
+      }
+      # the value range and, where a type is only defined over part of the water
+      # column, the depth range (est_chlorophyll_a_* is computed for 0-200 m
+      # alone, so a null below that is by construction, not missing data); plus
+      # the free-text `derivation` — how a DERIVED type was produced, which is
+      # provenance the registry had nowhere to put, and the difference between
+      # `_cruise_corr` and `_sta_corr` is not something a consumer should guess.
+      # Dropped when empty rather than emitted null: `"valid_max": null` reads as
+      # "no upper bound", an assertion the registry never made.
+      extra <- list(
+        valid_min         = opt("valid_min", as.numeric),
+        valid_max         = opt("valid_max", as.numeric),
+        valid_depth_min_m = opt("valid_depth_min_m", as.numeric),
+        valid_depth_max_m = opt("valid_depth_max_m", as.numeric),
+        derivation        = opt("derivation", as.character))
+      extra <- extra[!vapply(extra, is.null, logical(1))]
+
+      measurement_types[[mt]] <- c(list(
         description  = if (!is.na(d_mt$description[i]))   d_mt$description[i]   else "",
         units        = if (!is.na(d_mt$units[i]))         d_mt$units[i]         else NULL,
-        is_canonical = if ("is_canonical" %in% names(d_mt)) isTRUE(d_mt$is_canonical[i]) else NA,
+        is_canonical = if ("is_canonical" %in% names(d_mt)) isTRUE(d_mt$is_canonical[i]) else NA),
+        extra,
         # wrap in I() so a single dataset still serializes as a JSON array
         # (auto_unbox = TRUE would otherwise collapse a length-1 vector to a
         # bare string, which the schema site's dataset filter can't match)
-        datasets     = if (is.null(ds_vec)) NULL else I(ds_vec))
+        list(datasets = if (is.null(ds_vec)) NULL else I(ds_vec)))
     }
   }
 
