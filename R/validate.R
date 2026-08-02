@@ -130,10 +130,20 @@ validate_lookup_values <- function(
 #' Writes invalid rows to a CSV file for manual review. Creates the output
 #' directory if it doesn't exist. Returns the path to the created file.
 #'
+#' These files are committed and reviewed in diffs, so the write is **idempotent**
+#' with respect to columns that change on every run for no reason. `_ingested_at`
+#' is stamped per row at read time, so re-running an ingest over unchanged source
+#' data rewrote the whole file with a new timestamp on every row:
+#' `data/flagged/invalid_egg_stages.csv` churned 790 rows — the same 790 rows —
+#' each time, which is noise that hides the diff that would matter. When the new
+#' rows match the file on disk apart from `volatile_cols`, the file is left alone.
+#'
 #' @param invalid_rows Tibble of invalid rows to export
 #' @param output_path Path for output CSV file
 #' @param description Description of the validation failure (for logging)
 #' @param append If TRUE, append to existing file; if FALSE (default), overwrite
+#' @param volatile_cols Columns to ignore when deciding whether the file changed.
+#'   Defaults to `"_ingested_at"`. Set to `character()` to always rewrite.
 #'
 #' @return Path to the created/updated CSV file, or NULL if no rows to flag
 #' @export
@@ -149,13 +159,14 @@ validate_lookup_values <- function(
 #'     description  = "Species IDs not found in species table")
 #' }
 #' }
-#' @importFrom readr write_csv
+#' @importFrom readr write_csv read_csv cols col_character
 #' @importFrom glue glue
 flag_invalid_rows <- function(
     invalid_rows,
     output_path,
     description,
-    append = FALSE) {
+    append = FALSE,
+    volatile_cols = "_ingested_at") {
 
   if (nrow(invalid_rows) == 0) {
     message(glue::glue("No invalid rows to flag for: {description}"))
@@ -169,11 +180,41 @@ flag_invalid_rows <- function(
     message(glue::glue("Created flagged output directory: {output_dir}"))
   }
 
-  # write CSV
+  # Skip a write that would only re-stamp the volatile columns. Compared as
+  # CHARACTER on both sides: the on-disk copy has been through a CSV round trip
+  # and the in-memory tibble has not, so comparing typed values would report a
+  # spurious difference (an integer 1 against the string "1") and defeat the
+  # check every time.
+  if (!append && length(volatile_cols) && file.exists(output_path)) {
+    as_txt <- function(d) {
+      d <- d[, setdiff(names(d), volatile_cols), drop = FALSE]
+      d <- d[, order(names(d)), drop = FALSE]
+      as.data.frame(lapply(d, function(v) {
+        v <- as.character(v); v[is.na(v)] <- ""; v
+      }), stringsAsFactors = FALSE)
+    }
+    old <- tryCatch(
+      readr::read_csv(output_path, na = "", show_col_types = FALSE,
+                      col_types = readr::cols(.default = readr::col_character())),
+      error = function(e) NULL)
+    if (!is.null(old) && identical(as_txt(old), as_txt(invalid_rows))) {
+      message(glue::glue(
+        "Flagged rows unchanged, leaving {output_path} as-is ",
+        "({nrow(invalid_rows)} rows; ",
+        "{paste(volatile_cols, collapse = ', ')} would differ): {description}"))
+      return(output_path)
+    }
+  }
+
+  # write CSV. na = "" for the same reason the metadata registries use it: these
+  # files are read back with DuckDB's read_csv_auto in places, whose default
+  # nullstr is the empty string only, so readr's default na = "NA" would ship a
+  # literal 2-character "NA" (see R/registry.R).
   readr::write_csv(
     invalid_rows,
     output_path,
-    append = append)
+    append = append,
+    na = "")
 
   message(glue::glue(
     "Flagged {nrow(invalid_rows)} rows to {output_path}: {description}"))

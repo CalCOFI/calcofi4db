@@ -4,7 +4,13 @@
 \alias{flag_invalid_rows}
 \title{Flag and Export Invalid Rows}
 \usage{
-flag_invalid_rows(invalid_rows, output_path, description, append = FALSE)
+flag_invalid_rows(
+  invalid_rows,
+  output_path,
+  description,
+  append = FALSE,
+  volatile_cols = "_ingested_at"
+)
 }
 \arguments{
 \item{invalid_rows}{Tibble of invalid rows to export}
@@ -14,6 +20,9 @@ flag_invalid_rows(invalid_rows, output_path, description, append = FALSE)
 \item{description}{Description of the validation failure (for logging)}
 
 \item{append}{If TRUE, append to existing file; if FALSE (default), overwrite}
+
+\item{volatile_cols}{Columns to ignore when deciding whether the file changed.
+Defaults to \code{"_ingested_at"}. Set to \code{character()} to always rewrite.}
 }
 \value{
 Path to the created/updated CSV file, or NULL if no rows to flag
@@ -21,6 +30,15 @@ Path to the created/updated CSV file, or NULL if no rows to flag
 \description{
 Writes invalid rows to a CSV file for manual review. Creates the output
 directory if it doesn't exist. Returns the path to the created file.
+}
+\details{
+These files are committed and reviewed in diffs, so the write is \strong{idempotent}
+with respect to columns that change on every run for no reason. \verb{_ingested_at}
+is stamped per row at read time, so re-running an ingest over unchanged source
+data rewrote the whole file with a new timestamp on every row:
+\code{data/flagged/invalid_egg_stages.csv} churned 790 rows — the same 790 rows —
+each time, which is noise that hides the diff that would matter. When the new
+rows match the file on disk apart from \code{volatile_cols}, the file is left alone.
 }
 \examples{
 \dontrun{
