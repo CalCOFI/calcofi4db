@@ -2486,7 +2486,7 @@ ingest_yaml_to_dataset_df <- function(ingest_yaml) {
 #' @param release_tables_csv Optional path to a CSV with columns
 #'   \code{table, name_long, description_md, provider, dataset} describing
 #'   tables built inside \code{release_database.qmd} that have no per-ingest
-#'   metadata.json (e.g. \code{cruise_summary}, \code{_spatial}).
+#'   metadata.json (e.g. \code{cruise_summary}, \code{spatial}).
 #' @param release_columns_csv Optional path to a CSV with columns
 #'   \code{table, column, name_long, units, description_md} for release-only
 #'   columns.
