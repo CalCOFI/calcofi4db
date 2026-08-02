@@ -1,9 +1,11 @@
 # Append event rows into the core `sample` dimension
 
-`select_sql` must yield `sample_key`, `sample_type`,
+`select_sql` is bound **positionally**, so it must yield either the 15
+columns of the base contract — `sample_key`, `sample_type`,
 `parent_sample_key`, `root_sample_key`, `dataset_key`, `grid_key`,
-`cruise_key`, `latitude`, `longitude`, `datetime`, `depth_min_m`,
-`depth_max_m`, `tow_type` by name; `geom` is minted here as
+`site_key`, `cruise_key`, `order_occ`, `latitude`, `longitude`,
+`datetime`, `depth_min_m`, `depth_max_m`, `tow_type` — or those 15 plus
+a trailing 16th, `data_stage`. `geom` is minted here as
 `ST_Point(longitude, latitude)`. `tow_type` is the net gear code
 (ichthyo tow/net grains: C1/CB/CV/PV oblique/vertical, MT manta), NULL
 for gears/datasets without one. Call it once per event level — a
@@ -36,3 +38,13 @@ append_sample(con, select_sql, sample_tbl = "sample")
 ## Value
 
 (invisibly) the total row count of `sample_tbl` after the append
+
+## Details
+
+`data_stage` is **optional and trailing** on purpose: it records the
+source's own processing state for the event (`final` vs `preliminary`
+for CTD casts, per question `calcofi_ctd-cast_14`), which most datasets
+do not distinguish. Making it positional column 16 rather than inserting
+it into the contract lets a dataset opt in when it has a meaningful
+stage without touching the other arms — a 15-column arm gets `NULL` and
+keeps working unchanged.

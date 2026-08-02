@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.3.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -45,6 +45,40 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.4.0" id="calcofi4db-340">calcofi4db 3.4.0<a class="anchor" aria-label="anchor" href="#calcofi4db-340"></a></h2>
+<div class="section level3">
+<h3 id="data_stage-on-core-sample--optional-trailing-opt-in-3-4-0">
+<code>data_stage</code> on core <code>sample</code> — optional, trailing, opt-in<a class="anchor" aria-label="anchor" href="#data_stage-on-core-sample--optional-trailing-opt-in-3-4-0"></a></h3>
+<p>The source CTD files mark preliminary cruises <strong>“for non-publication use”</strong> and warn that oxygen, nitrate and chlorophyll may change significantly after post-cruise calibration. <code>ingest_calcofi_ctd-cast.qmd</code> has always known which cruises are which, and the released <code>sample</code> had nowhere to put it — so the caveat stopped at the notebook (question <code>calcofi_ctd-cast_14</code>).</p>
+<ul><li>
+<strong><code><a href="../reference/append_sample.html">append_sample()</a></code> now accepts 15 </strong>or** 16 columns.** The 16th, trailing, is <code>data_stage</code>; a 15-column arm gets <code>NULL</code>. <code>select_sql</code> is bound positionally and 16 ingests call it, so inserting the column into the contract would have broken all 16 at once — trailing and optional means only the dataset that has a meaningful stage changes, and the rest opt in later.</li>
+<li>A 14- or 17-column arm now fails with a named error rather than DuckDB’s “table function has N columns but M names were given”.</li>
+<li>
+<code>sample</code> gains <code>data_stage VARCHAR</code>. <code>.ensure_sample_schema()</code> also ALTERs an existing table, since each ingest’s wrangling DB survives across runs and <code>CREATE TABLE IF NOT EXISTS</code> alone would leave a pre-3.4.0 <code>sample</code> a column short.</li>
+</ul><p>Release assembly needed no change: <code><a href="../reference/assemble_core_table.html">assemble_core_table()</a></code> unions the shards <code>BY NAME</code>, so a shard written before this release simply reads <code>NULL</code>.</p>
+</div>
+<div class="section level3">
+<h3 id="the-provider-question-registry-gets-one-reader-and-one-vocabulary-3-4-0">The provider-question registry gets one reader and one vocabulary<a class="anchor" aria-label="anchor" href="#the-provider-question-registry-gets-one-reader-and-one-vocabulary-3-4-0"></a></h3>
+<p><code>metadata/{provider}/{dataset}/questions.csv</code> — 136 questions across 17 files — was read by each of the 16 ingest notebooks with its own <code>read_csv()</code> + <code>arrange(factor(priority, …))</code> + <code>select(…)</code>. The level vectors disagreed, so a status nobody listed sorted silently to the bottom and was never seen again; <code>ingest_calcofi_mets.qmd</code> ranked by a vector containing <code>"blocker"</code> and <code>"asked"</code>, neither of which is a status. Four spellings of “done” and two of “normal” had accumulated.</p>
+<ul><li>
+<strong><code><a href="../reference/read_questions.html">read_questions()</a></code></strong> — the one validated read. Strict (<code>na = ""</code>, everything character, so an id suffix of <code>01</code> is never retyped to <code>1</code>), checks the controlled vocabulary, and returns the questions ranked <code>blocker</code> → <code>low</code>. An unknown <code>status</code>/<code>priority</code>, a duplicate <code>label</code> or a missing column is an error naming the value, not a silent drop.</li>
+<li>
+<strong><code><a href="../reference/questions_datatable.html">questions_datatable()</a></code></strong> — the standard render every notebook now calls. Columns empty for every question are dropped, so a dataset with no answers yet does not show two blank columns.</li>
+<li>
+<strong><code><a href="../reference/question_statuses.html">question_statuses()</a></code> / <code><a href="../reference/question_statuses.html">question_priorities()</a></code></strong> — the vocabulary itself: <code>open | proposed | answered | wontfix</code> and <code>blocker | high | normal | low</code>.</li>
+</ul><p><strong><code>proposed</code> is the new state and the point of the exercise</strong>: we have already built or reasoned an answer and want it <em>confirmed</em>. <code>proposed_answer</code> carries it, so the provider approves a solution rather than being handed a problem.</p>
+</div>
+<div class="section level3">
+<h3 id="the-measurement-registry-can-now-state-a-depth-range-and-a-derivation-3-4-0">The measurement registry can now state a depth range and a derivation<a class="anchor" aria-label="anchor" href="#the-measurement-registry-can-now-state-a-depth-range-and-a-derivation-3-4-0"></a></h3>
+<p><code><a href="../reference/merge_metadata_json.html">merge_metadata_json()</a></code> carries three more <code>measurement_type.csv</code> columns into the release sidecar’s <code>measurement_types</code> block, alongside the existing <code>valid_min</code>/<code>valid_max</code>:</p>
+<ul><li>
+<strong><code>valid_depth_min_m</code> / <code>valid_depth_max_m</code></strong> — the depth range over which the type is <em>defined</em>. <code>est_chlorophyll_a_*</code> is computed by applying the fluorometer regression to 0–200 m alone, so a null at 300 m is by construction, not missing data, and a completeness check had no way to know that.</li>
+<li>
+<strong><code>derivation</code></strong> — free text on how a derived type was produced. The CTD files publish every property three times (SBE-processed, <code>_CruiseCorr</code>, <code>_StaCorr</code>) and the suffix was the only thing distinguishing them.</li>
+</ul><p>Every one of these is <strong>omitted</strong> from the sidecar when the registry cell is empty. An emitted <code>"valid_max": null</code> reads as “no upper bound” — an assertion the registry never made.</p>
+</div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="3.3.0" id="calcofi4db-330">calcofi4db 3.3.0<a class="anchor" aria-label="anchor" href="#calcofi4db-330"></a></h2>
 <div class="section level3">

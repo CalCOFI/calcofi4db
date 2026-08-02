@@ -56,7 +56,12 @@ merge_metadata_json(
 
   Optional path to `metadata/measurement_type.csv`. When supplied,
   populates the `measurement_types` block with one entry per canonical
-  type.
+  type: `description`, `units`, `is_canonical`, `datasets`, the value
+  range (`valid_min`/`valid_max`), the depth range over which the type
+  is defined (`valid_depth_min_m`/`valid_depth_max_m`) and the free-text
+  `derivation`. Every optional field is omitted when the registry cell
+  is empty — an emitted `null` would read as an assertion ("no upper
+  bound") rather than an absence.
 
 - dataset_csv:
 

@@ -611,6 +611,13 @@ check for other functions or datasets not captured by above categories
 - [`qc_upload_con()`](https://calcofi.io/calcofi4db/reference/qc_upload_con.md)
   : A connection an uploaded cast can be QC'd on
 
+- [`question_statuses()`](https://calcofi.io/calcofi4db/reference/question_statuses.md)
+  [`question_priorities()`](https://calcofi.io/calcofi4db/reference/question_statuses.md)
+  : The controlled vocabulary of the question registry
+
+- [`questions_datatable()`](https://calcofi.io/calcofi4db/reference/questions_datatable.md)
+  : Render a question registry as the standard notebook table
+
 - [`read_ctd_upload()`](https://calcofi.io/calcofi4db/reference/read_ctd_upload.md)
   : Read any supported CTD upload
 
@@ -618,6 +625,11 @@ check for other functions or datasets not captured by above categories
   :
 
   Read `metadata/measurement_type.csv`, refusing a corrupted registry
+
+- [`read_questions()`](https://calcofi.io/calcofi4db/reference/read_questions.md)
+  :
+
+  Read a dataset's `questions.csv`, validated and ranked
 
 - [`read_sbe_asc()`](https://calcofi.io/calcofi4db/reference/read_sbe_asc.md)
   :

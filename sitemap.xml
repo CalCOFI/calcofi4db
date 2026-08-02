@@ -155,6 +155,8 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/qc_summarize.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/qc_upload_con.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/query_at_time.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/question_statuses.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/questions_datatable.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_calcofi_meta.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_csv_files.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_csv_metadata.html</loc></url>
@@ -165,6 +167,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/read_input_fingerprint.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_measurement_type.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_parquet_table.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/read_questions.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_relationships_json.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_sbe_asc.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_sbe_btl.html</loc></url>

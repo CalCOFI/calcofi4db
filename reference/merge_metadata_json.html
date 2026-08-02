@@ -27,7 +27,7 @@ relationships.json in a frozen release directory.'><!-- Google tag (gtag.js) -->
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.3.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -116,7 +116,13 @@ columns.</p></dd>
 <dt id="arg-measurement-type-csv">measurement_type_csv<a class="anchor" aria-label="anchor" href="#arg-measurement-type-csv"></a></dt>
 <dd><p>Optional path to
 <code>metadata/measurement_type.csv</code>. When supplied, populates the
-<code>measurement_types</code> block with one entry per canonical type.</p></dd>
+<code>measurement_types</code> block with one entry per canonical type:
+<code>description</code>, <code>units</code>, <code>is_canonical</code>, <code>datasets</code>, the
+value range (<code>valid_min</code>/<code>valid_max</code>), the depth range over which
+the type is defined (<code>valid_depth_min_m</code>/<code>valid_depth_max_m</code>) and
+the free-text <code>derivation</code>. Every optional field is omitted when the
+registry cell is empty — an emitted <code>null</code> would read as an assertion
+("no upper bound") rather than an absence.</p></dd>
 
 
 <dt id="arg-dataset-csv">dataset_csv<a class="anchor" aria-label="anchor" href="#arg-dataset-csv"></a></dt>
