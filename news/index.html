@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.4.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -45,6 +45,16 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.4.1" id="calcofi4db-341">calcofi4db 3.4.1<a class="anchor" aria-label="anchor" href="#calcofi4db-341"></a></h2>
+<div class="section level3">
+<h3 id="flag_invalid_rows-no-longer-rewrites-a-file-that-did-not-change-3-4-1">
+<code>flag_invalid_rows()</code> no longer rewrites a file that did not change<a class="anchor" aria-label="anchor" href="#flag_invalid_rows-no-longer-rewrites-a-file-that-did-not-change-3-4-1"></a></h3>
+<p>Flagged-row CSVs are committed and reviewed in diffs, but <code>_ingested_at</code> is stamped per row at read time, so re-running an ingest over unchanged source data rewrote every row with a new timestamp. <code>data/flagged/invalid_egg_stages.csv</code> churned the same 790 rows on every run — noise that hides the diff that would matter.</p>
+<p>The write is now skipped when the new rows match the file on disk apart from <code>volatile_cols</code> (default <code>"_ingested_at"</code>; pass <code><a href="https://rdrr.io/r/base/character.html" class="external-link">character()</a></code> to force a rewrite). The comparison is done on <strong>character</strong> values on both sides: the on-disk copy has been through a CSV round trip and the in-memory tibble has not, so a typed comparison would see integer <code>1</code> against the string <code>"1"</code> and rewrite forever. Column order is normalised too. <code>append = TRUE</code> never takes the skip path — it is additive by definition.</p>
+<p>Also writes with <code>na = ""</code>, for the reason the metadata registries do: DuckDB’s <code>read_csv_auto</code> does not treat <code>"NA"</code> as NULL, so readr’s default would ship a literal two-character value to anything reading these files.</p>
+</div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="3.4.0" id="calcofi4db-340">calcofi4db 3.4.0<a class="anchor" aria-label="anchor" href="#calcofi4db-340"></a></h2>
 <div class="section level3">

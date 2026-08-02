@@ -1,5 +1,30 @@
 # Changelog
 
+## calcofi4db 3.4.1
+
+### `flag_invalid_rows()` no longer rewrites a file that did not change
+
+Flagged-row CSVs are committed and reviewed in diffs, but `_ingested_at`
+is stamped per row at read time, so re-running an ingest over unchanged
+source data rewrote every row with a new timestamp.
+`data/flagged/invalid_egg_stages.csv` churned the same 790 rows on every
+run — noise that hides the diff that would matter.
+
+The write is now skipped when the new rows match the file on disk apart
+from `volatile_cols` (default `"_ingested_at"`; pass
+[`character()`](https://rdrr.io/r/base/character.html) to force a
+rewrite). The comparison is done on **character** values on both sides:
+the on-disk copy has been through a CSV round trip and the in-memory
+tibble has not, so a typed comparison would see integer `1` against the
+string `"1"` and rewrite forever. Column order is normalised too.
+`append = TRUE` never takes the skip path — it is additive by
+definition.
+
+Also writes with `na = ""`, for the reason the metadata registries do:
+DuckDB’s `read_csv_auto` does not treat `"NA"` as NULL, so readr’s
+default would ship a literal two-character value to anything reading
+these files.
+
 ## calcofi4db 3.4.0
 
 ### `data_stage` on core `sample` — optional, trailing, opt-in
