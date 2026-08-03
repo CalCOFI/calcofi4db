@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.4.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.4.3</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -45,6 +45,16 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.4.3" id="calcofi4db-343">calcofi4db 3.4.3<a class="anchor" aria-label="anchor" href="#calcofi4db-343"></a></h2>
+<div class="section level3">
+<h3 id="append_sample-tags-geometry-epsg4326-3-4-3">
+<code>append_sample()</code> tags geometry EPSG:4326<a class="anchor" aria-label="anchor" href="#append_sample-tags-geometry-epsg4326-3-4-3"></a></h3>
+<p><code>ST_Point()</code> alone tags <code>OGC:CRS84</code>, while <code>ST_Read()</code> over GeoJSON — which is how <code>ingest_spatial.qmd</code> builds the polygon layers — tags <code>EPSG:4326</code>. Both label the same WGS 84 lon/lat coordinates, but <strong>DuckDB refuses <code>ST_Intersects</code> across differing CRS tags</strong>, so joining <code>sample</code> to <code>spatial</code> errored outright rather than returning a wrong answer.</p>
+<p><code>ST_SetCRS</code> relabels without transforming; nothing is reprojected. EPSG:4326 is the conventional label, is what <code>calcofi4r::cc_tbl()</code> assigns to consumers, and is what the ingests already document.</p>
+<p><code>release_database.qmd</code> additionally normalises <strong>every</strong> geometry column to EPSG:4326 immediately before the freeze, so the guarantee holds for the release without re-running all 16 ingests, and a future ingest minting geometry a third way cannot reintroduce the mismatch.</p>
+</div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="3.4.2" id="calcofi4db-342">calcofi4db 3.4.2<a class="anchor" aria-label="anchor" href="#calcofi4db-342"></a></h2>
 <div class="section level3">
