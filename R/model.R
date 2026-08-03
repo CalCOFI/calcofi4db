@@ -294,17 +294,46 @@ append_sample <- function(con, select_sql, sample_tbl = "sample") {
   stage_sel <- if (has_stage) "data_stage" else "NULL::VARCHAR AS data_stage"
   src_alias <- paste(src_cols, collapse = ", ")
 
+  # NaN/Inf coordinates are normalised to NULL before anything is minted from
+  # them. `NaN` is not `NULL`: it survives an IS NOT NULL check, so it passed
+  # validation and reached the release, where ST_Point(NaN, NaN) produced a real
+  # non-NULL GEOMETRY — meaning `WHERE geom IS NOT NULL` did not filter it either,
+  # and any consumer doing a spatial join silently carried a point that is
+  # nowhere. It also poisons aggregates: one NaN makes MAX(longitude) NaN for the
+  # whole column, which is how this was found. v2026.08.02 shipped 1,590 such rows
+  # (swfsc_cufes 1,583, calcofi_mets 7), all sample_type = 'underway'.
+  #
+  # Normalising here rather than in each ingest fixes every dataset at once and
+  # puts the guard where the geometry is created. It is reported, not silent — a
+  # coordinate quietly becoming NULL is its own kind of surprise.
+  n_bad <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT COUNT(*) AS n FROM ( {select_sql} ) AS src({src_alias})
+      WHERE isnan(latitude) OR isnan(longitude)
+         OR isinf(latitude) OR isinf(longitude)"))$n
+  if (n_bad > 0)
+    message(glue::glue(
+      "append_sample(): {n_bad} row(s) had a non-finite coordinate ",
+      "(NaN/Inf) — normalised to NULL, so no geometry is minted for them"))
+
   DBI::dbExecute(con, glue::glue(
     "INSERT INTO {sample_tbl}
        (sample_key, sample_type, parent_sample_key, root_sample_key,
         dataset_key, grid_key, site_key, cruise_key, order_occ, latitude, longitude, datetime,
         depth_min_m, depth_max_m, tow_type, data_stage, geom)
+     WITH src AS (SELECT * FROM ( {select_sql} ) AS s({src_alias})),
+          fin AS (
+            SELECT * REPLACE (
+              CASE WHEN isnan(latitude)  OR isinf(latitude)  THEN NULL
+                   ELSE latitude  END AS latitude,
+              CASE WHEN isnan(longitude) OR isinf(longitude) THEN NULL
+                   ELSE longitude END AS longitude)
+            FROM src)
      SELECT sample_key, sample_type, parent_sample_key, root_sample_key,
             dataset_key, grid_key, site_key, cruise_key, order_occ, latitude, longitude, datetime,
             depth_min_m, depth_max_m, tow_type, {stage_sel},
             CASE WHEN latitude IS NULL OR longitude IS NULL THEN NULL
                  ELSE ST_Point(longitude, latitude) END AS geom
-     FROM ( {select_sql} ) AS src({src_alias})"))
+     FROM fin"))
   invisible(DBI::dbGetQuery(
     con, glue::glue("SELECT COUNT(*) AS n FROM {sample_tbl}"))$n)
 }

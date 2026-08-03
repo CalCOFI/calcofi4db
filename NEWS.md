@@ -1,3 +1,22 @@
+# calcofi4db 3.4.2
+
+## `append_sample()` normalises non-finite coordinates
+
+`NaN` is not `NULL`, and that difference shipped. A `NaN` latitude survives an
+`IS NOT NULL` check, so it passed validation and reached release v2026.08.02 —
+**1,590 rows** (`swfsc_cufes` 1,583, `calcofi_mets` 7, all `sample_type =
+'underway'`). Worse, `ST_Point(NaN, NaN)` produces a real, non-NULL `GEOMETRY`,
+so `WHERE geom IS NOT NULL` did not filter it either: any consumer doing a
+spatial join silently carried a point that is nowhere. It also poisons
+aggregates — a single `NaN` makes `MAX(longitude)` `NaN` for the entire column,
+which is how it was found.
+
+`NaN`/`Inf` latitude and longitude are now normalised to `NULL` before the
+geometry is minted, so no geometry is created for them. Done here rather than in
+each ingest because it fixes every dataset at once and belongs where the geometry
+is created. Reported with a count rather than silent — a coordinate quietly
+becoming `NULL` is its own kind of surprise.
+
 # calcofi4db 3.4.1
 
 ## `flag_invalid_rows()` no longer rewrites a file that did not change

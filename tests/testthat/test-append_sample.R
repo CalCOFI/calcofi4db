@@ -126,3 +126,38 @@ test_that("sample_arm_self qualifies caller-supplied column expressions", {
   expect_match(sample_arm_self("d", "t", "i", "tow", ord_expr = "CAST(order_occ AS INTEGER)"),
                "CAST\\(order_occ AS INTEGER\\) AS order_occ", fixed = FALSE)
 })
+
+test_that("a non-finite coordinate becomes NULL and mints no geometry", {
+  # NaN is not NULL: it survives IS NOT NULL, so it passed validation and reached
+  # release v2026.08.02 — 1,590 rows — where ST_Point(NaN, NaN) produced a real
+  # non-NULL GEOMETRY, so `WHERE geom IS NOT NULL` did not filter it either.
+  con <- new_ichthyo_fixture()
+  on.exit(close_duckdb(con))
+
+  arm <- "
+    SELECT 'd:underway:X1', 'underway', NULL::VARCHAR, 'd:underway:X1', 'd',
+           NULL::VARCHAR, NULL::VARCHAR, 'c', NULL::INTEGER,
+           'nan'::DOUBLE, 'nan'::DOUBLE, NULL::TIMESTAMP,
+           NULL::DOUBLE, NULL::DOUBLE, NULL::VARCHAR
+    UNION ALL
+    SELECT 'd:underway:X2', 'underway', NULL::VARCHAR, 'd:underway:X2', 'd',
+           NULL::VARCHAR, NULL::VARCHAR, 'c', NULL::INTEGER,
+           32.0, -120.0, NULL::TIMESTAMP,
+           NULL::DOUBLE, NULL::DOUBLE, NULL::VARCHAR"
+  expect_message(append_sample(con, arm), "non-finite coordinate")
+
+  d <- DBI::dbGetQuery(con,
+    "SELECT sample_key, latitude, longitude, geom IS NULL AS geom_null
+       FROM sample WHERE dataset_key = 'd' ORDER BY sample_key")
+  # the NaN row: coordinates NULL, and crucially NO geometry
+  expect_true(is.na(d$latitude[1]))
+  expect_true(is.na(d$longitude[1]))
+  expect_true(d$geom_null[1])
+  # the good row is untouched
+  expect_equal(d$latitude[2], 32.0)
+  expect_false(d$geom_null[2])
+
+  # and the whole column is usable again — one NaN used to make MAX() NaN
+  expect_equal(DBI::dbGetQuery(con,
+    "SELECT MAX(longitude) m FROM sample WHERE dataset_key = 'd'")$m, -120.0)
+})
