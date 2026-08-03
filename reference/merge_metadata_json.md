@@ -44,7 +44,7 @@ merge_metadata_json(
   Optional path to a CSV with columns
   `table, name_long, description_md, provider, dataset` describing
   tables built inside `release_database.qmd` that have no per-ingest
-  metadata.json (e.g. `cruise_summary`, `_spatial`).
+  metadata.json (e.g. `cruise_summary`, `spatial`).
 
 - release_columns_csv:
 

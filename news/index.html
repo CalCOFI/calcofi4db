@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.4.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.4.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -45,6 +45,15 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.4.2" id="calcofi4db-342">calcofi4db 3.4.2<a class="anchor" aria-label="anchor" href="#calcofi4db-342"></a></h2>
+<div class="section level3">
+<h3 id="append_sample-normalises-non-finite-coordinates-3-4-2">
+<code>append_sample()</code> normalises non-finite coordinates<a class="anchor" aria-label="anchor" href="#append_sample-normalises-non-finite-coordinates-3-4-2"></a></h3>
+<p><code>NaN</code> is not <code>NULL</code>, and that difference shipped. A <code>NaN</code> latitude survives an <code>IS NOT NULL</code> check, so it passed validation and reached release v2026.08.02 — <strong>1,590 rows</strong> (<code>swfsc_cufes</code> 1,583, <code>calcofi_mets</code> 7, all <code>sample_type = 'underway'</code>). Worse, <code>ST_Point(NaN, NaN)</code> produces a real, non-NULL <code>GEOMETRY</code>, so <code>WHERE geom IS NOT NULL</code> did not filter it either: any consumer doing a spatial join silently carried a point that is nowhere. It also poisons aggregates — a single <code>NaN</code> makes <code>MAX(longitude)</code> <code>NaN</code> for the entire column, which is how it was found.</p>
+<p><code>NaN</code>/<code>Inf</code> latitude and longitude are now normalised to <code>NULL</code> before the geometry is minted, so no geometry is created for them. Done here rather than in each ingest because it fixes every dataset at once and belongs where the geometry is created. Reported with a count rather than silent — a coordinate quietly becoming <code>NULL</code> is its own kind of surprise.</p>
+</div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="3.4.1" id="calcofi4db-341">calcofi4db 3.4.1<a class="anchor" aria-label="anchor" href="#calcofi4db-341"></a></h2>
 <div class="section level3">
