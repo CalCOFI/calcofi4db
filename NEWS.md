@@ -1,3 +1,22 @@
+# calcofi4db 3.4.3
+
+## `append_sample()` tags geometry EPSG:4326
+
+`ST_Point()` alone tags `OGC:CRS84`, while `ST_Read()` over GeoJSON — which is
+how `ingest_spatial.qmd` builds the polygon layers — tags `EPSG:4326`. Both label
+the same WGS 84 lon/lat coordinates, but **DuckDB refuses `ST_Intersects` across
+differing CRS tags**, so joining `sample` to `spatial` errored outright rather
+than returning a wrong answer.
+
+`ST_SetCRS` relabels without transforming; nothing is reprojected. EPSG:4326 is
+the conventional label, is what `calcofi4r::cc_tbl()` assigns to consumers, and
+is what the ingests already document.
+
+`release_database.qmd` additionally normalises **every** geometry column to
+EPSG:4326 immediately before the freeze, so the guarantee holds for the release
+without re-running all 16 ingests, and a future ingest minting geometry a third
+way cannot reintroduce the mismatch.
+
 # calcofi4db 3.4.2
 
 ## `append_sample()` normalises non-finite coordinates

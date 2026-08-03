@@ -331,8 +331,14 @@ append_sample <- function(con, select_sql, sample_tbl = "sample") {
      SELECT sample_key, sample_type, parent_sample_key, root_sample_key,
             dataset_key, grid_key, site_key, cruise_key, order_occ, latitude, longitude, datetime,
             depth_min_m, depth_max_m, tow_type, {stage_sel},
+            -- EPSG:4326 explicitly. ST_Point() alone tags OGC:CRS84, while
+            -- ST_Read() over GeoJSON (ingest_spatial) tags EPSG:4326 — the same
+            -- WGS 84 lon/lat under two labels. DuckDB refuses ST_Intersects
+            -- across differing CRS tags, so a sample-to-polygon join errored
+            -- outright. ST_SetCRS relabels without transforming.
             CASE WHEN latitude IS NULL OR longitude IS NULL THEN NULL
-                 ELSE ST_Point(longitude, latitude) END AS geom
+                 ELSE ST_SetCRS(ST_Point(longitude, latitude), 'EPSG:4326')
+                 END AS geom
      FROM fin"))
   invisible(DBI::dbGetQuery(
     con, glue::glue("SELECT COUNT(*) AS n FROM {sample_tbl}"))$n)
