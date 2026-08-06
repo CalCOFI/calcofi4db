@@ -1,3 +1,22 @@
+# calcofi4db 3.9.1
+
+## sync_to_gcs() no longer dies on its own sidecar guard
+
+3.9.0 added an `--exclude ^<name>$` per sidecar so that
+`--delete-unmatched-destination-objects` could not delete a release's schema
+record. The escape it built that pattern with used R's default TRE engine, which
+reads the `{}` inside the character class as an interval quantifier and rejects
+the whole pattern: **every** ingest aborted at the upload step with "invalid
+regular expression ... reason 'Invalid contents of {}'" — after an hour or more
+of successful work, with parquet already written.
+
+The escape is now `re_escape()`, an internal helper using `perl = TRUE`, where
+`{`, `}`, `[` and `]` are literal inside a character class. Reordering the class
+so `]` comes first — the usual TRE workaround — does not help; TRE then reads
+`[][` as a collating element and fails differently. Regression-tested in
+`test-cloud.R`, including an assertion that the old TRE form still errors, so the
+test cannot quietly become vacuous.
+
 # calcofi4db 3.9.0
 
 ## Coverage is measured, not asserted

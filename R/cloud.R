@@ -1,5 +1,27 @@
 # google cloud storage operations for calcofi data workflow
 
+#' Escape regex metacharacters in a literal string
+#'
+#' `perl = TRUE` is load-bearing, not stylistic. R's default TRE engine reads the
+#' `{}` inside this character class as an interval quantifier and refuses the
+#' whole pattern with "Invalid regular expression, reason 'Invalid contents of
+#' {}'". That is not a corner case: it aborted `sync_to_gcs()` for every ingest
+#' the moment the sidecar-exclusion guard was added in 3.9.0, after an hour of
+#' successful work, at the upload step.
+#'
+#' Reordering the class so `]` comes first (the usual TRE workaround) does not
+#' help either — TRE then reads `[][` as a collating element and fails
+#' differently. PCRE treats every one of these as a literal inside a class.
+#'
+#' @param x Character vector to escape
+#' @return `x` with regex metacharacters backslash-escaped
+#' @keywords internal
+#' @concept cloud
+#' @noRd
+re_escape <- function(x) {
+  gsub("([.\\\\+*?\\[\\]^$(){}|])", "\\\\\\1", x, perl = TRUE)
+}
+
 #' Get a file from Google Cloud Storage
 #'
 #' Downloads a file from GCS to a local path, using googleCloudStorageR
@@ -281,8 +303,7 @@ sync_to_gcs <- function(
     # entire schema record on every sync. Exempt them by name.
     if (isTRUE(delete_stale) && length(sidecar_files))
       for (b in basename(sidecar_files))
-        args <- c(args, "--exclude",
-                  paste0("^", gsub("([.\\\\+*?\\[\\]^$(){}|])", "\\\\\\1", b), "$"))
+        args <- c(args, "--exclude", paste0("^", re_escape(b), "$"))
     dest <- glue::glue("gs://{bucket}/{gcs_prefix}")
     if (verbose) message(glue::glue("rsync {local_dir} -> {dest}"))
     out <- system2(gcloud, c(args, shQuote(local_dir), shQuote(dest)),
