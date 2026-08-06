@@ -9,6 +9,7 @@ strips provenance columns for public releases.
 write_parquet_outputs(
   con,
   output_dir,
+  parquet_dir = NULL,
   tables = NULL,
   partition_by = NULL,
   sort_by = NULL,
@@ -28,7 +29,21 @@ write_parquet_outputs(
 
 - output_dir:
 
-  Directory for parquet files
+  Directory for the JSON sidecars (`manifest.json`, and alongside it the
+  `metadata.json` / `relationships.json` written by
+  [`build_metadata_json()`](https://calcofi.io/calcofi4db/reference/build_metadata_json.md)
+  / `write_relationships_json()`). Small, diffable, and kept **in the
+  repo** so the schema record is reviewable and versioned.
+
+- parquet_dir:
+
+  Directory for the parquet files themselves. Defaults to
+  `cc_stage_path("parquet", basename(output_dir))` — outside the repo
+  (see
+  [`cc_stage_dir()`](https://calcofi.io/calcofi4db/reference/cc_stage_dir.md)),
+  because the bytes are bulk, are rewritten wholesale on every run, and
+  are already published to GCS. Pass `output_dir` explicitly to put them
+  back beside the sidecars.
 
 - tables:
 

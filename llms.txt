@@ -272,6 +272,10 @@ MIT
 
 functions for Google Cloud Storage operations
 
+- [`cc_stage_dir()`](https://calcofi.io/calcofi4db/reference/cc_stage_dir.md)
+  : Local Staging Root for Bulk Data
+- [`cc_stage_path()`](https://calcofi.io/calcofi4db/reference/cc_stage_path.md)
+  : Path Within the Local Staging Root
 - [`cleanup_gcs_obsolete()`](https://calcofi.io/calcofi4db/reference/cleanup_gcs_obsolete.md)
   : Clean up obsolete GCS directories from dataset renames
 - [`copy_gcs_file()`](https://calcofi.io/calcofi4db/reference/copy_gcs_file.md)
@@ -417,6 +421,9 @@ functions for data validation and integrity checking
   : Check Data Integrity for Ingestion
 - [`check_multiple_datasets()`](https://calcofi.io/calcofi4db/reference/check_multiple_datasets.md)
   : Check Multiple Datasets for Integrity
+- [`check_taxon_ids()`](https://calcofi.io/calcofi4db/reference/check_taxon_ids.md)
+  : The taxa that no authority resolved, per dataset — reported, and
+  gated
 - [`render_integrity_message()`](https://calcofi.io/calcofi4db/reference/render_integrity_message.md)
   : Render Data Integrity Check Message
 
@@ -721,6 +728,9 @@ check for other functions or datasets not captured by above categories
 - [`check_registry_na_strings()`](https://calcofi.io/calcofi4db/reference/check_registry_na_strings.md)
   : Reject sentinel strings that should have been empty cells
 
+- [`clean_taxon_name()`](https://calcofi.io/calcofi4db/reference/clean_taxon_name.md)
+  : Normalize a source taxon name for an authority lookup
+
 - [`compat_event_sql()`](https://calcofi.io/calcofi4db/reference/compat_event_sql.md)
   :
 
@@ -771,17 +781,34 @@ check for other functions or datasets not captured by above categories
   [`build_taxon_reference()`](https://calcofi.io/calcofi4db/reference/build_taxon_reference.md)
   reads
 
+- [`ensure_taxon_xref()`](https://calcofi.io/calcofi4db/reference/ensure_taxon_xref.md)
+  :
+
+  Materialize the authority cross-reference `.taxon_norm_sources()`
+  reads
+
 - [`fetch_ship_ices()`](https://calcofi.io/calcofi4db/reference/fetch_ship_ices.md)
   : Fetch Ship Codes from ICES Reference Codes API
 
 - [`fetch_taxon_lineage()`](https://calcofi.io/calcofi4db/reference/fetch_taxon_lineage.md)
   : Fetch (and cache) the WoRMS/ITIS lineage for a set of taxon ids
 
+- [`fetch_taxon_xref()`](https://calcofi.io/calcofi4db/reference/fetch_taxon_xref.md)
+  : Fetch (and cache) the WoRMS \<-\> ITIS cross-reference for a set of
+  taxa
+
+- [`format_bbox()`](https://calcofi.io/calcofi4db/reference/format_bbox.md)
+  : Format a Bounding Box as a Human-Readable Extent
+
 - [`load_gcs_parquet_to_duckdb()`](https://calcofi.io/calcofi4db/reference/load_gcs_parquet_to_duckdb.md)
   : Load a GCS Parquet File into DuckDB
 
 - [`match_by_site_datetime()`](https://calcofi.io/calcofi4db/reference/match_by_site_datetime.md)
   : Match Records to a Reference Table by Key + Datetime Window
+
+- [`match_cruise_by_track()`](https://calcofi.io/calcofi4db/reference/match_cruise_by_track.md)
+  : Match Records to a Cruise by Space-Time Proximity to an
+  Occupied-Station Track
 
 - [`match_nearest_by_depth()`](https://calcofi.io/calcofi4db/reference/match_nearest_by_depth.md)
   : Match Records to the Nearest Reference Row Along a Continuous Axis
@@ -828,6 +855,9 @@ check for other functions or datasets not captured by above categories
   :
 
   SQL that widens long `obs` rows into one column per measurement type
+
+- [`observed_coverage()`](https://calcofi.io/calcofi4db/reference/observed_coverage.md)
+  : Measure Observed Temporal and Spatial Coverage per Dataset
 
 - [`plan_dataset_netcdf()`](https://calcofi.io/calcofi4db/reference/plan_dataset_netcdf.md)
   : Plan the netCDF shape for a dataset
@@ -944,6 +974,11 @@ check for other functions or datasets not captured by above categories
 
 - [`supplemental_core_tables()`](https://calcofi.io/calcofi4db/reference/supplemental_core_tables.md)
   : Supplemental full-resolution tables declared by the ingests
+
+- [`taxa_rank_reference()`](https://calcofi.io/calcofi4db/reference/taxa_rank_reference.md)
+  :
+
+  The canonical taxonomic rank ordering (`taxa_rank`)
 
 - [`taxon_key_of()`](https://calcofi.io/calcofi4db/reference/taxon_key_of.md)
   :

@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.4.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.9.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -55,6 +55,20 @@
 
 
       <dl><dt>
+
+          <code><a href="cc_stage_dir.html">cc_stage_dir()</a></code>
+
+        </dt>
+        <dd>Local Staging Root for Bulk Data</dd>
+
+        <dt>
+
+          <code><a href="cc_stage_path.html">cc_stage_path()</a></code>
+
+        </dt>
+        <dd>Path Within the Local Staging Root</dd>
+
+        <dt>
 
           <code><a href="cleanup_gcs_obsolete.html">cleanup_gcs_obsolete()</a></code>
 
@@ -494,6 +508,13 @@
 
         </dt>
         <dd>Check Multiple Datasets for Integrity</dd>
+
+        <dt>
+
+          <code><a href="check_taxon_ids.html">check_taxon_ids()</a></code>
+
+        </dt>
+        <dd>The taxa that no authority resolved, per dataset — reported, and gated</dd>
 
         <dt>
 
@@ -1226,6 +1247,13 @@
 
         <dt>
 
+          <code><a href="clean_taxon_name.html">clean_taxon_name()</a></code>
+
+        </dt>
+        <dd>Normalize a source taxon name for an authority lookup</dd>
+
+        <dt>
+
           <code><a href="compat_event_sql.html">compat_event_sql()</a></code>
 
         </dt>
@@ -1310,6 +1338,13 @@
 
         <dt>
 
+          <code><a href="ensure_taxon_xref.html">ensure_taxon_xref()</a></code>
+
+        </dt>
+        <dd>Materialize the authority cross-reference <code>.taxon_norm_sources()</code> reads</dd>
+
+        <dt>
+
           <code><a href="fetch_ship_ices.html">fetch_ship_ices()</a></code>
 
         </dt>
@@ -1324,6 +1359,20 @@
 
         <dt>
 
+          <code><a href="fetch_taxon_xref.html">fetch_taxon_xref()</a></code>
+
+        </dt>
+        <dd>Fetch (and cache) the WoRMS &lt;-&gt; ITIS cross-reference for a set of taxa</dd>
+
+        <dt>
+
+          <code><a href="format_bbox.html">format_bbox()</a></code>
+
+        </dt>
+        <dd>Format a Bounding Box as a Human-Readable Extent</dd>
+
+        <dt>
+
           <code><a href="load_gcs_parquet_to_duckdb.html">load_gcs_parquet_to_duckdb()</a></code>
 
         </dt>
@@ -1335,6 +1384,13 @@
 
         </dt>
         <dd>Match Records to a Reference Table by Key + Datetime Window</dd>
+
+        <dt>
+
+          <code><a href="match_cruise_by_track.html">match_cruise_by_track()</a></code>
+
+        </dt>
+        <dd>Match Records to a Cruise by Space-Time Proximity to an Occupied-Station Track</dd>
 
         <dt>
 
@@ -1419,6 +1475,13 @@
 
         </dt>
         <dd>SQL that widens long <code>obs</code> rows into one column per measurement type</dd>
+
+        <dt>
+
+          <code><a href="observed_coverage.html">observed_coverage()</a></code>
+
+        </dt>
+        <dd>Measure Observed Temporal and Spatial Coverage per Dataset</dd>
 
         <dt>
 
@@ -1636,6 +1699,13 @@
 
         </dt>
         <dd>Supplemental full-resolution tables declared by the ingests</dd>
+
+        <dt>
+
+          <code><a href="taxa_rank_reference.html">taxa_rank_reference()</a></code>
+
+        </dt>
+        <dd>The canonical taxonomic rank ordering (<code>taxa_rank</code>)</dd>
 
         <dt>
 

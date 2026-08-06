@@ -9,7 +9,7 @@ transient DuckDB connection, and writes a manifest in the same format as
 ## Usage
 
 ``` r
-write_spatial_manifest(parquet_dir)
+write_spatial_manifest(parquet_dir, output_dir = parquet_dir)
 ```
 
 ## Arguments
@@ -17,6 +17,13 @@ write_spatial_manifest(parquet_dir)
 - parquet_dir:
 
   Directory containing `.parquet` files
+
+- output_dir:
+
+  Directory to write `manifest.json` into. Defaults to `parquet_dir`;
+  pass the repo-side sidecar directory when the bytes are staged outside
+  the repo (see
+  [`cc_stage_dir()`](https://calcofi.io/calcofi4db/reference/cc_stage_dir.md)).
 
 ## Value
 
@@ -26,6 +33,8 @@ Invisible path to the written `manifest.json`
 
 ``` r
 if (FALSE) { # \dontrun{
-write_spatial_manifest("data/parquet/spatial")
+write_spatial_manifest(
+  parquet_dir = cc_stage_path("parquet", "spatial"),
+  output_dir  = "data/parquet/spatial")
 } # }
 ```

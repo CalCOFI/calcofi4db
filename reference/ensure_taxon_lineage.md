@@ -17,7 +17,8 @@ ensure_taxon_lineage(
   tbl = "taxon",
   refresh = FALSE,
   sleep = 0.3,
-  verbose = TRUE
+  verbose = TRUE,
+  xref_cache_csv = .xref_csv_beside(cache_csv)
 )
 ```
 
@@ -57,6 +58,17 @@ ensure_taxon_lineage(
 - verbose:
 
   logical; report what was cached vs fetched
+
+- xref_cache_csv:
+
+  path to the cross-reference cache
+  ([`fetch_taxon_xref()`](https://calcofi.io/calcofi4db/reference/fetch_taxon_xref.md)),
+  used to top up `_taxon_xref` for the lineage ANCESTORS discovered here
+  —
+  [`ensure_taxon_xref()`](https://calcofi.io/calcofi4db/reference/ensure_taxon_xref.md)
+  runs first and can only see the dataset's own vocabulary. Defaults to
+  `taxon_xref.csv` sitting beside `cache_csv`, which is the layout every
+  ingest uses; `NULL` skips it.
 
 ## Value
 

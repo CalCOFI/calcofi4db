@@ -18,6 +18,7 @@ sync_to_gcs(
   provider = NULL,
   dataset = NULL,
   parallel = TRUE,
+  sidecar_dir = NULL,
   verbose = TRUE
 )
 ```
@@ -79,6 +80,16 @@ sync_to_gcs(
   clock in process startup. Set FALSE for the per-file path when you
   need the detailed per-file action tibble or crc32c-level skip
   reporting.
+
+- sidecar_dir:
+
+  Optional second local directory whose files mirror to the **same**
+  `gcs_prefix`. An ingest's output is split across two roots — bulk
+  parquet under
+  [`cc_stage_dir()`](https://calcofi.io/calcofi4db/reference/cc_stage_dir.md),
+  the JSON sidecars in the repo — but it is one directory as far as GCS
+  and every consumer are concerned. Sidecars are copied after the main
+  sync, and are protected from `delete_stale` (see Details).
 
 - verbose:
 

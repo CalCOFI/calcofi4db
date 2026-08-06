@@ -8,7 +8,7 @@ Find the per-dataset parquet shards for a core table
 core_shard_paths(
   table,
   root = ".",
-  parquet_dir = "data/parquet",
+  parquet_dir = cc_stage_path("parquet"),
   exclude = release_excluded_datasets(root)
 )
 ```
@@ -25,7 +25,12 @@ core_shard_paths(
 
 - parquet_dir:
 
-  directory holding the per-dataset output dirs
+  directory holding the per-dataset output dirs. Defaults to the local
+  staging root (see
+  [`cc_stage_dir()`](https://calcofi.io/calcofi4db/reference/cc_stage_dir.md)),
+  where the bulk parquet lives; an absolute path is used as-is, a
+  relative one is resolved against `root`. The JSON sidecars stay in the
+  repo and are found separately.
 
 - exclude:
 

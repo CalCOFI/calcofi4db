@@ -23,7 +23,7 @@ in the same format as write_parquet_outputs()."><!-- Google tag (gtag.js) --><sc
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.4.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.9.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -61,7 +61,7 @@ in the same format as <code><a href="write_parquet_outputs.html">write_parquet_o
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">write_spatial_manifest</span><span class="op">(</span><span class="va">parquet_dir</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">write_spatial_manifest</span><span class="op">(</span><span class="va">parquet_dir</span>, output_dir <span class="op">=</span> <span class="va">parquet_dir</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -70,6 +70,12 @@ in the same format as <code><a href="write_parquet_outputs.html">write_parquet_o
 
 <dl><dt id="arg-parquet-dir">parquet_dir<a class="anchor" aria-label="anchor" href="#arg-parquet-dir"></a></dt>
 <dd><p>Directory containing <code>.parquet</code> files</p></dd>
+
+
+<dt id="arg-output-dir">output_dir<a class="anchor" aria-label="anchor" href="#arg-output-dir"></a></dt>
+<dd><p>Directory to write <code>manifest.json</code> into. Defaults to
+<code>parquet_dir</code>; pass the repo-side sidecar directory when the bytes are
+staged outside the repo (see <code><a href="cc_stage_dir.html">cc_stage_dir()</a></code>).</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -80,7 +86,9 @@ in the same format as <code><a href="write_parquet_outputs.html">write_parquet_o
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="fu">write_spatial_manifest</span><span class="op">(</span><span class="st">"data/parquet/spatial"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu">write_spatial_manifest</span><span class="op">(</span></span></span>
+<span class="r-in"><span>  parquet_dir <span class="op">=</span> <span class="fu"><a href="cc_stage_path.html">cc_stage_path</a></span><span class="op">(</span><span class="st">"parquet"</span>, <span class="st">"spatial"</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>  output_dir  <span class="op">=</span> <span class="st">"data/parquet/spatial"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 </code></pre></div>
     </div>

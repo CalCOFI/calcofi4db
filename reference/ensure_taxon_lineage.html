@@ -23,7 +23,7 @@ writes it into con as the DwC-shaped taxon hierarchy table."><!-- Google tag (gt
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.4.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.9.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -69,7 +69,8 @@ writes it into <code>con</code> as the DwC-shaped <code>taxon</code> hierarchy t
 <span>  tbl <span class="op">=</span> <span class="st">"taxon"</span>,</span>
 <span>  refresh <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  sleep <span class="op">=</span> <span class="fl">0.3</span>,</span>
-<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  xref_cache_csv <span class="op">=</span> <span class="fu">.xref_csv_beside</span><span class="op">(</span><span class="va">cache_csv</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -110,6 +111,14 @@ already filtered to this dataset</p></dd>
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
 <dd><p>logical; report what was cached vs fetched</p></dd>
+
+
+<dt id="arg-xref-cache-csv">xref_cache_csv<a class="anchor" aria-label="anchor" href="#arg-xref-cache-csv"></a></dt>
+<dd><p>path to the cross-reference cache
+(<code><a href="fetch_taxon_xref.html">fetch_taxon_xref()</a></code>), used to top up <code>_taxon_xref</code> for the lineage
+ANCESTORS discovered here — <code><a href="ensure_taxon_xref.html">ensure_taxon_xref()</a></code> runs first and can only
+see the dataset's own vocabulary. Defaults to <code>taxon_xref.csv</code> sitting
+beside <code>cache_csv</code>, which is the layout every ingest uses; <code>NULL</code> skips it.</p></dd>
 
 </dl></div>
     <div class="section level2">
