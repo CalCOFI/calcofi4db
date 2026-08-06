@@ -167,6 +167,12 @@ copy_gcs_file <- function(src, dst) {
 #' }
 #'
 #' @param local_dir Directory containing files to upload
+#' @param sidecar_dir Optional second local directory whose files mirror to the
+#'   **same** `gcs_prefix`. An ingest's output is split across two roots — bulk
+#'   parquet under [cc_stage_dir()], the JSON sidecars in the repo — but it is
+#'   one directory as far as GCS and every consumer are concerned. Sidecars are
+#'   copied after the main sync, and are protected from `delete_stale` (see
+#'   Details).
 #' @param gcs_prefix GCS destination prefix (e.g. "ingest/swfsc_ichthyo"
 #'   or "archive" for archive mode)
 #' @param bucket GCS bucket name
@@ -237,7 +243,13 @@ sync_to_gcs <- function(
     provider     = NULL,
     dataset      = NULL,
     parallel     = TRUE,
+    sidecar_dir  = NULL,
     verbose      = TRUE) {
+
+  sidecar_files <- character()
+  if (!is.null(sidecar_dir) && dir.exists(sidecar_dir))
+    sidecar_files <- list.files(sidecar_dir, full.names = TRUE, recursive = TRUE)
+  sidecar_files <- sidecar_files[!file.info(sidecar_files)$isdir %in% TRUE]
 
   # archive mode: delegate to archive logic
   if (archive) {
@@ -263,6 +275,14 @@ sync_to_gcs <- function(
     if (isTRUE(delete_stale)) args <- c(args, "--delete-unmatched-destination-objects")
     for (pat in exclude %||% character())
       args <- c(args, "--exclude", utils::glob2rx(pat))
+    # the sidecars mirror to this same prefix but are NOT under local_dir, so an
+    # unguarded --delete-unmatched-destination-objects would see manifest.json /
+    # metadata.json / relationships.json as orphans and delete the release's
+    # entire schema record on every sync. Exempt them by name.
+    if (isTRUE(delete_stale) && length(sidecar_files))
+      for (b in basename(sidecar_files))
+        args <- c(args, "--exclude",
+                  paste0("^", gsub("([.\\\\+*?\\[\\]^$(){}|])", "\\\\\\1", b), "$"))
     dest <- glue::glue("gs://{bucket}/{gcs_prefix}")
     if (verbose) message(glue::glue("rsync {local_dir} -> {dest}"))
     out <- system2(gcloud, c(args, shQuote(local_dir), shQuote(dest)),
@@ -273,6 +293,22 @@ sync_to_gcs <- function(
                       "{paste(utils::tail(out, 20), collapse = '\n')}"))
     n_copy <- sum(grepl("^Copying", out))
     n_rm   <- sum(grepl("^Removing", out))
+    # sidecars: a handful of small JSON files, always overwritten. cp rather
+    # than a second rsync, which would need its own delete guard against the
+    # parquet it does not know about.
+    if (length(sidecar_files)) {
+      cp <- system2(gcloud, c("storage", "cp", shQuote(sidecar_files),
+                              shQuote(paste0(dest, "/"))),
+                    stdout = TRUE, stderr = TRUE)
+      rc_cp <- attr(cp, "status") %||% 0L
+      if (rc_cp != 0)
+        stop(glue::glue("gcloud storage cp of sidecars failed ({rc_cp}): ",
+                        "{paste(utils::tail(cp, 20), collapse = '\n')}"))
+      n_copy <- n_copy + length(sidecar_files)
+      if (verbose)
+        message(glue::glue("Copied {length(sidecar_files)} sidecar(s) from ",
+                           "{sidecar_dir}"))
+    }
     if (verbose)
       message(glue::glue("Sync complete: {n_copy} copied, {n_rm} removed (rsync)"))
     return(tibble::tibble(
@@ -301,7 +337,7 @@ sync_to_gcs <- function(
     local_files <- local_files[keep]
   }
 
-  if (length(local_files) == 0) {
+  if (length(local_files) == 0 && length(sidecar_files) == 0) {
     message("No local files found to sync.")
     return(tibble::tibble(
       file = character(), action = character(), size = numeric()))
@@ -315,6 +351,16 @@ sync_to_gcs <- function(
     name       = rel_paths,
     size       = file.size(local_files),
     local_path = local_files)
+
+  # fold in the sidecars from the second root. They must join the manifest
+  # BEFORE the stale sweep below compares it against GCS, or that sweep would
+  # treat them as objects with no local counterpart and delete them.
+  if (length(sidecar_files))
+    local_manifest <- rbind(local_manifest, tibble::tibble(
+      name       = sub(paste0("^", normalizePath(sidecar_dir, mustWork = FALSE), "/?"),
+                       "", normalizePath(sidecar_files, mustWork = FALSE)),
+      size       = file.size(sidecar_files),
+      local_path = sidecar_files))
 
   # get GCS manifest (includes crc32c, md5, size)
   gcs_manifest <- tryCatch(

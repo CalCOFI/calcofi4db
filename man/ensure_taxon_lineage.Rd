@@ -12,7 +12,8 @@ ensure_taxon_lineage(
   tbl = "taxon",
   refresh = FALSE,
   sleep = 0.3,
-  verbose = TRUE
+  verbose = TRUE,
+  xref_cache_csv = .xref_csv_beside(cache_csv)
 )
 }
 \arguments{
@@ -34,6 +35,12 @@ already filtered to this dataset}
 \item{sleep}{seconds between API calls (rate limit)}
 
 \item{verbose}{logical; report what was cached vs fetched}
+
+\item{xref_cache_csv}{path to the cross-reference cache
+(\code{\link[=fetch_taxon_xref]{fetch_taxon_xref()}}), used to top up \verb{_taxon_xref} for the lineage
+ANCESTORS discovered here — \code{\link[=ensure_taxon_xref]{ensure_taxon_xref()}} runs first and can only
+see the dataset's own vocabulary. Defaults to \code{taxon_xref.csv} sitting
+beside \code{cache_csv}, which is the layout every ingest uses; \code{NULL} skips it.}
 }
 \value{
 (invisibly) a list with \code{n_ids}, \code{n_rows} and \code{n_unresolved}

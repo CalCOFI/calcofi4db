@@ -1321,7 +1321,15 @@ enforce_column_types <- function(
 #' Optionally strips provenance columns for public releases.
 #'
 #' @param con DuckDB connection
-#' @param output_dir Directory for parquet files
+#' @param output_dir Directory for the JSON sidecars (`manifest.json`, and
+#'   alongside it the `metadata.json` / `relationships.json` written by
+#'   [build_metadata_json()] / [write_relationships_json()]). Small, diffable,
+#'   and kept **in the repo** so the schema record is reviewable and versioned.
+#' @param parquet_dir Directory for the parquet files themselves. Defaults to
+#'   `cc_stage_path("parquet", basename(output_dir))` — outside the repo (see
+#'   [cc_stage_dir()]), because the bytes are bulk, are rewritten wholesale on
+#'   every run, and are already published to GCS. Pass `output_dir` explicitly
+#'   to put them back beside the sidecars.
 #' @param tables Optional vector of table names to export. If NULL, exports all tables.
 #' @param partition_by Named list mapping table names to partition column(s),
 #'   e.g. `list(ctd_measurement = "cruise_key")`. Creates hive-partitioned
@@ -1365,6 +1373,7 @@ enforce_column_types <- function(
 write_parquet_outputs <- function(
     con,
     output_dir,
+    parquet_dir      = NULL,
     tables           = NULL,
     partition_by     = NULL,
     sort_by          = NULL,
@@ -1374,10 +1383,12 @@ write_parquet_outputs <- function(
     mismatches       = NULL,
     supplemental     = NULL) {
 
-  # ensure output directory exists
-  if (!dir.exists(output_dir)) {
-    dir.create(output_dir, recursive = TRUE)
-  }
+  # the bytes go to the staging root, the sidecars stay in the repo
+  if (is.null(parquet_dir))
+    parquet_dir <- cc_stage_path("parquet", basename(output_dir))
+
+  for (d in unique(c(output_dir, parquet_dir)))
+    if (!dir.exists(d)) dir.create(d, recursive = TRUE)
 
   # get table list
   if (is.null(tables)) {
@@ -1454,11 +1465,12 @@ write_parquet_outputs <- function(
     n_rows <- DBI::dbGetQuery(con, glue::glue(
       "SELECT COUNT(*) AS n FROM {tbl}"))$n
 
-    # determine output path
+    # determine output path (parquet lives in the staging root, not beside the
+    # sidecars)
     if (is_partitioned) {
-      output_path <- file.path(output_dir, tbl)
+      output_path <- file.path(parquet_dir, tbl)
     } else {
-      output_path <- file.path(output_dir, paste0(tbl, ".parquet"))
+      output_path <- file.path(parquet_dir, paste0(tbl, ".parquet"))
     }
 
     # content-hash dedup: reuse unchanged tables/partitions from the prior run
@@ -1613,7 +1625,12 @@ write_parquet_outputs <- function(
       table       = tbl,
       rows        = n_rows,
       file_size   = file_size,
-      path        = output_path,
+      # RELATIVE to parquet_dir, deliberately. manifest.json is committed, and
+      # an absolute path bakes one machine's home directory into the repo —
+      # it recorded /Users/<someone>/Github/... for as long as the file went
+      # untracked and nobody noticed. Where the bytes live is a property of the
+      # environment (CALCOFI_STAGE_DIR), not of the release.
+      path        = basename(output_path),
       partitioned = is_partitioned)
   })
 
@@ -3051,6 +3068,9 @@ collect_cruise_key_mismatches <- function(con, table) {
 #' in the same format as [write_parquet_outputs()].
 #'
 #' @param parquet_dir Directory containing `.parquet` files
+#' @param output_dir Directory to write `manifest.json` into. Defaults to
+#'   `parquet_dir`; pass the repo-side sidecar directory when the bytes are
+#'   staged outside the repo (see [cc_stage_dir()]).
 #'
 #' @return Invisible path to the written `manifest.json`
 #' @export
@@ -3058,14 +3078,16 @@ collect_cruise_key_mismatches <- function(con, table) {
 #'
 #' @examples
 #' \dontrun{
-#' write_spatial_manifest("data/parquet/spatial")
+#' write_spatial_manifest(
+#'   parquet_dir = cc_stage_path("parquet", "spatial"),
+#'   output_dir  = "data/parquet/spatial")
 #' }
 #' @importFrom DBI dbConnect dbDisconnect dbGetQuery
 #' @importFrom duckdb duckdb
 #' @importFrom tibble tibble
 #' @importFrom jsonlite write_json
 #' @importFrom glue glue
-write_spatial_manifest <- function(parquet_dir) {
+write_spatial_manifest <- function(parquet_dir, output_dir = parquet_dir) {
 
   pq_files <- list.files(parquet_dir, pattern = "\\.parquet$",
                           full.names = TRUE)
@@ -3086,7 +3108,9 @@ write_spatial_manifest <- function(parquet_dir) {
         "SELECT COUNT(*) AS n FROM read_parquet('{f}')"))$n
     }, numeric(1)),
     file_size = file.info(pq_files)$size,
-    path      = pq_files)
+    # relative, matching write_parquet_outputs(): the manifest is committed, so
+    # an absolute path would bake one machine's staging root into the repo
+    path      = basename(pq_files))
 
   manifest <- list(
     tables           = stats$table,
@@ -3096,7 +3120,8 @@ write_spatial_manifest <- function(parquet_dir) {
     partitioned      = character(0),
     files            = as.list(stats))
 
-  manifest_path <- file.path(parquet_dir, "manifest.json")
+  if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
+  manifest_path <- file.path(output_dir, "manifest.json")
   jsonlite::write_json(
     manifest, manifest_path,
     auto_unbox = TRUE, pretty = TRUE)

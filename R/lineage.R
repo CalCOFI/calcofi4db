@@ -24,6 +24,14 @@
 .lineage_cache_cols <- c("requested_id", "authority", "taxonID",
                          "parentNameUsageID", "scientificName", "taxonRank")
 
+# the xref cache lives beside the lineage cache in every ingest
+# (metadata/taxon_lineage.csv + metadata/taxon_xref.csv), so derive one from the
+# other rather than making all 10 notebooks pass a second path
+.xref_csv_beside <- function(cache_csv) {
+  if (is.null(cache_csv) || !nzchar(cache_csv)) return(NULL)
+  file.path(dirname(cache_csv), "taxon_xref.csv")
+}
+
 .empty_lineage <- function()
   data.frame(requested_id = integer(), authority = character(),
              taxonID = integer(), parentNameUsageID = integer(),
@@ -61,21 +69,43 @@
 }
 
 # the ITIS equivalent, for taxa keyed itis: (seabirds — see taxon_key_of())
+#
+# ITIS returns NO classification for a TSN it has deprecated, and the empty
+# result is indistinguishable from "no such taxon". That is how 28 Farallon
+# birds reached the release with no rank, no parent and no classification at
+# all: their source TSNs (Puffinus griseus 174553, Sterna caspia 176924,
+# Phalacrocorax penicillatus 174724, …) are all invalid, each with an
+# acceptedTSN ITIS was never asked for. Resolve to the accepted TSN and retry
+# before giving up — and record the chain under the id that was REQUESTED, so
+# the cache and `_taxon_lineage_flat` still join on what the caller asked about.
 .fetch_itis_chain <- function(tsn, sleep = 0.3) {
   if (!requireNamespace("taxize", quietly = TRUE)) return(NULL)
-  out <- tryCatch({
-    cl <- taxize::classification(tsn, db = "itis", messages = FALSE)[[1]]
-    if (is.null(cl) || !is.data.frame(cl) || !nrow(cl)) NULL else data.frame(
-      requested_id      = as.integer(tsn),
-      authority         = "ITIS",
-      taxonID           = as.integer(cl$id),
-      parentNameUsageID = as.integer(c(NA, cl$id[-nrow(cl)])),
-      scientificName    = as.character(cl$name),
-      taxonRank         = as.character(cl$rank),
-      stringsAsFactors  = FALSE)
+  chain <- function(id) tryCatch({
+    cl <- taxize::classification(id, db = "itis", messages = FALSE)[[1]]
+    if (is.null(cl) || !is.data.frame(cl) || !nrow(cl)) NULL else cl
   }, error = function(e) NULL)
+
+  cl <- chain(tsn)
   Sys.sleep(sleep)
-  out
+  if (is.null(cl)) {
+    acc <- tryCatch(taxize::itis_acceptname(tsn), error = function(e) NULL)
+    at  <- if (!is.null(acc) && is.data.frame(acc) && nrow(acc))
+      suppressWarnings(as.integer(acc$acceptedtsn[1])) else NA_integer_
+    if (!is.na(at) && !identical(at, as.integer(tsn))) {
+      cl <- chain(at)
+      Sys.sleep(sleep)
+    }
+  }
+  if (is.null(cl)) return(NULL)
+
+  data.frame(
+    requested_id      = as.integer(tsn),
+    authority         = "ITIS",
+    taxonID           = as.integer(cl$id),
+    parentNameUsageID = as.integer(c(NA, cl$id[-nrow(cl)])),
+    scientificName    = as.character(cl$name),
+    taxonRank         = as.character(cl$rank),
+    stringsAsFactors  = FALSE)
 }
 
 #' Fetch (and cache) the WoRMS/ITIS lineage for a set of taxon ids
@@ -182,34 +212,98 @@ fetch_taxon_lineage <- function(worms_ids = integer(), itis_ids = integer(),
   out
 }
 
-# flatten a lineage frame to one row per requested taxon with the five headline
-# ranks. `rank` and the parent come from the taxon's OWN row in its chain.
+# Flatten a lineage frame to one row per DISTINCT TAXON — every node appearing
+# anywhere in any chain, not just the ids that were requested — with the five
+# headline ranks, its own rank, parent and name.
+#
+# It used to emit only the requested ids, which left every lineage ANCESTOR with
+# a key, a name, a rank and nothing else: in release v2026.08.06, 430 of
+# swfsc_ichthyo's 1,553 taxa at or below family rank had no `family` and no
+# `kingdom`, and the same held for both authorities (44% of ITIS ancestors, 34%
+# of WoRMS). An ancestor is a real taxon a consumer can select and roll up on;
+# it should not be a second-class row because of how it happened to be fetched.
+#
+# No API call is needed to fix it. A node's classification is the set of its
+# ancestors-or-self, and every chain that passes through the node already
+# contains them. So: build ONE parent map across all chains, then walk each node
+# up it, recording the headline ranks as they go.
+#
+# The walk is by parent POINTER, not by row order. `fetch_taxon_lineage()` sorts
+# its output by (authority, requested_id, taxonID), which destroys the root->self
+# ordering the fetchers produced — so anything that assumed positional order
+# (e.g. "the last row is the taxon itself") would be reading an arbitrary row.
 .lineage_flat <- function(lin) {
-  if (!nrow(lin)) return(data.frame(
+  empty <- data.frame(
     requested_id = integer(), authority = character(), rank = character(),
     parent_id = integer(), scientific_name = character(),
     kingdom = character(), phylum = character(), class = character(),
-    order_taxon = character(), family = character(), stringsAsFactors = FALSE))
-  pick <- function(g, want) {
-    v <- g$scientificName[tolower(g$taxonRank) == want]
-    if (length(v)) v[1] else NA_character_
+    order_taxon = character(), family = character(), stringsAsFactors = FALSE)
+  if (!nrow(lin)) return(empty)
+
+  # one row per (authority, taxonID) across every chain
+  nd <- lin[!duplicated(lin[, c("authority", "taxonID")]),
+            c("authority", "taxonID", "parentNameUsageID", "scientificName",
+              "taxonRank"), drop = FALSE]
+  nd <- nd[!is.na(nd$taxonID), , drop = FALSE]
+  if (!nrow(nd)) return(empty)
+
+  self_key <- paste(nd$authority, nd$taxonID)
+  par_key  <- paste(nd$authority, nd$parentNameUsageID)
+  up       <- match(par_key, self_key)          # row index of the parent, NA at a root
+
+  want  <- c(kingdom = "kingdom", phylum = "phylum", class = "class",
+             order_taxon = "order", family = "family")
+  rk    <- tolower(nd$taxonRank)
+  out   <- lapply(want, function(w) rep(NA_character_, nrow(nd)))
+  names(out) <- names(want)
+
+  # climb one level at a time for the whole vector at once: depth is bounded
+  # (~15 ranks), so this is a handful of passes rather than a per-node loop
+  cur <- seq_len(nrow(nd))
+  for (step in seq_len(64L)) {
+    live <- !is.na(cur)
+    if (!any(live)) break
+    for (nm in names(want)) {
+      hit <- live & !is.na(rk[cur]) & rk[cur] == want[[nm]] & is.na(out[[nm]])
+      out[[nm]][hit] <- nd$scientificName[cur[hit]]
+    }
+    cur[live] <- up[cur[live]]
   }
-  spl <- split(lin, list(lin$authority, lin$requested_id), drop = TRUE)
-  do.call(rbind, lapply(spl, function(g) {
-    self <- g[g$taxonID == g$requested_id[1], , drop = FALSE]
-    data.frame(
-      requested_id    = g$requested_id[1],
-      authority       = g$authority[1],
-      rank            = if (nrow(self)) self$taxonRank[1] else NA_character_,
-      parent_id       = if (nrow(self)) self$parentNameUsageID[1] else NA_integer_,
-      scientific_name = if (nrow(self)) self$scientificName[1] else NA_character_,
-      kingdom         = pick(g, "kingdom"),
-      phylum          = pick(g, "phylum"),
-      class           = pick(g, "class"),
-      order_taxon     = pick(g, "order"),
-      family          = pick(g, "family"),
-      stringsAsFactors = FALSE)
-  }))
+
+  res <- data.frame(
+    requested_id    = nd$taxonID,
+    authority       = nd$authority,
+    rank            = nd$taxonRank,
+    parent_id       = nd$parentNameUsageID,
+    scientific_name = nd$scientificName,
+    kingdom         = out$kingdom, phylum = out$phylum, class = out$class,
+    order_taxon     = out$order_taxon, family = out$family,
+    stringsAsFactors = FALSE)
+
+  # A requested id the authority has DEPRECATED has no node of its own: the chain
+  # came back under the accepted id instead (ITIS 174553 Puffinus griseus is
+  # fetched as 1255050 Ardenna grisea). ensure_taxon_xref() normally re-keys the
+  # taxon onto that accepted id before we get here, but it cannot when `taxize`
+  # is unavailable — and without an alias row such a taxon would silently lose
+  # its whole classification. Point it at the deepest node of its own chain.
+  req  <- unique(lin[, c("authority", "requested_id"), drop = FALSE])
+  req  <- req[!is.na(req$requested_id), , drop = FALSE]
+  miss <- which(!paste(req$authority, req$requested_id) %in% self_key)
+  if (length(miss)) {
+    alias <- do.call(rbind, lapply(miss, function(i) {
+      g <- lin[lin$authority == req$authority[i] &
+               lin$requested_id == req$requested_id[i], , drop = FALSE]
+      # the chain's leaf is the node that is nobody else's parent
+      leaf <- g$taxonID[!g$taxonID %in% g$parentNameUsageID]
+      j <- match(paste(g$authority[1], leaf[1]), self_key)
+      if (is.na(j)) return(NULL)
+      r <- res[j, , drop = FALSE]
+      r$requested_id <- req$requested_id[i]
+      r
+    }))
+    if (!is.null(alias) && nrow(alias)) res <- rbind(res, alias)
+  }
+  res[!duplicated(res[, c("authority", "requested_id")]), , drop = FALSE]
 }
 
 #' Materialize the WoRMS/ITIS lineage `build_taxon_reference()` reads
@@ -232,13 +326,19 @@ fetch_taxon_lineage <- function(worms_ids = integer(), itis_ids = integer(),
 #'   (`metadata/taxon_lineage.csv`)
 #' @param tbl hierarchy table to write (default `"taxon"` — the name
 #'   [build_taxon_reference()] reads)
+#' @param xref_cache_csv path to the cross-reference cache
+#'   ([fetch_taxon_xref()]), used to top up `_taxon_xref` for the lineage
+#'   ANCESTORS discovered here — [ensure_taxon_xref()] runs first and can only
+#'   see the dataset's own vocabulary. Defaults to `taxon_xref.csv` sitting
+#'   beside `cache_csv`, which is the layout every ingest uses; `NULL` skips it.
 #' @inheritParams fetch_taxon_lineage
 #' @return (invisibly) a list with `n_ids`, `n_rows` and `n_unresolved`
 #' @export
 #' @concept taxonomy
 ensure_taxon_lineage <- function(con, measurement_taxon = NULL, overrides = NULL,
                                  cache_csv = NULL, tbl = "taxon",
-                                 refresh = FALSE, sleep = 0.3, verbose = TRUE) {
+                                 refresh = FALSE, sleep = 0.3, verbose = TRUE,
+                                 xref_cache_csv = .xref_csv_beside(cache_csv)) {
   rows <- .taxon_norm_sources(con, measurement_taxon, overrides)
   # which authority each taxon is KEYED on decides which one to ask: worms: for
   # everything except the Aves-keyed seabirds (see taxon_key_of()).
@@ -253,7 +353,14 @@ ensure_taxon_lineage <- function(con, measurement_taxon = NULL, overrides = NULL
   # is the shape build_taxon_reference() consumes.
   hier <- unique(lin[, c("authority", "taxonID", "parentNameUsageID",
                          "scientificName", "taxonRank")])
-  hier$taxonomicStatus          <- "accepted"
+  # taxonomicStatus is NOT stamped here. It used to be the literal "accepted",
+  # which is how all 2,090 released taxa claimed that status — including the 28
+  # whose ITIS TSN is demonstrably deprecated, and the override rows whose own
+  # note reads "WoRMS status: unaccepted". A classification chain says nothing
+  # about whether the taxon is accepted; ensure_taxon_xref() fetches the real
+  # status (with the date it was checked) and build_taxon_reference() coalesces
+  # it in. NA here lets that value through instead of masking it.
+  hier$taxonomicStatus          <- NA_character_
   hier$scientificNameAuthorship <- NA_character_
 
   existing <- .read_cols(con, tbl, c(
@@ -272,6 +379,31 @@ ensure_taxon_lineage <- function(con, measurement_taxon = NULL, overrides = NULL
   # each taxon. Staged as a table rather than returned, so the notebook does not
   # have to thread it through.
   .replace_table(con, "_taxon_lineage_flat", .lineage_flat(lin))
+
+  # top up the cross-reference for the ANCESTORS we just learned about.
+  #
+  # ensure_taxon_xref() runs before this (it has to — the lineage fetch should
+  # ask about the accepted id, not the deprecated one), so it only ever sees the
+  # dataset's own vocabulary. The ancestors are discovered here, and without this
+  # they stay second-class: in release v2026.08.06, 657 of 732 ancestor rows had
+  # no itis_id and 198 no taxonomic_status, while every one of their answers was
+  # already sitting in the xref cache. Cached ids cost no API call, so a warm
+  # cache makes this free.
+  if (!is.null(xref_cache_csv) && nrow(lin)) {
+    anc_w <- lin$taxonID[lin$authority == "WoRMS"]
+    anc_i <- lin$taxonID[lin$authority == "ITIS"]
+    ax <- tryCatch(
+      fetch_taxon_xref(itis_ids = anc_i, worms_ids = anc_w,
+                       cache_csv = xref_cache_csv, refresh = refresh,
+                       sleep = sleep, verbose = verbose),
+      error = function(e) { message("ancestor xref skipped: ", conditionMessage(e)); NULL })
+    if (!is.null(ax) && nrow(ax)) {
+      staged <- .read_cols(con, "_taxon_xref", .xref_cache_cols)
+      both   <- if (is.null(staged)) ax else dplyr::bind_rows(staged, ax)
+      both   <- both[!duplicated(paste(both$query_type, both$query_value)), , drop = FALSE]
+      .replace_table(con, "_taxon_xref", as.data.frame(both))
+    }
+  }
 
   n_ids   <- length(unique(stats::na.omit(c(w_ids, i_ids))))
   n_unres <- n_ids - length(unique(lin$requested_id))

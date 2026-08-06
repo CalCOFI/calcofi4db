@@ -380,3 +380,106 @@ check_multiple_datasets <- function(
     failed_datasets = failed_datasets
   )
 }
+# check_taxon_ids --------------------------------------------------------------
+
+#' The taxa that no authority resolved, per dataset — reported, and gated
+#'
+#' A taxon that reaches the release without an authority id is invisible to any
+#' consumer that filters or joins on one, and nothing used to say so. That is how
+#' all 128 Farallon taxa and 64,956 observations became unreachable through
+#' `db-viz-hex::get_sp()`'s `worms_id` join while every check in the pipeline
+#' passed.
+#'
+#' Two conditions, deliberately graded differently:
+#'
+#' - **A dataset-local `taxon_key`** (no `worms:` / `itis:` prefix) means *no
+#'   authority resolved this taxon at all*. This **fails** unless the key is in
+#'   `allow` — the allowlist is where a genuinely non-taxonomic class such as
+#'   `cce-lter_zooscan:16` (naupliar stage) is declared, in the open, one key at
+#'   a time. A new unresolved taxon can then never hide among the known ones.
+#' - **An authority key with no `worms_id`** is reported but does not fail:
+#'   WoRMS legitimately lacks some taxa (trinomial subspecies, mostly), and an
+#'   `itis:`-keyed bird is correctly keyed either way.
+#'
+#' @param con a DBI connection holding `taxon` and `dataset_taxon` (and `obs`, if
+#'   present, for the observation-level counts)
+#' @param allow character vector of dataset-local `taxon_key`s that are known to
+#'   be unresolvable and are accepted as such
+#' @param halt logical; `stop()` on an unallowlisted local key (default `TRUE`)
+#' @param verbose logical; message the summary
+#' @return a data.frame, one row per `dataset_key`, with the taxon- and
+#'   observation-level counts (invisibly when `verbose = FALSE`)
+#' @export
+#' @concept check
+check_taxon_ids <- function(con, allow = character(), halt = TRUE,
+                            verbose = TRUE) {
+  present <- DBI::dbListTables(con)
+  if (!all(c("taxon", "dataset_taxon") %in% present))
+    stop("check_taxon_ids(): needs `taxon` and `dataset_taxon` in `con`.")
+  has_obs <- "obs" %in% present
+
+  # "no authority resolved this" — the key carries neither prefix
+  is_local <- function(col) glue::glue(
+    "{col} NOT LIKE 'worms:%' AND {col} NOT LIKE 'itis:%'")
+
+  rpt <- DBI::dbGetQuery(con, glue::glue("
+    SELECT dt.dataset_key,
+           COUNT(DISTINCT dt.taxon_key)                                       AS n_taxa,
+           COUNT(DISTINCT CASE WHEN t.worms_id IS NULL THEN dt.taxon_key END) AS n_no_worms,
+           COUNT(DISTINCT CASE WHEN t.itis_id  IS NULL THEN dt.taxon_key END) AS n_no_itis,
+           COUNT(DISTINCT CASE WHEN t.rank     IS NULL THEN dt.taxon_key END) AS n_no_rank,
+           -- rank_order was NULL for 100% of ITIS-keyed taxa and 252 WoRMS ones
+           -- for as long as the lookup lived in a single ingest's connection,
+           -- and nothing here said so. A column whose only job is ordering a
+           -- hierarchy is useless half-populated, so count it.
+           COUNT(DISTINCT CASE WHEN t.rank IS NOT NULL AND t.rank_order IS NULL
+                               THEN dt.taxon_key END)                         AS n_no_rank_order,
+           COUNT(DISTINCT CASE WHEN {is_local('dt.taxon_key')}
+                               THEN dt.taxon_key END)                         AS n_local_key
+    FROM dataset_taxon dt LEFT JOIN taxon t ON t.taxon_key = dt.taxon_key
+    GROUP BY 1 ORDER BY 1"))
+
+  if (has_obs) {
+    o <- DBI::dbGetQuery(con, glue::glue("
+      SELECT o.dataset_key,
+             COUNT(*)                                                AS n_obs,
+             COUNT(*) FILTER (WHERE t.worms_id IS NULL)              AS n_obs_no_worms,
+             COUNT(*) FILTER (WHERE {is_local('o.taxon_key')})       AS n_obs_local_key
+      FROM obs o LEFT JOIN taxon t ON t.taxon_key = o.taxon_key
+      WHERE o.taxon_key IS NOT NULL GROUP BY 1"))
+    rpt <- dplyr::left_join(rpt, o, by = "dataset_key")
+  }
+
+  # the gate: dataset-local keys that are not declared
+  local_keys <- DBI::dbGetQuery(con, glue::glue("
+    SELECT DISTINCT dt.dataset_key, dt.taxon_key, dt.ds_scientific_name, dt.ds_common_name
+    FROM dataset_taxon dt WHERE {is_local('dt.taxon_key')}
+    ORDER BY 1, 2"))
+  undeclared <- local_keys[!local_keys$taxon_key %in% allow, , drop = FALSE]
+
+  if (verbose) {
+    message(glue::glue(
+      "taxon ids: {sum(rpt$n_taxa)} taxa across {nrow(rpt)} dataset(s); ",
+      "{sum(rpt$n_no_worms)} without worms_id, ",
+      "{sum(rpt$n_local_key)} with a dataset-local key ",
+      "({nrow(local_keys) - nrow(undeclared)} allowlisted)"))
+  }
+
+  if (nrow(undeclared)) {
+    detail <- paste(sprintf("  %s  %s", undeclared$taxon_key,
+                            ifelse(is.na(undeclared$ds_scientific_name),
+                                   undeclared$ds_common_name,
+                                   undeclared$ds_scientific_name)),
+                    collapse = "\n")
+    msg <- paste0(
+      nrow(undeclared), " taxon(s) resolved to no authority id and are not in ",
+      "`allow`:\n", detail,
+      "\n  A dataset-local taxon_key is invisible to any consumer joining on ",
+      "worms_id/itis_id.\n  Either resolve it (metadata/taxon_override.csv, or ",
+      "clean the source name so\n  the WoRMS lookup can match it), or declare it ",
+      "in the allowlist as a known\n  non-taxonomic class.")
+    if (halt) stop(msg, call. = FALSE) else warning(msg, call. = FALSE)
+  }
+
+  if (verbose) rpt else invisible(rpt)
+}

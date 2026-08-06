@@ -4,10 +4,14 @@
 \alias{write_spatial_manifest}
 \title{Write Spatial Manifest}
 \usage{
-write_spatial_manifest(parquet_dir)
+write_spatial_manifest(parquet_dir, output_dir = parquet_dir)
 }
 \arguments{
 \item{parquet_dir}{Directory containing \code{.parquet} files}
+
+\item{output_dir}{Directory to write \code{manifest.json} into. Defaults to
+\code{parquet_dir}; pass the repo-side sidecar directory when the bytes are
+staged outside the repo (see \code{\link[=cc_stage_dir]{cc_stage_dir()}}).}
 }
 \value{
 Invisible path to the written \code{manifest.json}
@@ -20,7 +24,9 @@ in the same format as \code{\link[=write_parquet_outputs]{write_parquet_outputs(
 }
 \examples{
 \dontrun{
-write_spatial_manifest("data/parquet/spatial")
+write_spatial_manifest(
+  parquet_dir = cc_stage_path("parquet", "spatial"),
+  output_dir  = "data/parquet/spatial")
 }
 }
 \concept{wrangle}

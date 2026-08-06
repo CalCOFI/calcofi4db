@@ -8,7 +8,7 @@ assemble_core(
   con,
   root = ".",
   supplemental = TRUE,
-  parquet_dir = "data/parquet",
+  parquet_dir = cc_stage_path("parquet"),
   exclude = release_excluded_datasets(root)
 )
 }
@@ -21,7 +21,10 @@ assemble_core(
 full-resolution table the ingests declare, \code{FALSE} for none, or an explicit
 character vector of table names. See \code{\link[=supplemental_core_tables]{supplemental_core_tables()}}.}
 
-\item{parquet_dir}{directory holding the per-dataset output dirs}
+\item{parquet_dir}{directory holding the per-dataset output dirs. Defaults
+to the local staging root (see \code{\link[=cc_stage_dir]{cc_stage_dir()}}), where the bulk parquet
+lives; an absolute path is used as-is, a relative one is resolved against
+\code{root}. The JSON sidecars stay in the repo and are found separately.}
 
 \item{exclude}{dataset dir names to skip; defaults to the ingests declaring
 \code{calcofi.in_release: false} (see \code{\link[=release_excluded_datasets]{release_excluded_datasets()}}). Resolved

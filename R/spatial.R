@@ -336,3 +336,228 @@ match_nearest_by_depth <- function(
   if (!return_stats) return(invisible(NULL))
   list(matched = matched, eligible = eligible, pct = pct)
 }
+
+#' Match Records to a Cruise by Space-Time Proximity to an Occupied-Station Track
+#'
+#' Assigns `cruise_key` to rows that carry a date and a position but no cruise
+#' FK, by finding the nearest station occupation in a reference *track* (any
+#' table of `cruise_key` + datetime + lon/lat, e.g. the `sample` shard of an
+#' already-ingested dataset) on the same day, within `max_km`.
+#'
+#' Datasets whose observers ride a CalCOFI ship — the bird/mammal census
+#' (issue #74) is the motivating case — record a survey label rather than a
+#' cruise, so the cruise can only be recovered from where and when the platform
+#' actually was. Year-month parsed from a survey label is *not* sufficient: it
+#' is ambiguous whenever several ships sailed in one month, and it is wrong
+#' outright for a cruise that straddles a month boundary.
+#'
+#' With `group_col` set, the match becomes a **consensus** rather than a
+#' per-row assignment: every row of a group (one survey = one cruise) votes
+#' with its own nearest-station match, the modal `cruise_key` wins if it holds
+#' at least `min_share` of the votes, and that winner is written to *all* rows
+#' of the group — including rows too far from any station to have voted. This is
+#' both more robust (a single transect that strays near another ship's station
+#' cannot mis-assign itself) and higher-yield (a group resolves as a whole).
+#' A group whose votes are too split, or that has no vote at all, is left NULL
+#' rather than guessed.
+#'
+#' Only cruises present in the reference track can be assigned, so pointing
+#' `ref_tbl` at a track whose `cruise_key`s are all present in the `cruise`
+#' reference table guarantees the emitted FK resolves. Rows that cannot be
+#' matched keep `NULL`, which is the honest answer for a survey that rode a
+#' non-CalCOFI cruise.
+#'
+#' Distance uses the cosine-corrected equirectangular approximation, which is
+#' well under 1% error at the sub-degree separations that matter here and is
+#' far cheaper than `ST_Distance_Sphere()` over the candidate join. Candidates
+#' are pre-filtered to a bounding box of `max_km`, so an absurd antipodal
+#' "nearest" row can never be considered.
+#'
+#' @param con DBI connection to DuckDB.
+#' @param data_tbl Character. Table to populate `cruise_key` on.
+#' @param ref_tbl Character. Reference track table carrying `cruise_key_col`,
+#'   `ref_datetime_col` and `ref_lon_col`/`ref_lat_col`.
+#' @param cruise_key_col Character. Cruise key column, on both tables
+#'   (default "cruise_key").
+#' @param datetime_col,lon_col,lat_col Character. Timestamp (compared by date)
+#'   and position columns on `data_tbl`.
+#' @param ref_datetime_col,ref_lon_col,ref_lat_col Character. The same on
+#'   `ref_tbl`; each defaults to its `data_tbl` counterpart.
+#' @param group_col Character or NULL. Column naming the survey/cruise grouping
+#'   (e.g. "cruise_label"). When NULL (default) each row is assigned its own
+#'   nearest match; when set, the group consensus described above is used.
+#' @param window_days Numeric. Maximum absolute date difference in days
+#'   (default 0, i.e. same day — the observer is aboard on the day).
+#' @param max_km Numeric. Maximum distance for a row to match, in km
+#'   (default 25).
+#' @param min_share Numeric. Minimum share of a group's votes the winning
+#'   `cruise_key` must hold, in 0-1 (default 0.5). Ignored when `group_col` is
+#'   NULL.
+#' @param return_stats Logical. If TRUE (default) return a stats list.
+#'
+#' @return If `return_stats`, a list with `matched`, `total`, `pct` and
+#'   `groups` — a data frame of one row per group with the winning
+#'   `cruise_key`, `votes`, `votes_total`, `share` and `n_rows` (NULL
+#'   `cruise_key` for an unresolved group; absent when `group_col` is NULL).
+#'   Side effect: adds and populates `cruise_key_col` on `data_tbl`.
+#' @export
+#' @concept spatial
+#'
+#' @examples
+#' \dontrun{
+#' # reference track = the ichthyo sample shard (its cruise_keys are exactly
+#' # the `cruise` reference table's, so the emitted FK always resolves)
+#' s <- match_cruise_by_track(
+#'   con, "bird_mammal_transect", "cruise_track",
+#'   datetime_col = "date", lon_col = "longitude", lat_col = "latitude",
+#'   group_col    = "cruise_label")
+#' cat(glue::glue("{s$matched}/{s$total} ({s$pct}%)"), "\n")
+#' s$groups[is.na(s$groups$cruise_key), ]  # surveys with no CalCOFI cruise
+#' }
+#' @importFrom DBI dbExecute dbGetQuery
+#' @importFrom glue glue
+match_cruise_by_track <- function(
+    con,
+    data_tbl,
+    ref_tbl,
+    cruise_key_col   = "cruise_key",
+    datetime_col     = "datetime_start_utc",
+    lon_col          = "longitude",
+    lat_col          = "latitude",
+    ref_datetime_col = NULL,
+    ref_lon_col      = NULL,
+    ref_lat_col      = NULL,
+    group_col        = NULL,
+    window_days      = 0,
+    max_km           = 25,
+    min_share        = 0.5,
+    return_stats     = TRUE) {
+
+  if (is.null(ref_datetime_col)) ref_datetime_col <- datetime_col
+  if (is.null(ref_lon_col))      ref_lon_col      <- lon_col
+  if (is.null(ref_lat_col))      ref_lat_col      <- lat_col
+
+  stopifnot(
+    "min_share must be in (0, 1]" = min_share > 0 && min_share <= 1,
+    "max_km must be positive"     = max_km > 0,
+    "window_days must be >= 0"    = window_days >= 0)
+
+  # check the columns up front: the ref_* arguments default to their data_tbl
+  # counterparts, so a reference track naming its timestamp differently (a
+  # `sample` shard calls it `datetime`, a source table `date`) otherwise fails
+  # deep inside DuckDB as a binder error whose message is swallowed by cli
+  # formatting of the surrounding glue braces
+  .need <- function(tbl, cols, arg) {
+    have <- DBI::dbListFields(con, tbl)
+    miss <- setdiff(cols, have)
+    if (length(miss))
+      stop(glue::glue(
+        "match_cruise_by_track: {tbl} has no column ",
+        "{paste(sQuote(miss), collapse = ', ')} (set {arg}). ",
+        "Available: {paste(have, collapse = ', ')}"), call. = FALSE)
+  }
+  .need(data_tbl, c(datetime_col, lon_col, lat_col),
+        "datetime_col / lon_col / lat_col")
+  .need(ref_tbl, c(cruise_key_col, ref_datetime_col, ref_lon_col, ref_lat_col),
+        "cruise_key_col / ref_datetime_col / ref_lon_col / ref_lat_col")
+  if (!is.null(group_col)) .need(data_tbl, group_col, "group_col")
+
+  # squared distance in degrees, longitude scaled by cos(latitude); ranking and
+  # thresholding share one expression so the winner is always the reported one
+  d2 <- glue::glue(
+    "(d.{lat_col} - r.{ref_lat_col}) * (d.{lat_col} - r.{ref_lat_col}) + ",
+    "(d.{lon_col} - r.{ref_lon_col}) * (d.{lon_col} - r.{ref_lon_col}) * ",
+    "cos(radians(d.{lat_col})) * cos(radians(d.{lat_col}))")
+  max_deg <- max_km / 111.32
+
+  # NaN survives IS NOT NULL and would poison both the join and the ranking
+  finite <- function(a, lon, lat) glue::glue(
+    "{a}.{lon} IS NOT NULL AND {a}.{lat} IS NOT NULL AND ",
+    "NOT isnan({a}.{lon}) AND NOT isnan({a}.{lat}) AND ",
+    "NOT isinf({a}.{lon}) AND NOT isinf({a}.{lat})")
+
+  DBI::dbExecute(con, glue::glue(
+    "ALTER TABLE {data_tbl} ADD COLUMN IF NOT EXISTS {cruise_key_col} VARCHAR"))
+
+  # one candidate per data row: nearest same-window station occupation, bounded
+  # by a max_km box so a far-away row is never even considered
+  DBI::dbExecute(con, "DROP TABLE IF EXISTS tmp_cruise_track_vote")
+  DBI::dbExecute(con, glue::glue("
+    CREATE TEMP TABLE tmp_cruise_track_vote AS
+    SELECT rowid_, {cruise_key_col}, km FROM (
+      SELECT d.rowid AS rowid_, r.{cruise_key_col} AS {cruise_key_col},
+             sqrt({d2}) * 111.32 AS km,
+             row_number() OVER (PARTITION BY d.rowid ORDER BY {d2}) AS rn
+      FROM {data_tbl} d
+      JOIN {ref_tbl} r
+        ON abs(date_diff('day', d.{datetime_col}::DATE,
+                                r.{ref_datetime_col}::DATE)) <= {window_days}
+       AND abs(d.{lat_col} - r.{ref_lat_col}) <= {max_deg}
+       AND abs(d.{lon_col} - r.{ref_lon_col}) <= {max_deg} /
+             GREATEST(cos(radians(d.{lat_col})), 0.01)
+      WHERE d.{datetime_col} IS NOT NULL
+        AND r.{cruise_key_col} IS NOT NULL
+        AND {finite('d', lon_col, lat_col)}
+        AND {finite('r', ref_lon_col, ref_lat_col)}
+    ) q WHERE rn = 1 AND km <= {max_km}"))
+
+  groups <- NULL
+
+  if (is.null(group_col)) {
+    DBI::dbExecute(con, glue::glue(
+      "UPDATE {data_tbl} d SET {cruise_key_col} = (
+         SELECT v.{cruise_key_col} FROM tmp_cruise_track_vote v
+         WHERE v.rowid_ = d.rowid)"))
+
+  } else {
+    # consensus: modal cruise_key per group, applied to every row of the group
+    DBI::dbExecute(con, "DROP TABLE IF EXISTS tmp_cruise_track_win")
+    DBI::dbExecute(con, glue::glue("
+      CREATE TEMP TABLE tmp_cruise_track_win AS
+      WITH tally AS (
+        SELECT d.{group_col} AS grp_, v.{cruise_key_col} AS ck_, count(*) AS votes
+        FROM {data_tbl} d JOIN tmp_cruise_track_vote v ON v.rowid_ = d.rowid
+        WHERE d.{group_col} IS NOT NULL
+        GROUP BY 1, 2),
+      ranked AS (
+        SELECT grp_, ck_, votes, sum(votes) OVER (PARTITION BY grp_) AS votes_total,
+               row_number() OVER (PARTITION BY grp_ ORDER BY votes DESC, ck_) AS rn
+        FROM tally)
+      SELECT grp_, ck_, votes, votes_total,
+             CAST(votes AS DOUBLE) / votes_total AS share
+      FROM ranked
+      WHERE rn = 1 AND CAST(votes AS DOUBLE) / votes_total >= {min_share}"))
+
+    DBI::dbExecute(con, glue::glue(
+      "UPDATE {data_tbl} d SET {cruise_key_col} = (
+         SELECT w.ck_ FROM tmp_cruise_track_win w WHERE w.grp_ = d.{group_col})"))
+
+    groups <- DBI::dbGetQuery(con, glue::glue("
+      SELECT g.{group_col} AS {group_col}, w.ck_ AS {cruise_key_col},
+             w.votes, w.votes_total, round(w.share, 4) AS share, g.n_rows
+      FROM (SELECT {group_col}, count(*) AS n_rows FROM {data_tbl}
+            WHERE {group_col} IS NOT NULL GROUP BY 1) g
+      LEFT JOIN tmp_cruise_track_win w ON w.grp_ = g.{group_col}
+      ORDER BY (w.ck_ IS NULL) DESC, share, g.{group_col}"))
+    DBI::dbExecute(con, "DROP TABLE IF EXISTS tmp_cruise_track_win")
+  }
+
+  DBI::dbExecute(con, "DROP TABLE IF EXISTS tmp_cruise_track_vote")
+
+  matched <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT COUNT(*) AS n FROM {data_tbl} WHERE {cruise_key_col} IS NOT NULL"))$n
+  total <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT COUNT(*) AS n FROM {data_tbl}"))$n
+  pct <- if (total > 0) round(100 * matched / total, 1) else NA_real_
+
+  message(glue::glue(
+    "match_cruise_by_track: {matched}/{total} {data_tbl} rows got a cruise_key ",
+    "({pct}%) within {max_km} km / {window_days} d",
+    if (is.null(group_col)) "" else glue::glue(
+      ", by {group_col} consensus (min_share {min_share})")))
+
+  if (!return_stats) return(invisible(NULL))
+  out <- list(matched = matched, total = total, pct = pct)
+  if (!is.null(groups)) out$groups <- groups
+  out
+}

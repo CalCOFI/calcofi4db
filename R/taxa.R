@@ -60,6 +60,62 @@ taxon_key_of <- function(worms_id, itis_id = NA_integer_, is_bird = FALSE) {
 # TRUE only for scalar/logical TRUE, treating NA as FALSE (vectorized)
 isTRUE_vec <- function(x) !is.na(x) & as.logical(x)
 
+# taxa_rank_reference ----------------------------------------------------------
+
+#' The canonical taxonomic rank ordering (`taxa_rank`)
+#'
+#' One row per rank, ordered kingdom-down, so `taxon.rank_order` sorts a
+#' hierarchy without a consumer hard-coding rank names.
+#'
+#' This used to be a vector inside [build_taxon_hierarchy()], which exactly one
+#' ingest calls — so the `taxa_rank` lookup existed in the `swfsc_ichthyo`
+#' connection and nowhere else, and `build_taxon_reference()`'s left join to it
+#' produced `rank_order = NA` for every other dataset's taxa. In release
+#' v2026.08.06 that was **100% of ITIS-keyed taxa** (all 169, i.e. every seabird
+#' and marine mammal) plus 252 WoRMS-keyed ones — 172 species, 83 genera and 49
+#' families with no sortable rank.
+#'
+#' The vocabulary spans BOTH authorities. WoRMS and ITIS do not use the same rank
+#' set, and eight ranks the release actually carries were absent from the old
+#' vector — `Gigaclass`, `Infrakingdom`, `Megaclass`, `Parvphylum`,
+#' `Phylum (Division)`, `Subphylum (Subdivision)`, `Subterclass`, `Superdomain` —
+#' so those taxa had no `rank_order` even where the lookup was present.
+#'
+#' Ordering is by nesting depth, not by a strict Linnaean canon: what a consumer
+#' needs is "does this rank sit above or below that one", and ties are harmless.
+#'
+#' @return a data.frame of `taxonRank` + `rank_order`
+#' @export
+#' @concept taxonomy
+#' @examples
+#' head(taxa_rank_reference())
+taxa_rank_reference <- function() {
+  ranks <- c(
+    "Superdomain", "Domain", "Empire",
+    "Kingdom", "Subkingdom", "Infrakingdom", "Superphylum",
+    "Phylum", "Phylum (Division)", "Subphylum", "Subphylum (Subdivision)",
+    "Infraphylum", "Parvphylum",
+    "Gigaclass", "Megaclass", "Superclass", "Class", "Subclass",
+    "Infraclass", "Subterclass",
+    "Megacohort", "Supercohort", "Cohort", "Subcohort", "Infracohort",
+    "Superorder", "Order", "Suborder", "Infraorder", "Parvorder",
+    # WoRMS puts Section/Subsection BELOW Infraorder for decapods — Brachyura
+    # (Infraorder) > Eubrachyura (Section) > Heterotremata (Subsection) >
+    # Cancroidea (Superfamily) — not between order and family as in botany
+    "Section", "Subsection",
+    "Superfamily", "Family", "Subfamily",
+    "Supertribe", "Tribe", "Subtribe",
+    "Genus", "Subgenus",
+    "Series", "Subseries",
+    "Species", "Subspecies",
+    "Natio", "Mutatio",
+    "Form", "Forma", "Subform", "Subforma",
+    "Variety", "Subvariety",
+    "Coll. sp.", "Aggr.")
+  data.frame(taxonRank = ranks, rank_order = seq_along(ranks),
+             stringsAsFactors = FALSE)
+}
+
 # internal helpers -------------------------------------------------------------
 
 .tbl_has <- function(con, tbl) tbl %in% DBI::dbListTables(con)
@@ -99,6 +155,11 @@ isTRUE_vec <- function(x) !is.na(x) & as.logical(x)
     worms_id = integer(n), itis_id = integer(n), gbif_id = integer(n),
     scientific_name = character(n), common_name = character(n),
     rank = character(n), taxonomic_status = character(n),
+    # when the authority last confirmed `taxonomic_status`, and an append-only
+    # log of how this taxon's ids were resolved / re-keyed. A status with no
+    # check date is not a fact — the column used to be the hardcoded string
+    # "accepted" on all 2,090 taxa, including ones demonstrably not accepted.
+    status_checked = character(n), notes = character(n),
     parent_worms_id = integer(n),
     # the resolved parent key. Carried rather than derived at the end, because an
     # ITIS-keyed taxon (the Aves rule) has an ITIS parent, and pasting
@@ -125,27 +186,89 @@ isTRUE_vec <- function(x) !is.na(x) & as.logical(x)
 
 # apply an overrides frame (dataset_key, match_column, match_value, worms_id,
 # itis_id, scientific_name, rank) to a per-source normalized frame in place,
-# filling worms_id/itis_id/scientific_name/rank where `match_values` (a vector
-# aligned with rows) hits ov$match_value. Overrides take precedence over the
-# source-supplied id (they exist because the source id is missing or coarse).
-.apply_overrides <- function(rows, overrides, dataset_key, match_values) {
+# filling worms_id/itis_id/scientific_name/rank. Overrides take precedence over
+# the source-supplied id (they exist because the source id is missing or coarse).
+#
+# `match_cols` is a NAMED LIST of candidate columns this arm exposes, each
+# aligned with `rows` — the override row's declared `match_column` selects which
+# one to match against. That declaration used to be ignored entirely: the two
+# hardcoded call sites passed a literal vector, `match_column` was never read
+# anywhere in R/, and the registry was only consulted for 2 of the 7 arms. A row
+# added for any other dataset was parsed and then silently dropped. It now
+# errors instead — the same lesson as the unregistered-provider bug.
+.apply_overrides <- function(rows, overrides, dataset_key, match_cols) {
   if (is.null(overrides) || !nrow(overrides)) return(rows)
-  ov <- overrides[overrides$dataset_key == dataset_key, , drop = FALSE]
+  ov <- overrides[!is.na(overrides$dataset_key) &
+                  overrides$dataset_key == dataset_key, , drop = FALSE]
   if (!nrow(ov)) return(rows)
-  m   <- match(as.character(match_values), as.character(ov$match_value))
-  hit <- !is.na(m)
-  rows$worms_id[hit]        <- dplyr::coalesce(suppressWarnings(as.integer(ov$worms_id[m[hit]])), rows$worms_id[hit])
-  rows$itis_id[hit]         <- dplyr::coalesce(suppressWarnings(as.integer(ov$itis_id[m[hit]])), rows$itis_id[hit])
-  if (!is.null(ov$scientific_name))
-    rows$scientific_name[hit] <- dplyr::coalesce(ov$scientific_name[m[hit]], rows$scientific_name[hit])
-  if (!is.null(ov$rank))
-    rows$rank[hit] <- dplyr::coalesce(ov$rank[m[hit]], rows$rank[hit])
+
+  if (is.null(ov$match_column))
+    stop("taxon_override.csv is missing the `match_column` column.")
+  bad <- setdiff(unique(as.character(ov$match_column)), names(match_cols))
+  if (length(bad)) stop(glue::glue(
+    "taxon_override.csv: dataset_key '{dataset_key}' declares match_column(s) ",
+    "{paste(sprintf('`%s`', bad), collapse = ', ')} that this source does not ",
+    "expose. Available: {paste(sprintf('`%s`', names(match_cols)), collapse = ', ')}."))
+
+  # one pass per declared match_column, so a dataset can key some overrides on a
+  # code and others on a name
+  for (mc in unique(as.character(ov$match_column))) {
+    o <- ov[ov$match_column == mc, , drop = FALSE]
+    m   <- match(as.character(match_cols[[mc]]), as.character(o$match_value))
+    hit <- !is.na(m)
+    if (!any(hit)) next
+    rows$worms_id[hit] <- dplyr::coalesce(
+      suppressWarnings(as.integer(o$worms_id[m[hit]])), rows$worms_id[hit])
+    rows$itis_id[hit]  <- dplyr::coalesce(
+      suppressWarnings(as.integer(o$itis_id[m[hit]])), rows$itis_id[hit])
+    if (!is.null(o$scientific_name))
+      rows$scientific_name[hit] <- dplyr::coalesce(
+        o$scientific_name[m[hit]], rows$scientific_name[hit])
+    if (!is.null(o$rank))
+      rows$rank[hit] <- dplyr::coalesce(o$rank[m[hit]], rows$rank[hit])
+  }
   rows
+}
+
+# the dataset_keys the arms of .taxon_norm_sources() can claim. Validated against
+# rather than "whatever is in this connection", because every ingest reads the
+# WHOLE override registry while loading only its own source table — an absent
+# table is normal, a misspelled dataset_key is not.
+.TAXON_ARM_DATASETS <- c(
+  "swfsc_ichthyo", "calcofi_phytoplankton", "cce-lter_zoodb", "cce-lter_zooscan",
+  "cce-lter_euphausiids", "sio_mesopelagic-fish", "farallon_bird-mammal")
+
+# every override row must name a dataset some arm can claim. A dataset_key
+# nobody can claim means the rows are dead weight that look live in the CSV —
+# fail rather than ignore.
+.check_overrides_claimed <- function(overrides, measurement_taxon = NULL) {
+  if (is.null(overrides) || !nrow(overrides)) return(invisible(NULL))
+  known <- .TAXON_ARM_DATASETS
+  if (!is.null(measurement_taxon) && nrow(measurement_taxon))
+    known <- union(known, as.character(measurement_taxon$dataset_key))
+  orphan <- setdiff(stats::na.omit(unique(as.character(overrides$dataset_key))), known)
+  if (length(orphan)) stop(glue::glue(
+    "taxon_override.csv: dataset_key(s) ",
+    "{paste(sprintf('`%s`', orphan), collapse = ', ')} match no taxon source. ",
+    "Rows for an unknown dataset are silently ignored, which is how a typo ",
+    "becomes a missing id. Known: {paste(known, collapse = ', ')}."))
+  invisible(NULL)
 }
 
 # gather every dataset's local taxa into one normalized frame (resolved ids +
 # taxon_key + ds_taxon_key), from whichever source tables + registries exist.
-.taxon_norm_sources <- function(con, measurement_taxon = NULL, overrides = NULL) {
+#
+# Every arm consults `overrides` through .apply_overrides(), declaring which of
+# its own columns are matchable. It used to be only two of them, so an override
+# row for any other dataset was read and thrown away without a word.
+#
+# `xref` is the staged authority cross-reference (see ensure_taxon_xref()). It is
+# applied AFTER the arms and BEFORE the key is minted, because it can change the
+# id the key is built from: a deprecated ITIS TSN is replaced by its accepted
+# form, so the key is always an accepted id.
+.taxon_norm_sources <- function(con, measurement_taxon = NULL, overrides = NULL,
+                                xref = NA) {
+  .check_overrides_claimed(overrides, measurement_taxon)
   arms <- list()
 
   # --- CalCOFI species list (ichthyo + invert): worms/itis/gbif present -------
@@ -153,12 +276,18 @@ isTRUE_vec <- function(x) !is.na(x) & as.logical(x)
     c("species_id", "scientific_name", "common_name", "worms_id", "itis_id", "gbif_id"))
   # dataset_key = the using dataset (swfsc_ichthyo, incl. folded invert) so obs
   # joins on (dataset_key, ds_taxa_code); ds_prefix = the known "calcofi" list.
-  if (!is.null(sp)) arms$species <- .as_taxon_rows(data.frame(
-    dataset_key = "swfsc_ichthyo", ds_prefix = "calcofi",
-    ds_taxa_code = sp$species_id, ds_scientific_name = sp$scientific_name,
-    ds_common_name = sp$common_name, worms_id = sp$worms_id, itis_id = sp$itis_id,
-    gbif_id = sp$gbif_id, scientific_name = sp$scientific_name,
-    common_name = sp$common_name, is_bird = FALSE, stringsAsFactors = FALSE))
+  if (!is.null(sp)) {
+    r <- .as_taxon_rows(data.frame(
+      dataset_key = "swfsc_ichthyo", ds_prefix = "calcofi",
+      ds_taxa_code = sp$species_id, ds_scientific_name = sp$scientific_name,
+      ds_common_name = sp$common_name, worms_id = sp$worms_id, itis_id = sp$itis_id,
+      gbif_id = sp$gbif_id, scientific_name = sp$scientific_name,
+      common_name = sp$common_name, is_bird = FALSE, stringsAsFactors = FALSE))
+    arms$species <- .apply_overrides(r, overrides, "swfsc_ichthyo", list(
+      species_id      = sp$species_id,
+      scientific_name = sp$scientific_name,
+      common_name     = sp$common_name))
+  }
 
   # --- phytoplankton: aphia_id, coarse groups via overrides (match on `taxa`) -
   ph <- .read_cols(con, "phyto_taxon",
@@ -172,7 +301,10 @@ isTRUE_vec <- function(x) !is.na(x) & as.logical(x)
       kingdom = ph$kingdom, phylum = ph$phylum, is_bird = FALSE,
       stringsAsFactors = FALSE))
     # coarse functional groups (NULL aphia_id) resolve via overrides keyed on `taxa`
-    arms$phyto <- .apply_overrides(r, overrides, "calcofi_phytoplankton", ph$taxa)
+    arms$phyto <- .apply_overrides(r, overrides, "calcofi_phytoplankton", list(
+      taxa            = ph$taxa,
+      species_code    = ph$species_code,
+      scientific_name = ph$scientific_name_accepted))
   }
 
   # --- zoodb / zooscan: aphia_id + denormalized lineage -----------------------
@@ -182,12 +314,17 @@ isTRUE_vec <- function(x) !is.na(x) & as.logical(x)
     z <- .read_cols(con, tbl,
       c("taxon_id", lbl, "aphia_id", "scientific_name", "rank",
         "kingdom", "class", "order_taxon", "family"))
-    if (!is.null(z)) arms[[nm]] <- .as_taxon_rows(data.frame(
-      dataset_key = ds, ds_prefix = ds, ds_taxa_code = z$taxon_id,
-      ds_scientific_name = z$scientific_name, ds_common_name = z[[lbl]],
-      worms_id = z$aphia_id, scientific_name = z$scientific_name, rank = z$rank,
-      kingdom = z$kingdom, class = z$class, order_taxon = z$order_taxon,
-      family = z$family, is_bird = FALSE, stringsAsFactors = FALSE))
+    if (!is.null(z)) {
+      r <- .as_taxon_rows(data.frame(
+        dataset_key = ds, ds_prefix = ds, ds_taxa_code = z$taxon_id,
+        ds_scientific_name = z$scientific_name, ds_common_name = z[[lbl]],
+        worms_id = z$aphia_id, scientific_name = z$scientific_name, rank = z$rank,
+        kingdom = z$kingdom, class = z$class, order_taxon = z$order_taxon,
+        family = z$family, is_bird = FALSE, stringsAsFactors = FALSE))
+      mc <- list(taxon_id = z$taxon_id, scientific_name = z$scientific_name)
+      mc[[lbl]] <- z[[lbl]]
+      arms[[nm]] <- .apply_overrides(r, overrides, ds, mc)
+    }
   }
 
   # --- euphausiids: species-resolved BTEDB export, worms_id from WoRMS --------
@@ -197,22 +334,35 @@ isTRUE_vec <- function(x) !is.na(x) & as.logical(x)
   # measurement_taxon.csv (which only ever covered the old single-Abundance form)
   eu <- .read_cols(con, "euphausiids_taxon",
     c("taxon_id", "scientific_name", "genus", "worms_id", "rank"))
-  if (!is.null(eu)) arms$euphausiids <- .as_taxon_rows(data.frame(
-    dataset_key = "cce-lter_euphausiids", ds_prefix = "cce-lter_euphausiids",
-    ds_taxa_code = eu$taxon_id, ds_scientific_name = eu$scientific_name,
-    worms_id = eu$worms_id, scientific_name = eu$scientific_name,
-    rank = eu$rank, is_bird = FALSE, stringsAsFactors = FALSE))
+  if (!is.null(eu)) {
+    r <- .as_taxon_rows(data.frame(
+      dataset_key = "cce-lter_euphausiids", ds_prefix = "cce-lter_euphausiids",
+      ds_taxa_code = eu$taxon_id, ds_scientific_name = eu$scientific_name,
+      worms_id = eu$worms_id, scientific_name = eu$scientific_name,
+      rank = eu$rank, is_bird = FALSE, stringsAsFactors = FALSE))
+    arms$euphausiids <- .apply_overrides(r, overrides, "cce-lter_euphausiids", list(
+      taxon_id = eu$taxon_id, scientific_name = eu$scientific_name,
+      genus    = eu$genus))
+  }
 
   # --- mesopelagic fish: taxa named by scientific name in the source columns --
   # ds_taxa_code IS the scientific name here (the source has no local code), so
-  # obs joins dataset_taxon on the name it stores on the measurement row
+  # obs joins dataset_taxon on the name it stores on the measurement row. That is
+  # exactly why the " sp." suffix must NOT be cleaned out of the code: six taxa
+  # arrive as the verbatim spreadsheet header `Bathophilus sp.`, and rewriting
+  # the code would orphan their observations. The lookup name is cleaned instead
+  # (clean_taxon_name(), via the xref name fallback), or an override supplies the id.
   mf <- .read_cols(con, "mesopelagic_fish_taxon",
     c("scientific_name", "worms_id", "rank"))
-  if (!is.null(mf)) arms$mesopelagic <- .as_taxon_rows(data.frame(
-    dataset_key = "sio_mesopelagic-fish", ds_prefix = "sio_mesopelagic-fish",
-    ds_taxa_code = mf$scientific_name, ds_scientific_name = mf$scientific_name,
-    worms_id = mf$worms_id, scientific_name = mf$scientific_name,
-    rank = mf$rank, is_bird = FALSE, stringsAsFactors = FALSE))
+  if (!is.null(mf)) {
+    r <- .as_taxon_rows(data.frame(
+      dataset_key = "sio_mesopelagic-fish", ds_prefix = "sio_mesopelagic-fish",
+      ds_taxa_code = mf$scientific_name, ds_scientific_name = mf$scientific_name,
+      worms_id = mf$worms_id, scientific_name = mf$scientific_name,
+      rank = mf$rank, is_bird = FALSE, stringsAsFactors = FALSE))
+    arms$mesopelagic <- .apply_overrides(r, overrides, "sio_mesopelagic-fish", list(
+      scientific_name = mf$scientific_name))
+  }
 
   # --- seabirds + marine mammals: birds -> itis, mammals -> worms (override) --
   bm <- .read_cols(con, "bird_mammal_species",
@@ -226,8 +376,13 @@ isTRUE_vec <- function(x) !is.na(x) & as.logical(x)
       ds_common_name = bm$common_name, itis_id = bm$itis_id,
       scientific_name = bm$scientific_name, common_name = bm$common_name,
       is_bird = isTRUE_vec(bm$is_bird), stringsAsFactors = FALSE))
-    # mammals: resolve worms_id from overrides keyed by species_code
-    r <- .apply_overrides(r, overrides, "farallon_bird-mammal", bm$species_code)
+    # mammals: resolve worms_id from overrides keyed by species_code. Birds go
+    # through the same call — a bird override supplying an id is applied too, it
+    # simply keeps its itis: key (taxon_key_of() puts the Aves rule first).
+    r <- .apply_overrides(r, overrides, "farallon_bird-mammal", list(
+      species_code    = bm$species_code,
+      scientific_name = bm$scientific_name,
+      common_name     = bm$common_name))
     # coarse fallbacks for unidentified: bird -> Aves (itis 174371), mammal -> Mammalia (worms 1837)
     unid <- isTRUE_vec(bm$is_unidentified)
     r$itis_id[unid & isTRUE_vec(bm$is_bird)]   <- 174371L
@@ -252,6 +407,15 @@ isTRUE_vec <- function(x) !is.na(x) & as.logical(x)
 
   if (!length(arms)) stop(".taxon_norm_sources(): no taxon source tables found.")
   rows <- dplyr::bind_rows(arms)
+
+  # the authority cross-reference, staged by ensure_taxon_xref(). Applied HERE,
+  # before the key is minted, because it can change the id the key is built from
+  # (a deprecated ITIS TSN is replaced by its accepted form). `xref = NA` means
+  # "read whatever is staged"; an explicit NULL suppresses it, which is how
+  # ensure_taxon_xref() reads the vocabulary without being self-referential.
+  if (identical(xref, NA))
+    xref <- .read_cols(con, "_taxon_xref", .xref_cache_cols)
+  rows <- .apply_xref(rows, xref)
 
   # global taxon_key + dataset-local fallback where no authority id resolves
   rows$taxon_key <- taxon_key_of(rows$worms_id, rows$itis_id, rows$is_bird)
@@ -348,6 +512,14 @@ build_taxon_reference <- function(con, measurement_taxon = NULL, overrides = NUL
         ifelse(is_itis, hier$parentNameUsageID, NA_integer_), is_itis),
       is_bird = is_itis, stringsAsFactors = FALSE))
     hrows$taxon_key <- taxon_key_of(hrows$worms_id, hrows$itis_id, is_itis)
+    # cross-reference the ANCESTORS too. These rows come from the hierarchy, not
+    # from .taxon_norm_sources(), so .apply_xref() never reached them — which is
+    # why 657 of 732 ancestor rows released with no itis_id and 198 with no
+    # taxonomic_status. Applied AFTER taxon_key is minted, deliberately: an
+    # ancestor's key comes from the chain it was fetched in, and re-keying it
+    # here would break the parent links that chain just established.
+    hrows <- .apply_xref(hrows, .read_cols(con, "_taxon_xref", .xref_cache_cols),
+                         rekey = FALSE)
     hrows$.prio <- 1L
     rows <- dplyr::bind_rows(rows, hrows[!is.na(hrows$taxon_key), ])
   }
@@ -374,14 +546,35 @@ build_taxon_reference <- function(con, measurement_taxon = NULL, overrides = NUL
       order_taxon = flat$order_taxon, family = flat$family,
       is_bird = f_itis, stringsAsFactors = FALSE))
     frows$taxon_key <- taxon_key_of(frows$worms_id, frows$itis_id, f_itis)
+    frows <- .apply_xref(frows, .read_cols(con, "_taxon_xref", .xref_cache_cols),
+                         rekey = FALSE)
     frows$.prio <- 0L
     rows <- dplyr::bind_rows(rows, frows[!is.na(frows$taxon_key), ])
   }
 
-  # 3. rank ordering (fold in taxa_rank)
+  # 3. rank ordering. The connection's own `taxa_rank` wins where it has an
+  # answer; the package reference fills the rest. Previously this was ONLY the
+  # connection's table, which exists in the swfsc_ichthyo connection and nowhere
+  # else — so every other dataset's taxa, including all 169 ITIS-keyed ones,
+  # released with rank_order NULL. See taxa_rank_reference().
   rank_ord <- .read_cols(con, "taxa_rank", c("taxonRank", "rank_order"))
+  rank_ref <- taxa_rank_reference()
+  rank_ord <- if (is.null(rank_ord) || !nrow(rank_ord)) rank_ref else {
+    ro <- rank_ord[!is.na(rank_ord$taxonRank) & !is.na(rank_ord$rank_order), , drop = FALSE]
+    # one row per rank, or the left join below fans out (a rank carrying both an
+    # order and a NULL would double every taxon of that rank)
+    ro <- ro[!duplicated(ro$taxonRank), , drop = FALSE]
+    rbind(ro, rank_ref[!rank_ref$taxonRank %in% ro$taxonRank, , drop = FALSE])
+  }
 
   first_nn <- function(x, p) { o <- order(p); x <- x[o]; x <- x[!is.na(x)]; if (length(x)) x[1] else NA }
+  # `notes` is append-only, so a taxon two datasets both reach keeps BOTH
+  # provenance lines rather than the higher-priority one silently winning
+  union_notes <- function(x, p) {
+    x <- x[order(p)]; x <- x[!is.na(x) & nzchar(x)]
+    if (!length(x)) return(NA_character_)
+    paste(unique(unlist(strsplit(x, "\n", fixed = TRUE))), collapse = "\n")
+  }
 
   taxon <- rows |>
     dplyr::filter(!is.na(.data$taxon_key)) |>
@@ -394,6 +587,8 @@ build_taxon_reference <- function(con, measurement_taxon = NULL, overrides = NUL
       common_name      = first_nn(.data$common_name,      .data$.prio),
       rank             = first_nn(.data$rank,             .data$.prio),
       taxonomic_status = first_nn(.data$taxonomic_status, .data$.prio),
+      status_checked   = first_nn(.data$status_checked,   .data$.prio),
+      notes            = union_notes(.data$notes,         .data$.prio),
       parent_worms_id  = first_nn(.data$parent_worms_id,  .data$.prio),
       parent_taxon_key = first_nn(.data$parent_taxon_key, .data$.prio),
       kingdom          = first_nn(.data$kingdom,          .data$.prio),
@@ -413,15 +608,15 @@ build_taxon_reference <- function(con, measurement_taxon = NULL, overrides = NUL
         .data$parent_taxon_key,
         ifelse(is.na(.data$parent_worms_id), NA_character_,
                paste0("worms:", .data$parent_worms_id))))
-  if (!is.null(rank_ord))
-    taxon <- dplyr::left_join(taxon, rank_ord, by = c("rank" = "taxonRank"))
-  else taxon$rank_order <- NA_integer_
+  # rank_ord is never NULL now (the package reference is the floor)
+  taxon <- dplyr::left_join(taxon, rank_ord, by = c("rank" = "taxonRank"))
 
   taxon <- taxon |>
     dplyr::select(
       "taxon_key", "worms_id", "itis_id", "gbif_id", "ncbi_id", "inat_id",
       "scientific_name", "common_name", "rank", "rank_order", "taxonomic_status",
-      "parent_taxon_key", "kingdom", "phylum", "class", "order_taxon", "family") |>
+      "status_checked", "parent_taxon_key", "kingdom", "phylum", "class",
+      "order_taxon", "family", "notes") |>
     dplyr::arrange(.data$taxon_key) |>
     as.data.frame()
   .replace_table(con, tbl, taxon)

@@ -341,26 +341,12 @@ build_taxon_hierarchy <- function(
   DBI::dbWriteTable(con, "taxon", taxon_rows)
   message(glue::glue("Created taxon table: {nrow(taxon_rows)} rows"))
 
-  # create taxa_rank lookup table
-  taxa_ranks_chr <- c(
-    "Kingdom", "Subkingdom",
-    "Phylum", "Subphylum", "Infraphylum",
-    "Superclass", "Class", "Subclass", "Infraclass", "Megacohort",
-    "Supercohort", "Cohort", "Subcohort", "Infracohort",
-    "Superorder", "Order", "Suborder", "Infraorder", "Parvorder",
-    "Superfamily", "Family", "Subfamily",
-    "Supertribe", "Tribe", "Subtribe",
-    "Genus", "Subgenus",
-    "Series", "Subseries",
-    "Species", "Subspecies",
-    "Natio", "Mutatio",
-    "Form", "Forma", "Subform", "Subforma",
-    "Variety", "Subvariety",
-    "Coll. sp.", "Aggr.")
-
-  d_taxa_rank <- tibble::tibble(
-    taxonRank  = taxa_ranks_chr,
-    rank_order = seq_along(taxa_ranks_chr))
+  # create taxa_rank lookup table from the package reference. This vocabulary
+  # used to be an inline vector here — the only place it existed — so the lookup
+  # was present in this one connection and absent everywhere else, and every
+  # other dataset's taxa released with rank_order NULL. taxa_rank_reference() is
+  # now the single source of truth and covers both authorities' rank sets.
+  d_taxa_rank <- tibble::as_tibble(taxa_rank_reference())
 
   DBI::dbExecute(con, "DROP TABLE IF EXISTS taxa_rank")
   DBI::dbWriteTable(con, "taxa_rank", d_taxa_rank)

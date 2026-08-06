@@ -1,3 +1,306 @@
+# calcofi4db 3.9.0
+
+## Coverage is measured, not asserted
+
+`observed_coverage()` derives each dataset's real temporal and spatial extent
+from the assembled core (`sample` + `obs`), replacing the `coverage_temporal` /
+`coverage_spatial` strings each ingest hand-wrote into its `calcofi.dataset_meta`
+YAML. `format_bbox()` renders a bounding box the way a catalog writes one —
+unsigned magnitudes with a hemisphere suffix, in geographic order
+(`"29.8–37.8°N, 126.5–117.3°W"`), labelling both ends when a span crosses the
+equator or prime meridian.
+
+An asserted extent cannot help going stale: it is authored once and the data
+grows underneath it. Checked against release `v2026.08.06`, **7 of 15 were
+wrong** — `cce-lter_zoodb` claimed coverage through 2021-05 when its data ends
+2015-04, `calcofi_phyllosoma` stopped a year short of its own rows, and three
+said `"present"` while in fact stalling in 2019, 2022 and 2023.
+
+Two things the implementation is deliberate about:
+
+- **`NaN` is not `NULL`.** A `NaN` coordinate survives `IS NOT NULL` and
+  `min()`/`max()` propagate it, so one poisoned row would blow a dataset's whole
+  bounding box out to `NaN` with every nullity check still passing. The filter
+  is `isfinite()`.
+- **The halves are measured independently.** `calcofi_phytoplankton` is
+  region-pooled: real coordinates, no `datetime` anywhere. It measures spatially
+  and returns `NA` temporally rather than inventing a range, so a caller can
+  fall back to a declared value for that half alone.
+
+## netCDF no longer asserts a license nobody confirmed
+
+`nc_global_atts()` defaulted `license` to `"CC-BY 4.0"`. Only two ingests
+(`calcofi_dic`, `sio_mesopelagic-fish`) ever declared a license, so the other 14
+published netCDFs claiming terms for other people's data on no authority at all.
+An undeclared license now **omits the attribute** — the same rule
+`valid_min`/`valid_max` already followed, and for the same reason: a plausible
+default is indistinguishable from a real one downstream.
+
+## Bulk parquet stages outside the repo
+
+`cc_stage_dir()` / `cc_stage_path()` resolve a local staging root from
+`CALCOFI_STAGE_DIR`, defaulting to `~/_big/calcofi`. An ingest's output now
+splits across two roots:
+
+- **bulk parquet** → the staging root, on its way to `gs://calcofi-db/`;
+- **JSON sidecars** (`manifest.json`, `metadata.json`, `relationships.json`) →
+  the repo, where they are small, diffable, and reviewable.
+
+24 GB of parquet sat inside a git working tree, which forced a blanket ignore
+rule that swept the sidecars out of version control as collateral — the schema
+and provenance record for every dataset was untracked.
+
+- `write_parquet_outputs()` gains `parquet_dir` (default: the staging root);
+  `output_dir` now means the sidecar directory. Pass `parquet_dir = output_dir`
+  to restore the old single-directory layout.
+- `write_spatial_manifest()` gains `output_dir` for the same split.
+- `sync_to_gcs()` gains `sidecar_dir`, so both roots mirror to one `gcs_prefix`.
+  Sidecars are **exempted from `delete_stale`**: they are not under `local_dir`,
+  so an unguarded `--delete-unmatched-destination-objects` would have deleted
+  the release's entire schema record on every sync.
+- `core_shard_paths()` / `assemble_core_table()` / `assemble_core()` default
+  `parquet_dir` to the staging root and accept an absolute path (previously it
+  was always pasted onto `root`).
+- `build_release_table_registry()` gains `manifest_dir` alongside `parquet_dir`,
+  which used to mean both the manifest location and the byte location.
+
+**Manifest paths are now relative.** `files$path` recorded an absolute path, so
+committing a manifest would bake one machine's home directory into the repo.
+Where the bytes live is a property of the environment, not of the release.
+
+# calcofi4db 3.8.0
+
+## Every taxon gets its classification, not just the ones that were asked for
+
+`.lineage_flat()` emitted one row per **requested** id, so a taxon that entered
+the release only as somebody else's lineage ancestor arrived with a key, a name
+and a rank and **no classification at all**. In v2026.08.06 that was 430 of
+`swfsc_ichthyo`'s 1,553 taxa at or below family rank carrying neither `family`
+nor `kingdom`, and it was not an ITIS quirk — 44% of ITIS ancestors and 34% of
+WoRMS ancestors alike. An ancestor is a real taxon a consumer can select and roll
+up on; it should not be a second-class row because of how it happened to be
+fetched.
+
+It now emits **one row per distinct taxon across every chain**, with the five
+headline ranks derived from that taxon's own ancestors-or-self. No API call is
+involved: every chain passing through a node already contains its ancestors, so
+this is a re-read of data the cache holds.
+
+Two details that matter:
+
+- **The walk follows parent pointers, not row order.** `fetch_taxon_lineage()`
+  sorts by `(authority, requested_id, taxonID)`, which destroys the root→self
+  ordering the fetchers produce — so anything positional (like the old "the last
+  row is the taxon itself") was reading an arbitrary row. A single parent map is
+  built across all chains and climbed level by level.
+- **A deprecated requested id still gets a row.** ITIS answers 174553
+  (*Puffinus griseus*) with 1255050 (*Ardenna grisea*), so no node matches what
+  was asked for. `ensure_taxon_xref()` normally re-keys onto the accepted id
+  first, but cannot when `taxize` is unavailable; an alias row now points such a
+  taxon at its chain's leaf rather than letting it lose its classification.
+
+Ranks above family correctly keep `family = NA` — a phylum has no family — so
+coverage is asserted by rank position, not as a blanket non-NULL.
+
+`taxa_rank_reference()` also gained **`Section` and `Subsection`**, which WoRMS
+nests *below* Infraorder for decapods (Brachyura > Eubrachyura > Heterotremata >
+Cancroidea) rather than between order and family as in botany. They were the last
+two ranks in the release with no `rank_order`; a new test asserts the vocabulary
+covers every rank the shards actually carry, since a rank it lacks releases as a
+silent NULL — which is exactly how 100% of ITIS taxa went unnoticed.
+
+## Not fixed, deliberately
+
+`gbif_id` and `ncbi_id` stay as they are. WoRMS rejects `type = "gbif"` outright
+(HTTP 400) and returns no content for `ncbi` on the taxa we carry, so there is no
+crosswalk to make; filling them would mean a third authority's API and a separate
+sweep. `ncbi_id`/`inat_id` remain declared-but-NULL by design.
+
+# calcofi4db 3.7.0
+
+## `rank_order` for every taxon, not just one dataset's
+
+`build_taxon_reference()` takes `rank_order` from a `taxa_rank` lookup in the
+connection. That lookup was built in exactly one place — an inline vector inside
+`build_taxon_hierarchy()`, which only `swfsc_ichthyo` calls — so it existed in
+that one connection and nowhere else, and the left join produced `NA` for
+everybody else. In release v2026.08.06 that was **100% of ITIS-keyed taxa** (all
+169: every seabird and marine mammal) plus 252 WoRMS-keyed ones — 172 species,
+83 genera and 49 families with no sortable rank, in a column whose entire job is
+sorting a hierarchy.
+
+New exported **`taxa_rank_reference()`** is that vocabulary, promoted to the
+package and covering **both** authorities. Eight ranks the release actually
+carries were missing from the old vector — `Gigaclass`, `Infrakingdom`,
+`Megaclass`, `Parvphylum`, `Phylum (Division)`, `Subphylum (Subdivision)`,
+`Subterclass`, `Superdomain` — so those taxa had no `rank_order` even where the
+lookup was present. WoRMS and ITIS do not share a rank set, and a vocabulary
+derived from one of them cannot order the other.
+
+- `build_taxon_reference()` now uses the connection's `taxa_rank` where it has an
+  answer and the package reference for the rest, so **no notebook changes**: every
+  ingest gets `rank_order` by re-running.
+- It also **dedups the lookup to one row per rank**. A rank carrying both an order
+  and a NULL (which is what a partially-populated `taxa_rank` looks like) fans the
+  left join out and silently doubles every taxon of that rank.
+- `build_taxon_hierarchy()` reads the same reference instead of its own copy.
+
+## Lineage ancestors are no longer second-class
+
+`ensure_taxon_xref()` runs *before* `ensure_taxon_lineage()` — it has to, so the
+lineage fetch asks about the accepted id rather than the deprecated one — which
+means it only ever sees the dataset's own vocabulary. The ancestors are
+discovered afterwards, so nothing cross-referenced them: 657 of 732 ancestor rows
+released with no `itis_id` and 198 with no `taxonomic_status`, while every one of
+those answers was already sitting in the xref cache.
+
+`ensure_taxon_lineage()` now tops up the staged `_taxon_xref` for the ancestors
+it just fetched (new `xref_cache_csv` argument, defaulting to `taxon_xref.csv`
+beside the lineage cache — the layout every ingest already uses, so again no
+notebook change). Cached ids cost no API call.
+
+`.apply_xref()` gained `rekey = FALSE` for this path: an ancestor's key comes
+from the classification chain it was fetched in, so its ids may be *filled* but
+never *replaced* — swapping one would break the parent links that chain just
+established.
+
+# calcofi4db 3.6.0
+
+## Taxa reach the release with BOTH authorities' ids, and a status that is checked
+
+`taxon_key_of()` keys birds on `itis:<TSN>` because WoRMS bird taxonomy lags —
+it still calls these *Oceanodroma*, *Puffinus*, *Phalacrocorax*. That rule is
+right and is unchanged. What was missing is that nothing ever populated the
+`worms_id` **column** for those taxa, and the key authority and the
+cross-reference columns are different questions. A consumer joining on
+`worms_id` (`db-viz-hex::get_sp()`) therefore matched **zero rows for every
+seabird and marine mammal**: 59,858 of the Farallon census's 64,956 `obs` rows,
+92.2% of the dataset, unreachable with no error anywhere.
+
+### New: `fetch_taxon_xref()` / `ensure_taxon_xref()` (`R/xref.R`)
+
+A cache-backed authority cross-reference, built on the same contract as
+`ensure_taxon_lineage()`: it stages a `_taxon_xref` table that
+`.taxon_norm_sources()` reads, so every builder picks it up and a re-run is free
+and offline.
+
+- **ITIS TSN → WoRMS AphiaID** via `worrms::wm_record_by_external(type = "tsn")`
+  — an *exact id crosswalk*, not a name match. 91 of the 92 Farallon bird TSNs
+  resolve through it (the miss is a trinomial subspecies); 7 need
+  `valid_AphiaID` synonym-following.
+- **WoRMS AphiaID → ITIS TSN** via `wm_external()`, backfilling `itis_id` on the
+  753 `worms:`-keyed taxa that had none — including 34 Farallon mammals whose
+  source TSN the override registry was discarding. Batched 50 at a time
+  (`wm_record()` and `wm_external_()` both take a vector), which turns ~2,000
+  sequential request pairs into ~40 calls; a chunk that errors falls back to
+  one-at-a-time so a single bad id costs only itself.
+- **name → AphiaID** via `wm_records_name()` as the last resort, for taxa
+  carrying neither id.
+
+Two invariants the module enforces: a **key** must be an *accepted* id, so a
+deprecated one is re-keyed; a **cross-reference** is whatever the authority
+links, stored verbatim.
+
+### New: `clean_taxon_name()`
+
+Strips open-nomenclature and qualifier noise (`" sp."`, `" spp."`, `" cf "`,
+`"indistinguished "`, parenthetical authorship, trailing variant letters) so a
+source column header reaches WoRMS in a form it can match. `"Bathophilus sp."`
+→ `"Bathophilus"`; this is the whole reason 6 `sio_mesopelagic-fish` taxa had no
+id. It generalizes the hand-maintained `name_query` column that one dataset's
+cache already carried.
+
+**The cleaned name is the lookup query only.** `ds_taxa_code` is left verbatim —
+for mesopelagic fish the code *is* the spreadsheet header and is the join key
+from `obs`, so rewriting it would orphan every observation.
+
+### `taxon` gains `status_checked` and an append-only `notes`
+
+`taxonomic_status` used to be the literal string `"accepted"`, stamped by
+`ensure_taxon_lineage()` onto all 2,090 released taxa — including 28 whose ITIS
+TSN is demonstrably deprecated, and override rows whose own note reads "WoRMS
+status: unaccepted". It is now **fetched**, and carries `status_checked`: a
+status with no date is not a fact.
+
+`notes` accumulates datestamped lines and is never rewritten, recording how each
+id was resolved and any re-key, e.g.
+
+```
+2026-08-05: worms_id 137202 via WoRMS TSN crosswalk (status accepted);
+            itis:174553 deprecated in ITIS -> itis:1255050 (Ardenna grisea)
+```
+
+Both columns are additive; the dataset's own original code and name remain in
+`dataset_taxon`.
+
+### `taxon_override.csv` is now actually generic
+
+The registry's schema was always dataset-agnostic, but its **`match_column` was
+never read anywhere in `R/`**: `.apply_overrides()` was called from exactly two
+hardcoded sites passing a literal dataset name and a literal match vector, so a
+row added for any of the other five arms was parsed and then dropped without a
+word. Every arm now consults it, dispatching on the declared `match_column`, and
+a row naming an unknown `dataset_key` or a `match_column` the source does not
+expose **errors** — a typo must fail the ingest, not vanish. Same failure class
+as the unregistered-provider bug.
+
+### `.fetch_itis_chain()` follows `acceptedTSN`
+
+ITIS returns *no* classification for a TSN it has deprecated, and an empty
+result is indistinguishable from "no such taxon". That is why 28 Farallon birds
+reached the release with no rank, no parent and no classification at all. The
+fetcher now resolves to the accepted TSN and retries, and `.lineage_flat()`
+falls back to the chain's leaf when no row matches the requested id.
+
+### New: `check_taxon_ids()`
+
+Reports, per dataset, the taxa and observations with no `worms_id`, no authority
+key, or no rank — and **fails** on a dataset-local `taxon_key` that is not in an
+explicit `allow` list. The 19 genuinely non-taxonomic classes (zooscan
+eggs/multiples/nauplii/others, phytoplankton "other"/"undefined code") are
+declared one key at a time, in the open, so a *new* unresolved taxon can never
+hide among the known ones.
+
+# calcofi4db 3.5.0
+
+## `match_cruise_by_track()` recovers `cruise_key` from where the platform was
+
+New exported helper (`R/spatial.R`, `@concept spatial`) that assigns `cruise_key`
+to rows carrying a date and a position but no cruise FK, by finding the nearest
+station occupation in a reference *track* — any table of `cruise_key` + datetime
++ lon/lat, such as the `sample` shard of an already-ingested dataset.
+
+The motivating case is the bird/mammal census (workflows#74), whose 60,715
+transects shipped with `cruise_key` NULL on every row — and therefore on all
+66,272 `obs` rows — because the source records a survey label (`CAC1987_05`)
+rather than a cruise. Parsing year-month out of that label is not good enough:
+it is ambiguous whenever several ships sailed in one month (1998-10 had four),
+and it is simply wrong for a survey that straddles a month boundary
+(`CAC2014_01` ran 2014-01-29 → 02-04 and belongs to `2014-02-3322`).
+
+With `group_col` set the match is a **consensus** rather than a per-row
+assignment: every row of a group votes with its own nearest-station match, the
+modal `cruise_key` wins if it holds at least `min_share` of the votes, and the
+winner is written to *all* rows of the group — including rows too far from any
+station to have voted. One survey is one cruise, so this is both more robust (a
+transect that strays near another ship's station cannot mis-assign itself) and
+higher-yield (32,599 voting transects resolve all 60,010). A group whose vote is
+too split, or that has no vote at all, is left NULL rather than guessed.
+
+Notes on the implementation:
+
+- Distance is the cosine-corrected equirectangular approximation, well under 1%
+  error at the separations that matter and far cheaper than
+  `ST_Distance_Sphere()` over the candidate join. Candidates are pre-filtered to
+  a `max_km` bounding box, so an antipodal row can never become the "nearest"
+  one — matching against the full release track produced exactly that, a
+  21,982 km match.
+- `NaN`/`Inf` coordinates are excluded explicitly on both sides. They survive
+  `IS NOT NULL`, so filtering on NULL alone is not enough (cf. 3.4.2).
+- Only cruises present in the reference track can be assigned, so pointing
+  `ref_tbl` at a track whose keys all exist in the `cruise` reference table
+  guarantees the emitted FK resolves.
+
 # calcofi4db 3.4.3
 
 ## `append_sample()` tags geometry EPSG:4326

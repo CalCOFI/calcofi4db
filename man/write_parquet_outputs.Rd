@@ -7,6 +7,7 @@
 write_parquet_outputs(
   con,
   output_dir,
+  parquet_dir = NULL,
   tables = NULL,
   partition_by = NULL,
   sort_by = NULL,
@@ -20,7 +21,16 @@ write_parquet_outputs(
 \arguments{
 \item{con}{DuckDB connection}
 
-\item{output_dir}{Directory for parquet files}
+\item{output_dir}{Directory for the JSON sidecars (\code{manifest.json}, and
+alongside it the \code{metadata.json} / \code{relationships.json} written by
+\code{\link[=build_metadata_json]{build_metadata_json()}} / \code{\link[=write_relationships_json]{write_relationships_json()}}). Small, diffable,
+and kept \strong{in the repo} so the schema record is reviewable and versioned.}
+
+\item{parquet_dir}{Directory for the parquet files themselves. Defaults to
+\code{cc_stage_path("parquet", basename(output_dir))} — outside the repo (see
+\code{\link[=cc_stage_dir]{cc_stage_dir()}}), because the bytes are bulk, are rewritten wholesale on
+every run, and are already published to GCS. Pass \code{output_dir} explicitly
+to put them back beside the sidecars.}
 
 \item{tables}{Optional vector of table names to export. If NULL, exports all tables.}
 

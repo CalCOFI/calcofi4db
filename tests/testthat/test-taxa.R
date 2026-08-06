@@ -181,3 +181,127 @@ test_that("prune_taxon_shard errors rather than silently no-op without the refs"
   on.exit(close_duckdb(con))
   expect_error(prune_taxon_shard(con, "swfsc_ichthyo"), "dataset_taxon")
 })
+
+
+# taxon_override.csv is generic — the declared match_column is honored, and a row
+# nobody can claim is an error rather than a silent no-op. It used to be read for
+# only 2 of the 7 arms, with `match_column` never consulted anywhere in R/.
+
+test_that("an override reaches an arm that was previously never consulted", {
+  con <- new_taxa_fixture(); on.exit(close_duckdb(con))
+  ov <- rbind(taxa_overrides(), data.frame(
+    dataset_key = "cce-lter_zoodb", match_column = "taxon_id",
+    match_value = "3", worms_id = 111111L, itis_id = NA_integer_,
+    scientific_name = "Appendicularia", rank = "Class", stringsAsFactors = FALSE))
+  build_dataset_taxon(con, overrides = ov)
+  dt <- DBI::dbGetQuery(con, "SELECT * FROM dataset_taxon")
+  expect_equal(dt$taxon_key[dt$ds_taxon_key == "cce-lter_zoodb:3"], "worms:111111")
+})
+
+test_that("an override naming a match_column the source lacks errors", {
+  con <- new_taxa_fixture(); on.exit(close_duckdb(con))
+  ov <- data.frame(
+    dataset_key = "farallon_bird-mammal", match_column = "specieds_code",  # typo
+    match_value = "BLWH", worms_id = 137090L, itis_id = NA_integer_,
+    scientific_name = "Balaenoptera musculus", rank = "Species",
+    stringsAsFactors = FALSE)
+  expect_error(build_dataset_taxon(con, overrides = ov), "match_column")
+})
+
+test_that("an override naming an unknown dataset_key errors", {
+  con <- new_taxa_fixture(); on.exit(close_duckdb(con))
+  ov <- data.frame(
+    dataset_key = "sio_mesopelagic_fish",   # underscore, not hyphen
+    match_column = "scientific_name", match_value = "Bathophilus sp.",
+    worms_id = 126203L, itis_id = NA_integer_,
+    scientific_name = "Bathophilus", rank = "Genus", stringsAsFactors = FALSE)
+  expect_error(build_dataset_taxon(con, overrides = ov), "match no taxon source")
+})
+
+test_that("an override for a dataset absent from THIS connection is fine", {
+  # every ingest reads the whole registry while loading only its own vocabulary
+  con <- new_taxa_fixture(); on.exit(close_duckdb(con))
+  ov <- rbind(taxa_overrides(), data.frame(
+    dataset_key = "sio_mesopelagic-fish", match_column = "scientific_name",
+    match_value = "Bathophilus sp.", worms_id = 126203L, itis_id = NA_integer_,
+    scientific_name = "Bathophilus", rank = "Genus", stringsAsFactors = FALSE))
+  expect_no_error(build_dataset_taxon(con, overrides = ov))
+})
+
+test_that("check_taxon_ids gates unresolved taxa but allows declared ones", {
+  con <- new_taxa_fixture(); on.exit(close_duckdb(con))
+  # a non-taxonomic operational class: no id anywhere -> dataset-local key
+  DBI::dbExecute(con, "INSERT INTO zooscan_taxon
+    SELECT 16,'nauplii',NULL,NULL,NULL,NULL")
+  build_dataset_taxon(con, overrides = taxa_overrides())
+  build_taxon_reference(con, overrides = taxa_overrides())
+
+  expect_error(check_taxon_ids(con, verbose = FALSE), "cce-lter_zooscan:16")
+  rpt <- check_taxon_ids(con, allow = "cce-lter_zooscan:16", verbose = FALSE)
+  expect_true(rpt$n_local_key[rpt$dataset_key == "cce-lter_zooscan"] == 1L)
+  expect_true(all(rpt$n_taxa > 0))
+})
+
+
+# rank_order used to come ONLY from a `taxa_rank` table that a single ingest
+# built, so every other dataset's taxa — all 169 ITIS-keyed ones among them —
+# released with it NULL. taxa_rank_reference() is the floor now.
+
+test_that("taxa_rank_reference orders both authorities' rank vocabularies", {
+  rr <- taxa_rank_reference()
+  expect_true(all(c("taxonRank", "rank_order") %in% names(rr)))
+  expect_equal(anyDuplicated(rr$taxonRank), 0L)          # one row per rank, or joins fan out
+  expect_false(is.unsorted(rr$rank_order))
+  ord <- function(x) rr$rank_order[match(x, rr$taxonRank)]
+  expect_lt(ord("Kingdom"), ord("Phylum"))
+  expect_lt(ord("Family"),  ord("Genus"))
+  expect_lt(ord("Genus"),   ord("Species"))
+  expect_lt(ord("Species"), ord("Subspecies"))
+  # the ITIS/WoRMS ranks the release carries that the old inline vector lacked
+  for (r in c("Gigaclass", "Infrakingdom", "Megaclass", "Parvphylum",
+              "Phylum (Division)", "Subphylum (Subdivision)", "Subterclass",
+              "Superdomain", "Section", "Subsection"))
+    expect_false(is.na(ord(r)), info = r)
+  # WoRMS nests Section/Subsection below Infraorder for decapods (Brachyura >
+  # Eubrachyura > Heterotremata > Cancroidea), not between order and family
+  expect_lt(ord("Infraorder"),  ord("Section"))
+  expect_lt(ord("Section"),     ord("Subsection"))
+  expect_lt(ord("Subsection"),  ord("Superfamily"))
+})
+
+test_that("taxa_rank_reference covers every rank the release actually carries", {
+  # the vocabulary is only useful if it is COMPLETE — a rank it lacks silently
+  # releases with rank_order NULL, which is how 100% of ITIS taxa went unnoticed
+  release_ranks <- c(
+    "Class", "Family", "Genus", "Gigaclass", "Infraclass", "Infrakingdom",
+    "Infraorder", "Infraphylum", "Kingdom", "Megaclass", "Order", "Parvphylum",
+    "Phylum", "Phylum (Division)", "Section", "Species", "Subclass",
+    "Subfamily", "Subkingdom", "Suborder", "Subphylum",
+    "Subphylum (Subdivision)", "Subsection", "Subspecies", "Subterclass",
+    "Superclass", "Superdomain", "Superfamily", "Superorder", "Tribe")
+  expect_equal(setdiff(release_ranks, taxa_rank_reference()$taxonRank), character(0))
+})
+
+test_that("rank_order is populated without a taxa_rank table in the connection", {
+  con <- new_taxa_fixture(); on.exit(close_duckdb(con))
+  DBI::dbExecute(con, "DROP TABLE taxa_rank")     # the non-ichthyo case
+  build_taxon_reference(con, overrides = taxa_overrides())
+  tx <- DBI::dbGetQuery(con, "SELECT rank, rank_order FROM taxon WHERE rank IS NOT NULL")
+
+  expect_gt(nrow(tx), 0)
+  expect_true(all(!is.na(tx$rank_order)))
+  expect_lt(tx$rank_order[tx$rank == "Genus"][1], tx$rank_order[tx$rank == "Species"][1])
+})
+
+test_that("a connection-local taxa_rank still wins, and never fans out", {
+  con <- new_taxa_fixture(); on.exit(close_duckdb(con))
+  # a rank carrying BOTH an order and a NULL is what doubled every tree row
+  DBI::dbExecute(con, "INSERT INTO taxa_rank SELECT 'Species', NULL")
+  build_taxon_reference(con, overrides = taxa_overrides())
+  tx <- DBI::dbGetQuery(con, "SELECT taxon_key, rank, rank_order FROM taxon")
+
+  expect_equal(anyDuplicated(tx$taxon_key), 0L)        # no fan-out
+  # `which()`, not a bare logical: a taxon with rank NA (in the species list but
+  # not the hierarchy) subsets as NA and would smuggle an NA into the comparison
+  expect_equal(unique(tx$rank_order[which(tx$rank == "Species")]), 260L)
+})

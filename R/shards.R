@@ -13,7 +13,10 @@
 #'
 #' @param root workflows repo root (contains `data/parquet/`)
 #' @param table core table name (e.g. `"obs"`)
-#' @param parquet_dir directory holding the per-dataset output dirs
+#' @param parquet_dir directory holding the per-dataset output dirs. Defaults
+#'   to the local staging root (see [cc_stage_dir()]), where the bulk parquet
+#'   lives; an absolute path is used as-is, a relative one is resolved against
+#'   `root`. The JSON sidecars stay in the repo and are found separately.
 #' @param exclude dataset dir names to skip; defaults to the ingests that
 #'   declare `calcofi.in_release: false` (see [release_excluded_datasets()]), so
 #'   an in-progress ingest's shards stay out of the release even though its
@@ -21,9 +24,9 @@
 #' @return character vector of readable parquet paths/globs, one per dataset
 #' @export
 #' @concept shards
-core_shard_paths <- function(table, root = ".", parquet_dir = "data/parquet",
+core_shard_paths <- function(table, root = ".", parquet_dir = cc_stage_path("parquet"),
                              exclude = release_excluded_datasets(root)) {
-  base <- file.path(root, parquet_dir)
+  base <- .shard_base(root, parquet_dir)
   dirs <- list.dirs(base, recursive = FALSE)
   dirs <- dirs[!basename(dirs) %in% exclude]
   out <- character()
@@ -34,6 +37,16 @@ core_shard_paths <- function(table, root = ".", parquet_dir = "data/parquet",
     else if (dir.exists(p)) out <- c(out, file.path(p, "**", "*.parquet"))
   }
   out
+}
+
+# Resolve where the per-dataset shard dirs live. The bulk parquet moved out of
+# the repo to the staging root (an absolute path), while `root` still locates
+# the repo for the sidecars and the in_release YAML — so an absolute
+# parquet_dir must NOT be pasted onto root, or the shards resolve to a path
+# that cannot exist and every core table silently assembles from zero shards.
+.shard_base <- function(root, parquet_dir) {
+  is_abs <- grepl("^(/|~|[A-Za-z]:[\\\\/])", parquet_dir)
+  if (is_abs) path.expand(parquet_dir) else file.path(root, parquet_dir)
 }
 
 # SQL reading one shard path (hive partitioning for the directory form)
@@ -57,13 +70,16 @@ core_shard_paths <- function(table, root = ".", parquet_dir = "data/parquet",
 #' @param id_col surrogate id column to renumber globally (NULL to keep as-is)
 #' @param order_by optional ORDER BY used when renumbering, so ids are stable
 #'   across re-runs of unchanged data
-#' @param parquet_dir directory holding the per-dataset output dirs
+#' @param parquet_dir directory holding the per-dataset output dirs. Defaults
+#'   to the local staging root (see [cc_stage_dir()]), where the bulk parquet
+#'   lives; an absolute path is used as-is, a relative one is resolved against
+#'   `root`. The JSON sidecars stay in the repo and are found separately.
 #' @param exclude dataset dir names to skip (see [core_shard_paths()])
 #' @return (invisibly) the row count written, or 0 when no shard exists
 #' @export
 #' @concept shards
 assemble_core_table <- function(con, table, root = ".", id_col = NULL,
-                                order_by = NULL, parquet_dir = "data/parquet",
+                                order_by = NULL, parquet_dir = cc_stage_path("parquet"),
                                 exclude = release_excluded_datasets(root)) {
   paths <- core_shard_paths(table, root, parquet_dir, exclude = exclude)
   if (!length(paths)) {
@@ -103,7 +119,10 @@ assemble_core_table <- function(con, table, root = ".", id_col = NULL,
 #' @param con a DuckDB connection
 #' @param root workflows repo root
 #' @param priority dataset dirs in descending priority
-#' @param parquet_dir directory holding the per-dataset output dirs
+#' @param parquet_dir directory holding the per-dataset output dirs. Defaults
+#'   to the local staging root (see [cc_stage_dir()]), where the bulk parquet
+#'   lives; an absolute path is used as-is, a relative one is resolved against
+#'   `root`. The JSON sidecars stay in the repo and are found separately.
 #' @param exclude dataset dir names to skip (see [core_shard_paths()])
 #' @return (invisibly) the row count of the merged `taxon`
 #' @export
@@ -113,9 +132,9 @@ merge_taxon_shards <- function(con, root = ".",
                                             "farallon_bird-mammal",
                                             "cce-lter_zoodb", "cce-lter_zooscan",
                                             "calcofi_phytoplankton"),
-                               parquet_dir = "data/parquet",
+                               parquet_dir = cc_stage_path("parquet"),
                                exclude = release_excluded_datasets(root)) {
-  base  <- file.path(root, parquet_dir)
+  base  <- .shard_base(root, parquet_dir)
   dirs  <- list.dirs(base, recursive = FALSE)
   dirs  <- dirs[!basename(dirs) %in% exclude]
   paths <- Filter(file.exists, file.path(dirs, "taxon.parquet"))
@@ -138,7 +157,13 @@ merge_taxon_shards <- function(con, root = ".",
   # first non-NULL by priority, then by shard order — arg_min over _prio ignores
   # NULLs, which is exactly the coalesce-with-priority we want
   # quote every identifier: `rank` and `order` are reserved words in DuckDB
-  aggs <- paste(vapply(val_cols, function(cl) glue::glue(
+  #
+  # `notes` is the exception: it is append-only provenance, so a taxon two
+  # datasets both reach must keep BOTH lines rather than let the higher-priority
+  # shard's note silently win. Identical blocks (the common case — the xref cache
+  # is global) collapse via DISTINCT.
+  aggs <- paste(vapply(val_cols, function(cl) if (cl == "notes") glue::glue(
+    'string_agg(DISTINCT "{cl}", chr(10)) AS "{cl}"') else glue::glue(
     'arg_min("{cl}", "_prio") FILTER (WHERE "{cl}" IS NOT NULL) AS "{cl}"'), ""),
     collapse = ",\n         ")
 
@@ -210,7 +235,10 @@ supplemental_core_tables <- function(root = ".", which = TRUE) {
 #' @param supplemental `TRUE` (default) to include every supplemental
 #'   full-resolution table the ingests declare, `FALSE` for none, or an explicit
 #'   character vector of table names. See [supplemental_core_tables()].
-#' @param parquet_dir directory holding the per-dataset output dirs
+#' @param parquet_dir directory holding the per-dataset output dirs. Defaults
+#'   to the local staging root (see [cc_stage_dir()]), where the bulk parquet
+#'   lives; an absolute path is used as-is, a relative one is resolved against
+#'   `root`. The JSON sidecars stay in the repo and are found separately.
 #' @param exclude dataset dir names to skip; defaults to the ingests declaring
 #'   `calcofi.in_release: false` (see [release_excluded_datasets()]). Resolved
 #'   once here and threaded to every shard read.
@@ -218,7 +246,7 @@ supplemental_core_tables <- function(root = ".", which = TRUE) {
 #' @export
 #' @concept shards
 assemble_core <- function(con, root = ".", supplemental = TRUE,
-                          parquet_dir = "data/parquet",
+                          parquet_dir = cc_stage_path("parquet"),
                           exclude = release_excluded_datasets(root)) {
   if (length(exclude))
     message(glue::glue(

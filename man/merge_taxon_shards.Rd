@@ -9,7 +9,7 @@ merge_taxon_shards(
   root = ".",
   priority = c("swfsc_ichthyo", "farallon_bird-mammal", "cce-lter_zoodb",
     "cce-lter_zooscan", "calcofi_phytoplankton"),
-  parquet_dir = "data/parquet",
+  parquet_dir = cc_stage_path("parquet"),
   exclude = release_excluded_datasets(root)
 )
 }
@@ -20,7 +20,10 @@ merge_taxon_shards(
 
 \item{priority}{dataset dirs in descending priority}
 
-\item{parquet_dir}{directory holding the per-dataset output dirs}
+\item{parquet_dir}{directory holding the per-dataset output dirs. Defaults
+to the local staging root (see \code{\link[=cc_stage_dir]{cc_stage_dir()}}), where the bulk parquet
+lives; an absolute path is used as-is, a relative one is resolved against
+\code{root}. The JSON sidecars stay in the repo and are found separately.}
 
 \item{exclude}{dataset dir names to skip (see \code{\link[=core_shard_paths]{core_shard_paths()}})}
 }

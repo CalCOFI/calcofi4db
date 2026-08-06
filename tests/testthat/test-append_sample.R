@@ -80,9 +80,16 @@ test_that("append_sample() takes 15 or 16 columns; the 16th is data_stage", {
 
   # 15 columns (the base contract) -> data_stage NULL
   append_sample(con, ich_sample_sql[["site"]])
-  # 16 columns -> the trailing value lands in data_stage
+  # 16 columns -> the trailing value lands in data_stage.
+  #
+  # The literal is a placeholder — this package deliberately does NOT own the
+  # `data_stage` vocabulary (free-form VARCHAR, no CHECK; the ingest that emits it
+  # owns the values). It is a REAL one rather than an invented one so that grepping
+  # the vocabulary does not turn up a fixture that looks like live usage: the bare
+  # `preliminary` used here before was retired on 2026-08-06 when
+  # ingest_calcofi_ctd-cast split it into with/without-bottle tiers.
   append_sample(con, glue::glue(
-    "SELECT *, 'preliminary'::VARCHAR AS data_stage
+    "SELECT *, 'preliminary_with_bottle'::VARCHAR AS data_stage
      FROM ({ich_sample_sql[['tow']]}) AS a(
        sample_key, sample_type, parent_sample_key, root_sample_key, dataset_key,
        grid_key, site_key, cruise_key, order_occ, latitude, longitude, datetime,
@@ -91,7 +98,7 @@ test_that("append_sample() takes 15 or 16 columns; the 16th is data_stage", {
   stage <- function(key) DBI::dbGetQuery(con, glue::glue(
     "SELECT data_stage FROM sample WHERE sample_key = '{key}'"))$data_stage
   expect_true(is.na(stage("swfsc_ichthyo:site:S1")))
-  expect_equal(stage("swfsc_ichthyo:tow:T1"), "preliminary")
+  expect_equal(stage("swfsc_ichthyo:tow:T1"), "preliminary_with_bottle")
 
   # everything else about the 16-column arm is unchanged
   expect_equal(

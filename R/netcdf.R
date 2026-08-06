@@ -902,7 +902,6 @@ nc_global_atts <- function(dataset_key, dataset_meta = list(), release,
     source      = glue::glue("CalCOFI integrated database release {release}"),
     db_release  = as.character(release),
     dataset_key = dataset_key,
-    license      = as.character(.nz(dm$license, "CC-BY 4.0")),
     creator_name = "CalCOFI",
     creator_url  = "https://calcofi.io")
   if (shape == "profile") {
@@ -918,9 +917,16 @@ nc_global_atts <- function(dataset_key, dataset_meta = list(), release,
   # ("2004-01 to 2022-11", "28-37°N, -125 to -117°W"), and ACDD's typed
   # attributes want an ISO instant and a WKT geometry. Putting prose in them
   # would make the file claim a standard it does not satisfy.
+  # `license` is optional for the same reason `valid_min` is: an undeclared
+  # license is a GAP, and filling it with a plausible default turns that gap
+  # into an assertion about someone else's terms. It used to default to
+  # "CC-BY 4.0", so 14 of 16 ingests — every one that never declared a license,
+  # which is all but calcofi_dic and sio_mesopelagic-fish — published netCDFs
+  # claiming terms nobody confirmed. Absent is honest; a reader can ask.
   opt <- list(
     references          = workflow_url,
     citation            = dm$citation_main,
+    license             = dm$license,
     time_coverage       = dm$coverage_temporal,
     geospatial_coverage = dm$coverage_spatial,
     date_created        = date_created)

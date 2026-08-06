@@ -79,8 +79,14 @@ test_that("core shard discovery skips flagged-out datasets", {
   con <- get_duckdb_con(":memory:")
   on.exit(close_duckdb(con), add = TRUE)
 
+  # the shards are BYTES, so they live in the staging root, while `root` still
+  # points at the repo -- that split is the whole point of the two arguments,
+  # and the flag is read from the notebooks under `root` either way
+  stage <- withr::local_tempdir()
+  withr::local_envvar(c(CALCOFI_STAGE_DIR = stage))
+
   for (ds in c("aa_one", "cc_three")) {
-    pq <- file.path(dir, "data/parquet", ds)
+    pq <- file.path(stage, "parquet", ds)
     dir.create(pq, recursive = TRUE)
     DBI::dbExecute(con, glue::glue(
       "COPY (SELECT 1 obs_id, '{ds}' dataset_key, '{ds}:tow:1' sample_key,

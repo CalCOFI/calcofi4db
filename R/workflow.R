@@ -563,12 +563,19 @@ build_release_table_registry <- function(workflows_dir = here::here()) {
 
   wf <- parse_qmd_frontmatter(workflows_dir)
 
+  # an ingest's output is split across two roots: the JSON sidecars stay in the
+  # repo (`output:` points at manifest.json there) and the bulk parquet stages
+  # outside it. Conflating them made `parquet_dir` mean both, so pointing it at
+  # the stage would have broken the manifest read and pointing it at the repo
+  # would have found no bytes.
   ingest_dirs <- wf |>
     dplyr::filter(workflow_type %in% c("ingest", "spatial"), in_release) |>
-    dplyr::mutate(parquet_dir = file.path(workflows_dir, dirname(output)))
+    dplyr::mutate(
+      manifest_dir = file.path(workflows_dir, dirname(output)),
+      parquet_dir  = cc_stage_path("parquet", basename(dirname(output))))
 
   registry <- purrr::map_dfr(seq_len(nrow(ingest_dirs)), function(i) {
-    mf_path <- file.path(ingest_dirs$parquet_dir[i], "manifest.json")
+    mf_path <- file.path(ingest_dirs$manifest_dir[i], "manifest.json")
     if (!file.exists(mf_path)) return(tibble::tibble())
     mf <- jsonlite::fromJSON(mf_path)
     supp <- unlist(mf$supplemental) %||% character()
@@ -586,6 +593,7 @@ build_release_table_registry <- function(workflows_dir = here::here()) {
       rows         = rows,
       ingest       = target,
       parquet_dir  = ingest_dirs$parquet_dir[i],
+      manifest_dir = ingest_dirs$manifest_dir[i],
       gcs_prefix   = paste0("ingest/", dir_label),
       partitioned  = table %in% part,
       supplemental = table %in% supp)
@@ -600,7 +608,7 @@ build_release_table_registry <- function(workflows_dir = here::here()) {
   # discover _new sidecar parquets from filesystem (not in manifests)
   # these are delta exports from ingests that declare calcofi.modifies
   modifies_map <- ingest_dirs |>
-    dplyr::select(ingest = target_name, parquet_dir, modifies) |>
+    dplyr::select(ingest = target_name, parquet_dir, manifest_dir, modifies) |>
     tidyr::unnest(modifies) |>
     dplyr::rename(modified_table = modifies)
 
@@ -615,6 +623,7 @@ build_release_table_registry <- function(workflows_dir = here::here()) {
         rows         = NA_real_,
         ingest       = mr$ingest,
         parquet_dir  = mr$parquet_dir,
+        manifest_dir = mr$manifest_dir,
         gcs_prefix   = paste0("ingest/", dir_label),
         partitioned  = FALSE,
         supplemental = FALSE,

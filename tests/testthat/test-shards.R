@@ -3,14 +3,18 @@
 # ids collide (each ingest numbers from 1) and the same taxon appears in several
 # shards and must collapse to one row with its best-sourced fields.
 
-# write a tiny two-dataset shard tree under a temp root
+# write a tiny two-dataset shard tree under a temp staging root.
+# The bulk parquet lives OUTSIDE the repo now, so the fixtures sit where
+# cc_stage_path("parquet") resolves rather than under root/data/parquet — this
+# exercises the production default instead of a layout nothing uses.
 make_shard_root <- function() {
   root <- withr::local_tempdir(.local_envir = parent.frame())
+  withr::local_envvar(c(CALCOFI_STAGE_DIR = root), .local_envir = parent.frame())
   con <- get_duckdb_con(":memory:")
   on.exit(close_duckdb(con))
 
-  for (d in c("ds_a", "ds_b")) dir.create(file.path(root, "data/parquet", d), recursive = TRUE)
-  p <- function(d, t) file.path(root, "data/parquet", d, paste0(t, ".parquet"))
+  for (d in c("ds_a", "ds_b")) dir.create(file.path(root, "parquet", d), recursive = TRUE)
+  p <- function(d, t) file.path(root, "parquet", d, paste0(t, ".parquet"))
 
   # both shards number obs_id from 1 — the collision the release must resolve
   DBI::dbExecute(con, glue::glue("COPY (
@@ -30,15 +34,18 @@ make_shard_root <- function() {
     SELECT 'ds_b:tow:1' sample_key, 'tow' sample_type, 'ds_b' dataset_key
   ) TO '{p('ds_b','sample')}' (FORMAT PARQUET)"))
 
-  # worms:2 is in both shards; ds_a (higher priority) has the rank, ds_b the name
+  # worms:2 is in both shards; ds_a (higher priority) has the rank, ds_b the name.
+  # Both also carry a DIFFERENT provenance note, which must survive the merge —
+  # `notes` is append-only, so priority must not silently drop one.
   DBI::dbExecute(con, glue::glue("COPY (
     SELECT 'worms:1' AS taxon_key, 'Calanus' AS scientific_name,
-           'genus' AS taxon_rank, NULL::VARCHAR AS family
-    UNION ALL SELECT 'worms:2', NULL::VARCHAR, 'species', 'Euphausiidae'
+           'genus' AS taxon_rank, NULL::VARCHAR AS family, NULL::VARCHAR AS notes
+    UNION ALL SELECT 'worms:2', NULL::VARCHAR, 'species', 'Euphausiidae', '2026-08-05: from ds_a'
   ) TO '{p('ds_a','taxon')}' (FORMAT PARQUET)"))
   DBI::dbExecute(con, glue::glue("COPY (
     SELECT 'worms:2' AS taxon_key, 'Euphausia pacifica' AS scientific_name,
-           NULL::VARCHAR AS taxon_rank, NULL::VARCHAR AS family
+           NULL::VARCHAR AS taxon_rank, NULL::VARCHAR AS family,
+           '2026-08-05: from ds_b' AS notes
   ) TO '{p('ds_b','taxon')}' (FORMAT PARQUET)"))
   root
 }
@@ -69,7 +76,7 @@ test_that("assemble_core() rejects a sample_key colliding across shards", {
   on.exit(close_duckdb(con))
 
   # break the namespacing guarantee: ds_b claims ds_a's key
-  dup <- file.path(root, "data/parquet/ds_b/sample.parquet")
+  dup <- file.path(root, "parquet/ds_b/sample.parquet")
   DBI::dbExecute(con, glue::glue("COPY (
     SELECT 'ds_a:tow:1' sample_key, 'tow' sample_type, 'ds_b' dataset_key
   ) TO '{dup}' (FORMAT PARQUET)"))
@@ -96,6 +103,11 @@ test_that("taxon shards collapse on taxon_key, coalescing by source priority", {
   expect_equal(got$taxon_rank[2], "species")                  # from ds_a
   expect_equal(got$scientific_name[2], "Euphausia pacifica")  # ds_a is NULL -> ds_b
   expect_equal(got$family[2], "Euphausiidae")           # from ds_a
+
+  # append-only provenance: BOTH shards' notes survive, neither wins
+  nt <- DBI::dbGetQuery(con, "SELECT notes FROM taxon WHERE taxon_key = 'worms:2'")$notes
+  expect_match(nt, "from ds_a")
+  expect_match(nt, "from ds_b")
 })
 
 test_that("a missing shard is reported, not fatal", {
@@ -114,9 +126,10 @@ test_that("a missing shard is reported, not fatal", {
 test_that("core_shard_paths() finds both file and hive-partitioned shards", {
   skip_if_not_installed("withr")
   root <- withr::local_tempdir()
-  dir.create(file.path(root, "data/parquet/ds_a"), recursive = TRUE)
-  dir.create(file.path(root, "data/parquet/ds_b/obs/cruise_key=x"), recursive = TRUE)
-  file.create(file.path(root, "data/parquet/ds_a/obs.parquet"))
+  withr::local_envvar(c(CALCOFI_STAGE_DIR = root))
+  dir.create(file.path(root, "parquet/ds_a"), recursive = TRUE)
+  dir.create(file.path(root, "parquet/ds_b/obs/cruise_key=x"), recursive = TRUE)
+  file.create(file.path(root, "parquet/ds_a/obs.parquet"))
 
   p <- core_shard_paths("obs", root)
   expect_length(p, 2L)

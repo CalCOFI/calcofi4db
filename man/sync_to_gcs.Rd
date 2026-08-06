@@ -16,6 +16,7 @@ sync_to_gcs(
   provider = NULL,
   dataset = NULL,
   parallel = TRUE,
+  sidecar_dir = NULL,
   verbose = TRUE
 )
 }
@@ -51,6 +52,13 @@ serialises the whole upload — an ingest with a Hive-partitioned table
 (obs_ctd_full is 96 partitions / 4.9 GB) spends most of its wall clock in
 process startup. Set FALSE for the per-file path when you need the detailed
 per-file action tibble or crc32c-level skip reporting.}
+
+\item{sidecar_dir}{Optional second local directory whose files mirror to the
+\strong{same} \code{gcs_prefix}. An ingest's output is split across two roots — bulk
+parquet under \code{\link[=cc_stage_dir]{cc_stage_dir()}}, the JSON sidecars in the repo — but it is
+one directory as far as GCS and every consumer are concerned. Sidecars are
+copied after the main sync, and are protected from \code{delete_stale} (see
+Details).}
 
 \item{verbose}{Print per-file status messages (default: TRUE)}
 }

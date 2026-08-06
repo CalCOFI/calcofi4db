@@ -165,3 +165,62 @@ test_that("only the REQUESTED ids come back, not the whole cache", {
   still <- utils::read.csv(p, stringsAsFactors = FALSE)
   expect_setequal(unique(still$requested_id), c(217452L, 440388L, 174715L))
 })
+
+
+# Ancestors are real taxa a consumer can select and roll up on. .lineage_flat()
+# used to emit only the REQUESTED ids, so every ancestor reached the release with
+# a key, a name and a rank and no classification at all.
+
+test_that(".lineage_flat classifies ancestors, not just the requested taxa", {
+  # Sardinops sagax's chain, root -> self, deliberately NOT in depth order (the
+  # cache is sorted by taxonID, which is what broke any positional assumption)
+  lin <- data.frame(
+    requested_id      = 217452L,
+    authority         = "WoRMS",
+    taxonID           = c(125464L, 2L, 217452L, 1821L, 152352L),
+    parentNameUsageID = c(152352L, NA, 125464L, 2L, 1821L),
+    scientificName    = c("Sardinops", "Animalia", "Sardinops sagax",
+                          "Chordata", "Clupeidae"),
+    taxonRank         = c("Genus", "Kingdom", "Species", "Phylum", "Family"),
+    stringsAsFactors  = FALSE)
+
+  f <- calcofi4db:::.lineage_flat(lin)
+  expect_equal(nrow(f), 5L)                        # one row per taxon, not one
+  row <- function(id) f[f$requested_id == id, , drop = FALSE]
+
+  # the requested taxon, as before
+  expect_equal(row(217452L)$family,  "Clupeidae")
+  expect_equal(row(217452L)$kingdom, "Animalia")
+  expect_equal(row(217452L)$rank,    "Species")
+
+  # the ANCESTORS now carry their own classification
+  expect_equal(row(125464L)$family,  "Clupeidae")   # genus is in the family
+  expect_equal(row(125464L)$kingdom, "Animalia")
+  expect_equal(row(152352L)$family,  "Clupeidae")   # the family is its own family
+  expect_equal(row(152352L)$phylum,  "Chordata")
+
+  # ...and a taxon ABOVE family rank correctly has none
+  expect_true(is.na(row(1821L)$family))             # Chordata
+  expect_equal(row(1821L)$kingdom, "Animalia")
+  expect_true(is.na(row(2L)$phylum))                # Animalia, the root
+})
+
+test_that(".lineage_flat aliases a requested id the authority deprecated", {
+  # requested 174553 (Puffinus griseus) but ITIS answered with 1255050
+  lin <- data.frame(
+    requested_id      = 174553L,
+    authority         = "ITIS",
+    taxonID           = c(202423L, 1255018L, 1255050L, 174532L),
+    parentNameUsageID = c(NA, 174532L, 1255018L, 202423L),
+    scientificName    = c("Animalia", "Ardenna", "Ardenna grisea", "Procellariidae"),
+    taxonRank         = c("Kingdom", "Genus", "Species", "Family"),
+    stringsAsFactors  = FALSE)
+
+  f <- calcofi4db:::.lineage_flat(lin)
+  ali <- f[f$requested_id == 174553L, , drop = FALSE]
+  expect_equal(nrow(ali), 1L)
+  expect_equal(ali$scientific_name, "Ardenna grisea")   # the chain's leaf
+  expect_equal(ali$family, "Procellariidae")
+  # the accepted id keeps its own row too
+  expect_equal(f$family[f$requested_id == 1255050L], "Procellariidae")
+})

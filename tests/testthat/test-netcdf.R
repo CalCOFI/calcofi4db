@@ -428,8 +428,24 @@ test_that("nc_global_atts derives its text from dataset_meta", {
   expect_equal(a$citation, "CalCOFI. Underway (METS) Data.")
   expect_equal(a$time_coverage, "2004-01 to 2022-11")
   expect_equal(a$references, "https://calcofi.io/w.html")
-  expect_equal(a$license, "CC-BY 4.0")
   expect_match(a$cf_scope, "Fully CF")
+})
+
+test_that("an undeclared license omits the attribute rather than asserting one", {
+  # regression: `license` used to default to "CC-BY 4.0", so every ingest that
+  # never declared one — 14 of 16 — shipped netCDFs claiming terms nobody had
+  # confirmed. Same rule as valid_min/valid_max: absent, not invented.
+  a <- nc_global_atts("calcofi_mets", list(), "v2026.07.30", "profile")
+  expect_null(a$license)
+
+  # an empty string is a gap too, not a license
+  b <- nc_global_atts("calcofi_mets", list(license = ""), "v2026.07.30", "profile")
+  expect_null(b$license)
+
+  # ...and a declared one is passed through verbatim
+  d <- nc_global_atts("calcofi_dic", list(license = "CC BY 4.0"),
+                      "v2026.07.30", "profile")
+  expect_equal(d$license, "CC BY 4.0")
 })
 
 test_that("nc_global_atts falls back to the dataset_key and marks the nested shape", {

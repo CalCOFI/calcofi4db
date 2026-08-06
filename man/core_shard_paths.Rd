@@ -7,7 +7,7 @@
 core_shard_paths(
   table,
   root = ".",
-  parquet_dir = "data/parquet",
+  parquet_dir = cc_stage_path("parquet"),
   exclude = release_excluded_datasets(root)
 )
 }
@@ -16,7 +16,10 @@ core_shard_paths(
 
 \item{root}{workflows repo root (contains \verb{data/parquet/})}
 
-\item{parquet_dir}{directory holding the per-dataset output dirs}
+\item{parquet_dir}{directory holding the per-dataset output dirs. Defaults
+to the local staging root (see \code{\link[=cc_stage_dir]{cc_stage_dir()}}), where the bulk parquet
+lives; an absolute path is used as-is, a relative one is resolved against
+\code{root}. The JSON sidecars stay in the repo and are found separately.}
 
 \item{exclude}{dataset dir names to skip; defaults to the ingests that
 declare \code{calcofi.in_release: false} (see \code{\link[=release_excluded_datasets]{release_excluded_datasets()}}), so
