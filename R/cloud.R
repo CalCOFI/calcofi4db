@@ -195,6 +195,10 @@ copy_gcs_file <- function(src, dst) {
 #'   one directory as far as GCS and every consumer are concerned. Sidecars are
 #'   copied after the main sync, and are protected from `delete_stale` (see
 #'   Details).
+#' @param gcs_retries Attempts for the parallel `rsync` before giving up
+#'   (default 3, backing off 15s/30s). rsync skips what already matches, so a
+#'   retry re-sends only what is missing — a transient network failure should
+#'   cost the remaining bytes, not the hours of compute that produced them.
 #' @param gcs_prefix GCS destination prefix (e.g. "ingest/swfsc_ichthyo"
 #'   or "archive" for archive mode)
 #' @param bucket GCS bucket name
@@ -266,6 +270,7 @@ sync_to_gcs <- function(
     dataset      = NULL,
     parallel     = TRUE,
     sidecar_dir  = NULL,
+    gcs_retries  = 3L,
     verbose      = TRUE) {
 
   sidecar_files <- character()
@@ -306,12 +311,39 @@ sync_to_gcs <- function(
         args <- c(args, "--exclude", paste0("^", re_escape(b), "$"))
     dest <- glue::glue("gs://{bucket}/{gcs_prefix}")
     if (verbose) message(glue::glue("rsync {local_dir} -> {dest}"))
-    out <- system2(gcloud, c(args, shQuote(local_dir), shQuote(dest)),
-                   stdout = TRUE, stderr = TRUE)
-    rc <- attr(out, "status") %||% 0L
-    if (rc != 0)
-      stop(glue::glue("gcloud storage rsync failed ({rc}): ",
-                      "{paste(utils::tail(out, 20), collapse = '\n')}"))
+
+    # RETRY. rsync is resumable by construction — it skips what already matches —
+    # so a transient failure should cost the remaining bytes, not the whole
+    # transfer and not the hour of compute that produced them.
+    #
+    # This is not hypothetical: ctd-cast's 3.2 GB mirror crawled at 540 kiB/s,
+    # dropped one object near the end, and took a 2 h 45 m ingest down with it at
+    # the very last step. Re-running the identical command by hand succeeded
+    # immediately at 3.6 MiB/s.
+    #
+    # The failure message also used to be useless — `tail(out, 20)` on a log whose
+    # last 20 lines are all successful "Copying ..." entries, so the actual cause
+    # scrolled past. Report the lines that are NOT routine progress.
+    attempt <- 0L
+    repeat {
+      attempt <- attempt + 1L
+      out <- system2(gcloud, c(args, shQuote(local_dir), shQuote(dest)),
+                     stdout = TRUE, stderr = TRUE)
+      rc <- attr(out, "status") %||% 0L
+      if (rc == 0 || attempt >= gcs_retries) break
+      wait <- 15 * attempt
+      message(glue::glue(
+        "  gcloud storage rsync exit {rc} on attempt {attempt}/{gcs_retries}; ",
+        "retrying in {wait}s (rsync resumes — only what is missing re-sends)"))
+      Sys.sleep(wait)
+    }
+    if (rc != 0) {
+      signal <- grep("^(Copying|Removing|\\.+$|\\s*$)", out, value = TRUE,
+                     invert = TRUE)
+      stop(glue::glue(
+        "gcloud storage rsync failed ({rc}) after {attempt} attempt(s): ",
+        "{paste(utils::tail(if (length(signal)) signal else out, 20), collapse = '\n')}"))
+    }
     n_copy <- sum(grepl("^Copying", out))
     n_rm   <- sum(grepl("^Removing", out))
     # sidecars: a handful of small JSON files, always overwritten. cp rather

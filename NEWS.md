@@ -1,3 +1,22 @@
+# calcofi4db 3.9.2
+
+## A dropped object no longer costs the whole ingest
+
+`sync_to_gcs()` retries its parallel `rsync` (default 3 attempts, 15s/30s
+backoff, via the new `gcs_retries`). rsync compares before it transfers, so a
+retry re-sends only what is missing — a transient network failure should cost the
+remaining bytes, not the hours of compute that produced them.
+
+It cost the hours: ctd-cast's 3.2 GB mirror crawled at 540 kiB/s, dropped one
+object near the end, and took a 2 h 45 m ingest down at its final step with every
+table already written correctly. The identical command run by hand succeeded a
+minute later at 3.6 MiB/s.
+
+The failure message was also unusable. It reported `tail(out, 20)` of a log whose
+last twenty lines are all successful `Copying ...` entries, so the actual cause
+had scrolled past — the error showed nothing but successes. It now reports the
+lines that are *not* routine progress.
+
 # calcofi4db 3.9.1
 
 ## sync_to_gcs() no longer dies on its own sidecar guard
