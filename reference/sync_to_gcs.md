@@ -19,6 +19,7 @@ sync_to_gcs(
   dataset = NULL,
   parallel = TRUE,
   sidecar_dir = NULL,
+  gcs_retries = 3L,
   verbose = TRUE
 )
 ```
@@ -90,6 +91,13 @@ sync_to_gcs(
   the JSON sidecars in the repo — but it is one directory as far as GCS
   and every consumer are concerned. Sidecars are copied after the main
   sync, and are protected from `delete_stale` (see Details).
+
+- gcs_retries:
+
+  Attempts for the parallel `rsync` before giving up (default 3, backing
+  off 15s/30s). rsync skips what already matches, so a retry re-sends
+  only what is missing — a transient network failure should cost the
+  remaining bytes, not the hours of compute that produced them.
 
 - verbose:
 

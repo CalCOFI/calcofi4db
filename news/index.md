@@ -1,5 +1,73 @@
 # Changelog
 
+## calcofi4db 3.9.3
+
+### `qc_run_rule()` skips cleanly when a scope value is absent in any of its forms
+
+A cruise-scoped rule guards on whether a `cruise_key` was supplied, via
+`scope_values$cruise_key %||% ""`. `%||%` only replaces `NULL`, and a
+scope value goes missing in more ways than that: a caller whose “which
+cruise?” query returned no rows passes `character(0)`, and one whose
+lookup missed passes `NA`.
+
+Both reached [`nzchar()`](https://rdrr.io/r/base/nchar.html).
+`character(0)` yields `logical(0)`, which makes `&&` evaluate to `NA`;
+`NA` yields `NA` directly. Either way the guard hit `if (NA)` and
+stopped with **“missing value where TRUE/FALSE needed”** — thrown from
+inside a rule loop, naming neither the rule nor the cruise.
+
+It now treats a zero-length, `NA`, or empty `cruise_key` as “no cruise
+given” and skips, which is what the guard was for.
+
+Worth recording how it surfaced: the CTD ingest scopes its profile rules
+to the cruise with the most out-of-range values. Once the two-sensor
+average repair and the bounds guard landed there were **no**
+out-of-range values anywhere, so that query returned nothing — and the
+render aborted precisely because the data had become clean. A guard that
+fails when its subject disappears is worse than no guard, because the
+failure looks like a bug in whatever ran last.
+
+## calcofi4db 3.9.2
+
+### A dropped object no longer costs the whole ingest
+
+[`sync_to_gcs()`](https://calcofi.io/calcofi4db/reference/sync_to_gcs.md)
+retries its parallel `rsync` (default 3 attempts, 15s/30s backoff, via
+the new `gcs_retries`). rsync compares before it transfers, so a retry
+re-sends only what is missing — a transient network failure should cost
+the remaining bytes, not the hours of compute that produced them.
+
+It cost the hours: ctd-cast’s 3.2 GB mirror crawled at 540 kiB/s,
+dropped one object near the end, and took a 2 h 45 m ingest down at its
+final step with every table already written correctly. The identical
+command run by hand succeeded a minute later at 3.6 MiB/s.
+
+The failure message was also unusable. It reported `tail(out, 20)` of a
+log whose last twenty lines are all successful `Copying ...` entries, so
+the actual cause had scrolled past — the error showed nothing but
+successes. It now reports the lines that are *not* routine progress.
+
+## calcofi4db 3.9.1
+
+### sync_to_gcs() no longer dies on its own sidecar guard
+
+3.9.0 added an `--exclude ^<name>$` per sidecar so that
+`--delete-unmatched-destination-objects` could not delete a release’s
+schema record. The escape it built that pattern with used R’s default
+TRE engine, which reads the [`{}`](https://rdrr.io/r/base/Paren.html)
+inside the character class as an interval quantifier and rejects the
+whole pattern: **every** ingest aborted at the upload step with “invalid
+regular expression … reason ‘Invalid contents of {}’” — after an hour or
+more of successful work, with parquet already written.
+
+The escape is now `re_escape()`, an internal helper using `perl = TRUE`,
+where `{`, `}`, `[` and `]` are literal inside a character class.
+Reordering the class so `]` comes first — the usual TRE workaround —
+does not help; TRE then reads `[][` as a collating element and fails
+differently. Regression-tested in `test-cloud.R`, including an assertion
+that the old TRE form still errors, so the test cannot quietly become
+vacuous.
+
 ## calcofi4db 3.9.0
 
 ### Coverage is measured, not asserted

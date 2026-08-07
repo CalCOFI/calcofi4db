@@ -19,7 +19,7 @@ Only uploads files that are new or changed."><!-- Google tag (gtag.js) --><scrip
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.9.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.9.3</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -68,6 +68,7 @@ Only uploads files that are new or changed.</p>
 <span>  dataset <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  parallel <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  sidecar_dir <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  gcs_retries <span class="op">=</span> <span class="fl">3L</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -137,6 +138,13 @@ parquet under <code><a href="cc_stage_dir.html">cc_stage_dir()</a></code>, the J
 one directory as far as GCS and every consumer are concerned. Sidecars are
 copied after the main sync, and are protected from <code>delete_stale</code> (see
 Details).</p></dd>
+
+
+<dt id="arg-gcs-retries">gcs_retries<a class="anchor" aria-label="anchor" href="#arg-gcs-retries"></a></dt>
+<dd><p>Attempts for the parallel <code>rsync</code> before giving up
+(default 3, backing off 15s/30s). rsync skips what already matches, so a
+retry re-sends only what is missing — a transient network failure should
+cost the remaining bytes, not the hours of compute that produced them.</p></dd>
 
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>

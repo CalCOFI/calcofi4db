@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.9.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.9.3</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -45,6 +45,34 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.9.3" id="calcofi4db-393">calcofi4db 3.9.3<a class="anchor" aria-label="anchor" href="#calcofi4db-393"></a></h2>
+<div class="section level3">
+<h3 id="qc_run_rule-skips-cleanly-when-a-scope-value-is-absent-in-any-of-its-forms-3-9-3">
+<code>qc_run_rule()</code> skips cleanly when a scope value is absent in any of its forms<a class="anchor" aria-label="anchor" href="#qc_run_rule-skips-cleanly-when-a-scope-value-is-absent-in-any-of-its-forms-3-9-3"></a></h3>
+<p>A cruise-scoped rule guards on whether a <code>cruise_key</code> was supplied, via <code>scope_values$cruise_key %||% ""</code>. <code>%||%</code> only replaces <code>NULL</code>, and a scope value goes missing in more ways than that: a caller whose “which cruise?” query returned no rows passes <code>character(0)</code>, and one whose lookup missed passes <code>NA</code>.</p>
+<p>Both reached <code><a href="https://rdrr.io/r/base/nchar.html" class="external-link">nzchar()</a></code>. <code>character(0)</code> yields <code>logical(0)</code>, which makes <code>&amp;&amp;</code> evaluate to <code>NA</code>; <code>NA</code> yields <code>NA</code> directly. Either way the guard hit <code>if (NA)</code> and stopped with <strong>“missing value where TRUE/FALSE needed”</strong> — thrown from inside a rule loop, naming neither the rule nor the cruise.</p>
+<p>It now treats a zero-length, <code>NA</code>, or empty <code>cruise_key</code> as “no cruise given” and skips, which is what the guard was for.</p>
+<p>Worth recording how it surfaced: the CTD ingest scopes its profile rules to the cruise with the most out-of-range values. Once the two-sensor average repair and the bounds guard landed there were <strong>no</strong> out-of-range values anywhere, so that query returned nothing — and the render aborted precisely because the data had become clean. A guard that fails when its subject disappears is worse than no guard, because the failure looks like a bug in whatever ran last.</p>
+</div>
+</div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.9.2" id="calcofi4db-392">calcofi4db 3.9.2<a class="anchor" aria-label="anchor" href="#calcofi4db-392"></a></h2>
+<div class="section level3">
+<h3 id="a-dropped-object-no-longer-costs-the-whole-ingest-3-9-2">A dropped object no longer costs the whole ingest<a class="anchor" aria-label="anchor" href="#a-dropped-object-no-longer-costs-the-whole-ingest-3-9-2"></a></h3>
+<p><code><a href="../reference/sync_to_gcs.html">sync_to_gcs()</a></code> retries its parallel <code>rsync</code> (default 3 attempts, 15s/30s backoff, via the new <code>gcs_retries</code>). rsync compares before it transfers, so a retry re-sends only what is missing — a transient network failure should cost the remaining bytes, not the hours of compute that produced them.</p>
+<p>It cost the hours: ctd-cast’s 3.2 GB mirror crawled at 540 kiB/s, dropped one object near the end, and took a 2 h 45 m ingest down at its final step with every table already written correctly. The identical command run by hand succeeded a minute later at 3.6 MiB/s.</p>
+<p>The failure message was also unusable. It reported <code>tail(out, 20)</code> of a log whose last twenty lines are all successful <code>Copying ...</code> entries, so the actual cause had scrolled past — the error showed nothing but successes. It now reports the lines that are <em>not</em> routine progress.</p>
+</div>
+</div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.9.1" id="calcofi4db-391">calcofi4db 3.9.1<a class="anchor" aria-label="anchor" href="#calcofi4db-391"></a></h2>
+<div class="section level3">
+<h3 id="sync_to_gcs-no-longer-dies-on-its-own-sidecar-guard-3-9-1">sync_to_gcs() no longer dies on its own sidecar guard<a class="anchor" aria-label="anchor" href="#sync_to_gcs-no-longer-dies-on-its-own-sidecar-guard-3-9-1"></a></h3>
+<p>3.9.0 added an <code>--exclude ^&lt;name&gt;$</code> per sidecar so that <code>--delete-unmatched-destination-objects</code> could not delete a release’s schema record. The escape it built that pattern with used R’s default TRE engine, which reads the <code><a href="https://rdrr.io/r/base/Paren.html" class="external-link">{}</a></code> inside the character class as an interval quantifier and rejects the whole pattern: <strong>every</strong> ingest aborted at the upload step with “invalid regular expression … reason ‘Invalid contents of {}’” — after an hour or more of successful work, with parquet already written.</p>
+<p>The escape is now <code>re_escape()</code>, an internal helper using <code>perl = TRUE</code>, where <code>{</code>, <code>}</code>, <code>[</code> and <code>]</code> are literal inside a character class. Reordering the class so <code>]</code> comes first — the usual TRE workaround — does not help; TRE then reads <code>[][</code> as a collating element and fails differently. Regression-tested in <code>test-cloud.R</code>, including an assertion that the old TRE form still errors, so the test cannot quietly become vacuous.</p>
+</div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="3.9.0" id="calcofi4db-390">calcofi4db 3.9.0<a class="anchor" aria-label="anchor" href="#calcofi4db-390"></a></h2>
 <div class="section level3">
