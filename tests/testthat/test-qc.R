@@ -294,3 +294,43 @@ test_that("qc_cast_profile can read the thinned obs too", {
   expect_equal(nrow(p), 1L)
   expect_equal(p$cast_dir, "down")
 })
+
+# A scope value can be absent in more ways than NULL. The "which cruise?" query
+# returning no rows gives character(0); a failed lookup gives NA. Both used to
+# reach nzchar() and make the guard's `&&` evaluate to NA, so qc_run_rule()
+# aborted with "missing value where TRUE/FALSE needed" — from inside a rule
+# loop, naming neither the rule nor the cruise.
+#
+# This is a regression test for the real event: the CTD ingest's cruise-scoped
+# rules stopped rendering precisely BECAUSE the data got clean enough that no
+# cruise had out-of-range values.
+test_that("a cruise-scoped rule skips cleanly on any absent scope value", {
+  rule <- tibble::tibble(
+    rule_key       = "r1",
+    scope          = "cruise",
+    requires_types = NA_character_,
+    sql            = "SELECT 1 WHERE FALSE",
+    params         = list(list()))
+
+  for (ck in list(character(0), NA_character_, "", NULL)) {
+    res <- qc_run_rule(NULL, rule, scope_values = list(cruise_key = ck))
+    expect_true(res$skipped,
+                info = paste("cruise_key =", deparse(ck)))
+    expect_match(res$skip_reason, "needs a cruise")
+    expect_true(is.na(res$error))
+  }
+})
+
+test_that("a cruise-scoped rule still RUNS when a real cruise is given", {
+  con <- DBI::dbConnect(duckdb::duckdb(), ":memory:")
+  on.exit(DBI::dbDisconnect(con, shutdown = TRUE))
+  rule <- tibble::tibble(
+    rule_key       = "r1",
+    scope          = "cruise",
+    requires_types = NA_character_,
+    sql            = "SELECT '{{cruise_key}}' AS cruise_key",
+    params         = list(list()))
+  res <- qc_run_rule(con, rule, scope_values = list(cruise_key = "2026-07-3322"))
+  expect_false(res$skipped)
+  expect_equal(res$n, 1L)
+})

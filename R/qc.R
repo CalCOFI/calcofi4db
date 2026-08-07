@@ -193,8 +193,17 @@ qc_run_rule <- function(con, rule, limit = 500L, present_types = NULL,
   }
 
   scope <- rule$scope %||% NA_character_
-  if (!is.na(scope) && scope == "cruise" &&
-      !nzchar(scope_values$cruise_key %||% "")) {
+  # A scope value can be absent in more ways than NULL, and `%||%` only catches
+  # that one. A caller whose "which cruise?" query returned no rows passes
+  # character(0); one whose lookup missed passes NA. Both used to reach
+  # nzchar(): character(0) yields logical(0), which makes `&&` return NA, and NA
+  # yields NA directly — so the guard failed with "missing value where
+  # TRUE/FALSE needed", from inside a rule loop, naming neither the rule nor the
+  # cruise. Treat any of them as "no cruise given" and skip, which is what the
+  # guard is for.
+  ck <- scope_values$cruise_key
+  no_cruise <- length(ck) != 1L || is.na(ck) || !nzchar(ck)
+  if (!is.na(scope) && scope == "cruise" && no_cruise) {
     out$skipped     <- TRUE
     out$skip_reason <- paste(
       "needs a cruise — this rule reads the full-resolution obs_ctd_full",

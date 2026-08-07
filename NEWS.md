@@ -1,3 +1,27 @@
+# calcofi4db 3.9.3
+
+## `qc_run_rule()` skips cleanly when a scope value is absent in any of its forms
+
+A cruise-scoped rule guards on whether a `cruise_key` was supplied, via
+`scope_values$cruise_key %||% ""`. `%||%` only replaces `NULL`, and a scope value
+goes missing in more ways than that: a caller whose "which cruise?" query
+returned no rows passes `character(0)`, and one whose lookup missed passes `NA`.
+
+Both reached `nzchar()`. `character(0)` yields `logical(0)`, which makes `&&`
+evaluate to `NA`; `NA` yields `NA` directly. Either way the guard hit
+`if (NA)` and stopped with **"missing value where TRUE/FALSE needed"** — thrown
+from inside a rule loop, naming neither the rule nor the cruise.
+
+It now treats a zero-length, `NA`, or empty `cruise_key` as "no cruise given" and
+skips, which is what the guard was for.
+
+Worth recording how it surfaced: the CTD ingest scopes its profile rules to the
+cruise with the most out-of-range values. Once the two-sensor average repair and
+the bounds guard landed there were **no** out-of-range values anywhere, so that
+query returned nothing — and the render aborted precisely because the data had
+become clean. A guard that fails when its subject disappears is worse than no
+guard, because the failure looks like a bug in whatever ran last.
+
 # calcofi4db 3.9.2
 
 ## A dropped object no longer costs the whole ingest
