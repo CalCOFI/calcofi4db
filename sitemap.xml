@@ -19,6 +19,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/assign_deterministic_uuids_md5.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assign_grid_key.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assign_sequential_ids.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/bounds_datatable.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_dataset_taxon.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_grid_reference.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_metadata_json.html</loc></url>
@@ -34,6 +35,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/cc_stage_path.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/changed_inputs.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_data_integrity.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/check_measurement_bounds.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_multiple_datasets.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_registry_na_strings.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_taxon_ids.html</loc></url>
@@ -66,6 +68,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/csv_to_parquet.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ctd_map_columns.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ctd_upload_to_core.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/declare_measurement_bounds.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/delete_flagged_rows.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/delete_gcs_prefix.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/derive_cruise_key_on_casts.html</loc></url>
@@ -78,6 +81,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/dot-discover_parquet_sources.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/dot-load_prior_tables_gcs.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/download_archive.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/drop_out_of_bounds.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/dt.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/duckdb_to_parquet.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/enforce_column_types.html</loc></url>
@@ -214,6 +218,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/update_package_version.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/upload_frozen_release.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/upload_parquet.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/upsert_measurement_types.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/validate_dataset.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/validate_egg_stages.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/validate_fk_references.html</loc></url>

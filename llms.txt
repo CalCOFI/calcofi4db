@@ -431,8 +431,14 @@ functions for data validation and integrity checking
 
 functions for referential integrity validation and flagging invalid rows
 
+- [`bounds_datatable()`](https://calcofi.io/calcofi4db/reference/bounds_datatable.md)
+  : Render a bounds check as the standard notebook table
+- [`check_measurement_bounds()`](https://calcofi.io/calcofi4db/reference/check_measurement_bounds.md)
+  : Check measured values against the registry's declared bounds
 - [`delete_flagged_rows()`](https://calcofi.io/calcofi4db/reference/delete_flagged_rows.md)
   : Delete Flagged Rows from Database
+- [`drop_out_of_bounds()`](https://calcofi.io/calcofi4db/reference/drop_out_of_bounds.md)
+  : Delete values outside their declared bounds
 - [`flag_invalid_rows()`](https://calcofi.io/calcofi4db/reference/flag_invalid_rows.md)
   : Flag and Export Invalid Rows
 - [`validate_dataset()`](https://calcofi.io/calcofi4db/reference/validate_dataset.md)
@@ -758,6 +764,12 @@ check for other functions or datasets not captured by above categories
 
   Project an uploaded file into the core `obs` / `sample` shape
 
+- [`declare_measurement_bounds()`](https://calcofi.io/calcofi4db/reference/declare_measurement_bounds.md)
+  :
+
+  Declare `valid_min` / `valid_max` on measurement types that already
+  exist
+
 - [`derive_cruise_key_on_casts()`](https://calcofi.io/calcofi4db/reference/derive_cruise_key_on_casts.md)
   : Derive Cruise Key on Bottle Casts via Ship Matching
 
@@ -984,4 +996,8 @@ check for other functions or datasets not captured by above categories
   :
 
   Encode an authority-prefixed `taxon_key`
+
+- [`upsert_measurement_types()`](https://calcofi.io/calcofi4db/reference/upsert_measurement_types.md)
+  : Replace a measurement type's definition while keeping its curated
+  columns
 

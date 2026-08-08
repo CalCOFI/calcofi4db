@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.9.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.10.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -534,10 +534,31 @@
 
       <dl><dt>
 
+          <code><a href="bounds_datatable.html">bounds_datatable()</a></code>
+
+        </dt>
+        <dd>Render a bounds check as the standard notebook table</dd>
+
+        <dt>
+
+          <code><a href="check_measurement_bounds.html">check_measurement_bounds()</a></code>
+
+        </dt>
+        <dd>Check measured values against the registry's declared bounds</dd>
+
+        <dt>
+
           <code><a href="delete_flagged_rows.html">delete_flagged_rows()</a></code>
 
         </dt>
         <dd>Delete Flagged Rows from Database</dd>
+
+        <dt>
+
+          <code><a href="drop_out_of_bounds.html">drop_out_of_bounds()</a></code>
+
+        </dt>
+        <dd>Delete values outside their declared bounds</dd>
 
         <dt>
 
@@ -1303,6 +1324,13 @@
 
         <dt>
 
+          <code><a href="declare_measurement_bounds.html">declare_measurement_bounds()</a></code>
+
+        </dt>
+        <dd>Declare <code>valid_min</code> / <code>valid_max</code> on measurement types that already exist</dd>
+
+        <dt>
+
           <code><a href="derive_cruise_key_on_casts.html">derive_cruise_key_on_casts()</a></code>
 
         </dt>
@@ -1713,6 +1741,13 @@
 
         </dt>
         <dd>Encode an authority-prefixed <code>taxon_key</code></dd>
+
+        <dt>
+
+          <code><a href="upsert_measurement_types.html">upsert_measurement_types()</a></code>
+
+        </dt>
+        <dd>Replace a measurement type's definition while keeping its curated columns</dd>
       </dl></div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

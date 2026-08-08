@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.9.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.10.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -45,6 +45,36 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.10.0" id="calcofi4db-3100">calcofi4db 3.10.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3100"></a></h2>
+<div class="section level3">
+<h3 id="declare_measurement_bounds--put-a-bound-on-a-type-that-already-exists-3-10-0">
+<code>declare_measurement_bounds()</code> — put a bound on a type that already exists<a class="anchor" aria-label="anchor" href="#declare_measurement_bounds--put-a-bound-on-a-type-that-already-exists-3-10-0"></a></h3>
+<p><code><a href="../reference/register_measurement_types.html">register_measurement_types()</a></code> only ever <em>appends</em>, by design, so an ingest cannot silently rewrite a type another dataset depends on. That left no way to do the thing the bounds convention asks for most often: declare <code>valid_min</code>/<code>valid_max</code> on a type that is <strong>already registered without one</strong> — which was all 73 unbounded types. “Declare it with <code><a href="../reference/register_measurement_types.html">register_measurement_types()</a></code>” was advice that could not be followed.</p>
+<p><code><a href="../reference/declare_measurement_bounds.html">declare_measurement_bounds()</a></code> is the narrow counterpart: it touches only the four bound columns, only on rows that already exist, and errors on an unknown <code>measurement_type</code> rather than inserting a bound-carrying orphan no observation would ever match. Re-declaring the same value is a no-op, so a re-run stays idempotent; changing an already-declared bound requires <code>overwrite = TRUE</code>, because an agreed bound is a commitment to a provider and not something an ingest should move as a side effect.</p>
+</div>
+<div class="section level3">
+<h3 id="declared-measurement-bounds-are-checked-by-every-dataset-3-10-0">Declared measurement bounds are checked, by every dataset<a class="anchor" aria-label="anchor" href="#declared-measurement-bounds-are-checked-by-every-dataset-3-10-0"></a></h3>
+<p><code>metadata/measurement_type.csv</code> has carried <code>valid_min</code> / <code>valid_max</code> since the CTD registry was built. They were emitted as netCDF variable attributes and shown on the schema site, which made them look enforced; nothing compared a value to them. v2026.08.07 shipped ~31k impossible CTD values as a result (pH to -10, <code>oxygen_ml_l_1</code> to -79.5, <code>temperature_ave</code> to -47.6), and the fix landed as inline SQL in one notebook.</p>
+<p>New, and called by every ingest plus <code>release_database.qmd</code>:</p>
+<ul><li>
+<strong><code><a href="../reference/check_measurement_bounds.html">check_measurement_bounds()</a></code></strong> — compares a long-format measurement table against the registry and returns a per-type tally. Read-only. Works on a per-dataset <code>{dataset}_measurement</code>, on <code>obs</code>, or on <code>sample_measurement</code>; takes the registry as a data.frame, a path, or the <code>measurement_type</code> table in the connection.</li>
+<li>
+<strong><code><a href="../reference/bounds_datatable.html">bounds_datatable()</a></code></strong> — the standard render, with <code>status</code> coloured.</li>
+<li>
+<strong><code><a href="../reference/drop_out_of_bounds.html">drop_out_of_bounds()</a></code></strong> — the enforcement, deliberately a <em>separate</em> call so a bound must be agreed before it is allowed to delete data.</li>
+</ul><p>Three things the check does that the inline version did not:</p>
+<ul><li>
+<strong>Reports <code>undeclared</code> types as findings.</strong> The bigger problem was never “bounds declared and unchecked” — it was bounds not declared at all. At v2026.08.07, 73 of 98 (dataset, <code>measurement_type</code>) pairs in <code>obs</code> and 17.6M of 26.3M rows (67%) had neither bound, and only <code>calcofi_ctd-cast</code> had more than one. A violations-only report on that data reads as clean. The <code>finding</code> column is prose ready to paste into a <code>questions.csv</code> <code>context</code> cell, so an unanswerable range becomes a provider question rather than a silent gap.</li>
+<li>
+<strong>Supports one-sided bounds.</strong> <code>valid_min = 0</code> with no ceiling is the useful declaration for counts, abundances and biomasses — agreeable without knowing the maximum, and it is what catches a negative sentinel. The inline version required both bounds and skipped the type otherwise.</li>
+<li>
+<strong>Splits <code>n_low</code> / <code>n_high</code>.</strong> Too-low and too-high usually have different causes (an unconverted sentinel vs a scaling error).</li>
+</ul><p>Applied to the released <code>obs</code>, this immediately found a live defect the CTD-only guard could not see: <code>calcofi_mets.sw_ph</code> holds 494 values (16.6% of the type) at <code>-99</code>, outside its declared 6..9 — an unconverted sentinel, with the bound present and unread since the type was registered.</p>
+<p>Counts are returned as <code>double</code>, not <code>integer</code>: <code>obs_ctd_full</code> is ~216M rows and <code><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer()</a></code> goes <code>NA</code>-with-a-warning past 2^31, which would blank a real violation count on the largest table.</p>
+<p><code><a href="../reference/check_measurement_bounds.html">check_measurement_bounds()</a></code> also takes an optional <code>depth_col</code> to enforce <code>valid_depth_min_m</code> / <code>valid_depth_max_m</code> — the depth over which a type is <em>defined</em> — so a value emitted where the registry says the type does not exist is a finding rather than data.</p>
+</div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="3.9.3" id="calcofi4db-393">calcofi4db 3.9.3<a class="anchor" aria-label="anchor" href="#calcofi4db-393"></a></h2>
 <div class="section level3">
