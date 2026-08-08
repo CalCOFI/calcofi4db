@@ -1,5 +1,37 @@
 # Changelog
 
+## calcofi4db 3.11.0
+
+### `build_targets_list()` refuses a directory `output:`
+
+Every pipeline target is `format = "file"`, so `targets` hashes whatever
+path the command returns. If that path is a **directory**, anything
+later written underneath it — by a downstream target, or by hand — moves
+the hash and leaves the owning target reported outdated forever.
+
+`release_database` shipped in that state: it declared `data/releases`,
+and `test_release` writes `data/releases/{version}/test_results.json`.
+On v2026.08.08 the release’s own files landed 16:46-17:06 and
+`test_results.json` at 17:08:47, so the target went stale the moment the
+pipeline finished, and every subsequent
+[`tar_make()`](https://docs.ropensci.org/targets/reference/tar_make.html)
+on it or anything downstream re-ran a ~40 minute freeze and a multi-GB
+re-upload of an already-promoted release.
+
+`check_nested_outputs()` now fails the build on any directory `output:`,
+and on one declared output nested inside another. Worth knowing why it
+checks what it checks: `test_release` declares
+`_output/test_release.html` and writes into `data/releases` as a **side
+effect**, so no comparison of the `output:` fields could ever have
+related the two — a first cut that only compared declared paths passed
+the real broken configuration. What *is* statically visible is that a
+target claimed a directory at all, and that is what is enforced.
+
+The fix for such a target is a single small file it alone writes — for
+the release, `data/releases/_release_stamp.json` carrying the version
+and a digest of the frozen catalog, deterministic so a no-op re-run does
+not cascade.
+
 ## calcofi4db 3.10.0
 
 ### `declare_measurement_bounds()` — put a bound on a type that already exists
