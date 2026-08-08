@@ -153,3 +153,176 @@ register_measurement_types <- function(new_types, path, quiet = FALSE) {
       "{paste(add$measurement_type, collapse = ', ')}"))
   out
 }
+
+#' Declare `valid_min` / `valid_max` on measurement types that already exist
+#'
+#' [register_measurement_types()] only ever *appends* — by design, so an ingest
+#' cannot silently rewrite a type another dataset relies on. That leaves no way to
+#' do the thing the bounds convention asks for most often: put a bound on a type
+#' that is already registered without one. All 73 unbounded types at v2026.08.07
+#' were in exactly that state, so "declare it with `register_measurement_types()`"
+#' was advice that could not be followed.
+#'
+#' This is the narrow, auditable counterpart: it changes **only** the four bound
+#' columns, only on rows that already exist, and it refuses an unknown
+#' `measurement_type` rather than quietly adding one — a typo would otherwise
+#' create a bound-carrying orphan that no observation ever matches.
+#'
+#' @param bounds data.frame with `measurement_type` and at least one of
+#'   `valid_min`, `valid_max`, `valid_depth_min_m`, `valid_depth_max_m`. `NA`
+#'   leaves that bound undeclared; supply only the side you can defend.
+#' @param path path to `metadata/measurement_type.csv`
+#' @param overwrite allow replacing a bound that is already declared (default
+#'   FALSE). A declared bound has been agreed with a provider, so changing it is
+#'   a deliberate act, not a side effect of re-running an ingest.
+#' @param quiet suppress the summary message
+#'
+#' @return The full updated registry, invisibly if nothing changed.
+#' @export
+#' @concept registry
+#' @seealso [check_measurement_bounds()], which is what consumes these.
+#' @importFrom readr write_csv
+#' @examples
+#' \dontrun{
+#' declare_measurement_bounds(
+#'   data.frame(measurement_type = "zooscan_abundance", valid_min = 0),
+#'   here::here("metadata/measurement_type.csv"))
+#' }
+declare_measurement_bounds <- function(bounds, path, overwrite = FALSE,
+                                       quiet = FALSE) {
+  d <- read_measurement_type(path)
+  if (is.null(bounds) || !nrow(bounds)) return(invisible(d))
+  stopifnot("bounds needs a measurement_type column" =
+              "measurement_type" %in% names(bounds))
+
+  cols <- intersect(c("valid_min", "valid_max",
+                      "valid_depth_min_m", "valid_depth_max_m"), names(bounds))
+  if (!length(cols))
+    stop("bounds has none of valid_min / valid_max / valid_depth_min_m / ",
+         "valid_depth_max_m", call. = FALSE)
+
+  unknown <- setdiff(bounds$measurement_type, d$measurement_type)
+  if (length(unknown))
+    stop("not in the registry: ", paste(unknown, collapse = ", "),
+         "\n  A bound on an unregistered type would never match an observation.",
+         "\n  Add the type first with register_measurement_types().", call. = FALSE)
+
+  dup <- unique(bounds$measurement_type[duplicated(bounds$measurement_type)])
+  if (length(dup))
+    stop("duplicate measurement_type in bounds: ", paste(dup, collapse = ", "),
+         call. = FALSE)
+
+  # A registry predating the bound columns gains them, rather than the update
+  # silently no-op'ing against a NULL column. Added in PAIRS, because the
+  # documented schema has both halves and a file carrying `valid_min` with no
+  # `valid_max` column reads as "no maximum is possible here" rather than "no
+  # maximum has been declared yet".
+  for (pair in list(c("valid_min", "valid_max"),
+                    c("valid_depth_min_m", "valid_depth_max_m")))
+    if (any(pair %in% cols))
+      for (cl in pair) if (!cl %in% names(d)) d[[cl]] <- NA_real_
+
+  i <- match(bounds$measurement_type, d$measurement_type)
+  changed <- character()
+  for (cl in cols) {
+    new <- suppressWarnings(as.numeric(bounds[[cl]]))
+    old <- suppressWarnings(as.numeric(d[[cl]][i]))
+    # only touch rows where a value is actually supplied
+    set <- !is.na(new)
+    clash <- set & !is.na(old) & old != new
+    if (any(clash) && !isTRUE(overwrite))
+      stop("would change an already-declared ", cl, " for: ",
+           paste(bounds$measurement_type[clash], collapse = ", "),
+           "\n  A declared bound has been agreed; pass overwrite = TRUE to change it.",
+           call. = FALSE)
+    hit <- set & (is.na(old) | old != new)
+    if (any(hit)) {
+      d[[cl]][i[hit]] <- new[hit]
+      changed <- c(changed, bounds$measurement_type[hit])
+    }
+  }
+
+  if (!length(changed)) {
+    if (!quiet) message("measurement_type bounds unchanged")
+    return(invisible(d))
+  }
+
+  # na = "" — the whole reason R/registry.R exists
+  readr::write_csv(d, path, na = "")
+  d <- read_measurement_type(path)
+  changed <- unique(changed)
+  if (!quiet)
+    message(glue::glue(
+      "measurement_type bounds: declared on {length(changed)} type(s) — ",
+      "{paste(utils::head(changed, 8), collapse = ', ')}",
+      "{if (length(changed) > 8) glue::glue(' … +{length(changed) - 8} more') else ''}"))
+  d
+}
+
+#' Replace a measurement type's definition while keeping its curated columns
+#'
+#' Ten ingests "register" their types by deleting the existing row and binding a
+#' freshly-built literal in its place:
+#'
+#' ```r
+#' d_meas_type |> filter(measurement_type != "euphausiid_abundance") |>
+#'   bind_rows(euph_types)          # <- literal, no valid_min/valid_max
+#' ```
+#'
+#' Every column the literal omits is destroyed on each re-run. That is how a
+#' provider-agreed `valid_min` silently disappeared from `euphausiid_abundance`
+#' and the four picoplankton types during the v2026.08.08 re-render: the ingests
+#' had not changed, but a curated column had been added underneath them. Only
+#' `ingest_calcofi_mets.qmd` did the preserve-and-merge dance by hand.
+#'
+#' Use this instead of `filter(... != x) |> bind_rows(new)`. It replaces the
+#' definition columns the ingest owns and carries the curated ones forward from
+#' the row being replaced, so a re-run cannot quietly narrow the registry.
+#'
+#' @param d the current registry (a data.frame, e.g. from
+#'   [read_measurement_type()])
+#' @param new_types data.frame of definitions to upsert; needs `measurement_type`
+#' @param preserve columns to carry forward from the existing row when
+#'   `new_types` does not supply a non-`NA` value. Defaults to the bound columns —
+#'   the ones an ingest never authors and a provider has agreed.
+#'
+#' @return The updated registry, sorted by `measurement_type`.
+#' @export
+#' @concept registry
+#' @seealso [declare_measurement_bounds()] to set a bound,
+#'   [register_measurement_types()] to append a genuinely new type.
+#' @examples
+#' \dontrun{
+#' d_meas_type <- upsert_measurement_types(d_meas_type, euph_types)
+#' readr::write_csv(d_meas_type, meas_type_csv, na = "")
+#' }
+upsert_measurement_types <- function(
+    d, new_types,
+    preserve = c("valid_min", "valid_max",
+                 "valid_depth_min_m", "valid_depth_max_m")) {
+
+  if (is.null(new_types) || !nrow(new_types)) return(d)
+  stopifnot("new_types needs a measurement_type column" =
+              "measurement_type" %in% names(new_types))
+  dup <- unique(new_types$measurement_type[duplicated(new_types$measurement_type)])
+  if (length(dup))
+    stop("duplicate measurement_type in new_types: ",
+         paste(dup, collapse = ", "), call. = FALSE)
+
+  for (cl in preserve) {
+    if (!cl %in% names(d)) next
+    old <- d[[cl]][match(new_types$measurement_type, d$measurement_type)]
+    if (!cl %in% names(new_types)) {
+      new_types[[cl]] <- old
+    } else {
+      # an explicit value in new_types wins; NA means "not authored here"
+      keep <- is.na(new_types[[cl]])
+      new_types[[cl]][keep] <- old[keep]
+    }
+  }
+
+  out <- dplyr::bind_rows(
+    d[!d$measurement_type %in% new_types$measurement_type, , drop = FALSE],
+    new_types)
+  out[order(out$measurement_type), , drop = FALSE]
+}

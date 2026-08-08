@@ -1,3 +1,72 @@
+# calcofi4db 3.10.0
+
+## `declare_measurement_bounds()` — put a bound on a type that already exists
+
+`register_measurement_types()` only ever *appends*, by design, so an ingest cannot
+silently rewrite a type another dataset depends on. That left no way to do the
+thing the bounds convention asks for most often: declare `valid_min`/`valid_max`
+on a type that is **already registered without one** — which was all 73 unbounded
+types. "Declare it with `register_measurement_types()`" was advice that could not
+be followed.
+
+`declare_measurement_bounds()` is the narrow counterpart: it touches only the four
+bound columns, only on rows that already exist, and errors on an unknown
+`measurement_type` rather than inserting a bound-carrying orphan no observation
+would ever match. Re-declaring the same value is a no-op, so a re-run stays
+idempotent; changing an already-declared bound requires `overwrite = TRUE`,
+because an agreed bound is a commitment to a provider and not something an ingest
+should move as a side effect.
+
+## Declared measurement bounds are checked, by every dataset
+
+`metadata/measurement_type.csv` has carried `valid_min` / `valid_max` since the
+CTD registry was built. They were emitted as netCDF variable attributes and shown
+on the schema site, which made them look enforced; nothing compared a value to
+them. v2026.08.07 shipped ~31k impossible CTD values as a result (pH to -10,
+`oxygen_ml_l_1` to -79.5, `temperature_ave` to -47.6), and the fix landed as
+inline SQL in one notebook.
+
+New, and called by every ingest plus `release_database.qmd`:
+
+* **`check_measurement_bounds()`** — compares a long-format measurement table
+  against the registry and returns a per-type tally. Read-only. Works on a
+  per-dataset `{dataset}_measurement`, on `obs`, or on `sample_measurement`;
+  takes the registry as a data.frame, a path, or the `measurement_type` table in
+  the connection.
+* **`bounds_datatable()`** — the standard render, with `status` coloured.
+* **`drop_out_of_bounds()`** — the enforcement, deliberately a *separate* call so
+  a bound must be agreed before it is allowed to delete data.
+
+Three things the check does that the inline version did not:
+
+* **Reports `undeclared` types as findings.** The bigger problem was never
+  "bounds declared and unchecked" — it was bounds not declared at all. At
+  v2026.08.07, 73 of 98 (dataset, `measurement_type`) pairs in `obs` and 17.6M of
+  26.3M rows (67%) had neither bound, and only `calcofi_ctd-cast` had more than
+  one. A violations-only report on that data reads as clean. The `finding` column
+  is prose ready to paste into a `questions.csv` `context` cell, so an
+  unanswerable range becomes a provider question rather than a silent gap.
+* **Supports one-sided bounds.** `valid_min = 0` with no ceiling is the useful
+  declaration for counts, abundances and biomasses — agreeable without knowing
+  the maximum, and it is what catches a negative sentinel. The inline version
+  required both bounds and skipped the type otherwise.
+* **Splits `n_low` / `n_high`.** Too-low and too-high usually have different
+  causes (an unconverted sentinel vs a scaling error).
+
+Applied to the released `obs`, this immediately found a live defect the CTD-only
+guard could not see: `calcofi_mets.sw_ph` holds 494 values (16.6% of the type) at
+`-99`, outside its declared 6..9 — an unconverted sentinel, with the bound
+present and unread since the type was registered.
+
+Counts are returned as `double`, not `integer`: `obs_ctd_full` is ~216M rows and
+`as.integer()` goes `NA`-with-a-warning past 2^31, which would blank a real
+violation count on the largest table.
+
+`check_measurement_bounds()` also takes an optional `depth_col` to enforce
+`valid_depth_min_m` / `valid_depth_max_m` — the depth over which a type is
+*defined* — so a value emitted where the registry says the type does not exist is
+a finding rather than data.
+
 # calcofi4db 3.9.3
 
 ## `qc_run_rule()` skips cleanly when a scope value is absent in any of its forms

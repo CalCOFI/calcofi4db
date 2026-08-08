@@ -115,3 +115,131 @@ test_that("a corrupted registry is visible to DuckDB but not to readr", {
   # this is the bug: DuckDB sees literal 'NA', readr sees NA
   expect_gt(n, 0)
 })
+
+# register_measurement_types() only appends, so it could not put a bound on a type
+# that already existed without one — which was all 73 unbounded types at
+# v2026.08.07. declare_measurement_bounds() is the narrow counterpart: bound
+# columns only, existing rows only, and an unknown type is an error rather than a
+# silent insert that no observation would ever match.
+
+test_that("declare_measurement_bounds() sets bounds on existing rows only", {
+  path <- mt_fixture()
+  d <- declare_measurement_bounds(
+    data.frame(measurement_type = "abundance", valid_min = 0),
+    path, quiet = TRUE)
+
+  expect_equal(d$valid_min[d$measurement_type == "abundance"], 0)
+  # one-sided: the undeclared side stays empty, not 0
+  expect_true(is.na(d$valid_max[d$measurement_type == "abundance"]))
+  # the other type is untouched
+  expect_true(is.na(d$valid_min[d$measurement_type == "body_length"]))
+  # and nothing else about the row moved
+  expect_identical(d$units[d$measurement_type == "abundance"], "count")
+  expect_identical(nrow(d), 2L)
+
+  # round trip through the strict reader: an empty cell must not become "NA"
+  expect_silent(read_measurement_type(path))
+})
+
+test_that("declare_measurement_bounds() refuses an unregistered type", {
+  path <- mt_fixture()
+  before <- readLines(path)
+  expect_error(
+    declare_measurement_bounds(
+      data.frame(measurement_type = "abundnace", valid_min = 0), path),
+    "not in the registry")
+  expect_error(
+    declare_measurement_bounds(
+      data.frame(measurement_type = "abundnace", valid_min = 0), path),
+    "register_measurement_types")
+  # the file is untouched by a rejected call — byte-for-byte, since a partial
+  # write is exactly what a half-validated update would leave behind
+  expect_identical(readLines(path), before)
+})
+
+test_that("declare_measurement_bounds() will not silently move an agreed bound", {
+  path <- mt_fixture()
+  declare_measurement_bounds(
+    data.frame(measurement_type = "abundance", valid_min = 0, valid_max = 100),
+    path, quiet = TRUE)
+
+  expect_error(
+    declare_measurement_bounds(
+      data.frame(measurement_type = "abundance", valid_max = 50), path),
+    "already-declared")
+  # re-declaring the SAME value is a no-op, not an error — re-running an ingest
+  # must stay idempotent
+  expect_message(
+    declare_measurement_bounds(
+      data.frame(measurement_type = "abundance", valid_min = 0), path),
+    "unchanged")
+  # explicit overwrite is allowed
+  d <- declare_measurement_bounds(
+    data.frame(measurement_type = "abundance", valid_max = 50),
+    path, overwrite = TRUE, quiet = TRUE)
+  expect_equal(d$valid_max[d$measurement_type == "abundance"], 50)
+})
+
+test_that("declare_measurement_bounds() rejects duplicates and empty input", {
+  path <- mt_fixture()
+  expect_error(
+    declare_measurement_bounds(
+      data.frame(measurement_type = c("abundance", "abundance"),
+                 valid_min = c(0, 1)), path),
+    "duplicate")
+  expect_error(
+    declare_measurement_bounds(
+      data.frame(measurement_type = "abundance", nope = 1), path),
+    "none of valid_min")
+  expect_identical(nrow(declare_measurement_bounds(NULL, path)), 2L)
+})
+
+# Ten ingests replace their registry row with a freshly-built literal. Every
+# curated column that literal omits was destroyed on each re-run — which is how
+# provider-agreed bounds vanished from euphausiid_abundance and the picoplankton
+# types mid-release. upsert carries them forward.
+
+test_that("upsert_measurement_types() preserves curated bounds through a rewrite", {
+  d <- readr::read_csv(mt_fixture(), na = "", show_col_types = FALSE)
+  d$valid_min <- c(0, NA); d$valid_max <- c(100, NA)
+
+  # exactly what an ingest builds: a definition literal with no bound columns
+  lit <- tibble::tibble(
+    measurement_type = "abundance", description = "Specimen count (revised)",
+    units = "count", is_canonical = TRUE, grain = "obs")
+
+  out <- upsert_measurement_types(d, lit)
+  expect_identical(nrow(out), 2L)
+  # the definition IS updated ...
+  expect_identical(out$description[out$measurement_type == "abundance"],
+                   "Specimen count (revised)")
+  # ... and the curated bound survives
+  expect_equal(out$valid_min[out$measurement_type == "abundance"], 0)
+  expect_equal(out$valid_max[out$measurement_type == "abundance"], 100)
+  # the untouched row is untouched
+  expect_true(is.na(out$valid_min[out$measurement_type == "body_length"]))
+
+  # the naive pattern this replaces loses the bound — pin the contrast
+  naive <- dplyr::bind_rows(d[d$measurement_type != "abundance", ], lit)
+  expect_true(is.na(naive$valid_min[naive$measurement_type == "abundance"]))
+})
+
+test_that("upsert_measurement_types() lets an explicit value win, and adds new types", {
+  d <- readr::read_csv(mt_fixture(), na = "", show_col_types = FALSE)
+  d$valid_min <- c(0, NA); d$valid_max <- c(100, NA)
+
+  # an ingest that DOES author a bound overrides the stored one
+  out <- upsert_measurement_types(
+    d, tibble::tibble(measurement_type = "abundance", valid_max = 50))
+  expect_equal(out$valid_max[out$measurement_type == "abundance"], 50)
+
+  # a type not yet in the registry is added, not dropped
+  out <- upsert_measurement_types(
+    d, tibble::tibble(measurement_type = "biomass", units = "mg"))
+  expect_identical(nrow(out), 3L)
+  expect_true("biomass" %in% out$measurement_type)
+
+  expect_error(upsert_measurement_types(
+    d, tibble::tibble(measurement_type = c("a","a"))), "duplicate")
+  expect_identical(nrow(upsert_measurement_types(d, NULL)), 2L)
+})
