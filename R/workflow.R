@@ -868,5 +868,89 @@ build_targets_list <- function(
     ))
   }
 
+  check_nested_outputs(wf)
+
   target_list
+}
+
+#' Refuse a target whose declared output contains another target's
+#'
+#' Every target here is `format = "file"`, so `targets` hashes whatever path the
+#' command returns. If that path is a **directory** and some other target writes
+#' inside it, the hash recorded when the owning target finished no longer matches
+#' once the other target runs — and the owner reports itself outdated forever.
+#'
+#' `release_database` shipped in exactly that state. It declared the whole
+#' `data/releases` directory, and `test_release` — a target *downstream of it* —
+#' writes `data/releases/{version}/test_results.json`. Verified on v2026.08.08:
+#' the release's own files landed 16:46-17:06 and `test_results.json` at
+#' 17:08:47, so the release target was stale the instant the pipeline finished.
+#' Every later `tar_make()` on it or anything downstream re-ran a ~40 minute
+#' freeze and a multi-GB re-upload of an already-promoted release. Nothing was
+#' wrong with the data; the pipeline simply could not tell it was done.
+#'
+#' A declared output must therefore be owned **exclusively** by its target. The
+#' fix is a small file only that notebook writes (a release stamp), not the
+#' directory the release accumulates into.
+#'
+#' @param wf the parsed front-matter data.frame, with `target_name` and `output`
+#' @return `wf`, invisibly, when no output nests inside another
+#' @keywords internal
+#' @noRd
+check_nested_outputs <- function(wf, root = ".") {
+  norm <- function(p) sub("/+$", "", gsub("\\\\", "/", p))
+  out  <- norm(wf$output)
+  is_glob <- grepl("\\*", out)
+
+  # (1) A DIRECTORY output is the hazard that actually bit us, and it is the only
+  # one a static check can see. `test_release` declares `_output/test_release.html`
+  # and writes into `data/releases` as a SIDE EFFECT — no inspection of the
+  # `output:` fields could ever have related the two. What was inspectable is that
+  # `release_database` claimed a directory at all: once it does, ANY later write
+  # underneath it (a downstream target, a stray log, a manual copy) moves the hash
+  # and strands the target as permanently outdated.
+  #
+  # At parse time the path may not exist yet, so fall back to "no extension on the
+  # basename" — every real output here ends in .json/.html/.csv/.xml/.zip.
+  looks_dir <- vapply(seq_along(out), function(i) {
+    if (is_glob[i]) return(FALSE)
+    p <- file.path(root, out[i])
+    if (dir.exists(p)) return(TRUE)
+    if (file.exists(p)) return(FALSE)
+    !grepl("\\.[A-Za-z0-9]+$", basename(out[i]))
+  }, logical(1))
+
+  # (2) One declared output nested inside another — the same failure, visible
+  # statically when both are declared.
+  nested <- list()
+  for (i in seq_along(out)) {
+    if (is_glob[i]) next
+    for (j in seq_along(out)) {
+      if (i == j || is_glob[j] || out[i] == out[j]) next
+      if (startsWith(paste0(out[j], "/"), paste0(out[i], "/")))
+        nested[[length(nested) + 1]] <- sprintf(
+          "'%s' (%s) contains '%s' (%s)",
+          out[i], wf$target_name[i], out[j], wf$target_name[j])
+    }
+  }
+
+  msg <- character()
+  if (any(looks_dir))
+    msg <- c(msg, paste0(
+      "these targets declare a DIRECTORY as `output:`:\n    ",
+      paste(sprintf("%s -> %s", wf$target_name[looks_dir], out[looks_dir]),
+            collapse = "\n    ")))
+  if (length(nested))
+    msg <- c(msg, paste0("these outputs nest:\n    ",
+                         paste(unlist(nested), collapse = "\n    ")))
+  if (length(msg))
+    stop("unstable pipeline `output:` declaration(s).\n  ",
+         paste(msg, collapse = "\n  "),
+         "\n  targets hashes the whole path, so anything written underneath it",
+         " later — by a downstream target or by hand — leaves the owner",
+         " permanently outdated and re-running on every pass.",
+         "\n  Fix: declare a single small file the target alone writes",
+         " (e.g. data/releases/_release_stamp.json), never a directory.",
+         call. = FALSE)
+  invisible(wf)
 }
