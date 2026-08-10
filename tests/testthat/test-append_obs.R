@@ -46,3 +46,34 @@ test_that("obs_attribute stage bins sum to the abundance headline; length bins a
     "SELECT bin_label FROM obs_attribute WHERE measurement_type='stage' AND bin_value=2.0")$bin_label
   expect_equal(lab, "preflexion")
 })
+
+# NaN is not NULL — it survives IS NOT NULL, reaches the release, and yields no
+# hex_id while still looking like a position. Releasing ungridded observations
+# is what first exposed 9,030 such rows; before that the `grid_key IS NOT NULL`
+# filter hid them, because a NaN coordinate cannot grid.
+test_that("append_obs normalises NaN/Inf coordinates to NULL", {
+  con <- get_duckdb_con(":memory:")
+  withr::defer(DBI::dbDisconnect(con, shutdown = TRUE))
+
+  append_obs(con, "
+    SELECT * FROM (VALUES
+      ('bio','aa','aa:s:1',NULL,NULL, 33.0,        -120.0,       NULL::TIMESTAMP,
+        0,0,NULL,NULL,'count',1.0,NULL,NULL),
+      ('bio','aa','aa:s:2',NULL,NULL, 'nan'::DOUBLE,'nan'::DOUBLE,NULL::TIMESTAMP,
+        0,0,NULL,NULL,'count',1.0,NULL,NULL),
+      ('bio','aa','aa:s:3',NULL,NULL, 'inf'::DOUBLE, -120.0,      NULL::TIMESTAMP,
+        0,0,NULL,NULL,'count',1.0,NULL,NULL))")
+
+  d <- DBI::dbGetQuery(con, "SELECT sample_key, latitude, longitude, hex_id FROM obs ORDER BY sample_key")
+  expect_equal(nrow(d), 3)                       # nothing is dropped
+  expect_equal(d$latitude[1], 33)                # a good coordinate is untouched
+  expect_false(is.na(d$hex_id[1]))               # ... and still gets a hex
+
+  expect_true(is.na(d$latitude[2]));  expect_true(is.na(d$longitude[2]))
+  expect_true(is.na(d$latitude[3]))              # Inf too, not just NaN
+
+  # the contract test_release enforces: no row may carry lat/lng without a hex
+  expect_equal(DBI::dbGetQuery(con, "
+    SELECT COUNT(*) n FROM obs
+    WHERE hex_id IS NULL AND latitude IS NOT NULL AND longitude IS NOT NULL")$n, 0)
+})

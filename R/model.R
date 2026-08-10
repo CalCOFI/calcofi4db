@@ -188,9 +188,40 @@ append_obs <- function(con, select_sql, obs_tbl = "obs", res_max = CC_H3_RES_MAX
             taxon_key, life_stage, measurement_type, measurement_value,
             measurement_qual, measurement_prec,
             {hex} AS hex_id
-     FROM ( {select_sql} ) AS src(realm, dataset_key, sample_key, grid_key, cruise_key,
-            latitude, longitude, datetime, depth_min_m, depth_max_m, taxon_key, life_stage,
-            measurement_type, measurement_value, measurement_qual, measurement_prec)"))
+     FROM (
+       -- NaN/Inf coordinates are normalised to NULL HERE, in an inner query, so
+       -- `hex_id` above is computed from the normalised values rather than from
+       -- the raw ones. Doing it inline in the outer SELECT would leave hex_id
+       -- depending on DuckDB resolving a lateral column alias over the source
+       -- column of the same name — true today, but not something to rest a
+       -- coordinate on.
+       --
+       -- `NaN` is not `NULL`: it survives IS NOT NULL, so it reaches the release
+       -- and poisons what follows — h3_latlng_to_cell(NaN, NaN) yields no
+       -- hex_id, MAX(longitude) becomes NaN for a whole dataset, and
+       -- ST_Point(NaN, NaN) makes ST_Intersects drop unrelated pairs at
+       -- different thread counts. append_sample() has normalised it since
+       -- 3.4.2; this is the same rule for the observation side.
+       --
+       -- Until v2026.08.10 these rows never got this far: the core projections
+       -- filtered `grid_key IS NOT NULL`, and a NaN coordinate cannot grid, so
+       -- the filter hid them. Releasing ungridded observations exposed 9,030
+       -- (9,016 swfsc_cufes, 14 calcofi_mets) as rows carrying a 'position' and
+       -- no hex_id — which is exactly what test_release's `obs.hex_id present
+       -- where lat/lng` contract exists to catch. NULL is the honest value: a
+       -- real observation with no known position, counted as such by
+       -- check_ungridded_obs()'s n_no_position.
+       SELECT realm, dataset_key, sample_key, grid_key, cruise_key,
+              CASE WHEN isnan(latitude)  OR isinf(latitude)  THEN NULL
+                   ELSE latitude  END AS latitude,
+              CASE WHEN isnan(longitude) OR isinf(longitude) THEN NULL
+                   ELSE longitude END AS longitude,
+              datetime, depth_min_m, depth_max_m, taxon_key, life_stage,
+              measurement_type, measurement_value, measurement_qual,
+              measurement_prec
+       FROM ( {select_sql} ) AS src(realm, dataset_key, sample_key, grid_key, cruise_key,
+              latitude, longitude, datetime, depth_min_m, depth_max_m, taxon_key, life_stage,
+              measurement_type, measurement_value, measurement_qual, measurement_prec))"))
   invisible(DBI::dbGetQuery(
     con, glue::glue("SELECT COUNT(*) AS n FROM {obs_tbl}"))$n)
 }
