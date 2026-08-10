@@ -1,3 +1,38 @@
+# calcofi4db 3.12.0
+
+## `check_cruise_coverage()` — the cruise that leaves `obs` and keeps its samples
+
+Release `v2026.08.08` shipped 10 `calcofi_ctd-cast` cruises that had lost **every
+one of their 874,000 observations** while keeping all 1,186 of their casts. The
+CTD transects app went from 142 cruises to 132 overnight; nothing in the pipeline
+said a word.
+
+Nothing was going to. PK/FK validation runs child -> parent, so every `obs` row
+that remained still had a parent cast — and a parent with **no children** violates
+no constraint. The bounds backstop only inspects `obs`, which these cruises had
+entirely left. There was no check anywhere that looked at the parent side.
+
+`check_cruise_coverage(con)` is that check: one row per `dataset_key` with
+`cruises`, `cruises_no_obs` and `orphan_samples`, halting when a dataset exceeds
+its allowance. Three things it gets right that a first cut would not:
+
+- **The grain is the cruise, not the sample.** A CTD `sample` row is one physical
+  cast *per direction* while `obs` keeps one direction, so ~half of
+  `calcofi_ctd-cast`'s cast rows legitimately carry no observations. A per-sample
+  assertion is wrong on arrival; a whole cruise with none never is.
+- **It joins through `sample_key`, never `obs.cruise_key`.** That denormalized
+  column is NULL on 59,274 `swfsc_cufes` rows and 14,170 euphausiid ones, which
+  would invent orphans that do not exist.
+- **A dataset emitting no observations at all is exempt.** `sio_pic-zooplankton`
+  is a net-tow registry whose biovolumes are pending from the provider, so
+  `sample`-only is its designed state — 587 cruises that must not fail. The rule
+  is relative ("if a dataset contributes observations, every one of its cruises
+  must"), so it needs no allowlist to say so.
+
+`max_orphan_cruises` takes a named per-dataset vector so the release can ratchet a
+documented backlog while a *new* orphan still fails; an ingest that knows its own
+correct answer passes `0`.
+
 # calcofi4db 3.11.0
 
 ## `build_targets_list()` refuses a directory `output:`

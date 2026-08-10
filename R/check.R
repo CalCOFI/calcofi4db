@@ -483,3 +483,104 @@ check_taxon_ids <- function(con, allow = character(), halt = TRUE,
 
   if (verbose) rpt else invisible(rpt)
 }
+# check_cruise_coverage --------------------------------------------------------
+
+#' Cruises that carry samples but no observations — the silent-loss guard
+#'
+#' A cruise can leave `obs` without leaving `sample`, and nothing about that
+#' violates a foreign key: FK validation runs child -> parent, so every surviving
+#' `obs` row still has a parent, and a parent with **no children** breaks no
+#' constraint. Release `v2026.08.08` shipped in exactly that state — 10
+#' `calcofi_ctd-cast` cruises kept all 1,186 of their casts and lost all 874,000
+#' of their observations, because a Google Drive placeholder read as zero rows and
+#' the direction letter the thinning step needs came from the filename of a
+#' conflict copy. No check anywhere looked at the parent side.
+#'
+#' The grain is the **cruise**, deliberately, and it is not the sample. A CTD
+#' `sample` row is one physical cast *per direction* while `obs` keeps a single
+#' direction, so about half of `calcofi_ctd-cast`'s cast rows legitimately carry
+#' no observations and a per-sample assertion would be wrong on arrival. A whole
+#' cruise with none is never legitimate.
+#'
+#' A dataset that emits **no** observations at all is exempt rather than failing
+#' 587 times: `sio_pic-zooplankton` is a net-tow registry whose biovolumes are
+#' still pending from the provider, so contributing `sample` alone is its designed
+#' state. The rule is therefore relative — *if a dataset contributes observations,
+#' every one of its cruises must* — which needs no allowlist to say so.
+#'
+#' @param con a DBI connection holding `sample` and `obs`
+#' @param obs_tbl name of the observation table (default `"obs"`)
+#' @param max_orphan_cruises integer allowance, or a named integer vector keyed by
+#'   `dataset_key` for a per-dataset ratchet. Use `0` where the correct answer is
+#'   known to be zero (an ingest asserting its own output); use the current counts
+#'   as a ratchet at release time so a *new* orphan fails while a documented
+#'   backlog does not. May only ever be lowered.
+#' @param halt logical; `stop()` when the allowance is exceeded (default `TRUE`)
+#' @param verbose logical; message the summary
+#' @return a data.frame, one row per `dataset_key`, with `cruises`,
+#'   `cruises_no_obs`, `orphan_samples` and `emits_obs` (invisibly when
+#'   `verbose = FALSE`)
+#' @export
+#' @concept check
+check_cruise_coverage <- function(con, obs_tbl = "obs",
+                                  max_orphan_cruises = 0L,
+                                  halt = TRUE, verbose = TRUE) {
+  present <- DBI::dbListTables(con)
+  if (!all(c("sample", obs_tbl) %in% present))
+    stop(glue::glue(
+      "check_cruise_coverage(): needs `sample` and `{obs_tbl}` in `con`."))
+
+  # join through sample_key, never through obs.cruise_key: the denormalized
+  # cruise_key on obs is NULL for 59,274 swfsc_cufes rows and 14,170 euphausiid
+  # ones, which would invent orphans that do not exist.
+  rpt <- DBI::dbGetQuery(con, glue::glue("
+    WITH s AS (
+      SELECT dataset_key, cruise_key, sample_key
+      FROM sample WHERE cruise_key IS NOT NULL),
+    o AS (SELECT DISTINCT sample_key FROM {obs_tbl}),
+    j AS (
+      SELECT s.dataset_key, s.cruise_key, COUNT(*) AS samples,
+             COUNT(*) FILTER (WHERE o.sample_key IS NOT NULL) AS samples_with_obs
+      FROM s LEFT JOIN o USING (sample_key) GROUP BY 1, 2)
+    SELECT dataset_key,
+           COUNT(*)                                             AS cruises,
+           COUNT(*) FILTER (WHERE samples_with_obs = 0)         AS cruises_no_obs,
+           COALESCE(SUM(samples) FILTER (WHERE samples_with_obs = 0), 0)
+                                                                AS orphan_samples
+    FROM j GROUP BY 1 ORDER BY 1"))
+  rpt$emits_obs <- rpt$cruises_no_obs < rpt$cruises
+  # a registry-only dataset has no observations to lose
+  rpt$cruises_no_obs[!rpt$emits_obs]  <- 0L
+  rpt$orphan_samples[!rpt$emits_obs]  <- 0L
+
+  allow <- if (is.null(names(max_orphan_cruises))) {
+    stats::setNames(rep(as.integer(max_orphan_cruises)[1], nrow(rpt)),
+                    rpt$dataset_key)
+  } else {
+    a <- stats::setNames(rep(0L, nrow(rpt)), rpt$dataset_key)
+    a[names(max_orphan_cruises)] <- as.integer(max_orphan_cruises)
+    a
+  }
+  over <- rpt[rpt$cruises_no_obs > allow[rpt$dataset_key], , drop = FALSE]
+
+  if (verbose)
+    message(glue::glue(
+      "cruise coverage: {sum(rpt$cruises_no_obs)} cruise(s) with samples and no ",
+      "{obs_tbl} across {sum(rpt$emits_obs)} observing dataset(s) ",
+      "({sum(!rpt$emits_obs)} registry-only, exempt)"))
+
+  if (nrow(over)) {
+    detail <- paste(sprintf(
+      "  %s: %d of %d cruise(s), %d orphan sample(s) — allowance %d",
+      over$dataset_key, over$cruises_no_obs, over$cruises,
+      over$orphan_samples, allow[over$dataset_key]), collapse = "\n")
+    msg <- paste0(
+      "cruise(s) carry samples but no ", obs_tbl, ":\n", detail,
+      "\n  The casts survive and every FK still resolves, so nothing else will\n",
+      "  report this. Find where the observations were dropped before releasing;\n",
+      "  raising the allowance to make the check pass republishes the loss.")
+    if (halt) stop(msg, call. = FALSE) else warning(msg, call. = FALSE)
+  }
+
+  if (verbose) rpt else invisible(rpt)
+}

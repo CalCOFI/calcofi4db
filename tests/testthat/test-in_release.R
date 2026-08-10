@@ -116,7 +116,9 @@ test_that("a flagged-out ingest is not an [auto] dependency of the release", {
   writeLines(c(
     "---", "title: Release", "calcofi:", "  target_name: release_database",
     "  workflow_type: release", "  dependency:", "    - auto",
-    "  output: data/releases", "---"),
+    # a FILE, not `data/releases`: check_nested_outputs() (3.11.0) rejects a
+    # directory `output:`, and this fixture predates it
+    "  output: data/releases/_release_stamp.json", "---"),
     file.path(dir, "release_database.qmd"))
 
   tl  <- build_targets_list(dir, verbose = FALSE)
