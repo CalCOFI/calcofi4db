@@ -1,5 +1,31 @@
 # Changelog
 
+## calcofi4db 3.13.1
+
+### `append_obs()` normalises NaN/Inf coordinates to NULL
+
+[`append_sample()`](https://calcofi.io/calcofi4db/reference/append_sample.md)
+has done this since 3.4.2; the observation side never did, and it did
+not show until 3.13.0 released ungridded observations. A NaN coordinate
+cannot grid, so the old `WHERE grid_key IS NOT NULL` filter had been
+hiding every one of them. Without it, 9,030 rows (9,016 `swfsc_cufes`,
+14 `calcofi_mets`) reached a release carrying a “position” that produced
+no `hex_id` — caught by `test_release`’s
+`obs.hex_id present where lat/lng` contract, which withheld promotion.
+
+`NaN` is not `NULL`: it survives `IS NOT NULL`, so it passes validation
+and then poisons what follows — `h3_latlng_to_cell(NaN, NaN)` yields no
+cell, `MAX(longitude)` becomes NaN for a whole dataset, and
+`ST_Point(NaN, NaN)` makes `ST_Intersects` drop unrelated pairs at
+different thread counts. NULL is the honest value: a real observation
+with no known position, counted as such by
+[`check_ungridded_obs()`](https://calcofi.io/calcofi4db/reference/check_ungridded_obs.md)’s
+`n_no_position`.
+
+The normalisation runs in an inner query so `hex_id` is computed from
+the normalised values, rather than relying on DuckDB resolving a lateral
+column alias over a source column of the same name.
+
 ## calcofi4db 3.13.0
 
 ### `obs` carries ungridded observations, and `check_ungridded_obs()` reports them

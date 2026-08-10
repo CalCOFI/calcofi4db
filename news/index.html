@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.13.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.13.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -45,6 +45,16 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.13.1" id="calcofi4db-3131">calcofi4db 3.13.1<a class="anchor" aria-label="anchor" href="#calcofi4db-3131"></a></h2>
+<div class="section level3">
+<h3 id="append_obs-normalises-naninf-coordinates-to-null-3-13-1">
+<code>append_obs()</code> normalises NaN/Inf coordinates to NULL<a class="anchor" aria-label="anchor" href="#append_obs-normalises-naninf-coordinates-to-null-3-13-1"></a></h3>
+<p><code><a href="../reference/append_sample.html">append_sample()</a></code> has done this since 3.4.2; the observation side never did, and it did not show until 3.13.0 released ungridded observations. A NaN coordinate cannot grid, so the old <code>WHERE grid_key IS NOT NULL</code> filter had been hiding every one of them. Without it, 9,030 rows (9,016 <code>swfsc_cufes</code>, 14 <code>calcofi_mets</code>) reached a release carrying a “position” that produced no <code>hex_id</code> — caught by <code>test_release</code>’s <code>obs.hex_id present where lat/lng</code> contract, which withheld promotion.</p>
+<p><code>NaN</code> is not <code>NULL</code>: it survives <code>IS NOT NULL</code>, so it passes validation and then poisons what follows — <code>h3_latlng_to_cell(NaN, NaN)</code> yields no cell, <code>MAX(longitude)</code> becomes NaN for a whole dataset, and <code>ST_Point(NaN, NaN)</code> makes <code>ST_Intersects</code> drop unrelated pairs at different thread counts. NULL is the honest value: a real observation with no known position, counted as such by <code><a href="../reference/check_ungridded_obs.html">check_ungridded_obs()</a></code>’s <code>n_no_position</code>.</p>
+<p>The normalisation runs in an inner query so <code>hex_id</code> is computed from the normalised values, rather than relying on DuckDB resolving a lateral column alias over a source column of the same name.</p>
+</div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="3.13.0" id="calcofi4db-3130">calcofi4db 3.13.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3130"></a></h2>
 <div class="section level3">
