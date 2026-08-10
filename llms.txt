@@ -417,6 +417,9 @@ into the database
 
 functions for data validation and integrity checking
 
+- [`check_cruise_coverage()`](https://calcofi.io/calcofi4db/reference/check_cruise_coverage.md)
+  : Cruises that carry samples but no observations — the silent-loss
+  guard
 - [`check_data_integrity()`](https://calcofi.io/calcofi4db/reference/check_data_integrity.md)
   : Check Data Integrity for Ingestion
 - [`check_multiple_datasets()`](https://calcofi.io/calcofi4db/reference/check_multiple_datasets.md)
