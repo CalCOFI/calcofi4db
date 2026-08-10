@@ -159,6 +159,9 @@ functions for data validation and integrity checking
 - [`check_taxon_ids()`](https://calcofi.io/calcofi4db/reference/check_taxon_ids.md)
   : The taxa that no authority resolved, per dataset — reported, and
   gated
+- [`check_ungridded_obs()`](https://calcofi.io/calcofi4db/reference/check_ungridded_obs.md)
+  : Observations that resolve no CalCOFI grid cell — reported, never
+  dropped
 - [`render_integrity_message()`](https://calcofi.io/calcofi4db/reference/render_integrity_message.md)
   : Render Data Integrity Check Message
 

@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.12.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.13.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -45,6 +45,21 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.13.0" id="calcofi4db-3130">calcofi4db 3.13.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3130"></a></h2>
+<div class="section level3">
+<h3 id="obs-carries-ungridded-observations-and-check_ungridded_obs-reports-them-3-13-0">
+<code>obs</code> carries ungridded observations, and <code>check_ungridded_obs()</code> reports them<a class="anchor" aria-label="anchor" href="#obs-carries-ungridded-observations-and-check_ungridded_obs-reports-them-3-13-0"></a></h3>
+<p>Every ingest’s core projection filtered <code>WHERE grid_key IS NOT NULL</code>, so an observation whose event resolved no CalCOFI grid cell never reached <code>obs</code> — while the <code>sample</code> arm kept the event. That asymmetry is how four <code>calcofi_mets</code> cruises reached a release as 11,762 underway samples with <strong>zero</strong> observations, their 1.7M measurements reachable only through the supplemental table.</p>
+<p>The exclusion also contradicted the pipeline’s own reasoning. <code>obs_mets_full</code> was already deliberately gated on <em>a position</em> rather than on <code>grid_key</code>, on the grounds that “a ship on transit is legitimately outside the CalCOFI station grid”, and <code>calcofi_phytoplankton</code> is region-pooled and has emitted ungridded <code>obs</code> since it landed. The headline table now agrees with both: <strong>no grid cell is not a reason to delete an observation.</strong></p>
+<p>It is a reason to ASK, which is what <code><a href="../reference/check_ungridded_obs.html">check_ungridded_obs()</a></code> is for. An ungridded observation is one of three things and the pipeline cannot tell them apart:</p>
+<ul><li>a genuinely off-grid position (transit, historical stations outside the modern pattern),</li>
+<li>a coarser spatial notion (region-pooled, no point at all), or</li>
+<li>
+<strong>a coordinate error</strong> — the sign-flipped <code>Longitude_W</code> that put five CalCOFI cruises in the Taiwan Strait was invisible <em>precisely because</em> being off-grid silently removed the rows.</li>
+</ul><p>So it returns per-dataset counts plus a <code>finding</code> sentence written to be pasted into a <code>questions.csv</code> <code>context</code> cell, and separates <code>n_no_position</code> (ungridded AND no lat/lon at all) from merely off-grid, because that is the distinction a provider needs in order to answer.</p>
+</div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="3.12.0" id="calcofi4db-3120">calcofi4db 3.12.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3120"></a></h2>
 <div class="section level3">

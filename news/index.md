@@ -1,5 +1,41 @@
 # Changelog
 
+## calcofi4db 3.13.0
+
+### `obs` carries ungridded observations, and `check_ungridded_obs()` reports them
+
+Every ingest’s core projection filtered `WHERE grid_key IS NOT NULL`, so
+an observation whose event resolved no CalCOFI grid cell never reached
+`obs` — while the `sample` arm kept the event. That asymmetry is how
+four `calcofi_mets` cruises reached a release as 11,762 underway samples
+with **zero** observations, their 1.7M measurements reachable only
+through the supplemental table.
+
+The exclusion also contradicted the pipeline’s own reasoning.
+`obs_mets_full` was already deliberately gated on *a position* rather
+than on `grid_key`, on the grounds that “a ship on transit is
+legitimately outside the CalCOFI station grid”, and
+`calcofi_phytoplankton` is region-pooled and has emitted ungridded `obs`
+since it landed. The headline table now agrees with both: **no grid cell
+is not a reason to delete an observation.**
+
+It is a reason to ASK, which is what
+[`check_ungridded_obs()`](https://calcofi.io/calcofi4db/reference/check_ungridded_obs.md)
+is for. An ungridded observation is one of three things and the pipeline
+cannot tell them apart:
+
+- a genuinely off-grid position (transit, historical stations outside
+  the modern pattern),
+- a coarser spatial notion (region-pooled, no point at all), or
+- **a coordinate error** — the sign-flipped `Longitude_W` that put five
+  CalCOFI cruises in the Taiwan Strait was invisible *precisely because*
+  being off-grid silently removed the rows.
+
+So it returns per-dataset counts plus a `finding` sentence written to be
+pasted into a `questions.csv` `context` cell, and separates
+`n_no_position` (ungridded AND no lat/lon at all) from merely off-grid,
+because that is the distinction a provider needs in order to answer.
+
 ## calcofi4db 3.12.0
 
 ### `check_cruise_coverage()` — the cruise that leaves `obs` and keeps its samples
