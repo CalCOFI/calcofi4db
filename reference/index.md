@@ -469,6 +469,12 @@ check for other functions or datasets not captured by above categories
 - [`build_taxon_table()`](https://calcofi.io/calcofi4db/reference/build_taxon_table.md)
   : Build Taxonomic Hierarchy Table from WoRMS
 
+- [`cc_calcofi_to_lonlat()`](https://calcofi.io/calcofi4db/reference/cc_calcofi_to_lonlat.md)
+  : Convert CalCOFI line/station to longitude/latitude
+
+- [`cc_lonlat_to_calcofi()`](https://calcofi.io/calcofi4db/reference/cc_lonlat_to_calcofi.md)
+  : Convert longitude/latitude to CalCOFI line/station
+
 - [`check_registry_na_strings()`](https://calcofi.io/calcofi4db/reference/check_registry_na_strings.md)
   : Reject sentinel strings that should have been empty cells
 

@@ -1,5 +1,34 @@
 # Changelog
 
+## calcofi4db 3.14.0
+
+### `cc_calcofi_to_lonlat()` / `cc_lonlat_to_calcofi()`
+
+The CalCOFI station plan is a coordinate system, and PROJ ships it as
+`+proj=calcofi` — so converting line/station to lon/lat is a
+**projection**, not a lookup against `grid`. The difference matters: a
+lookup only resolves stations present in the grid table, while the
+transform resolves any line/station pair, including the historical
+inshore stations and the Gulf of California and Baja lines the modern
+pattern dropped.
+
+Use it to recover a position for a row that records where it was in
+CalCOFI terms but carries no lon/lat; `hex_id` and `grid_key` then
+follow in the usual way, and the row stops being an ungridded remainder.
+
+The inverse returns the CONTINUOUS position (90.7 is a real answer, not
+a rounding error) — round deliberately at the call site if a station
+label is what you want, rather than silently moving a sample onto a
+station it was not taken at.
+
+Scope, measured rather than assumed: across every ingest exactly **5
+rows** carry line/station without a position (1 `cce-lter_euphausiids`,
+4 `cdfw_dungeness-crab`), so this recovers almost nothing today. The
+large position-less populations cannot use it — `calcofi_mets` 1207OS
+publishes TSG-only files with no position and no station, `swfsc_cufes`
+has no line/station columns at all, and `cce-lter_zoodb`’s 155 are
+region-pooled with line/station genuinely NA.
+
 ## calcofi4db 3.13.1
 
 ### `append_obs()` normalises NaN/Inf coordinates to NULL

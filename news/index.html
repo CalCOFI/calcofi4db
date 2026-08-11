@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.13.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.14.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -45,6 +45,18 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.14.0" id="calcofi4db-3140">calcofi4db 3.14.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3140"></a></h2>
+<div class="section level3">
+<h3 id="cc_calcofi_to_lonlat--cc_lonlat_to_calcofi-3-14-0">
+<code>cc_calcofi_to_lonlat()</code> / <code>cc_lonlat_to_calcofi()</code>
+<a class="anchor" aria-label="anchor" href="#cc_calcofi_to_lonlat--cc_lonlat_to_calcofi-3-14-0"></a></h3>
+<p>The CalCOFI station plan is a coordinate system, and PROJ ships it as <code>+proj=calcofi</code> — so converting line/station to lon/lat is a <strong>projection</strong>, not a lookup against <code>grid</code>. The difference matters: a lookup only resolves stations present in the grid table, while the transform resolves any line/station pair, including the historical inshore stations and the Gulf of California and Baja lines the modern pattern dropped.</p>
+<p>Use it to recover a position for a row that records where it was in CalCOFI terms but carries no lon/lat; <code>hex_id</code> and <code>grid_key</code> then follow in the usual way, and the row stops being an ungridded remainder.</p>
+<p>The inverse returns the CONTINUOUS position (90.7 is a real answer, not a rounding error) — round deliberately at the call site if a station label is what you want, rather than silently moving a sample onto a station it was not taken at.</p>
+<p>Scope, measured rather than assumed: across every ingest exactly <strong>5 rows</strong> carry line/station without a position (1 <code>cce-lter_euphausiids</code>, 4 <code>cdfw_dungeness-crab</code>), so this recovers almost nothing today. The large position-less populations cannot use it — <code>calcofi_mets</code> 1207OS publishes TSG-only files with no position and no station, <code>swfsc_cufes</code> has no line/station columns at all, and <code>cce-lter_zoodb</code>’s 155 are region-pooled with line/station genuinely NA.</p>
+</div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="3.13.1" id="calcofi4db-3131">calcofi4db 3.13.1<a class="anchor" aria-label="anchor" href="#calcofi4db-3131"></a></h2>
 <div class="section level3">
