@@ -2434,6 +2434,20 @@ ingest_yaml_to_dataset_df <- function(ingest_yaml) {
       provider          = s(provider),
       dataset           = s(dataset),
       dataset_name      = s(m$dataset_name),
+      # Display trio, authored once in the ingest front-matter and carried into
+      # the release so consumers stop keeping their own per-dataset maps. Each
+      # app used to hardcode these keyed on dataset_key, which meant a rename or
+      # a new dataset silently produced a grey card with a raw key on it, and a
+      # human had to notice. `dataset_name_short` is the pick-list/card label
+      # (the formal `dataset_name` is often too long); `category` is the
+      # thematic grouping; `color` is the display colour, deliberately NOT
+      # `erd.color` — that one is an ERD fill pastel and three datasets share
+      # #bbe0f0, which is harmless in a diagram and fatal in a legend.
+      # All three are optional: a consumer falls back to dataset_name, then the
+      # key, so a dataset that omits them degrades instead of disappearing.
+      dataset_name_short = s(m$dataset_name_short),
+      category          = s(m$category),
+      color             = s(m$color),
       description       = s(m$description),
       citation_main     = s(m$citation_main),
       citation_others   = join_semi(m$citation_others),
@@ -2471,6 +2485,9 @@ ingest_yaml_to_dataset_df <- function(ingest_yaml) {
     provider          = provider,
     dataset           = dataset,
     dataset_name      = pick("dataset_name"),
+    dataset_name_short = pick("dataset_name_short"),
+    category          = pick("category"),
+    color             = pick("color"),
     description       = pick("description"),
     citation_main     = pick("citation_main"),
     link_calcofi_org  = pick("link_calcofi_org"),
