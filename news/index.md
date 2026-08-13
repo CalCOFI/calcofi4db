@@ -1,5 +1,30 @@
 # Changelog
 
+## calcofi4db 3.15.0
+
+### Display metadata moves into the ingest front-matter
+
+[`ingest_yaml_to_dataset_df()`](https://calcofi.io/calcofi4db/reference/ingest_yaml_to_dataset_df.md)
+and the release `metadata.json` sidecar now carry three optional
+`dataset_meta` fields — **`dataset_name_short`**, **`category`** and
+**`color`** — so the consumer apps can stop hardcoding them.
+
+Every app kept its own map keyed on `dataset_key`: db-viz-station had
+`DATASET_META` (label/realm/colour) plus `DATASET_CATEGORY`, db-viz-hex
+had `DATASET_LABELS`. A rename or a new dataset silently produced a grey
+card labelled with the raw key, and a human had to notice — which is
+exactly what happened when `cdfw_dungeness-crab` entered the release.
+
+All three are optional and absent means absent, not empty-string: a
+consumer falls back to `dataset_name`, then to the key, so a dataset
+that declares none of them degrades instead of disappearing. The columns
+are always emitted even when no dataset declares any, so a consumer can
+`SELECT` them blindly rather than hitting a binder error.
+
+`color` is deliberately separate from the existing `erd.color`. That one
+is an ERD fill pastel and three datasets share `#bbe0f0` — harmless in a
+diagram, fatal in a legend.
+
 ## calcofi4db 3.14.0
 
 ### `cc_calcofi_to_lonlat()` / `cc_lonlat_to_calcofi()`

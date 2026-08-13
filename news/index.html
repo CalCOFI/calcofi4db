@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.14.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.15.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -45,6 +45,16 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.15.0" id="calcofi4db-3150">calcofi4db 3.15.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3150"></a></h2>
+<div class="section level3">
+<h3 id="display-metadata-moves-into-the-ingest-front-matter-3-15-0">Display metadata moves into the ingest front-matter<a class="anchor" aria-label="anchor" href="#display-metadata-moves-into-the-ingest-front-matter-3-15-0"></a></h3>
+<p><code><a href="../reference/ingest_yaml_to_dataset_df.html">ingest_yaml_to_dataset_df()</a></code> and the release <code>metadata.json</code> sidecar now carry three optional <code>dataset_meta</code> fields — <strong><code>dataset_name_short</code></strong>, <strong><code>category</code></strong> and <strong><code>color</code></strong> — so the consumer apps can stop hardcoding them.</p>
+<p>Every app kept its own map keyed on <code>dataset_key</code>: db-viz-station had <code>DATASET_META</code> (label/realm/colour) plus <code>DATASET_CATEGORY</code>, db-viz-hex had <code>DATASET_LABELS</code>. A rename or a new dataset silently produced a grey card labelled with the raw key, and a human had to notice — which is exactly what happened when <code>cdfw_dungeness-crab</code> entered the release.</p>
+<p>All three are optional and absent means absent, not empty-string: a consumer falls back to <code>dataset_name</code>, then to the key, so a dataset that declares none of them degrades instead of disappearing. The columns are always emitted even when no dataset declares any, so a consumer can <code>SELECT</code> them blindly rather than hitting a binder error.</p>
+<p><code>color</code> is deliberately separate from the existing <code>erd.color</code>. That one is an ERD fill pastel and three datasets share <code>#bbe0f0</code> — harmless in a diagram, fatal in a legend.</p>
+</div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="3.14.0" id="calcofi4db-3140">calcofi4db 3.14.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3140"></a></h2>
 <div class="section level3">
