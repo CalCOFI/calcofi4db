@@ -1,5 +1,23 @@
 # Changelog
 
+## calcofi4db 3.15.0
+
+### `append_obs()`: a position is a pair
+
+If either coordinate is missing after the NaN/Inf normalisation, both
+are set to NULL. A latitude with no longitude is not a place — it
+produces no `hex_id` and no `grid_key`, so it reaches no spatial
+consumer, and it implies we know roughly where something was when we do
+not. `v2026.08.11` published 1,376 such rows, all `calcofi_mets`, from
+sources carrying a real latitude beside a NaN longitude at both ends of
+a segment.
+
+Enforced in the package rather than in each notebook, for the same
+reason the NaN rule is: it then holds for every dataset, present and
+future. `ingest_swfsc_cufes.qmd` resolves its own pair earlier — when
+choosing which end of the segment to take — and this is the backstop for
+everyone who does not.
+
 ## calcofi4db 3.16.0
 
 ### `cc_station_regions()` — region polygons from a station-membership list
