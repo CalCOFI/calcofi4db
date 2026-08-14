@@ -1,3 +1,52 @@
+# calcofi4db 3.16.0
+
+## `cc_station_regions()` — region polygons from a station-membership list
+
+A dataset that pools its samples across a named set of stations before measuring
+gives us membership, not position. `calcofi_phytoplankton` is the only one in the
+release: 409 samples at **4 invented centroids**, no `site_key`, no `grid_key`,
+and 159,804 observations carrying a lat/lon we made up (workflows#76, Q01).
+
+`cc_station_regions(x, group, line, station)` turns the membership list into one
+polygon per region. The obvious construction — a convex hull per region — fails
+on the real Venrick lists in three ways, each of them silent:
+
+* **A collinear region has no hull.** SE's four stations are all on line 93.3, so
+  its hull is a 73 km2 slab. It looks like a region and is a line.
+* **Interleaved regions overlap.** NE and Alley claim 19.8 km2 of the same water.
+* **Hulls do not tile.** 44,616 km2 of the pooled domain — a third of it —
+  belongs to no region, so a point-in-polygon lookup there returns nothing.
+
+So it partitions instead: every station claims the water nearest to it, the
+cells are clipped to the convex hull of *all* the stations, then dissolved by
+region. The four Venrick regions come out tiling their domain exactly — no
+overlap, no gaps — and each as ONE connected piece, which is the part a union of
+member grid cells cannot do: only 2 of NE's 5 stations have a grid cell and those
+two are not adjacent.
+
+Two choices worth knowing about, because both are load-bearing:
+
+* **The outer boundary is the station hull, not a padded one.** The pooling says
+  nothing about water beyond the outermost station occupied, and padding it
+  outward would be inventing extent.
+* **`longitude`/`latitude` is `st_point_on_surface()`, not a centroid.** These
+  regions are concave — Alley wraps around NE — so a centroid can land in the
+  neighbour and map the region onto the wrong water.
+
+Land is not erased: the geometry says where the sampling was, and subtracting a
+coastline would bind released polygons to one coastline vintage. Erase at render
+time if a map needs it.
+
+Positions come from [`cc_calcofi_to_lonlat()`], so all 34 declared stations
+place. Six of them — 83.41, 83.51, 90.37, 77.51, 80.51, 90.53 — are intermediate
+inshore stations with no cell in the regularized grid, and a `grid` lookup drops
+them without an error. Three of the six are NE's, the region closest to shore
+where the gradient this dataset exists to measure is steepest.
+
+A station declared in two regions is an **error**, not something to average: it
+would make the partition ill-defined, since every point it owns belongs to both.
+
+
 # calcofi4db 3.15.0
 
 ## Display metadata moves into the ingest front-matter
