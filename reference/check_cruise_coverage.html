@@ -31,7 +31,7 @@ conflict copy. No check anywhere looked at the parent side."><!-- Google tag (gt
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.16.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.17.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,6 +77,7 @@ conflict copy. No check anywhere looked at the parent side.</p>
 <span>  <span class="va">con</span>,</span>
 <span>  obs_tbl <span class="op">=</span> <span class="st">"obs"</span>,</span>
 <span>  max_orphan_cruises <span class="op">=</span> <span class="fl">0L</span>,</span>
+<span>  effort_only_types <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  halt <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -100,6 +101,15 @@ conflict copy. No check anywhere looked at the parent side.</p>
 known to be zero (an ingest asserting its own output); use the current counts
 as a ratchet at release time so a <em>new</em> orphan fails while a documented
 backlog does not. May only ever be lowered.</p></dd>
+
+
+<dt id="arg-effort-only-types">effort_only_types<a class="anchor" aria-label="anchor" href="#arg-effort-only-types"></a></dt>
+<dd><p>optional named character vector keyed by
+<code>dataset_key</code>, naming <code>sample_type</code>s that record effort or inventory rather
+than an analyzed event (e.g. <code>c("cdfw_dungeness-crab" = "tow")</code>). Those rows
+are excluded from the orphan calculation entirely, so a cruise made only of
+them is not a finding, while the same dataset's observing sample types stay
+held to the full standard. Repeat the name to exempt several types.</p></dd>
 
 
 <dt id="arg-halt">halt<a class="anchor" aria-label="anchor" href="#arg-halt"></a></dt>
@@ -128,6 +138,16 @@ cruise with none is never legitimate.</p>
 still pending from the provider, so contributing <code>sample</code> alone is its designed
 state. The rule is therefore relative — <em>if a dataset contributes observations,
 every one of its cruises must</em> — which needs no allowlist to say so.</p>
+<p>A third case sits between those two: a dataset that emits observations, but
+whose <code>sample</code> table also carries rows that are an <strong>inventory rather than an
+analyzed event</strong>. <code>cdfw_dungeness-crab</code> is the worked example — its 310
+<code>subsample</code> rows are lab-examined aliquots and every one of them yields <code>obs</code>
+(310/310), while its 2,011 <code>tow</code> rows are a 60-year sorting log recording which
+archived jars <em>exist</em>. Only 216 of those were ever examined. The remaining
+1,795 have no observation to lose, and 14 cruises consist of nothing else.
+Raising <code>max_orphan_cruises</code> would paper over that, and would go on hiding a
+real loss in the same dataset up to the allowance — so the exemption is
+declared at the grain where the distinction actually lives, the sample type.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

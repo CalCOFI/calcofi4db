@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.16.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.17.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -45,6 +45,17 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.17.0" id="calcofi4db-3170">calcofi4db 3.17.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3170"></a></h2>
+<div class="section level3">
+<h3 id="check_cruise_coverageeffort_only_types--3-17-0"><code>check_cruise_coverage(effort_only_types =)</code><a class="anchor" aria-label="anchor" href="#check_cruise_coverageeffort_only_types--3-17-0"></a></h3>
+<p>Some <code>sample</code> rows are an <strong>inventory rather than an analyzed event</strong>, and the silent-loss guard reads their absence of observations as loss.</p>
+<p><code>cdfw_dungeness-crab</code> is the case: its 310 <code>subsample</code> rows are lab-examined aliquots and every one yields <code>obs</code> (310/310), while its 2,011 <code>tow</code> rows are a 60-year sorting log recording which archived jars <em>exist</em>. Only 216 were ever examined; 14 cruises consist of nothing but unexamined jars.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">check_cruise_coverage</span>(con, <span class="at">effort_only_types =</span> <span class="fu">c</span>(<span class="st">"cdfw_dungeness-crab"</span> <span class="ot">=</span> <span class="st">"tow"</span>))</span></code></pre></div>
+<p>Exempted rows drop out before anything is counted, so a cruise made only of them is not a finding, while the same dataset’s observing sample types stay held to the full standard. The pair list is <code>(dataset_key, sample_type)</code>, not two <code>IN</code> clauses — <code>tow</code> is an observing type for the net-tow ingests, and exempting it globally would silence them.</p>
+<p><strong><code>release_database.qmd</code> does not use this yet</strong>, and that is deliberate rather than an oversight: it absorbs the same 14 cruises through the existing <code>ORPHAN_CRUISES_MAX</code> ratchet, which is the idiom that file already uses for <code>swfsc_cufes</code> and <code>cce-lter_euphausiids</code> — the same “effort recorded without counts” shape. The two differ in one respect worth weighing before switching: a ratchet of 14 will also absorb a <em>genuine</em> loss of up to 14 cruises in that dataset, indefinitely, whereas the exemption removes only the inventory rows and leaves real loss detectable at 1. Switch if that matters more than idiom consistency.</p>
+</div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="3.16.1" id="calcofi4db-3161">calcofi4db 3.16.1<a class="anchor" aria-label="anchor" href="#calcofi4db-3161"></a></h2>
 <div class="section level3">

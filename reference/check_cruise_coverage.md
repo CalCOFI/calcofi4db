@@ -17,6 +17,7 @@ check_cruise_coverage(
   con,
   obs_tbl = "obs",
   max_orphan_cruises = 0L,
+  effort_only_types = NULL,
   halt = TRUE,
   verbose = TRUE
 )
@@ -39,6 +40,16 @@ check_cruise_coverage(
   to be zero (an ingest asserting its own output); use the current
   counts as a ratchet at release time so a *new* orphan fails while a
   documented backlog does not. May only ever be lowered.
+
+- effort_only_types:
+
+  optional named character vector keyed by `dataset_key`, naming
+  `sample_type`s that record effort or inventory rather than an analyzed
+  event (e.g. `c("cdfw_dungeness-crab" = "tow")`). Those rows are
+  excluded from the orphan calculation entirely, so a cruise made only
+  of them is not a finding, while the same dataset's observing sample
+  types stay held to the full standard. Repeat the name to exempt
+  several types.
 
 - halt:
 
@@ -69,3 +80,16 @@ biovolumes are still pending from the provider, so contributing `sample`
 alone is its designed state. The rule is therefore relative — *if a
 dataset contributes observations, every one of its cruises must* — which
 needs no allowlist to say so.
+
+A third case sits between those two: a dataset that emits observations,
+but whose `sample` table also carries rows that are an **inventory
+rather than an analyzed event**. `cdfw_dungeness-crab` is the worked
+example — its 310 `subsample` rows are lab-examined aliquots and every
+one of them yields `obs` (310/310), while its 2,011 `tow` rows are a
+60-year sorting log recording which archived jars *exist*. Only 216 of
+those were ever examined. The remaining 1,795 have no observation to
+lose, and 14 cruises consist of nothing else. Raising
+`max_orphan_cruises` would paper over that, and would go on hiding a
+real loss in the same dataset up to the allowance — so the exemption is
+declared at the grain where the distinction actually lives, the sample
+type.
