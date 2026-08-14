@@ -212,10 +212,27 @@ append_obs <- function(con, select_sql, obs_tbl = "obs", res_max = CC_H3_RES_MAX
        -- real observation with no known position, counted as such by
        -- check_ungridded_obs()'s n_no_position.
        SELECT realm, dataset_key, sample_key, grid_key, cruise_key,
-              CASE WHEN isnan(latitude)  OR isinf(latitude)  THEN NULL
-                   ELSE latitude  END AS latitude,
-              CASE WHEN isnan(longitude) OR isinf(longitude) THEN NULL
-                   ELSE longitude END AS longitude,
+              -- A position is a PAIR: if either component is missing after the
+              -- NaN/Inf normalisation, NULL BOTH. A latitude with no longitude
+              -- is not a place — it cannot produce a hex_id or a grid_key, so it
+              -- reaches no spatial consumer, and it implies we know roughly
+              -- where this was when we do not. v2026.08.11 published 1,376 such
+              -- rows (all calcofi_mets, from sources carrying a real latitude
+              -- beside a NaN longitude at both ends of the segment).
+              --
+              -- Enforced here rather than in each notebook so it holds for every
+              -- dataset, present and future — the same reason the NaN rule lives
+              -- here. ingest_swfsc_cufes.qmd resolves its own pair earlier, when
+              -- choosing which end of the segment to take; this is the backstop
+              -- for everyone who does not.
+              CASE WHEN isnan(latitude)  OR isinf(latitude)
+                     OR isnan(longitude) OR isinf(longitude)
+                     OR latitude IS NULL OR longitude IS NULL
+                   THEN NULL ELSE latitude  END AS latitude,
+              CASE WHEN isnan(latitude)  OR isinf(latitude)
+                     OR isnan(longitude) OR isinf(longitude)
+                     OR latitude IS NULL OR longitude IS NULL
+                   THEN NULL ELSE longitude END AS longitude,
               datetime, depth_min_m, depth_max_m, taxon_key, life_stage,
               measurement_type, measurement_value, measurement_qual,
               measurement_prec
