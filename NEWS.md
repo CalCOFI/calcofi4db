@@ -1,3 +1,43 @@
+# calcofi4db 3.18.0
+
+## Promotion guards: `promote_release()`, `check_release_complete()`, `read_promoted_release()`
+
+On 2026-08-14 `latest.txt` was promoted to a release with no `catalog.json`, and
+every consumer resolving through `latest` got a 404 for an hour while the query
+suite showed 28/28. Two independent defects, both now fixed at the source.
+
+**A green suite is not sufficient to promote.** `release_database.qmd` died at
+`upload_frozen` with the parquet uploaded and the JSON sidecars not.
+`test_release.qmd` then passed 28/28 against that parquet — correctly, the data
+was fine — and moved the pointer. The queries test the DATA; they never open the
+catalog, so they cannot see whether the release is READABLE. Those are different
+questions and only the first was being asked. `promote_release()` now answers the
+second first, refusing to move the pointer unless `catalog.json`,
+`metadata.json` and `relationships.json` are all present.
+
+**`latest.txt` was read over a CDN-cached URL.** The object carried no
+`Cache-Control`, so it inherited the 1-hour public default. The rollback took an
+hour to reach consumers, and `release_database.qmd`'s republish guard — reading
+that same URL — false-fired on the re-cut. That direction is harmless; the mirror
+image is not. For an hour after any promotion the cache still shows the
+*previous* version, so the guard concludes `latest.txt` points elsewhere and
+permits a run to overwrite the release consumers are actively reading — the exact
+thing it exists to prevent. A guard that fails open for an hour after every
+promotion is worse than none, because it reads as protection.
+`read_promoted_release()` reads through the authenticated API, which is never
+cached, and `promote_release()` writes the object with
+`Cache-Control: no-cache, max-age=0` so future changes propagate immediately.
+
+Setting the header after the fact does not help — the edge has already cached the
+response with the old header and serves it until that entry expires, which is why
+the manual rollback stayed invisible for an hour.
+
+Three call sites move onto these: `test_release.qmd` (promotion),
+`release_database.qmd` (republish guard) and `deploy_consumers.qmd`. The last was
+a latent instance of the same bug found while fixing the others — it runs seconds
+after promotion, squarely inside the stale window, so it would have deployed
+consumers against the release just replaced, silently.
+
 # calcofi4db 3.17.0
 
 ## `check_cruise_coverage(effort_only_types =)`

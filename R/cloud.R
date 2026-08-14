@@ -1199,3 +1199,132 @@ gcloud_list <- function(bucket, prefix = NULL, recursive = TRUE) {
     md5     = meta$md5Hash[is_obj] %||% NA_character_,
     crc32c  = meta$crc32c[is_obj] %||% NA_character_)
 }
+
+
+# promotion: latest.txt ---------------------------------------------------------
+
+#' Read the currently promoted release, authoritatively
+#'
+#' `latest.txt` is the pointer every consumer resolves through, so reading it
+#' over the public `https://storage.googleapis.com/...` URL is not safe for a
+#' control-flow decision: that URL is CDN-cached, and the object carried no
+#' `Cache-Control` until 2026-08-14, so it inherited the 1-hour public default.
+#'
+#' On 2026-08-14 that bit twice in one hour, and the second direction is the
+#' dangerous one. A rollback to `v2026.08.11` took an hour to reach consumers;
+#' then `release_database.qmd`'s republish guard — reading the same cached URL —
+#' false-fired because it still saw the pre-rollback value. The mirror image is
+#' worse: immediately after a promotion the cache still shows the *previous*
+#' version, so a guard comparing against it concludes `latest.txt` points
+#' somewhere else and permits a run to overwrite the release consumers are
+#' actively reading, which is the exact thing it exists to prevent. A one-hour
+#' blind window after every promotion, failing open.
+#'
+#' This reads the object through the authenticated API instead, which is never
+#' cached.
+#'
+#' @param bucket GCS bucket holding `ducklake/releases/latest.txt`
+#' @return the promoted version string (e.g. `"v2026.08.14"`), or `NA_character_`
+#'   if the object cannot be read
+#' @export
+#' @concept cloud
+read_promoted_release <- function(bucket = "calcofi-db") {
+  gcloud <- find_gcloud()
+  out <- tryCatch(
+    system2(gcloud,
+            c("storage", "cat",
+              glue::glue("gs://{bucket}/ducklake/releases/latest.txt")),
+            stdout = TRUE, stderr = FALSE),
+    error = function(e) character())
+  out <- trimws(out[nzchar(trimws(out))])
+  if (!length(out)) NA_character_ else out[1]
+}
+
+#' Objects a frozen release must contain before it can be promoted
+#'
+#' @keywords internal
+RELEASE_REQUIRED_OBJECTS <- c("catalog.json", "metadata.json", "relationships.json")
+
+#' Assert a frozen release is structurally complete
+#'
+#' Passing the consumer-contract suite says the **data** is right. It says
+#' nothing about whether the release is **readable**, and those are different
+#' questions — `test_release.qmd` asked only the first until 2026-08-14, when it
+#' passed 28/28 against genuinely-good parquet and promoted `latest.txt` to a
+#' release with no `catalog.json`. That is the file `cc_get_db()` opens, so every
+#' consumer resolving through `latest` got a 404 while the tests were green.
+#'
+#' The cause was ordering: `upload_frozen` pushes parquet first and the JSON
+#' sidecars after, and the render died in between. The parquet was complete and
+#' valid, which is precisely why the tests passed.
+#'
+#' @param version release version (e.g. `"v2026.08.14"`)
+#' @param bucket GCS bucket holding `ducklake/releases/`
+#' @param required object names that must exist directly under the release
+#' @param halt logical; `stop()` when something is missing (default `TRUE`)
+#' @return invisibly, a data.frame with `object` and `exists`
+#' @export
+#' @concept cloud
+check_release_complete <- function(version, bucket = "calcofi-db",
+                                   required = RELEASE_REQUIRED_OBJECTS,
+                                   halt = TRUE) {
+  stopifnot(is.character(version), length(version) == 1, nzchar(version))
+  gcloud <- find_gcloud()
+  base   <- glue::glue("gs://{bucket}/ducklake/releases/{version}")
+  found  <- vapply(required, function(o) {
+    st <- tryCatch(
+      system2(gcloud, c("storage", "ls", glue::glue("{base}/{o}")),
+              stdout = FALSE, stderr = FALSE),
+      error = function(e) 1L)
+    identical(as.integer(st), 0L)
+  }, logical(1))
+
+  out <- data.frame(object = required, exists = unname(found),
+                    stringsAsFactors = FALSE)
+  missing <- out$object[!out$exists]
+  if (length(missing) && halt)
+    stop(glue::glue(
+      "release {version} is NOT complete — missing ",
+      "{paste(missing, collapse = ', ')} under {base}/.\n",
+      "  Promoting it would point consumers at a release `cc_get_db()` cannot ",
+      "open, however green the query suite is: the suite tests the data, not ",
+      "whether the release is readable. Finish the upload, then promote."),
+      call. = FALSE)
+  invisible(out)
+}
+
+#' Promote a release to `latest.txt`
+#'
+#' Refuses to move the pointer unless the release is structurally complete, and
+#' writes the object with `Cache-Control: no-cache` so the change reaches
+#' consumers immediately rather than up to an hour later. Both behaviours exist
+#' because their absence caused an outage on 2026-08-14 — see
+#' [check_release_complete()] and [read_promoted_release()].
+#'
+#' @param version release version to promote
+#' @param bucket GCS bucket holding `ducklake/releases/`
+#' @param required passed to [check_release_complete()]
+#' @return the promoted version, invisibly
+#' @export
+#' @concept cloud
+promote_release <- function(version, bucket = "calcofi-db",
+                            required = RELEASE_REQUIRED_OBJECTS) {
+  check_release_complete(version, bucket = bucket, required = required, halt = TRUE)
+
+  gcloud <- find_gcloud()
+  f <- tempfile(); on.exit(unlink(f), add = TRUE)
+  writeLines(version, f)
+  gcs_path <- glue::glue("gs://{bucket}/ducklake/releases/latest.txt")
+  # set Cache-Control on the upload itself. Setting it afterwards does not help:
+  # the edge has already cached the response with the old header and serves it
+  # until that entry expires, which is how the 2026-08-14 rollback stayed
+  # invisible to consumers for an hour.
+  st <- system2(gcloud,
+                c("storage", "cp", "--cache-control=no-cache,max-age=0",
+                  shQuote(f), shQuote(gcs_path)),
+                stdout = FALSE, stderr = FALSE)
+  if (!identical(as.integer(st), 0L))
+    stop(glue::glue("promote_release(): failed to write {gcs_path}"), call. = FALSE)
+  message(glue::glue("promoted {version} -> {gcs_path} (no-cache)"))
+  invisible(version)
+}
