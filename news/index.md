@@ -1,6 +1,6 @@
 # Changelog
 
-## calcofi4db 3.15.0
+## calcofi4db 3.16.1
 
 ### `append_obs()`: a position is a pair
 
