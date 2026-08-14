@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.17.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.18.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -45,6 +45,18 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.18.0" id="calcofi4db-3180">calcofi4db 3.18.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3180"></a></h2>
+<div class="section level3">
+<h3 id="promotion-guards-promote_release-check_release_complete-read_promoted_release-3-18-0">Promotion guards: <code>promote_release()</code>, <code>check_release_complete()</code>, <code>read_promoted_release()</code>
+<a class="anchor" aria-label="anchor" href="#promotion-guards-promote_release-check_release_complete-read_promoted_release-3-18-0"></a></h3>
+<p>On 2026-08-14 <code>latest.txt</code> was promoted to a release with no <code>catalog.json</code>, and every consumer resolving through <code>latest</code> got a 404 for an hour while the query suite showed 28/28. Two independent defects, both now fixed at the source.</p>
+<p><strong>A green suite is not sufficient to promote.</strong> <code>release_database.qmd</code> died at <code>upload_frozen</code> with the parquet uploaded and the JSON sidecars not. <code>test_release.qmd</code> then passed 28/28 against that parquet — correctly, the data was fine — and moved the pointer. The queries test the DATA; they never open the catalog, so they cannot see whether the release is READABLE. Those are different questions and only the first was being asked. <code><a href="../reference/promote_release.html">promote_release()</a></code> now answers the second first, refusing to move the pointer unless <code>catalog.json</code>, <code>metadata.json</code> and <code>relationships.json</code> are all present.</p>
+<p><strong><code>latest.txt</code> was read over a CDN-cached URL.</strong> The object carried no <code>Cache-Control</code>, so it inherited the 1-hour public default. The rollback took an hour to reach consumers, and <code>release_database.qmd</code>’s republish guard — reading that same URL — false-fired on the re-cut. That direction is harmless; the mirror image is not. For an hour after any promotion the cache still shows the <em>previous</em> version, so the guard concludes <code>latest.txt</code> points elsewhere and permits a run to overwrite the release consumers are actively reading — the exact thing it exists to prevent. A guard that fails open for an hour after every promotion is worse than none, because it reads as protection. <code><a href="../reference/read_promoted_release.html">read_promoted_release()</a></code> reads through the authenticated API, which is never cached, and <code><a href="../reference/promote_release.html">promote_release()</a></code> writes the object with <code>Cache-Control: no-cache, max-age=0</code> so future changes propagate immediately.</p>
+<p>Setting the header after the fact does not help — the edge has already cached the response with the old header and serves it until that entry expires, which is why the manual rollback stayed invisible for an hour.</p>
+<p>Three call sites move onto these: <code>test_release.qmd</code> (promotion), <code>release_database.qmd</code> (republish guard) and <code>deploy_consumers.qmd</code>. The last was a latent instance of the same bug found while fixing the others — it runs seconds after promotion, squarely inside the stale window, so it would have deployed consumers against the release just replaced, silently.</p>
+</div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="3.17.0" id="calcofi4db-3170">calcofi4db 3.17.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3170"></a></h2>
 <div class="section level3">

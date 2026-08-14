@@ -274,32 +274,57 @@ functions for Google Cloud Storage operations
 
 - [`cc_stage_dir()`](https://calcofi.io/calcofi4db/reference/cc_stage_dir.md)
   : Local Staging Root for Bulk Data
+
 - [`cc_stage_path()`](https://calcofi.io/calcofi4db/reference/cc_stage_path.md)
   : Path Within the Local Staging Root
+
+- [`check_release_complete()`](https://calcofi.io/calcofi4db/reference/check_release_complete.md)
+  : Assert a frozen release is structurally complete
+
 - [`cleanup_gcs_obsolete()`](https://calcofi.io/calcofi4db/reference/cleanup_gcs_obsolete.md)
   : Clean up obsolete GCS directories from dataset renames
+
 - [`copy_gcs_file()`](https://calcofi.io/calcofi4db/reference/copy_gcs_file.md)
   : Server-side copy between GCS paths
+
 - [`create_gcs_manifest()`](https://calcofi.io/calcofi4db/reference/create_gcs_manifest.md)
   : Create a manifest of current GCS files
+
 - [`delete_gcs_prefix()`](https://calcofi.io/calcofi4db/reference/delete_gcs_prefix.md)
   : Delete all objects under a GCS prefix
+
 - [`get_calcofi_file()`](https://calcofi.io/calcofi4db/reference/get_calcofi_file.md)
   : Get a CalCOFI file from the immutable archive
+
 - [`get_gcs_file()`](https://calcofi.io/calcofi4db/reference/get_gcs_file.md)
   : Get a file from Google Cloud Storage
+
 - [`get_historical_file()`](https://calcofi.io/calcofi4db/reference/get_historical_file.md)
   : Get historical file from a specific date
+
 - [`get_manifest()`](https://calcofi.io/calcofi4db/reference/get_manifest.md)
   : Get manifest for a specific date
+
 - [`list_calcofi_files()`](https://calcofi.io/calcofi4db/reference/list_calcofi_files.md)
   : List CalCOFI files from manifest
+
 - [`list_gcs_files()`](https://calcofi.io/calcofi4db/reference/list_gcs_files.md)
   : List files in a GCS bucket/prefix
+
 - [`list_gcs_versions()`](https://calcofi.io/calcofi4db/reference/list_gcs_versions.md)
   : List versions of a file in GCS archive
+
+- [`promote_release()`](https://calcofi.io/calcofi4db/reference/promote_release.md)
+  :
+
+  Promote a release to `latest.txt`
+
 - [`put_gcs_file()`](https://calcofi.io/calcofi4db/reference/put_gcs_file.md)
   : Upload a file to Google Cloud Storage
+
+- [`read_promoted_release()`](https://calcofi.io/calcofi4db/reference/read_promoted_release.md)
+  : Read the currently promoted release, authoritatively
+
 - [`sync_to_gcs()`](https://calcofi.io/calcofi4db/reference/sync_to_gcs.md)
   : Sync local files to GCS, skipping unchanged files
 

@@ -5,6 +5,7 @@
 <url><loc>https://calcofi.io/calcofi4db/authors.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/index.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/news/index.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/RELEASE_REQUIRED_OBJECTS.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/add_parquet_metadata.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/add_point_geom.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/add_provenance_columns.html</loc></url>
@@ -42,6 +43,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/check_measurement_bounds.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_multiple_datasets.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_registry_na_strings.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/check_release_complete.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_taxon_ids.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_ungridded_obs.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/clean_taxon_name.html</loc></url>
@@ -157,6 +159,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/plan_dataset_netcdf.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/preview_tables.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/print_csv_change_stats.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/promote_release.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/propagate_natural_key.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/prune_taxon_shard.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/put_gcs_file.html</loc></url>
@@ -185,6 +188,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/read_input_fingerprint.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_measurement_type.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_parquet_table.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/read_promoted_release.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_questions.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_relationships_json.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_sbe_asc.html</loc></url>
