@@ -508,8 +508,25 @@ check_taxon_ids <- function(con, allow = character(), halt = TRUE,
 #' state. The rule is therefore relative — *if a dataset contributes observations,
 #' every one of its cruises must* — which needs no allowlist to say so.
 #'
+#' A third case sits between those two: a dataset that emits observations, but
+#' whose `sample` table also carries rows that are an **inventory rather than an
+#' analyzed event**. `cdfw_dungeness-crab` is the worked example — its 310
+#' `subsample` rows are lab-examined aliquots and every one of them yields `obs`
+#' (310/310), while its 2,011 `tow` rows are a 60-year sorting log recording which
+#' archived jars *exist*. Only 216 of those were ever examined. The remaining
+#' 1,795 have no observation to lose, and 14 cruises consist of nothing else.
+#' Raising `max_orphan_cruises` would paper over that, and would go on hiding a
+#' real loss in the same dataset up to the allowance — so the exemption is
+#' declared at the grain where the distinction actually lives, the sample type.
+#'
 #' @param con a DBI connection holding `sample` and `obs`
 #' @param obs_tbl name of the observation table (default `"obs"`)
+#' @param effort_only_types optional named character vector keyed by
+#'   `dataset_key`, naming `sample_type`s that record effort or inventory rather
+#'   than an analyzed event (e.g. `c("cdfw_dungeness-crab" = "tow")`). Those rows
+#'   are excluded from the orphan calculation entirely, so a cruise made only of
+#'   them is not a finding, while the same dataset's observing sample types stay
+#'   held to the full standard. Repeat the name to exempt several types.
 #' @param max_orphan_cruises integer allowance, or a named integer vector keyed by
 #'   `dataset_key` for a per-dataset ratchet. Use `0` where the correct answer is
 #'   known to be zero (an ingest asserting its own output); use the current counts
@@ -524,11 +541,28 @@ check_taxon_ids <- function(con, allow = character(), halt = TRUE,
 #' @concept check
 check_cruise_coverage <- function(con, obs_tbl = "obs",
                                   max_orphan_cruises = 0L,
+                                  effort_only_types = NULL,
                                   halt = TRUE, verbose = TRUE) {
   present <- DBI::dbListTables(con)
   if (!all(c("sample", obs_tbl) %in% present))
     stop(glue::glue(
       "check_cruise_coverage(): needs `sample` and `{obs_tbl}` in `con`."))
+
+  # inventory/effort sample types drop out before anything is counted, so a
+  # cruise made only of them never becomes a finding. Built as an explicit
+  # (dataset_key, sample_type) pair list rather than two IN clauses, which would
+  # exempt the type across every dataset that happens to use the same word —
+  # `tow` is an observing type for the net-tow ingests.
+  ex_sql <- ""
+  if (length(effort_only_types)) {
+    if (is.null(names(effort_only_types)))
+      stop("check_cruise_coverage(): `effort_only_types` must be named by dataset_key.")
+    q <- function(x) DBI::dbQuoteString(con, as.character(x))
+    pairs <- paste0("(", q(names(effort_only_types)), ", ",
+                    q(unname(effort_only_types)), ")", collapse = ", ")
+    ex_sql <- glue::glue(
+      " AND (dataset_key, sample_type) NOT IN ({pairs})")
+  }
 
   # join through sample_key, never through obs.cruise_key: the denormalized
   # cruise_key on obs is NULL for 59,274 swfsc_cufes rows and 14,170 euphausiid
@@ -536,7 +570,7 @@ check_cruise_coverage <- function(con, obs_tbl = "obs",
   rpt <- DBI::dbGetQuery(con, glue::glue("
     WITH s AS (
       SELECT dataset_key, cruise_key, sample_key
-      FROM sample WHERE cruise_key IS NOT NULL),
+      FROM sample WHERE cruise_key IS NOT NULL{ex_sql}),
     o AS (SELECT DISTINCT sample_key FROM {obs_tbl}),
     j AS (
       SELECT s.dataset_key, s.cruise_key, COUNT(*) AS samples,

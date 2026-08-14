@@ -1,3 +1,33 @@
+# calcofi4db 3.17.0
+
+## `check_cruise_coverage(effort_only_types =)`
+
+Some `sample` rows are an **inventory rather than an analyzed event**, and the
+silent-loss guard reads their absence of observations as loss.
+
+`cdfw_dungeness-crab` is the case: its 310 `subsample` rows are lab-examined
+aliquots and every one yields `obs` (310/310), while its 2,011 `tow` rows are a
+60-year sorting log recording which archived jars *exist*. Only 216 were ever
+examined; 14 cruises consist of nothing but unexamined jars.
+
+    check_cruise_coverage(con, effort_only_types = c("cdfw_dungeness-crab" = "tow"))
+
+Exempted rows drop out before anything is counted, so a cruise made only of them
+is not a finding, while the same dataset's observing sample types stay held to
+the full standard. The pair list is `(dataset_key, sample_type)`, not two `IN`
+clauses — `tow` is an observing type for the net-tow ingests, and exempting it
+globally would silence them.
+
+**`release_database.qmd` does not use this yet**, and that is deliberate rather
+than an oversight: it absorbs the same 14 cruises through the existing
+`ORPHAN_CRUISES_MAX` ratchet, which is the idiom that file already uses for
+`swfsc_cufes` and `cce-lter_euphausiids` — the same "effort recorded without
+counts" shape. The two differ in one respect worth weighing before switching: a
+ratchet of 14 will also absorb a *genuine* loss of up to 14 cruises in that
+dataset, indefinitely, whereas the exemption removes only the inventory rows and
+leaves real loss detectable at 1. Switch if that matters more than idiom
+consistency.
+
 # calcofi4db 3.16.1
 
 ## `append_obs()`: a position is a pair
