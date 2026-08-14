@@ -1,3 +1,47 @@
+# calcofi4db 3.19.0
+
+## Vernacular names: `ensure_taxon_common()` / `apply_taxon_common()`
+
+`common_name` reached the release from a dataset's **own vocabulary** and nowhere
+else — the ichthyo species list, the bird/mammal list. Every taxon resolved
+through `measurement_taxon.csv` / `taxon_override.csv` instead arrived with a
+scientific name and nothing to call it: **1,208 of v2026.08.14's 2,125 taxa,
+57%**. `worms:440388` *Metacarcinus magister* was one of them, which is how a
+missing "Dungeness crab" in db-viz-hex surfaced the whole gap.
+
+WoRMS has the names but **will not choose between them**. Its vernacular endpoint
+returns an unordered bag with no `isPreferredName` flag through `worrms`, so the
+crab comes back as four equally-weighted English strings:
+
+    Californian crab | Dungeness crab | Dungeness rock crab | Pacific crab
+
+Every automatic rule picks wrong here. Alphabetical-first gives *Californian
+crab*, longest gives *Dungeness rock crab*, shortest gives *Pacific crab*. The
+name a reader expects is the second, and nothing in the payload says so.
+
+So: **fetch always, choose only when there is nothing to choose.**
+
+* **one** English name — taken automatically, since that is not a choice;
+* **two or more** — `common_name` is left EMPTY, all candidates are recorded in
+  `candidates_en`, and a human picks by editing that one cell;
+* **none** — cached with `n_candidates_en = 0` so it is not re-queried forever.
+
+`metadata/taxon_common.csv` is both the generated cache and the place the
+selection is made. A re-run never overwrites a non-empty `common_name`, so a
+hand-picked value is permanent even under `refresh = TRUE`. An unfilled cell
+publishes no common name — the honest state, never a guess dressed as data.
+
+**Applied centrally, not per ingest.** `release_database.qmd` merges the
+per-dataset taxon shards rather than rebuilding them, so `apply_taxon_common()`
+fills the merged table once. That is both cheaper (no re-run of the 10
+taxa-emitting ingests) and impossible to drift across shards — the same
+reasoning as `dataset` and the observed coverage columns. **A dataset's own
+common name always wins**: it is the name the provider publishes, and overwriting
+it from WoRMS would rename their data under them.
+
+Warm the registry with `scripts/warm_taxon_common.R` in the workflows repo.
+
+
 # calcofi4db 3.18.0
 
 ## Promotion guards: `promote_release()`, `check_release_complete()`, `read_promoted_release()`
