@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.18.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.19.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -46,6 +46,27 @@
     </div>
 
     <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.19.0" id="calcofi4db-3190">calcofi4db 3.19.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3190"></a></h2>
+<div class="section level3">
+<h3 id="vernacular-names-ensure_taxon_common--apply_taxon_common-3-19-0">Vernacular names: <code>ensure_taxon_common()</code> / <code>apply_taxon_common()</code>
+<a class="anchor" aria-label="anchor" href="#vernacular-names-ensure_taxon_common--apply_taxon_common-3-19-0"></a></h3>
+<p><code>common_name</code> reached the release from a dataset’s <strong>own vocabulary</strong> and nowhere else — the ichthyo species list, the bird/mammal list. Every taxon resolved through <code>measurement_taxon.csv</code> / <code>taxon_override.csv</code> instead arrived with a scientific name and nothing to call it: <strong>1,208 of v2026.08.14’s 2,125 taxa, 57%</strong>. <code>worms:440388</code> <em>Metacarcinus magister</em> was one of them, which is how a missing “Dungeness crab” in db-viz-hex surfaced the whole gap.</p>
+<p>WoRMS has the names but <strong>will not choose between them</strong>. Its vernacular endpoint returns an unordered bag with no <code>isPreferredName</code> flag through <code>worrms</code>, so the crab comes back as four equally-weighted English strings:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a>Californian crab <span class="sc">|</span> Dungeness crab <span class="sc">|</span> Dungeness rock crab <span class="sc">|</span> Pacific crab</span></code></pre></div>
+<p>Every automatic rule picks wrong here. Alphabetical-first gives <em>Californian crab</em>, longest gives <em>Dungeness rock crab</em>, shortest gives <em>Pacific crab</em>. The name a reader expects is the second, and nothing in the payload says so.</p>
+<p>So: <strong>fetch always, choose only when there is nothing to choose.</strong></p>
+<ul><li>
+<strong>one</strong> English name — taken automatically, since that is not a choice;</li>
+<li>
+<strong>two or more</strong> — <code>common_name</code> is left EMPTY, all candidates are recorded in <code>candidates_en</code>, and a human picks by editing that one cell;</li>
+<li>
+<strong>none</strong> — cached with <code>n_candidates_en = 0</code> so it is not re-queried forever.</li>
+</ul><p><code>metadata/taxon_common.csv</code> is both the generated cache and the place the selection is made. A re-run never overwrites a non-empty <code>common_name</code>, so a hand-picked value is permanent even under <code>refresh = TRUE</code>. An unfilled cell publishes no common name — the honest state, never a guess dressed as data.</p>
+<p><strong>Applied centrally, not per ingest.</strong> <code>release_database.qmd</code> merges the per-dataset taxon shards rather than rebuilding them, so <code><a href="../reference/apply_taxon_common.html">apply_taxon_common()</a></code> fills the merged table once. That is both cheaper (no re-run of the 10 taxa-emitting ingests) and impossible to drift across shards — the same reasoning as <code>dataset</code> and the observed coverage columns. <strong>A dataset’s own common name always wins</strong>: it is the name the provider publishes, and overwriting it from WoRMS would rename their data under them.</p>
+<p>Warm the registry with <code>scripts/warm_taxon_common.R</code> in the workflows repo.</p>
+</div>
+</div>
+    <div class="section level2">
 <h2 class="pkg-version" data-toc-text="3.18.0" id="calcofi4db-3180">calcofi4db 3.18.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3180"></a></h2>
 <div class="section level3">
 <h3 id="promotion-guards-promote_release-check_release_complete-read_promoted_release-3-18-0">Promotion guards: <code>promote_release()</code>, <code>check_release_complete()</code>, <code>read_promoted_release()</code>
@@ -63,7 +84,7 @@
 <h3 id="check_cruise_coverageeffort_only_types--3-17-0"><code>check_cruise_coverage(effort_only_types =)</code><a class="anchor" aria-label="anchor" href="#check_cruise_coverageeffort_only_types--3-17-0"></a></h3>
 <p>Some <code>sample</code> rows are an <strong>inventory rather than an analyzed event</strong>, and the silent-loss guard reads their absence of observations as loss.</p>
 <p><code>cdfw_dungeness-crab</code> is the case: its 310 <code>subsample</code> rows are lab-examined aliquots and every one yields <code>obs</code> (310/310), while its 2,011 <code>tow</code> rows are a 60-year sorting log recording which archived jars <em>exist</em>. Only 216 were ever examined; 14 cruises consist of nothing but unexamined jars.</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">check_cruise_coverage</span>(con, <span class="at">effort_only_types =</span> <span class="fu">c</span>(<span class="st">"cdfw_dungeness-crab"</span> <span class="ot">=</span> <span class="st">"tow"</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">check_cruise_coverage</span>(con, <span class="at">effort_only_types =</span> <span class="fu">c</span>(<span class="st">"cdfw_dungeness-crab"</span> <span class="ot">=</span> <span class="st">"tow"</span>))</span></code></pre></div>
 <p>Exempted rows drop out before anything is counted, so a cruise made only of them is not a finding, while the same dataset’s observing sample types stay held to the full standard. The pair list is <code>(dataset_key, sample_type)</code>, not two <code>IN</code> clauses — <code>tow</code> is an observing type for the net-tow ingests, and exempting it globally would silence them.</p>
 <p><strong><code>release_database.qmd</code> does not use this yet</strong>, and that is deliberate rather than an oversight: it absorbs the same 14 cruises through the existing <code>ORPHAN_CRUISES_MAX</code> ratchet, which is the idiom that file already uses for <code>swfsc_cufes</code> and <code>cce-lter_euphausiids</code> — the same “effort recorded without counts” shape. The two differ in one respect worth weighing before switching: a ratchet of 14 will also absorb a <em>genuine</em> loss of up to 14 cruises in that dataset, indefinitely, whereas the exemption removes only the inventory rows and leaves real loss detectable at 1. Switch if that matters more than idiom consistency.</p>
 </div>

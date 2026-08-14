@@ -14,6 +14,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/append_sample.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/append_sample_measurement.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/apply_data_corrections.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/apply_taxon_common.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assemble_core.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assemble_core_table.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assign_deterministic_uuids.html</loc></url>
@@ -94,6 +95,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/enforce_column_types.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ensure_interim_ships.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ensure_measurement_taxon.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/ensure_taxon_common.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ensure_taxon_lineage.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ensure_taxon_xref.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/export_parquet.html</loc></url>
@@ -195,6 +197,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/read_sbe_btl.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_sbe_cnv.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_sbe_header.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/read_taxon_common.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/record_schema_version.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/register_measurement_types.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/release_excluded_datasets.html</loc></url>

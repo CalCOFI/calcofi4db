@@ -457,6 +457,9 @@ check for other functions or datasets not captured by above categories
   Append event-level (effort) rows into the core `sample_measurement`
   table
 
+- [`apply_taxon_common()`](https://calcofi.io/calcofi4db/reference/apply_taxon_common.md)
+  : Apply the vernacular-name registry to a taxon table
+
 - [`assemble_core()`](https://calcofi.io/calcofi4db/reference/assemble_core.md)
   : Assemble the whole consolidated core from the ingest shards
 
@@ -557,6 +560,9 @@ check for other functions or datasets not captured by above categories
   :
 
   Stage the `_measurement_taxon` crosswalk in a connection
+
+- [`ensure_taxon_common()`](https://calcofi.io/calcofi4db/reference/ensure_taxon_common.md)
+  : Fetch and cache vernacular (common) names from WoRMS
 
 - [`ensure_taxon_lineage()`](https://calcofi.io/calcofi4db/reference/ensure_taxon_lineage.md)
   :
@@ -732,6 +738,9 @@ check for other functions or datasets not captured by above categories
   :
 
   Parse a Sea-Bird `*` / `**` header block
+
+- [`read_taxon_common()`](https://calcofi.io/calcofi4db/reference/read_taxon_common.md)
+  : Read the vernacular-name registry
 
 - [`register_measurement_types()`](https://calcofi.io/calcofi4db/reference/register_measurement_types.md)
   : Append new measurement types to the shared registry, safely
