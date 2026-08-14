@@ -475,6 +475,9 @@ check for other functions or datasets not captured by above categories
 - [`cc_lonlat_to_calcofi()`](https://calcofi.io/calcofi4db/reference/cc_lonlat_to_calcofi.md)
   : Convert longitude/latitude to CalCOFI line/station
 
+- [`cc_station_regions()`](https://calcofi.io/calcofi4db/reference/cc_station_regions.md)
+  : Region polygons from a station-membership list
+
 - [`check_registry_na_strings()`](https://calcofi.io/calcofi4db/reference/check_registry_na_strings.md)
   : Reject sentinel strings that should have been empty cells
 
