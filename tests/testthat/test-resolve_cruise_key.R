@@ -138,3 +138,20 @@ test_that("add_cruise_date_span() writes spans and reports spill + overlap", {
   expect_false(sp2$overlaps[sp2$cruise_key == "1984-03-31JD"])
   expect_equal(as.character(sp2$date_min[sp2$cruise_key == "1955-09-31BD"]), "1955-09-02")
 })
+
+test_that("a numeric (DOUBLE) designation column resolves like a character one", {
+  # the bottle CSV reader typed all-digit `Cruise` as DOUBLE, so CAST gave
+  # '195508.0' and 0 of 5,408 unspanned casts took the source step (2026-08-24)
+  con <- ck_con(); ck_refs(con)
+  DBI::dbWriteTable(con, "ev", data.frame(
+    ship_key = c("31BD", "31BD", "31BD"),
+    cruise   = c(195511, 195511.0, NA_real_),
+    datetime_utc = as.POSIXct(c("1955-11-15 00:00:00", "1955-12-01 00:00:00",
+                                "1955-12-01 00:00:00"), tz = "UTC"),
+    stringsAsFactors = FALSE))
+  expect_identical(DBI::dbGetQuery(con, "SELECT typeof(cruise) t FROM ev LIMIT 1")$t, "DOUBLE")
+  resolve_cruise_key(con, "ev", datetime_col = "datetime_utc", cruise_ym_col = "cruise")
+  got <- DBI::dbGetQuery(con, "SELECT cruise_key, cruise_key_method FROM ev")
+  expect_equal(got$cruise_key, c("1955-11-31BD", "1955-11-31BD", "1955-12-31BD"))
+  expect_equal(got$cruise_key_method, c("source", "source", "month"))
+})

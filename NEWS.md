@@ -1,3 +1,11 @@
+# calcofi4db 3.20.1
+
+- `resolve_cruise_key()` normalises the source designation before matching
+  (trim, strip a trailing `.0`), so a `cruise_ym_col` the CSV reader typed as
+  DOUBLE (`'195508.0'`) still resolves. On the first 3.20.0 bottle run 0 of
+  5,408 unspanned casts took the source step for exactly this reason, and
+  5508BD stayed split.
+
 # calcofi4db 3.20.0
 
 ## `cruise_key` is the cruise's designated month, not the event's month

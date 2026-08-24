@@ -211,15 +211,21 @@ resolve_cruise_key <- function(con,
   # step 2: the source's own designation ----
   if (!is.null(cruise_ym_col)) {
     ym <- DBI::dbQuoteIdentifier(con, cruise_ym_col)
+    # the designation may arrive as VARCHAR, INTEGER or — when a CSV reader typed
+    # an all-digit column as numeric — DOUBLE, whose VARCHAR form is '195508.0';
+    # normalise before matching so a type choice upstream cannot silently turn
+    # every row into a month-rule fallback
+    ym_norm <- glue::glue(
+      "regexp_replace(trim(CAST(t.{ym} AS VARCHAR)), '\\.0+$', '')")
     DBI::dbExecute(con, glue::glue("
       UPDATE {tbl} SET cruise_key = k.key
       FROM (
         SELECT t.rowid AS rid,
-               CONCAT(SUBSTR(CAST(t.{ym} AS VARCHAR), 1, 4), '-',
-                      SUBSTR(CAST(t.{ym} AS VARCHAR), 5, 2), '-', s.ship_nodc) AS key
+               CONCAT(SUBSTR({ym_norm}, 1, 4), '-', SUBSTR({ym_norm}, 5, 2), '-',
+                      s.ship_nodc) AS key
         FROM {tbl} t JOIN {st} s ON s.ship_key = t.{sk}
         WHERE t.cruise_key IS NULL
-          AND regexp_matches(CAST(t.{ym} AS VARCHAR), '^\\d{{4}}(0[1-9]|1[0-2])$')) k
+          AND regexp_matches({ym_norm}, '^\\d{{4}}(0[1-9]|1[0-2])$')) k
       WHERE {tbl}.rowid = k.rid AND {tbl}.cruise_key IS NULL
         {sub('cruise_key IN', 'k.key IN', in_cruise)}"))
     stamp("source")
