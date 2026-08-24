@@ -9,7 +9,9 @@ derive_cruise_key_on_casts(
   ship_renames_csv = NULL,
   fetch_ices = TRUE,
   datetime_col = "datetime_utc",
-  table_name = "casts"
+  table_name = "casts",
+  cruise_ym_col = NULL,
+  tolerance_days = 3L
 )
 }
 \arguments{
@@ -27,12 +29,20 @@ derive the YYYY-MM prefix (default \code{"datetime_utc"})}
 Any table with a \code{ship_code} column and \code{datetime_col} works —
 e.g. \code{"picoplankton_bacteria_bottle"}. A \code{ship_name} column is
 used for the unmatched report when present, and treated as NULL when not.}
+
+\item{cruise_ym_col}{Optional column on the target table holding the source's
+own cruise designation as YYYYMM (bottle: \code{"cruise"}); see
+\code{\link[=resolve_cruise_key]{resolve_cruise_key()}}.}
+
+\item{tolerance_days}{Span tolerance passed to \code{\link[=resolve_cruise_key]{resolve_cruise_key()}}.}
 }
 \value{
 List with components:
 \itemize{
 \item \code{ship_matches}: tibble of ship match results
 \item \code{cruise_stats}: tibble of cruise bridge match statistics
+\item \code{key_stats}: tibble of rows resolved per method
+(\code{span} / \code{source} / \code{month} / \code{none})
 \item \code{unmatched_report}: tibble of unmatched ship codes
 }
 }
@@ -44,10 +54,17 @@ to casts, (4) validating against the cruise table.
 }
 \details{
 The cruise_key format is YYYY-MM-NODC (4-digit year, 2-digit month,
-NODC ship code), e.g. "1998-02-33JD".
+NODC ship code), e.g. "1998-02-33JD". The YYYY-MM is the cruise's
+\emph{designated} month, resolved by \code{\link[=resolve_cruise_key]{resolve_cruise_key()}}: first by the
+reference cruise whose observed date span contains the event, then by the
+source's own designation (\code{cruise_ym_col}), and only last by the
+event's calendar month — the rule this function used alone before calcofi4db
+3.20.0, which split every cruise that straddled a month boundary (184 of the
+664 bottle cruises) onto two keys.
 
 Requires that \code{ship} and \code{cruise} tables are already loaded in
-the DuckDB connection (e.g., via \code{load_prior_tables()}).
+the DuckDB connection (e.g., via \code{load_prior_tables()}); \code{cruise}
+must carry \code{date_min}/\code{date_max} from \code{\link[=add_cruise_date_span]{add_cruise_date_span()}}.
 }
 \examples{
 \dontrun{

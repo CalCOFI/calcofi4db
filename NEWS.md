@@ -1,3 +1,58 @@
+# calcofi4db 3.20.0
+
+## `cruise_key` is the cruise's designated month, not the event's month
+
+`derive_cruise_key_on_casts()` built `YYYY-MM` from each cast's own timestamp. A
+CalCOFI cruise routinely straddles a calendar boundary (5508BD ran 7 Aug – 25 Sep
+1955; 184 of the 664 bottle cruises span two months), so the September casts of
+an August cruise were keyed `1955-09-31BD` — which is a **real** ichthyo cruise,
+so no FK ever failed. v2026.08.14 released 664 source bottle cruises as 799 keys,
+with 5,941 of 35,644 casts on a key their own source disagrees with, and every
+consumer that counts or filters by cruise counted them wrong. The seven ingests
+that key ship-name-matched tows by `format(date, '%Y-%m')` (cufes, pic-zooplankton,
+euphausiids, zoodb, zooscan, phyllosoma, picoplankton) have the same fault.
+
+- **`add_cruise_date_span(con, event_sql)`** (new) — writes `date_min`/`date_max`
+  onto the `cruise` reference from its own events (run in
+  `ingest_swfsc_ichthyo.qmd`); reports cruises that spill outside their
+  designated month and any same-ship overlap (0 across 691 reference cruises).
+- **`resolve_cruise_key(con, table_name, datetime_col, cruise_ym_col = NULL, …)`**
+  (new) — resolves in order: the same-ship reference cruise whose observed span
+  (± `tolerance_days`, default 3) contains the event; the source's own YYYYMM
+  designation; the event's month. Records the winning step in
+  `cruise_key_method`; `require_in_cruise = TRUE` for datasets that only join to
+  known cruises. Errors, rather than silently regressing, when the `cruise` table
+  has no spans.
+- **`derive_cruise_key_on_casts()`** gains `cruise_ym_col` / `tolerance_days` and
+  delegates its key step to `resolve_cruise_key()`; returns `key_stats`.
+
+The reference wins when two sources disagree on a designation (ichthyo calls the
+9 Feb – 29 Mar 1984 Jordan cruise 8403, the bottle database 8402): every dataset
+joins to the reference, so agreeing with it is what makes the join mean anything.
+
+## Depth is a coordinate, and nothing bounded it
+
+`valid_min`/`valid_max` bound a **value**. v2026.08.14 shipped a CTD cast with
+scans at 14,671 m over a 101 m seafloor: `drop_out_of_bounds()` deleted the
+17,964 dbar `pressure` value and left the depth derived from it, because a
+coordinate column is invisible to it.
+
+- **`CC_DEPTH_MAX_M`** (6,500 m; matches the `pressure` ceiling) and
+  **`check_depth_bounds(con, tbls, depth_cols, …)`** — NaN / negative / over the
+  ceiling per (table, dataset, column). A non-`ok` row is an error.
+- **`sample_seafloor(con, gebco_tif)`** — bilinear GEBCO depth (positive down,
+  land 0, off-raster NA — the `calcofi4r::cc_bathy_depth()` convention) plus the
+  deepest cell in the 3x3 neighbourhood, at every sample position.
+- **`add_sample_seafloor(con, gebco_tif)`** — stamps `seafloor_depth_m` onto
+  `sample` (recreates the table: DuckDB cannot `UPDATE` beside a CRS-tagged
+  `geom`).
+- **`check_depth_vs_seafloor(con, seafloor, tolerance_m = 10)`** — the deepest
+  depth attributed to each root sample (own, descendants', observations') against
+  the neighbourhood-deepest cell + tolerance; positions off the raster are
+  `unknown`, not findings. Measured at v2026.08.14: 695 of 412,640 root samples,
+  one absurd and the rest within 1.2 km on slopes and canyons with minute-rounded
+  1949–1975 positions — so this one **reports and ratchets**, it does not delete.
+
 # calcofi4db 3.19.0
 
 ## Vernacular names: `ensure_taxon_common()` / `apply_taxon_common()`

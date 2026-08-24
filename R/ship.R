@@ -403,10 +403,17 @@ match_ships <- function(
 #' to casts, (4) validating against the cruise table.
 #'
 #' The cruise_key format is YYYY-MM-NODC (4-digit year, 2-digit month,
-#' NODC ship code), e.g. "1998-02-33JD".
+#' NODC ship code), e.g. "1998-02-33JD". The YYYY-MM is the cruise's
+#' \emph{designated} month, resolved by [resolve_cruise_key()]: first by the
+#' reference cruise whose observed date span contains the event, then by the
+#' source's own designation (\code{cruise_ym_col}), and only last by the
+#' event's calendar month — the rule this function used alone before calcofi4db
+#' 3.20.0, which split every cruise that straddled a month boundary (184 of the
+#' 664 bottle cruises) onto two keys.
 #'
 #' Requires that \code{ship} and \code{cruise} tables are already loaded in
-#' the DuckDB connection (e.g., via \code{load_prior_tables()}).
+#' the DuckDB connection (e.g., via \code{load_prior_tables()}); \code{cruise}
+#' must carry \code{date_min}/\code{date_max} from [add_cruise_date_span()].
 #'
 #' @param con DBI connection to DuckDB with the target table plus \code{ship}
 #'   and \code{cruise}
@@ -418,11 +425,17 @@ match_ships <- function(
 #'   Any table with a \code{ship_code} column and \code{datetime_col} works —
 #'   e.g. \code{"picoplankton_bacteria_bottle"}. A \code{ship_name} column is
 #'   used for the unmatched report when present, and treated as NULL when not.
+#' @param cruise_ym_col Optional column on the target table holding the source's
+#'   own cruise designation as YYYYMM (bottle: \code{"cruise"}); see
+#'   [resolve_cruise_key()].
+#' @param tolerance_days Span tolerance passed to [resolve_cruise_key()].
 #'
 #' @return List with components:
 #'   \itemize{
 #'     \item \code{ship_matches}: tibble of ship match results
 #'     \item \code{cruise_stats}: tibble of cruise bridge match statistics
+#'     \item \code{key_stats}: tibble of rows resolved per method
+#'       (\code{span} / \code{source} / \code{month} / \code{none})
 #'     \item \code{unmatched_report}: tibble of unmatched ship codes
 #'   }
 #' @export
@@ -444,7 +457,9 @@ derive_cruise_key_on_casts <- function(
     ship_renames_csv = NULL,
     fetch_ices       = TRUE,
     datetime_col     = "datetime_utc",
-    table_name       = "casts") {
+    table_name       = "casts",
+    cruise_ym_col    = NULL,
+    tolerance_days   = 3L) {
 
   # verify required tables exist
   tbls <- DBI::dbListTables(con)
@@ -513,23 +528,15 @@ derive_cruise_key_on_casts <- function(
     message(glue::glue("Fuzzy/manual match: {n_fuzzy} additional rows"))
   }
 
-  # step 4: derive cruise_key as YYYY-MM-NODC ----
-  DBI::dbExecute(con, glue::glue(
-    "ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS cruise_key TEXT"))
-
-  DBI::dbExecute(con, glue::glue("
-    UPDATE {tbl} SET cruise_key = CONCAT(
-      CAST(EXTRACT(YEAR FROM {datetime_col}) AS VARCHAR),
-      '-',
-      LPAD(CAST(EXTRACT(MONTH FROM {datetime_col}) AS VARCHAR), 2, '0'),
-      '-',
-      (SELECT s.ship_nodc FROM ship s
-       WHERE s.ship_key = {tbl}.ship_key LIMIT 1))
-    WHERE ship_key IS NOT NULL"))
-
-  n_cruise <- DBI::dbGetQuery(con, glue::glue(
-    "SELECT COUNT(*) AS n FROM {tbl} WHERE cruise_key IS NOT NULL"))$n
-  message(glue::glue("Derived cruise_key for {n_cruise} rows"))
+  # step 4: resolve cruise_key as YYYY-MM-NODC ----
+  # span -> source designation -> event month; see R/cruise.R for why the
+  # event month alone is not a cruise identity
+  key_stats <- resolve_cruise_key(
+    con, table_name,
+    datetime_col   = datetime_col,
+    ship_key_col   = "ship_key",
+    cruise_ym_col  = cruise_ym_col,
+    tolerance_days = tolerance_days)
 
   # step 5: validate against cruise table ----
   cruise_stats <- DBI::dbGetQuery(con, glue::glue("
@@ -568,6 +575,7 @@ derive_cruise_key_on_casts <- function(
   list(
     ship_matches     = ship_matches,
     cruise_stats     = cruise_stats,
+    key_stats        = key_stats,
     unmatched_report = unmatched_report)
 }
 

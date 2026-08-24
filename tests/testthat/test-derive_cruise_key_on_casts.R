@@ -7,8 +7,13 @@ setup_cruise_key_fixture <- function(con, table_name, ship_name = TRUE) {
     ship_name = c("ROGER REVELLE", "NEW HORIZON"),
     ship_nodc = c("33RR", "32NM"),
     stringsAsFactors = FALSE))
+  # no observed span on this fixture: resolution falls through to the month rule,
+  # which is what these tests pin (see test-resolve_cruise_key.R for the span)
   DBI::dbWriteTable(con, "cruise", data.frame(
     cruise_key = c("2004-11-33RR", "2010-01-32NM"),
+    ship_key   = c("33RR", "32NM"),
+    date_min   = as.Date(c(NA, NA)),
+    date_max   = as.Date(c(NA, NA)),
     stringsAsFactors = FALSE))
 
   d <- data.frame(
