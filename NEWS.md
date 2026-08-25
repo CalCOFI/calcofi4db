@@ -1,3 +1,16 @@
+# calcofi4db 3.23.0
+
+* New `build_versions_json()`: discovers every `{prefix}/{version}/catalog.json` and
+  returns the `versions.json` records, now carrying the archive-policy fields
+  `consolidated` (from `metadata/release_policy.yml`) and `retired`
+  (`{retired_utc, to, reason}` from a version's `retired.json`). Called by both
+  `release_database.qmd` and `scripts/thin_releases.R`, so a release re-run cannot
+  drop them.
+* New `thin_plan()`: the pure archive-thinning policy — keep consolidated versions,
+  the promoted version and its predecessor (`keep_latest`), never a version newer
+  than the promoted one; every other version is retired *to* the nearest kept
+  version at or after it.
+
 # calcofi4db 3.22.1
 
 - `read_promoted_release()`, `check_release_complete()`, `promote_release()` take a

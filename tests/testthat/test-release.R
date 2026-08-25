@@ -148,3 +148,23 @@ test_that("freeze_plan() + build_release_catalog(): since is inherited, unchange
   # dry-run upload prints, touches nothing
   expect_message(upload_release_objects(p4, d, "calcofi-db", dry_run = TRUE), "release objects")
 })
+
+test_that("thin_plan() keeps consolidated + newest two, retires the rest to the next kept version", {
+  vs <- c("v2026.03.14", "v2026.04.08", "v2026.05.14", "v2026.05.15", "v2026.06.07",
+          "v2026.06.26", "v2026.08.11", "v2026.08.14", "v2026.08.25")
+  versions <- lapply(vs, function(v) list(version = v))
+  versions[[1]]$retired <- list(to = "v2026.04.08")
+  p <- thin_plan(versions, latest = "v2026.08.25",
+                 consolidated = c("v2026.04.08", "v2026.05.14", "v2026.06.26", "v2026.08.14", "v2026.08.25"))
+  expect_equal(p$version[!p$keep], c("v2026.08.11", "v2026.06.07", "v2026.05.15"))
+  expect_equal(p$to[!p$keep], c("v2026.08.14", "v2026.06.26", "v2026.06.26"))
+  expect_equal(p$reason[p$version == "v2026.03.14"], "already retired")
+  expect_true(all(is.na(p$to[p$keep])))
+  # promoted + predecessor are kept even when not consolidated
+  p2 <- thin_plan(versions, latest = "v2026.08.25", consolidated = character())
+  expect_equal(p2$version[p2$keep & p2$reason != "already retired"], c("v2026.08.25", "v2026.08.14"))
+  # a version newer than the promoted one (built, not yet promoted) is never thinned
+  p3 <- thin_plan(versions, latest = "v2026.08.14", consolidated = character())
+  expect_equal(p3$reason[p3$version == "v2026.08.25"], "newer than promoted (unpromoted candidate)")
+  expect_equal(p3$version[p3$keep & p3$reason == "promoted or predecessor"], c("v2026.08.14", "v2026.08.11"))
+})

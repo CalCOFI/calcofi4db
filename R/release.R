@@ -370,3 +370,89 @@ upload_release_objects <- function(plan, dir_out, bucket, compat = TRUE, dry_run
     paste(sprintf("%s %d (%.1f MB)", s$action, s$n, s$bytes / 1e6), collapse = ", ")))
   invisible(tibble::as_tibble(s))
 }
+
+# versions.json ---------------------------------------------------------------
+
+#' Build the `versions.json` register of every release under a prefix
+#'
+#' Discovers each `{prefix}/{version}/catalog.json` in the bucket and returns
+#' the list `release_database.qmd` writes as `versions.json` — one record per
+#' release with `version`, `release_date`, `tables`, `total_rows`, `size_mb`,
+#' plus the archive-policy fields: `consolidated` (parquet kept indefinitely,
+#' from `metadata/release_policy.yml`) and, when the version's parquet has been
+#' removed by `scripts/thin_releases.R`, `retired` (`{retired_utc, to, reason}`
+#' read from its `retired.json`). Both the release notebook and the thinning
+#' script call this, so a re-run of the release cannot drop the policy fields.
+#'
+#' @param bucket GCS bucket
+#' @param prefix release prefix (`ducklake/releases`, or a staging prefix)
+#' @param consolidated character vector of consolidated versions
+#' @param current optional record for the release being written right now
+#'   (takes precedence over what the bucket holds for that version)
+#' @return list of release records, newest first
+#' @concept release
+#' @export
+build_versions_json <- function(bucket, prefix = CC_RELEASE_PREFIX,
+                                consolidated = character(), current = NULL) {
+  https <- function(p) sprintf("https://storage.googleapis.com/%s/%s", bucket, p)
+  gcloud <- find_gcloud()
+  dirs <- tryCatch(system2(gcloud, c("storage", "ls", sprintf("gs://%s/%s/", bucket, prefix)),
+                           stdout = TRUE, stderr = FALSE), error = function(e) character())
+  vers <- basename(dirs[grepl("/v[0-9]{4}\\.[0-9]{2}\\.[0-9]{2}/$", dirs)])
+  recs <- lapply(vers, function(v) {
+    cat_ <- tryCatch(jsonlite::fromJSON(https(sprintf("%s/%s/catalog.json", prefix, v)),
+                                        simplifyVector = FALSE), error = function(e) NULL)
+    if (is.null(cat_)) return(NULL)
+    rec <- list(
+      version      = cat_$version,
+      release_date = cat_$release_date,
+      tables       = length(cat_$tables),
+      total_rows   = as.numeric(cat_$total_rows %||% 0),
+      size_mb      = round((cat_$total_size %||% 0) / 1024 / 1024, 1))
+    ret <- tryCatch(jsonlite::fromJSON(https(sprintf("%s/%s/retired.json", prefix, v)),
+                                       simplifyVector = FALSE), error = function(e) NULL)
+    if (!is.null(ret)) rec$retired <- ret
+    rec
+  })
+  recs <- Filter(Negate(is.null), recs)
+  if (!is.null(current)) {
+    recs <- Filter(function(r) !identical(r$version, current$version), recs)
+    recs <- c(list(current), recs)
+  }
+  recs <- lapply(recs, function(r) { r$consolidated <- r$version %in% consolidated; r })
+  recs[order(vapply(recs, `[[`, "", "version"), decreasing = TRUE)]
+}
+
+#' Archive-thinning plan: which versions lose their parquet
+#'
+#' Pure policy over a `versions.json` list: keep the consolidated versions, the
+#' promoted version and its `keep_latest - 1` predecessors; everything else not
+#' already retired is a candidate. Each candidate is retired *to* the nearest
+#' consolidated (or kept) version at or after it — the closest data a reader
+#' can substitute.
+#'
+#' @param versions list as returned by [build_versions_json()] (any order)
+#' @param latest the promoted version string
+#' @param consolidated character vector of consolidated versions
+#' @param keep_latest how many of the newest versions to keep (default 2)
+#' @return tibble `version`, `keep` (logical), `reason`, `to` (replacement for
+#'   candidates, `NA` for kept)
+#' @concept release
+#' @export
+thin_plan <- function(versions, latest, consolidated, keep_latest = 2) {
+  vs <- sort(vapply(versions, `[[`, "", "version"), decreasing = TRUE)
+  retired <- vapply(versions, function(r) !is.null(r$retired), TRUE)[match(vs, vapply(versions, `[[`, "", "version"))]
+  newest <- vs[vs <= latest][seq_len(min(keep_latest, sum(vs <= latest)))]
+  keep <- vs %in% consolidated | vs %in% newest | vs > latest
+  reason <- ifelse(vs %in% consolidated, "consolidated",
+            ifelse(vs %in% newest, "promoted or predecessor",
+            ifelse(vs > latest, "newer than promoted (unpromoted candidate)",
+            ifelse(retired, "already retired", "thin"))))
+  keep <- keep | retired
+  to <- vapply(vs, function(v) {
+    later <- vs[keep & !retired & vs >= v]
+    if (!length(later)) NA_character_ else min(later)
+  }, "")
+  to[keep] <- NA_character_
+  tibble::tibble(version = vs, keep = keep, reason = reason, to = unname(to))
+}
