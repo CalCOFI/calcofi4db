@@ -43,6 +43,6 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: JamesIves/github-pages-deploy-action@v4.8.0
         with:
-          clean: false
+          clean: true   # the site is rebuilt whole each run; under clean: false stale files (old favicons, unreferenced js) accumulate for months
           branch: gh-pages
           folder: docs
