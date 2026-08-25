@@ -1,3 +1,11 @@
+# calcofi4db 3.23.2
+
+* `build_release_catalog()`: a partitioned table's `compat_path` is its hive directory
+  (`…/{table}/`), taken from a partition row — it was derived from the first object,
+  which for `obs` is a partition file (giving the partition's own directory) or the
+  single-file twin. Every object now records its own `compat_path` (canonical layout),
+  so redirects and verification never reconstruct legacy paths.
+
 # calcofi4db 3.23.1
 
 * `get_duckdb_con()` creates `tempdir()/duckdb/temp` before connecting: the duckdb R

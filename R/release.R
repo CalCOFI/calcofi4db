@@ -311,6 +311,10 @@ build_release_catalog <- function(version, tables_df, plan, layout = "compat",
                 content_hash = o$content_hash[j], since = o$since[j])
       if (!is.na(o$partition_by[j])) {
         x$partition_by <- o$partition_by[j]; x$partition_value <- o$partition_value[j] }
+      # the legacy per-release path of THIS object (a partition file, or the
+      # single-file twin a partitioned table may also publish), so redirects and
+      # verification never have to reconstruct it
+      if (layout == "canonical" && !is.na(o$compat_path[j])) x$compat_path <- o$compat_path[j]
       x
     })
     tbl_hash <- if (nrow(o) == 1) o$content_hash[1] else
@@ -319,9 +323,15 @@ build_release_catalog <- function(version, tables_df, plan, layout = "compat",
               partitioned = isTRUE(tables_df$partitioned[i]),
               supplemental = isTRUE(tables_df$supplemental[i]),
               content_hash = tbl_hash, bytes = sum(o$bytes), objects = objs)
-    if (layout == "canonical")
-      t$compat_path <- if (nrow(o) == 1) o$compat_path[1] else
-        sub("/[^/]+$", "/", o$compat_path[1])
+    if (layout == "canonical") {
+      # a partitioned table's compat_path is its hive directory (…/{table}/),
+      # taken from a PARTITION row: a single-file twin (obs.parquet) sits beside
+      # the directory, and dropping one segment from a partition file gives the
+      # partition's own directory, not the table's
+      pr <- o[!is.na(o$partition_by), , drop = FALSE]
+      t$compat_path <- if (nrow(pr)) sub("/[^/]+/[^/]+$", "/", pr$compat_path[1]) else
+        o$compat_path[1]
+    }
     t
   })
   list(version = version, release_date = release_date, layout = layout,

@@ -137,6 +137,14 @@ test_that("freeze_plan() + build_release_catalog(): since is inherited, unchange
   cat3 <- build_release_catalog("v2", tables_df, p3, "canonical")
   expect_equal(cat3$layout, "canonical")
   expect_equal(cat3$tables[[2]]$compat_path, "ducklake/releases/v2/parquet/sample.parquet")
+  # a partitioned table's compat_path is its hive DIRECTORY, and each object
+  # records its own legacy path (partition file) — regression: it was derived
+  # from the first object, yielding the partition's own directory
+  expect_equal(cat3$tables[[1]]$compat_path, "ducklake/releases/v2/parquet/obs/")
+  expect_equal(cat3$tables[[1]]$objects[[1]]$compat_path,
+               glue::glue("ducklake/releases/v2/parquet/obs/dataset_key={cat3$tables[[1]]$objects[[1]]$partition_value}/data_0.parquet"))
+  expect_equal(cat3$tables[[2]]$objects[[1]]$compat_path, "ducklake/releases/v2/parquet/sample.parquet")
+  expect_null(cat1$tables[[2]]$objects[[1]]$compat_path)   # compat layout: path IS the legacy path
   # release 3 on canonical after release 2 on canonical: unchanged objects `exist`
   j3 <- jsonlite::fromJSON(jsonlite::toJSON(cat3, auto_unbox = TRUE), simplifyVector = TRUE)
   o4 <- rbind(release_objects(con, "obs", d, files2, "v3", "dataset_key", prev_catalog = j3),
