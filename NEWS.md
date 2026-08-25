@@ -1,3 +1,16 @@
+# calcofi4db 3.23.3
+
+* **Bug fix:** `sample_seafloor()` stamped some samples twice — it collapsed positions
+  with `unique()` (double comparison) but joined them back with `merge()` (character
+  comparison, 15 significant digits), so two positions differing past the 15th digit
+  both matched every sample at either. v2026.08.25 released `sample` with 4,855
+  `sample_key`s twice (bottle 3,345, site 133, cast 150, underway 13) and 76,320 `obs`
+  rows join twice through them. The mapping is now an exact index and the function
+  errors on any duplicated key.
+* New `check_core_pk_unique(con, tables)`: fails unless every core table is unique on
+  its `core_relationships()` primary key — the release gate that was missing (the
+  `validate` chunk only warned on `ship`/`cruise`).
+
 # calcofi4db 3.23.2
 
 * `build_release_catalog()`: a partitioned table's `compat_path` is its hive directory

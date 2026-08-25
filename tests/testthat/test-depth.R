@@ -119,3 +119,31 @@ test_that("add_sample_seafloor() appends seafloor_depth_m without disturbing oth
   add_sample_seafloor(con, dp_tif())
   expect_equal(DBI::dbListFields(con, "sample"), after)
 })
+
+test_that("sample_seafloor() stamps each sample once when positions differ past the 15th digit", {
+  # regression: unique() kept two positions 1e-16 apart distinct, merge() compared
+  # them as 15-digit strings and matched both to every sample -> 4,855 samples
+  # doubled in v2026.08.25
+  con <- dp_con()
+  DBI::dbWriteTable(con, "sample", data.frame(
+    sample_key = c("a:cast:1", "a:bottle:1", "a:bottle:2"),
+    longitude  = c(-120.03, -120.03 + 1e-16 * 128, -120.03),   # differs in the 16th digit only
+    latitude   = c(33.03, 33.03, 33.03),
+    stringsAsFactors = FALSE))
+  sf <- sample_seafloor(con, dp_tif())
+  expect_equal(nrow(sf), 3)
+  expect_false(anyDuplicated(sf$sample_key) > 0)
+  expect_equal(sf$seafloor_depth_m, rep(100, 3))
+  add_sample_seafloor(con, dp_tif())
+  expect_equal(DBI::dbGetQuery(con, "SELECT count(*) n FROM sample")$n, 3)
+})
+
+test_that("check_core_pk_unique() passes on unique keys and fails the release on a duplicate", {
+  con <- dp_con(); dp_fixture(con)
+  DBI::dbWriteTable(con, "cruise", data.frame(cruise_key = c("2000-01-XX", "2000-02-XX")))
+  res <- check_core_pk_unique(con, c("sample", "cruise", "taxon"))   # taxon absent: skipped
+  expect_setequal(res$table, c("sample", "cruise"))
+  expect_true(all(res$n_dup == 0))
+  DBI::dbExecute(con, "INSERT INTO sample SELECT * FROM sample WHERE sample_key = 'a:cast:1'")
+  expect_error(check_core_pk_unique(con, c("sample", "cruise")), "sample\\(sample_key\\): 1 duplicate")
+})

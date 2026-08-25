@@ -57,7 +57,15 @@ sample_seafloor <- function(con, gebco_tif,
      FROM {sample_tbl}
      WHERE {lon_col} IS NOT NULL AND {lat_col} IS NOT NULL
        AND NOT isnan({lon_col}) AND NOT isnan({lat_col})"))
-  u <- unique(pos[, c("lon", "lat")])
+  # one extraction per distinct position, mapped back by an exact index — NOT
+  # merge(): merge() compares double keys through their character form (15
+  # significant digits), while unique() compares the doubles themselves, so two
+  # positions differing past the 15th digit stayed distinct here and both
+  # matched every sample at either — 4,855 samples were stamped twice and
+  # `sample` shipped them twice in v2026.08.25 (obs joined 76,320 rows twice)
+  pkey <- paste(sprintf("%.17g", pos$lon), sprintf("%.17g", pos$lat))
+  ukey <- unique(pkey)
+  u <- pos[match(ukey, pkey), c("lon", "lat")]
   r <- terra::rast(gebco_tif)
   xy <- as.matrix(u)
   # elevation -> depth: negate, clamp land to 0, keep NA off-extent
@@ -71,11 +79,47 @@ sample_seafloor <- function(con, gebco_tif,
   nb <- matrix(nb, ncol = 9)
   mx <- suppressWarnings(apply(nb, 1, function(v) if (all(is.na(v))) NA_real_ else max(-v, na.rm = TRUE)))
   u$seafloor_max3x3_m <- to_depth(-mx)
-  out <- merge(pos, u, by = c("lon", "lat"), all.x = TRUE, sort = FALSE)
-  out <- out[, c("key", "seafloor_depth_m", "seafloor_max3x3_m")]
+  idx <- match(pkey, ukey)
+  out <- data.frame(key = pos$key,
+                    seafloor_depth_m  = u$seafloor_depth_m[idx],
+                    seafloor_max3x3_m = u$seafloor_max3x3_m[idx],
+                    stringsAsFactors = FALSE)
   names(out)[1] <- key_col
+  if (anyDuplicated(out[[key_col]]))
+    stop("sample_seafloor(): ", sum(duplicated(out[[key_col]])), " duplicated ", key_col,
+         " — the sample table itself is not unique on its key", call. = FALSE)
   out
 }
+
+#' Fail unless every core table is unique on its primary key
+#'
+#' The release gate that was missing when v2026.08.25 shipped `sample` with
+#' 4,855 keys twice: the `validate` chunk only *warned* on `ship`/`cruise`.
+#' Primary keys come from [core_relationships()].
+#'
+#' @param con DuckDB connection holding the assembled release
+#' @param tables core tables to check (those present in `con` are checked)
+#' @return invisibly, a data.frame `table`, `pk`, `n_rows`, `n_dup`
+#' @export
+#' @concept validation
+check_core_pk_unique <- function(con, tables) {
+  pk <- core_relationships(tables)$primary_keys
+  have <- intersect(names(pk), DBI::dbListTables(con))
+  res <- do.call(rbind, lapply(have, function(tb) {
+    cols <- paste0('"', pk[[tb]], '"', collapse = ", ")
+    q <- DBI::dbGetQuery(con, glue::glue(
+      'SELECT COUNT(*) AS n_rows, COUNT(*) - COUNT(DISTINCT ({cols})) AS n_dup FROM "{tb}"'))
+    data.frame(table = tb, pk = paste(pk[[tb]], collapse = ","),
+               n_rows = q$n_rows, n_dup = q$n_dup, stringsAsFactors = FALSE)
+  }))
+  bad <- res[res$n_dup > 0, , drop = FALSE]
+  if (nrow(bad))
+    stop("primary key not unique in the release: ",
+         paste(sprintf("%s(%s): %d duplicate row(s)", bad$table, bad$pk, bad$n_dup), collapse = "; "),
+         call. = FALSE)
+  invisible(res)
+}
+
 
 #' Stamp `seafloor_depth_m` onto the sample table
 #'
