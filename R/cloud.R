@@ -1223,17 +1223,18 @@ gcloud_list <- function(bucket, prefix = NULL, recursive = TRUE) {
 #' This reads the object through the authenticated API instead, which is never
 #' cached.
 #'
-#' @param bucket GCS bucket holding `ducklake/releases/latest.txt`
+#' @param bucket GCS bucket holding `{prefix}/latest.txt`
+#' @param prefix bucket-relative releases prefix (default `ducklake/releases`; a staging run uses another)
 #' @return the promoted version string (e.g. `"v2026.08.14"`), or `NA_character_`
 #'   if the object cannot be read
 #' @export
 #' @concept cloud
-read_promoted_release <- function(bucket = "calcofi-db") {
+read_promoted_release <- function(bucket = "calcofi-db", prefix = "ducklake/releases") {
   gcloud <- find_gcloud()
   out <- tryCatch(
     system2(gcloud,
             c("storage", "cat",
-              glue::glue("gs://{bucket}/ducklake/releases/latest.txt")),
+              glue::glue("gs://{bucket}/{prefix}/latest.txt")),
             stdout = TRUE, stderr = FALSE),
     error = function(e) character())
   out <- trimws(out[nzchar(trimws(out))])
@@ -1259,7 +1260,8 @@ RELEASE_REQUIRED_OBJECTS <- c("catalog.json", "metadata.json", "relationships.js
 #' valid, which is precisely why the tests passed.
 #'
 #' @param version release version (e.g. `"v2026.08.14"`)
-#' @param bucket GCS bucket holding `ducklake/releases/`
+#' @param bucket GCS bucket holding `{prefix}/`
+#' @param prefix bucket-relative releases prefix (default `ducklake/releases`)
 #' @param required object names that must exist directly under the release
 #' @param halt logical; `stop()` when something is missing (default `TRUE`)
 #' @return invisibly, a data.frame with `object` and `exists`
@@ -1267,10 +1269,10 @@ RELEASE_REQUIRED_OBJECTS <- c("catalog.json", "metadata.json", "relationships.js
 #' @concept cloud
 check_release_complete <- function(version, bucket = "calcofi-db",
                                    required = RELEASE_REQUIRED_OBJECTS,
-                                   halt = TRUE) {
+                                   halt = TRUE, prefix = "ducklake/releases") {
   stopifnot(is.character(version), length(version) == 1, nzchar(version))
   gcloud <- find_gcloud()
-  base   <- glue::glue("gs://{bucket}/ducklake/releases/{version}")
+  base   <- glue::glue("gs://{bucket}/{prefix}/{version}")
   found  <- vapply(required, function(o) {
     st <- tryCatch(
       system2(gcloud, c("storage", "ls", glue::glue("{base}/{o}")),
@@ -1302,19 +1304,22 @@ check_release_complete <- function(version, bucket = "calcofi-db",
 #' [check_release_complete()] and [read_promoted_release()].
 #'
 #' @param version release version to promote
-#' @param bucket GCS bucket holding `ducklake/releases/`
+#' @param bucket GCS bucket holding `{prefix}/`
+#' @param prefix bucket-relative releases prefix (default `ducklake/releases`)
 #' @param required passed to [check_release_complete()]
 #' @return the promoted version, invisibly
 #' @export
 #' @concept cloud
 promote_release <- function(version, bucket = "calcofi-db",
-                            required = RELEASE_REQUIRED_OBJECTS) {
-  check_release_complete(version, bucket = bucket, required = required, halt = TRUE)
+                            required = RELEASE_REQUIRED_OBJECTS,
+                            prefix = "ducklake/releases") {
+  check_release_complete(version, bucket = bucket, required = required, halt = TRUE,
+                         prefix = prefix)
 
   gcloud <- find_gcloud()
   f <- tempfile(); on.exit(unlink(f), add = TRUE)
   writeLines(version, f)
-  gcs_path <- glue::glue("gs://{bucket}/ducklake/releases/latest.txt")
+  gcs_path <- glue::glue("gs://{bucket}/{prefix}/latest.txt")
   # set Cache-Control on the upload itself. Setting it afterwards does not help:
   # the edge has already cached the response with the old header and serves it
   # until that entry expires, which is how the 2026-08-14 rollback stayed

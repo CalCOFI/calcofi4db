@@ -1,3 +1,9 @@
+# calcofi4db 3.22.1
+
+- `read_promoted_release()`, `check_release_complete()`, `promote_release()` take a
+  `prefix` (default `ducklake/releases`) so a staging release can be cut and
+  promoted under a scratch prefix.
+
 # calcofi4db 3.22.0
 
 ## Release tables are content-addressed, and written deterministically

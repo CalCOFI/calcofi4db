@@ -7,15 +7,18 @@
 promote_release(
   version,
   bucket = "calcofi-db",
-  required = RELEASE_REQUIRED_OBJECTS
+  required = RELEASE_REQUIRED_OBJECTS,
+  prefix = "ducklake/releases"
 )
 }
 \arguments{
 \item{version}{release version to promote}
 
-\item{bucket}{GCS bucket holding \verb{ducklake/releases/}}
+\item{bucket}{GCS bucket holding \verb{\{prefix\}/}}
 
 \item{required}{passed to \code{\link[=check_release_complete]{check_release_complete()}}}
+
+\item{prefix}{bucket-relative releases prefix (default \code{ducklake/releases})}
 }
 \value{
 the promoted version, invisibly

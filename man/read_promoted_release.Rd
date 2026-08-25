@@ -4,10 +4,12 @@
 \alias{read_promoted_release}
 \title{Read the currently promoted release, authoritatively}
 \usage{
-read_promoted_release(bucket = "calcofi-db")
+read_promoted_release(bucket = "calcofi-db", prefix = "ducklake/releases")
 }
 \arguments{
-\item{bucket}{GCS bucket holding \code{ducklake/releases/latest.txt}}
+\item{bucket}{GCS bucket holding \code{{prefix}/latest.txt}}
+
+\item{prefix}{bucket-relative releases prefix (default \code{ducklake/releases}; a staging run uses another)}
 }
 \value{
 the promoted version string (e.g. \code{"v2026.08.14"}), or \code{NA_character_}

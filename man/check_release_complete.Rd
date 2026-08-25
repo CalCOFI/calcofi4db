@@ -8,17 +8,20 @@ check_release_complete(
   version,
   bucket = "calcofi-db",
   required = RELEASE_REQUIRED_OBJECTS,
-  halt = TRUE
+  halt = TRUE,
+  prefix = "ducklake/releases"
 )
 }
 \arguments{
 \item{version}{release version (e.g. \code{"v2026.08.14"})}
 
-\item{bucket}{GCS bucket holding \verb{ducklake/releases/}}
+\item{bucket}{GCS bucket holding \verb{\{prefix\}/}}
 
 \item{required}{object names that must exist directly under the release}
 
 \item{halt}{logical; \code{stop()} when something is missing (default \code{TRUE})}
+
+\item{prefix}{bucket-relative releases prefix (default \code{ducklake/releases})}
 }
 \value{
 invisibly, a data.frame with \code{object} and \code{exists}
