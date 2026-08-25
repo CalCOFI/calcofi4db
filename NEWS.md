@@ -1,3 +1,10 @@
+# calcofi4db 3.23.1
+
+* `get_duckdb_con()` creates `tempdir()/duckdb/temp` before connecting: the duckdb R
+  package sets `temp_directory` there without creating the parent, so the first query
+  that spilled to disk failed with `Failed to create directory … No such file or
+  directory` (release_database.qmd `core_tables` under memory pressure).
+
 # calcofi4db 3.23.0
 
 * New `build_versions_json()`: discovers every `{prefix}/{version}/catalog.json` and

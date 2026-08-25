@@ -66,6 +66,15 @@ get_duckdb_con <- function(
     storage_compatibility_version = "latest")
   config <- utils::modifyList(default_config, config)
 
+  # the duckdb R package points temp_directory at tempdir()/duckdb/temp but
+  # never creates the parent, and DuckDB's own mkdir is not recursive — so the
+  # first query that spills to disk (memory pressure) dies with
+  # `Failed to create directory ".../Rtmp…/duckdb/temp": No such file or
+  # directory`. Seen 2026-08-25 in release_database.qmd's core_tables under
+  # load; a run with enough RAM never spills and never shows it. Create it.
+  if (is.null(config$temp_directory))
+    dir.create(file.path(tempdir(), "duckdb", "temp"), recursive = TRUE, showWarnings = FALSE)
+
   # named driver tied to the DB file (proper WAL lifecycle)
   drv <- duckdb::duckdb(
     dbdir     = path,
