@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.20.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.21.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -1625,10 +1625,24 @@
 
         <dt>
 
+          <code><a href="promote_unreleased.html">promote_unreleased()</a></code>
+
+        </dt>
+        <dd>Turn <code># Unreleased</code> into the section for a version being cut</dd>
+
+        <dt>
+
           <code><a href="prune_taxon_shard.html">prune_taxon_shard()</a></code>
 
         </dt>
         <dd>Prune the taxa references to one dataset's shard</dd>
+
+        <dt>
+
+          <code><a href="publish_release_notes.html">publish_release_notes()</a></code>
+
+        </dt>
+        <dd>Render and (re)publish RELEASE_NOTES.md for a version</dd>
 
         <dt>
 
@@ -1790,6 +1804,27 @@
 
         </dt>
         <dd>Append new measurement types to the shared registry, safely</dd>
+
+        <dt>
+
+          <code><a href="release_notes_section.html">release_notes_section()</a></code>
+
+        </dt>
+        <dd>The RELEASES.md section that documents a version</dd>
+
+        <dt>
+
+          <code><a href="release_notes_sections.html">release_notes_sections()</a></code>
+
+        </dt>
+        <dd>Split RELEASES.md into its top-level sections</dd>
+
+        <dt>
+
+          <code><a href="render_release_notes.html">render_release_notes()</a></code>
+
+        </dt>
+        <dd>Render a version's RELEASE_NOTES.md: narrative + generated appendix</dd>
 
         <dt>
 

@@ -167,8 +167,10 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/preview_tables.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/print_csv_change_stats.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/promote_release.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/promote_unreleased.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/propagate_natural_key.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/prune_taxon_shard.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/publish_release_notes.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/put_gcs_file.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/qc_cast_base.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/qc_cast_direction.html</loc></url>
@@ -206,7 +208,10 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/record_schema_version.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/register_measurement_types.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/release_excluded_datasets.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/release_notes_section.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/release_notes_sections.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/render_integrity_message.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/render_release_notes.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/replace_uuid_with_id.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/report_ship_matches.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/resolve_cruise_key.html</loc></url>

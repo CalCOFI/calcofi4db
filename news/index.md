@@ -1,5 +1,38 @@
 # Changelog
 
+## calcofi4db 3.21.0
+
+### The database has a NEWS file, and a release cannot ship without its entry
+
+`RELEASE_NOTES.md` was a [`paste0()`](https://rdrr.io/r/base/paste.html)
+template in `release_database.qmd`: ~55 of its 65 lines were a string
+literal that still listed four datasets (sixteen shipped) and tables
+retired months earlier; a diff between two versions was row counts and
+the version string. What changed and why lived only in commit subjects,
+the package NEWS files and a session log.
+
+- **`RELEASES.md`** (workflows root) is the database’s NEWS file: one
+  `# vX (date)` section per release, newest first, `# Unreleased`
+  collecting changes until the next cut; uploaded verbatim to
+  `ducklake/releases/RELEASES.md`.
+- **[`release_notes_sections()`](https://calcofi.io/calcofi4db/reference/release_notes_sections.md)
+  / `release_notes_section(md, version)`** — parse it; a range heading
+  (`# v2026.08.04 – v2026.08.06`) documents each version it spans.
+- **`promote_unreleased(md, version, date)`** — renames a non-empty
+  `# Unreleased` to the release and inserts a fresh one; **errors** when
+  it is empty and no section exists (the release notebook calls it
+  before the freeze, so a release with nothing to say about itself is
+  refused, as the packages refuse a version bump without NEWS).
+- **[`render_release_notes()`](https://calcofi.io/calcofi4db/reference/render_release_notes.md)**
+  — a version’s `RELEASE_NOTES.md` = its narrative section + a generated
+  appendix (tables/rows, datasets, validation result, package versions,
+  access snippets). Byte-stable for identical inputs.
+- **`publish_release_notes(version, releases_md, dir_releases, bucket)`**
+  — renders from the local sidecars and re-uploads `RELEASE_NOTES.md` +
+  `RELEASES.md` with `cache-control: no-cache`. Notes-only: safe for a
+  promoted version and for the full backfill
+  (`scripts/publish_release_notes.R --all`).
+
 ## calcofi4db 3.20.1
 
 - [`resolve_cruise_key()`](https://calcofi.io/calcofi4db/reference/resolve_cruise_key.md)

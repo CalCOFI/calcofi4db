@@ -669,8 +669,16 @@ check for other functions or datasets not captured by above categories
 - [`plan_dataset_netcdf()`](https://calcofi.io/calcofi4db/reference/plan_dataset_netcdf.md)
   : Plan the netCDF shape for a dataset
 
+- [`promote_unreleased()`](https://calcofi.io/calcofi4db/reference/promote_unreleased.md)
+  :
+
+  Turn `# Unreleased` into the section for a version being cut
+
 - [`prune_taxon_shard()`](https://calcofi.io/calcofi4db/reference/prune_taxon_shard.md)
   : Prune the taxa references to one dataset's shard
+
+- [`publish_release_notes()`](https://calcofi.io/calcofi4db/reference/publish_release_notes.md)
+  : Render and (re)publish RELEASE_NOTES.md for a version
 
 - [`qc_cast_base()`](https://calcofi.io/calcofi4db/reference/qc_cast_base.md)
   :
@@ -761,6 +769,15 @@ check for other functions or datasets not captured by above categories
 
 - [`register_measurement_types()`](https://calcofi.io/calcofi4db/reference/register_measurement_types.md)
   : Append new measurement types to the shared registry, safely
+
+- [`release_notes_section()`](https://calcofi.io/calcofi4db/reference/release_notes_section.md)
+  : The RELEASES.md section that documents a version
+
+- [`release_notes_sections()`](https://calcofi.io/calcofi4db/reference/release_notes_sections.md)
+  : Split RELEASES.md into its top-level sections
+
+- [`render_release_notes()`](https://calcofi.io/calcofi4db/reference/render_release_notes.md)
+  : Render a version's RELEASE_NOTES.md: narrative + generated appendix
 
 - [`report_ship_matches()`](https://calcofi.io/calcofi4db/reference/report_ship_matches.md)
   : Report Ship Matching Status for a Dataset

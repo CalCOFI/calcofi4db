@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.20.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.21.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -45,6 +45,23 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.21.0" id="calcofi4db-3210">calcofi4db 3.21.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3210"></a></h2>
+<div class="section level3">
+<h3 id="the-database-has-a-news-file-and-a-release-cannot-ship-without-its-entry-3-21-0">The database has a NEWS file, and a release cannot ship without its entry<a class="anchor" aria-label="anchor" href="#the-database-has-a-news-file-and-a-release-cannot-ship-without-its-entry-3-21-0"></a></h3>
+<p><code>RELEASE_NOTES.md</code> was a <code><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0()</a></code> template in <code>release_database.qmd</code>: ~55 of its 65 lines were a string literal that still listed four datasets (sixteen shipped) and tables retired months earlier; a diff between two versions was row counts and the version string. What changed and why lived only in commit subjects, the package NEWS files and a session log.</p>
+<ul><li>
+<strong><code>RELEASES.md</code></strong> (workflows root) is the database’s NEWS file: one <code># vX (date)</code> section per release, newest first, <code># Unreleased</code> collecting changes until the next cut; uploaded verbatim to <code>ducklake/releases/RELEASES.md</code>.</li>
+<li>
+<strong><code><a href="../reference/release_notes_sections.html">release_notes_sections()</a></code> / <code>release_notes_section(md, version)</code></strong> — parse it; a range heading (<code># v2026.08.04 – v2026.08.06</code>) documents each version it spans.</li>
+<li>
+<strong><code>promote_unreleased(md, version, date)</code></strong> — renames a non-empty <code># Unreleased</code> to the release and inserts a fresh one; <strong>errors</strong> when it is empty and no section exists (the release notebook calls it before the freeze, so a release with nothing to say about itself is refused, as the packages refuse a version bump without NEWS).</li>
+<li>
+<strong><code><a href="../reference/render_release_notes.html">render_release_notes()</a></code></strong> — a version’s <code>RELEASE_NOTES.md</code> = its narrative section + a generated appendix (tables/rows, datasets, validation result, package versions, access snippets). Byte-stable for identical inputs.</li>
+<li>
+<strong><code>publish_release_notes(version, releases_md, dir_releases, bucket)</code></strong> — renders from the local sidecars and re-uploads <code>RELEASE_NOTES.md</code> + <code>RELEASES.md</code> with <code>cache-control: no-cache</code>. Notes-only: safe for a promoted version and for the full backfill (<code>scripts/publish_release_notes.R --all</code>).</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="3.20.1" id="calcofi4db-3201">calcofi4db 3.20.1<a class="anchor" aria-label="anchor" href="#calcofi4db-3201"></a></h2>
 <ul><li>
