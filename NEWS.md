@@ -1,3 +1,33 @@
+# calcofi4db 3.22.0
+
+## Release tables are content-addressed, and written deterministically
+
+Between v2026.08.14 and v2026.08.25 only 52 MB of 2.09 GB was byte-identical —
+tables whose row counts had not changed still differed byte-for-byte — because the
+release `COPY`s carried no total order and ran multi-threaded. Measured: a total
+`ORDER BY` alone is **not** deterministic at default threads; with a single writer
+thread it is (obs, 26M rows: 18.6 s vs 6.4 s).
+
+- **`export_release_parquet(con, table, path, order_by, partition_by)`** — the one
+  writer every released table goes through: `ORDER BY` a unique key (refused
+  otherwise), `SET threads = 1`, pinned writer options (`CC_PARQUET_WRITER`: zstd,
+  row group 122,880, parquet V1), provenance columns (`_source_*`, `_ingested_at`)
+  stripped — `_ingested_at` changed on every ingest and would have defeated the
+  identity below. `release_sort_keys()` is the registry of sort/partition keys.
+- **`release_objects()`** — per object: bytes, `sha256`, `content_hash` (the
+  order-independent row signature already used at ingest, per table or per
+  partition) and `since`, the first release that carried that content.
+- **`freeze_plan()`** — decides `upload` / `copy` (compat layout: server-side copy
+  from the previous release) / `exists` (canonical layout: the content-addressed
+  object is already there). **`upload_release_objects()`** executes it, with
+  `dry_run`. **`canonical_path()`** names `ducklake/tables/{table}/{hash}/…`.
+- **`build_release_catalog()`** — `catalog.json` keeps `name/rows/partitioned/
+  supplemental` and adds `content_hash`, `bytes`, `objects[]` (`path`, `bytes`,
+  `sha256`, `content_hash`, `since`, partition) plus `layout` and `writer`.
+
+Layout `compat` keeps every URL consumers use today; `canonical` is the
+content-addressed store the plan of 2026-08-25 migrates them to.
+
 # calcofi4db 3.21.0
 
 ## The database has a NEWS file, and a release cannot ship without its entry
