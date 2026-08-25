@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.21.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.22.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -45,6 +45,22 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.22.0" id="calcofi4db-3220">calcofi4db 3.22.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3220"></a></h2>
+<div class="section level3">
+<h3 id="release-tables-are-content-addressed-and-written-deterministically-3-22-0">Release tables are content-addressed, and written deterministically<a class="anchor" aria-label="anchor" href="#release-tables-are-content-addressed-and-written-deterministically-3-22-0"></a></h3>
+<p>Between v2026.08.14 and v2026.08.25 only 52 MB of 2.09 GB was byte-identical — tables whose row counts had not changed still differed byte-for-byte — because the release <code>COPY</code>s carried no total order and ran multi-threaded. Measured: a total <code>ORDER BY</code> alone is <strong>not</strong> deterministic at default threads; with a single writer thread it is (obs, 26M rows: 18.6 s vs 6.4 s).</p>
+<ul><li>
+<strong><code>export_release_parquet(con, table, path, order_by, partition_by)</code></strong> — the one writer every released table goes through: <code>ORDER BY</code> a unique key (refused otherwise), <code>SET threads = 1</code>, pinned writer options (<code>CC_PARQUET_WRITER</code>: zstd, row group 122,880, parquet V1), provenance columns (<code>_source_*</code>, <code>_ingested_at</code>) stripped — <code>_ingested_at</code> changed on every ingest and would have defeated the identity below. <code><a href="../reference/release_sort_keys.html">release_sort_keys()</a></code> is the registry of sort/partition keys.</li>
+<li>
+<strong><code><a href="../reference/release_objects.html">release_objects()</a></code></strong> — per object: bytes, <code>sha256</code>, <code>content_hash</code> (the order-independent row signature already used at ingest, per table or per partition) and <code>since</code>, the first release that carried that content.</li>
+<li>
+<strong><code><a href="../reference/freeze_plan.html">freeze_plan()</a></code></strong> — decides <code>upload</code> / <code>copy</code> (compat layout: server-side copy from the previous release) / <code>exists</code> (canonical layout: the content-addressed object is already there). <strong><code><a href="../reference/upload_release_objects.html">upload_release_objects()</a></code></strong> executes it, with <code>dry_run</code>. <strong><code><a href="../reference/canonical_path.html">canonical_path()</a></code></strong> names <code>ducklake/tables/{table}/{hash}/…</code>.</li>
+<li>
+<strong><code><a href="../reference/build_release_catalog.html">build_release_catalog()</a></code></strong> — <code>catalog.json</code> keeps <code>name/rows/partitioned/ supplemental</code> and adds <code>content_hash</code>, <code>bytes</code>, <code>objects[]</code> (<code>path</code>, <code>bytes</code>, <code>sha256</code>, <code>content_hash</code>, <code>since</code>, partition) plus <code>layout</code> and <code>writer</code>.</li>
+</ul><p>Layout <code>compat</code> keeps every URL consumers use today; <code>canonical</code> is the content-addressed store the plan of 2026-08-25 migrates them to.</p>
+</div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="3.21.0" id="calcofi4db-3210">calcofi4db 3.21.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3210"></a></h2>
 <div class="section level3">

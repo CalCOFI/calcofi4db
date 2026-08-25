@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.21.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.22.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -1205,6 +1205,20 @@
 
         <dt>
 
+          <code><a href="CC_PARQUET_WRITER.html">CC_PARQUET_WRITER</a></code>
+
+        </dt>
+        <dd>Pinned parquet writer options for released tables</dd>
+
+        <dt>
+
+          <code><a href="CC_RELEASE_PREFIX.html">CC_RELEASE_PREFIX</a></code> <code><a href="CC_RELEASE_PREFIX.html">CC_TABLES_PREFIX</a></code>
+
+        </dt>
+        <dd>Release layout prefixes (bucket-relative)</dd>
+
+        <dt>
+
           <code><a href="add_cruise_date_span.html">add_cruise_date_span()</a></code>
 
         </dt>
@@ -1296,6 +1310,13 @@
 
         <dt>
 
+          <code><a href="build_release_catalog.html">build_release_catalog()</a></code>
+
+        </dt>
+        <dd>Build the release catalog with per-table hashes and objects</dd>
+
+        <dt>
+
           <code><a href="build_taxon_group.html">build_taxon_group()</a></code>
 
         </dt>
@@ -1321,6 +1342,13 @@
 
         </dt>
         <dd>Build Taxonomic Hierarchy Table from WoRMS</dd>
+
+        <dt>
+
+          <code><a href="canonical_path.html">canonical_path()</a></code>
+
+        </dt>
+        <dd>Canonical (content-addressed) object path for a table or partition</dd>
 
         <dt>
 
@@ -1478,6 +1506,13 @@
 
         <dt>
 
+          <code><a href="export_release_parquet.html">export_release_parquet()</a></code>
+
+        </dt>
+        <dd>Deterministic parquet export of one released table</dd>
+
+        <dt>
+
           <code><a href="fetch_ship_ices.html">fetch_ship_ices()</a></code>
 
         </dt>
@@ -1503,6 +1538,13 @@
 
         </dt>
         <dd>Format a Bounding Box as a Human-Readable Extent</dd>
+
+        <dt>
+
+          <code><a href="freeze_plan.html">freeze_plan()</a></code>
+
+        </dt>
+        <dd>Decide, per object, whether to upload or reuse</dd>
 
         <dt>
 
@@ -1821,6 +1863,20 @@
 
         <dt>
 
+          <code><a href="release_objects.html">release_objects()</a></code>
+
+        </dt>
+        <dd>Describe the objects an exported table consists of</dd>
+
+        <dt>
+
+          <code><a href="release_sort_keys.html">release_sort_keys()</a></code>
+
+        </dt>
+        <dd>Sort keys (and partition column) for every released table</dd>
+
+        <dt>
+
           <code><a href="render_release_notes.html">render_release_notes()</a></code>
 
         </dt>
@@ -1902,6 +1958,13 @@
 
         </dt>
         <dd>Encode an authority-prefixed <code>taxon_key</code></dd>
+
+        <dt>
+
+          <code><a href="upload_release_objects.html">upload_release_objects()</a></code>
+
+        </dt>
+        <dd>Execute a freeze plan against GCS</dd>
 
         <dt>
 

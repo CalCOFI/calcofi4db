@@ -703,6 +703,13 @@ check for other functions or datasets not captured by above categories
 - [`CC_DEPTH_MAX_M`](https://calcofi.io/calcofi4db/reference/CC_DEPTH_MAX_M.md)
   : Deepest plausible sample depth in the CalCOFI region, metres
 
+- [`CC_PARQUET_WRITER`](https://calcofi.io/calcofi4db/reference/CC_PARQUET_WRITER.md)
+  : Pinned parquet writer options for released tables
+
+- [`CC_RELEASE_PREFIX`](https://calcofi.io/calcofi4db/reference/CC_RELEASE_PREFIX.md)
+  [`CC_TABLES_PREFIX`](https://calcofi.io/calcofi4db/reference/CC_RELEASE_PREFIX.md)
+  : Release layout prefixes (bucket-relative)
+
 - [`add_cruise_date_span()`](https://calcofi.io/calcofi4db/reference/add_cruise_date_span.md)
   : Add the observed date span of each cruise to the cruise reference
 
@@ -760,6 +767,9 @@ check for other functions or datasets not captured by above categories
   Build the shared `grid` reference table (deterministic,
   dataset-independent)
 
+- [`build_release_catalog()`](https://calcofi.io/calcofi4db/reference/build_release_catalog.md)
+  : Build the release catalog with per-table hashes and objects
+
 - [`build_taxon_group()`](https://calcofi.io/calcofi4db/reference/build_taxon_group.md)
   :
 
@@ -775,6 +785,9 @@ check for other functions or datasets not captured by above categories
 
 - [`build_taxon_table()`](https://calcofi.io/calcofi4db/reference/build_taxon_table.md)
   : Build Taxonomic Hierarchy Table from WoRMS
+
+- [`canonical_path()`](https://calcofi.io/calcofi4db/reference/canonical_path.md)
+  : Canonical (content-addressed) object path for a table or partition
 
 - [`cc_calcofi_to_lonlat()`](https://calcofi.io/calcofi4db/reference/cc_calcofi_to_lonlat.md)
   : Convert CalCOFI line/station to longitude/latitude
@@ -862,6 +875,9 @@ check for other functions or datasets not captured by above categories
   Materialize the authority cross-reference `.taxon_norm_sources()`
   reads
 
+- [`export_release_parquet()`](https://calcofi.io/calcofi4db/reference/export_release_parquet.md)
+  : Deterministic parquet export of one released table
+
 - [`fetch_ship_ices()`](https://calcofi.io/calcofi4db/reference/fetch_ship_ices.md)
   : Fetch Ship Codes from ICES Reference Codes API
 
@@ -874,6 +890,9 @@ check for other functions or datasets not captured by above categories
 
 - [`format_bbox()`](https://calcofi.io/calcofi4db/reference/format_bbox.md)
   : Format a Bounding Box as a Human-Readable Extent
+
+- [`freeze_plan()`](https://calcofi.io/calcofi4db/reference/freeze_plan.md)
+  : Decide, per object, whether to upload or reuse
 
 - [`load_gcs_parquet_to_duckdb()`](https://calcofi.io/calcofi4db/reference/load_gcs_parquet_to_duckdb.md)
   : Load a GCS Parquet File into DuckDB
@@ -1044,6 +1063,12 @@ check for other functions or datasets not captured by above categories
 - [`release_notes_sections()`](https://calcofi.io/calcofi4db/reference/release_notes_sections.md)
   : Split RELEASES.md into its top-level sections
 
+- [`release_objects()`](https://calcofi.io/calcofi4db/reference/release_objects.md)
+  : Describe the objects an exported table consists of
+
+- [`release_sort_keys()`](https://calcofi.io/calcofi4db/reference/release_sort_keys.md)
+  : Sort keys (and partition column) for every released table
+
 - [`render_release_notes()`](https://calcofi.io/calcofi4db/reference/render_release_notes.md)
   : Render a version's RELEASE_NOTES.md: narrative + generated appendix
 
@@ -1088,6 +1113,9 @@ check for other functions or datasets not captured by above categories
   :
 
   Encode an authority-prefixed `taxon_key`
+
+- [`upload_release_objects()`](https://calcofi.io/calcofi4db/reference/upload_release_objects.md)
+  : Execute a freeze plan against GCS
 
 - [`upsert_measurement_types()`](https://calcofi.io/calcofi4db/reference/upsert_measurement_types.md)
   : Replace a measurement type's definition while keeping its curated
