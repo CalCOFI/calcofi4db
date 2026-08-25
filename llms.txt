@@ -700,8 +700,19 @@ tables
 
 check for other functions or datasets not captured by above categories
 
+- [`CC_DEPTH_MAX_M`](https://calcofi.io/calcofi4db/reference/CC_DEPTH_MAX_M.md)
+  : Deepest plausible sample depth in the CalCOFI region, metres
+
+- [`add_cruise_date_span()`](https://calcofi.io/calcofi4db/reference/add_cruise_date_span.md)
+  : Add the observed date span of each cruise to the cruise reference
+
 - [`add_point_geom()`](https://calcofi.io/calcofi4db/reference/add_point_geom.md)
   : Add Point Geometry Column to a DuckDB Table
+
+- [`add_sample_seafloor()`](https://calcofi.io/calcofi4db/reference/add_sample_seafloor.md)
+  :
+
+  Stamp `seafloor_depth_m` onto the sample table
 
 - [`append_obs()`](https://calcofi.io/calcofi4db/reference/append_obs.md)
   :
@@ -773,6 +784,12 @@ check for other functions or datasets not captured by above categories
 
 - [`cc_station_regions()`](https://calcofi.io/calcofi4db/reference/cc_station_regions.md)
   : Region polygons from a station-membership list
+
+- [`check_depth_bounds()`](https://calcofi.io/calcofi4db/reference/check_depth_bounds.md)
+  : Check depth coordinates against an absolute range
+
+- [`check_depth_vs_seafloor()`](https://calcofi.io/calcofi4db/reference/check_depth_vs_seafloor.md)
+  : Find samples deeper than the seafloor at their position
 
 - [`check_registry_na_strings()`](https://calcofi.io/calcofi4db/reference/check_registry_na_strings.md)
   : Reject sentinel strings that should have been empty cells
@@ -1016,10 +1033,19 @@ check for other functions or datasets not captured by above categories
 - [`report_ship_matches()`](https://calcofi.io/calcofi4db/reference/report_ship_matches.md)
   : Report Ship Matching Status for a Dataset
 
+- [`resolve_cruise_key()`](https://calcofi.io/calcofi4db/reference/resolve_cruise_key.md)
+  :
+
+  Resolve `cruise_key` on an event table by span, designation, then
+  month
+
 - [`sample_arm_self()`](https://calcofi.io/calcofi4db/reference/sample_arm_self.md)
   :
 
   Build a `sample` arm for a single self-contained event table
+
+- [`sample_seafloor()`](https://calcofi.io/calcofi4db/reference/sample_seafloor.md)
+  : Seafloor depth at each sample position from a GEBCO GeoTIFF
 
 - [`sbe_split_header()`](https://calcofi.io/calcofi4db/reference/sbe_split_header.md)
   : Recover the column names from a fixed-width Sea-Bird ASCII header

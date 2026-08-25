@@ -23,7 +23,7 @@ to casts, (4) validating against the cruise table."><!-- Google tag (gtag.js) --
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.19.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.20.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -66,7 +66,9 @@ to casts, (4) validating against the cruise table.</p>
 <span>  ship_renames_csv <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  fetch_ices <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  datetime_col <span class="op">=</span> <span class="st">"datetime_utc"</span>,</span>
-<span>  table_name <span class="op">=</span> <span class="st">"casts"</span></span>
+<span>  table_name <span class="op">=</span> <span class="st">"casts"</span>,</span>
+<span>  cruise_ym_col <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  tolerance_days <span class="op">=</span> <span class="fl">3L</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -98,19 +100,38 @@ Any table with a <code>ship_code</code> column and <code>datetime_col</code> wor
 e.g. <code>"picoplankton_bacteria_bottle"</code>. A <code>ship_name</code> column is
 used for the unmatched report when present, and treated as NULL when not.</p></dd>
 
+
+<dt id="arg-cruise-ym-col">cruise_ym_col<a class="anchor" aria-label="anchor" href="#arg-cruise-ym-col"></a></dt>
+<dd><p>Optional column on the target table holding the source's
+own cruise designation as YYYYMM (bottle: <code>"cruise"</code>); see
+<code><a href="resolve_cruise_key.html">resolve_cruise_key()</a></code>.</p></dd>
+
+
+<dt id="arg-tolerance-days">tolerance_days<a class="anchor" aria-label="anchor" href="#arg-tolerance-days"></a></dt>
+<dd><p>Span tolerance passed to <code><a href="resolve_cruise_key.html">resolve_cruise_key()</a></code>.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>List with components:</p><ul><li><p><code>ship_matches</code>: tibble of ship match results</p></li>
 <li><p><code>cruise_stats</code>: tibble of cruise bridge match statistics</p></li>
+<li><p><code>key_stats</code>: tibble of rows resolved per method
+(<code>span</code> / <code>source</code> / <code>month</code> / <code>none</code>)</p></li>
 <li><p><code>unmatched_report</code>: tibble of unmatched ship codes</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>The cruise_key format is YYYY-MM-NODC (4-digit year, 2-digit month,
-NODC ship code), e.g. "1998-02-33JD".</p>
+NODC ship code), e.g. "1998-02-33JD". The YYYY-MM is the cruise's
+<em>designated</em> month, resolved by <code><a href="resolve_cruise_key.html">resolve_cruise_key()</a></code>: first by the
+reference cruise whose observed date span contains the event, then by the
+source's own designation (<code>cruise_ym_col</code>), and only last by the
+event's calendar month — the rule this function used alone before calcofi4db
+3.20.0, which split every cruise that straddled a month boundary (184 of the
+664 bottle cruises) onto two keys.</p>
 <p>Requires that <code>ship</code> and <code>cruise</code> tables are already loaded in
-the DuckDB connection (e.g., via <code><a href="load_prior_tables.html">load_prior_tables()</a></code>).</p>
+the DuckDB connection (e.g., via <code><a href="load_prior_tables.html">load_prior_tables()</a></code>); <code>cruise</code>
+must carry <code>date_min</code>/<code>date_max</code> from <code><a href="add_cruise_date_span.html">add_cruise_date_span()</a></code>.</p>
     </div>
 
     <div class="section level2">

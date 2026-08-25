@@ -5,10 +5,13 @@
 <url><loc>https://calcofi.io/calcofi4db/authors.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/index.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/news/index.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/CC_DEPTH_MAX_M.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/RELEASE_REQUIRED_OBJECTS.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/add_cruise_date_span.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/add_parquet_metadata.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/add_point_geom.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/add_provenance_columns.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/add_sample_seafloor.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/append_obs.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/append_obs_attribute.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/append_sample.html</loc></url>
@@ -41,6 +44,8 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/changed_inputs.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_cruise_coverage.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_data_integrity.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/check_depth_bounds.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/check_depth_vs_seafloor.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_measurement_bounds.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_multiple_datasets.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_registry_na_strings.html</loc></url>
@@ -204,7 +209,9 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/render_integrity_message.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/replace_uuid_with_id.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/report_ship_matches.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/resolve_cruise_key.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/sample_arm_self.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/sample_seafloor.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/save_duckdb_to_gcs.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/save_working_ducklake.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/sbe_split_header.html</loc></url>

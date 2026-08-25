@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.19.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.20.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -45,6 +45,38 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.20.1" id="calcofi4db-3201">calcofi4db 3.20.1<a class="anchor" aria-label="anchor" href="#calcofi4db-3201"></a></h2>
+<ul><li>
+<code><a href="../reference/resolve_cruise_key.html">resolve_cruise_key()</a></code> normalises the source designation before matching (trim, strip a trailing <code>.0</code>), so a <code>cruise_ym_col</code> the CSV reader typed as DOUBLE (<code>'195508.0'</code>) still resolves. On the first 3.20.0 bottle run 0 of 5,408 unspanned casts took the source step for exactly this reason, and 5508BD stayed split.</li>
+</ul></div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.20.0" id="calcofi4db-3200">calcofi4db 3.20.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3200"></a></h2>
+<div class="section level3">
+<h3 id="cruise_key-is-the-cruises-designated-month-not-the-events-month-3-20-0">
+<code>cruise_key</code> is the cruise’s designated month, not the event’s month<a class="anchor" aria-label="anchor" href="#cruise_key-is-the-cruises-designated-month-not-the-events-month-3-20-0"></a></h3>
+<p><code><a href="../reference/derive_cruise_key_on_casts.html">derive_cruise_key_on_casts()</a></code> built <code>YYYY-MM</code> from each cast’s own timestamp. A CalCOFI cruise routinely straddles a calendar boundary (5508BD ran 7 Aug – 25 Sep 1955; 184 of the 664 bottle cruises span two months), so the September casts of an August cruise were keyed <code>1955-09-31BD</code> — which is a <strong>real</strong> ichthyo cruise, so no FK ever failed. v2026.08.14 released 664 source bottle cruises as 799 keys, with 5,941 of 35,644 casts on a key their own source disagrees with, and every consumer that counts or filters by cruise counted them wrong. The seven ingests that key ship-name-matched tows by <code>format(date, '%Y-%m')</code> (cufes, pic-zooplankton, euphausiids, zoodb, zooscan, phyllosoma, picoplankton) have the same fault.</p>
+<ul><li>
+<strong><code>add_cruise_date_span(con, event_sql)</code></strong> (new) — writes <code>date_min</code>/<code>date_max</code> onto the <code>cruise</code> reference from its own events (run in <code>ingest_swfsc_ichthyo.qmd</code>); reports cruises that spill outside their designated month and any same-ship overlap (0 across 691 reference cruises).</li>
+<li>
+<strong><code>resolve_cruise_key(con, table_name, datetime_col, cruise_ym_col = NULL, …)</code></strong> (new) — resolves in order: the same-ship reference cruise whose observed span (± <code>tolerance_days</code>, default 3) contains the event; the source’s own YYYYMM designation; the event’s month. Records the winning step in <code>cruise_key_method</code>; <code>require_in_cruise = TRUE</code> for datasets that only join to known cruises. Errors, rather than silently regressing, when the <code>cruise</code> table has no spans.</li>
+<li>
+<strong><code><a href="../reference/derive_cruise_key_on_casts.html">derive_cruise_key_on_casts()</a></code></strong> gains <code>cruise_ym_col</code> / <code>tolerance_days</code> and delegates its key step to <code><a href="../reference/resolve_cruise_key.html">resolve_cruise_key()</a></code>; returns <code>key_stats</code>.</li>
+</ul><p>The reference wins when two sources disagree on a designation (ichthyo calls the 9 Feb – 29 Mar 1984 Jordan cruise 8403, the bottle database 8402): every dataset joins to the reference, so agreeing with it is what makes the join mean anything.</p>
+</div>
+<div class="section level3">
+<h3 id="depth-is-a-coordinate-and-nothing-bounded-it-3-20-0">Depth is a coordinate, and nothing bounded it<a class="anchor" aria-label="anchor" href="#depth-is-a-coordinate-and-nothing-bounded-it-3-20-0"></a></h3>
+<p><code>valid_min</code>/<code>valid_max</code> bound a <strong>value</strong>. v2026.08.14 shipped a CTD cast with scans at 14,671 m over a 101 m seafloor: <code><a href="../reference/drop_out_of_bounds.html">drop_out_of_bounds()</a></code> deleted the 17,964 dbar <code>pressure</code> value and left the depth derived from it, because a coordinate column is invisible to it.</p>
+<ul><li>
+<strong><code>CC_DEPTH_MAX_M</code></strong> (6,500 m; matches the <code>pressure</code> ceiling) and <strong><code>check_depth_bounds(con, tbls, depth_cols, …)</code></strong> — NaN / negative / over the ceiling per (table, dataset, column). A non-<code>ok</code> row is an error.</li>
+<li>
+<strong><code>sample_seafloor(con, gebco_tif)</code></strong> — bilinear GEBCO depth (positive down, land 0, off-raster NA — the <code>calcofi4r::cc_bathy_depth()</code> convention) plus the deepest cell in the 3x3 neighbourhood, at every sample position.</li>
+<li>
+<strong><code>add_sample_seafloor(con, gebco_tif)</code></strong> — stamps <code>seafloor_depth_m</code> onto <code>sample</code> (recreates the table: DuckDB cannot <code>UPDATE</code> beside a CRS-tagged <code>geom</code>).</li>
+<li>
+<strong><code>check_depth_vs_seafloor(con, seafloor, tolerance_m = 10)</code></strong> — the deepest depth attributed to each root sample (own, descendants’, observations’) against the neighbourhood-deepest cell + tolerance; positions off the raster are <code>unknown</code>, not findings. Measured at v2026.08.14: 695 of 412,640 root samples, one absurd and the rest within 1.2 km on slopes and canyons with minute-rounded 1949–1975 positions — so this one <strong>reports and ratchets</strong>, it does not delete.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="3.19.0" id="calcofi4db-3190">calcofi4db 3.19.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3190"></a></h2>
 <div class="section level3">

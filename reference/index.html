@@ -17,7 +17,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.19.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.20.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -1198,10 +1198,31 @@
 
       <dl><dt>
 
+          <code><a href="CC_DEPTH_MAX_M.html">CC_DEPTH_MAX_M</a></code>
+
+        </dt>
+        <dd>Deepest plausible sample depth in the CalCOFI region, metres</dd>
+
+        <dt>
+
+          <code><a href="add_cruise_date_span.html">add_cruise_date_span()</a></code>
+
+        </dt>
+        <dd>Add the observed date span of each cruise to the cruise reference</dd>
+
+        <dt>
+
           <code><a href="add_point_geom.html">add_point_geom()</a></code>
 
         </dt>
         <dd>Add Point Geometry Column to a DuckDB Table</dd>
+
+        <dt>
+
+          <code><a href="add_sample_seafloor.html">add_sample_seafloor()</a></code>
+
+        </dt>
+        <dd>Stamp <code>seafloor_depth_m</code> onto the sample table</dd>
 
         <dt>
 
@@ -1321,6 +1342,20 @@
 
         </dt>
         <dd>Region polygons from a station-membership list</dd>
+
+        <dt>
+
+          <code><a href="check_depth_bounds.html">check_depth_bounds()</a></code>
+
+        </dt>
+        <dd>Check depth coordinates against an absolute range</dd>
+
+        <dt>
+
+          <code><a href="check_depth_vs_seafloor.html">check_depth_vs_seafloor()</a></code>
+
+        </dt>
+        <dd>Find samples deeper than the seafloor at their position</dd>
 
         <dt>
 
@@ -1765,10 +1800,24 @@
 
         <dt>
 
+          <code><a href="resolve_cruise_key.html">resolve_cruise_key()</a></code>
+
+        </dt>
+        <dd>Resolve <code>cruise_key</code> on an event table by span, designation, then month</dd>
+
+        <dt>
+
           <code><a href="sample_arm_self.html">sample_arm_self()</a></code>
 
         </dt>
         <dd>Build a <code>sample</code> arm for a single self-contained event table</dd>
+
+        <dt>
+
+          <code><a href="sample_seafloor.html">sample_seafloor()</a></code>
+
+        </dt>
+        <dd>Seafloor depth at each sample position from a GEBCO GeoTIFF</dd>
 
         <dt>
 
