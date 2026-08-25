@@ -23,7 +23,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.23.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.23.3</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -58,6 +58,22 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.23.3" id="calcofi4db-3233">calcofi4db 3.23.3<a class="anchor" aria-label="anchor" href="#calcofi4db-3233"></a></h2>
+<ul><li>
+<strong>Bug fix:</strong> <code><a href="../reference/sample_seafloor.html">sample_seafloor()</a></code> stamped some samples twice — it collapsed positions with <code><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique()</a></code> (double comparison) but joined them back with <code><a href="https://rdrr.io/r/base/merge.html" class="external-link">merge()</a></code> (character comparison, 15 significant digits), so two positions differing past the 15th digit both matched every sample at either. v2026.08.25 released <code>sample</code> with 4,855 <code>sample_key</code>s twice (bottle 3,345, site 133, cast 150, underway 13) and 76,320 <code>obs</code> rows join twice through them. The mapping is now an exact index and the function errors on any duplicated key.</li>
+<li>New <code>check_core_pk_unique(con, tables)</code>: fails unless every core table is unique on its <code><a href="../reference/core_relationships.html">core_relationships()</a></code> primary key — the release gate that was missing (the <code>validate</code> chunk only warned on <code>ship</code>/<code>cruise</code>).</li>
+</ul></div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.23.2" id="calcofi4db-3232">calcofi4db 3.23.2<a class="anchor" aria-label="anchor" href="#calcofi4db-3232"></a></h2>
+<ul><li>
+<code><a href="../reference/build_release_catalog.html">build_release_catalog()</a></code>: a partitioned table’s <code>compat_path</code> is its hive directory (<code>…/{table}/</code>), taken from a partition row — it was derived from the first object, which for <code>obs</code> is a partition file (giving the partition’s own directory) or the single-file twin. Every object now records its own <code>compat_path</code> (canonical layout), so redirects and verification never reconstruct legacy paths.</li>
+</ul></div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.23.1" id="calcofi4db-3231">calcofi4db 3.23.1<a class="anchor" aria-label="anchor" href="#calcofi4db-3231"></a></h2>
+<ul><li>
+<code><a href="../reference/get_duckdb_con.html">get_duckdb_con()</a></code> creates <code>tempdir()/duckdb/temp</code> before connecting: the duckdb R package sets <code>temp_directory</code> there without creating the parent, so the first query that spilled to disk failed with <code>Failed to create directory … No such file or directory</code> (release_database.qmd <code>core_tables</code> under memory pressure).</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="3.23.0" id="calcofi4db-3230">calcofi4db 3.23.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3230"></a></h2>
 <ul><li>New <code><a href="../reference/build_versions_json.html">build_versions_json()</a></code>: discovers every <code>{prefix}/{version}/catalog.json</code> and returns the <code>versions.json</code> records, now carrying the archive-policy fields <code>consolidated</code> (from <code>metadata/release_policy.yml</code>) and <code>retired</code> (<code>{retired_utc, to, reason}</code> from a version’s <code>retired.json</code>). Called by both <code>release_database.qmd</code> and <code>scripts/thin_releases.R</code>, so a release re-run cannot drop them.</li>

@@ -1,5 +1,44 @@
 # Changelog
 
+## calcofi4db 3.23.3
+
+- **Bug fix:**
+  [`sample_seafloor()`](https://calcofi.io/calcofi4db/reference/sample_seafloor.md)
+  stamped some samples twice — it collapsed positions with
+  [`unique()`](https://rdrr.io/r/base/unique.html) (double comparison)
+  but joined them back with
+  [`merge()`](https://rdrr.io/r/base/merge.html) (character comparison,
+  15 significant digits), so two positions differing past the 15th digit
+  both matched every sample at either. v2026.08.25 released `sample`
+  with 4,855 `sample_key`s twice (bottle 3,345, site 133, cast 150,
+  underway 13) and 76,320 `obs` rows join twice through them. The
+  mapping is now an exact index and the function errors on any
+  duplicated key.
+- New `check_core_pk_unique(con, tables)`: fails unless every core table
+  is unique on its
+  [`core_relationships()`](https://calcofi.io/calcofi4db/reference/core_relationships.md)
+  primary key — the release gate that was missing (the `validate` chunk
+  only warned on `ship`/`cruise`).
+
+## calcofi4db 3.23.2
+
+- [`build_release_catalog()`](https://calcofi.io/calcofi4db/reference/build_release_catalog.md):
+  a partitioned table’s `compat_path` is its hive directory
+  (`…/{table}/`), taken from a partition row — it was derived from the
+  first object, which for `obs` is a partition file (giving the
+  partition’s own directory) or the single-file twin. Every object now
+  records its own `compat_path` (canonical layout), so redirects and
+  verification never reconstruct legacy paths.
+
+## calcofi4db 3.23.1
+
+- [`get_duckdb_con()`](https://calcofi.io/calcofi4db/reference/get_duckdb_con.md)
+  creates `tempdir()/duckdb/temp` before connecting: the duckdb R
+  package sets `temp_directory` there without creating the parent, so
+  the first query that spilled to disk failed with
+  `Failed to create directory … No such file or directory`
+  (release_database.qmd `core_tables` under memory pressure).
+
 ## calcofi4db 3.23.0
 
 - New

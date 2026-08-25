@@ -803,6 +803,9 @@ check for other functions or datasets not captured by above categories
 - [`cc_station_regions()`](https://calcofi.io/calcofi4db/reference/cc_station_regions.md)
   : Region polygons from a station-membership list
 
+- [`check_core_pk_unique()`](https://calcofi.io/calcofi4db/reference/check_core_pk_unique.md)
+  : Fail unless every core table is unique on its primary key
+
 - [`check_depth_bounds()`](https://calcofi.io/calcofi4db/reference/check_depth_bounds.md)
   : Check depth coordinates against an absolute range
 
