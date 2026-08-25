@@ -1,5 +1,30 @@
 # Changelog
 
+## calcofi4db 3.23.0
+
+- New
+  [`build_versions_json()`](https://calcofi.io/calcofi4db/reference/build_versions_json.md):
+  discovers every `{prefix}/{version}/catalog.json` and returns the
+  `versions.json` records, now carrying the archive-policy fields
+  `consolidated` (from `metadata/release_policy.yml`) and `retired`
+  (`{retired_utc, to, reason}` from a version’s `retired.json`). Called
+  by both `release_database.qmd` and `scripts/thin_releases.R`, so a
+  release re-run cannot drop them.
+- New
+  [`thin_plan()`](https://calcofi.io/calcofi4db/reference/thin_plan.md):
+  the pure archive-thinning policy — keep consolidated versions, the
+  promoted version and its predecessor (`keep_latest`), never a version
+  newer than the promoted one; every other version is retired *to* the
+  nearest kept version at or after it.
+
+## calcofi4db 3.22.1
+
+- [`read_promoted_release()`](https://calcofi.io/calcofi4db/reference/read_promoted_release.md),
+  [`check_release_complete()`](https://calcofi.io/calcofi4db/reference/check_release_complete.md),
+  [`promote_release()`](https://calcofi.io/calcofi4db/reference/promote_release.md)
+  take a `prefix` (default `ducklake/releases`) so a staging release can
+  be cut and promoted under a scratch prefix.
+
 ## calcofi4db 3.22.0
 
 ### Release tables are content-addressed, and written deterministically

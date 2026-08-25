@@ -15,7 +15,8 @@ check_release_complete(
   version,
   bucket = "calcofi-db",
   required = RELEASE_REQUIRED_OBJECTS,
-  halt = TRUE
+  halt = TRUE,
+  prefix = "ducklake/releases"
 )
 ```
 
@@ -27,7 +28,7 @@ check_release_complete(
 
 - bucket:
 
-  GCS bucket holding `ducklake/releases/`
+  GCS bucket holding `{prefix}/`
 
 - required:
 
@@ -37,6 +38,10 @@ check_release_complete(
 
   logical; [`stop()`](https://rdrr.io/r/base/stop.html) when something
   is missing (default `TRUE`)
+
+- prefix:
+
+  bucket-relative releases prefix (default `ducklake/releases`)
 
 ## Value
 

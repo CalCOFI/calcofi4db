@@ -9,14 +9,19 @@ public default.
 ## Usage
 
 ``` r
-read_promoted_release(bucket = "calcofi-db")
+read_promoted_release(bucket = "calcofi-db", prefix = "ducklake/releases")
 ```
 
 ## Arguments
 
 - bucket:
 
-  GCS bucket holding `ducklake/releases/latest.txt`
+  GCS bucket holding `{prefix}/latest.txt`
+
+- prefix:
+
+  bucket-relative releases prefix (default `ducklake/releases`; a
+  staging run uses another)
 
 ## Value
 

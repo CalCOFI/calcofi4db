@@ -518,6 +518,11 @@ check for other functions or datasets not captured by above categories
 - [`build_taxon_table()`](https://calcofi.io/calcofi4db/reference/build_taxon_table.md)
   : Build Taxonomic Hierarchy Table from WoRMS
 
+- [`build_versions_json()`](https://calcofi.io/calcofi4db/reference/build_versions_json.md)
+  :
+
+  Build the `versions.json` register of every release under a prefix
+
 - [`canonical_path()`](https://calcofi.io/calcofi4db/reference/canonical_path.md)
   : Canonical (content-addressed) object path for a table or partition
 
@@ -845,6 +850,9 @@ check for other functions or datasets not captured by above categories
   :
 
   Encode an authority-prefixed `taxon_key`
+
+- [`thin_plan()`](https://calcofi.io/calcofi4db/reference/thin_plan.md)
+  : Archive-thinning plan: which versions lose their parquet
 
 - [`upload_release_objects()`](https://calcofi.io/calcofi4db/reference/upload_release_objects.md)
   : Execute a freeze plan against GCS

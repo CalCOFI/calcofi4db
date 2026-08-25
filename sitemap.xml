@@ -38,6 +38,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/build_taxon_hierarchy.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_taxon_reference.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_taxon_table.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/build_versions_json.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/calcofi4db-package.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/canonical_path.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/cc_calcofi_to_lonlat.html</loc></url>
@@ -246,6 +247,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/sync_to_gcs_archive.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/taxa_rank_reference.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/taxon_key_of.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/thin_plan.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/transform_data.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/update_package_version.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/upload_frozen_release.html</loc></url>

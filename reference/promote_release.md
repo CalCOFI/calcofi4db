@@ -15,7 +15,8 @@ and
 promote_release(
   version,
   bucket = "calcofi-db",
-  required = RELEASE_REQUIRED_OBJECTS
+  required = RELEASE_REQUIRED_OBJECTS,
+  prefix = "ducklake/releases"
 )
 ```
 
@@ -27,12 +28,16 @@ promote_release(
 
 - bucket:
 
-  GCS bucket holding `ducklake/releases/`
+  GCS bucket holding `{prefix}/`
 
 - required:
 
   passed to
   [`check_release_complete()`](https://calcofi.io/calcofi4db/reference/check_release_complete.md)
+
+- prefix:
+
+  bucket-relative releases prefix (default `ducklake/releases`)
 
 ## Value
 
