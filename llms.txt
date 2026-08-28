@@ -755,6 +755,13 @@ check for other functions or datasets not captured by above categories
 - [`assign_grid_key()`](https://calcofi.io/calcofi4db/reference/assign_grid_key.md)
   : Assign Grid Key via Spatial Join
 
+- [`build_coverage()`](https://calcofi.io/calcofi4db/reference/build_coverage.md)
+  : The coverage cube behind the explorer's first paint
+
+- [`build_coverage_stations()`](https://calcofi.io/calcofi4db/reference/build_coverage_stations.md)
+  : The per-station coverage card: n obs by dataset x year and by
+  dataset x month, for one station
+
 - [`build_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/build_dataset_taxon.md)
   :
 
@@ -767,8 +774,19 @@ check for other functions or datasets not captured by above categories
   Build the shared `grid` reference table (deterministic,
   dataset-independent)
 
+- [`build_obs_slim()`](https://calcofi.io/calcofi4db/reference/build_obs_slim.md)
+  :
+
+  The bio or env realm of `obs`, browser-shaped
+
 - [`build_release_catalog()`](https://calcofi.io/calcofi4db/reference/build_release_catalog.md)
   : Build the release catalog with per-table hashes and objects
+
+- [`build_sample_root()`](https://calcofi.io/calcofi4db/reference/build_sample_root.md)
+  : Root sampling events with a dense integer id
+
+- [`build_sample_spatial()`](https://calcofi.io/calcofi4db/reference/build_sample_spatial.md)
+  : Exact polygon membership of every root sample, one layer at a time
 
 - [`build_taxon_group()`](https://calcofi.io/calcofi4db/reference/build_taxon_group.md)
   :
@@ -901,6 +919,9 @@ check for other functions or datasets not captured by above categories
 
 - [`freeze_plan()`](https://calcofi.io/calcofi4db/reference/freeze_plan.md)
   : Decide, per object, whether to upload or reuse
+
+- [`h3_parent_sql()`](https://calcofi.io/calcofi4db/reference/h3_parent_sql.md)
+  : H3 parent of a cell as plain SQL (no extension)
 
 - [`load_gcs_parquet_to_duckdb()`](https://calcofi.io/calcofi4db/reference/load_gcs_parquet_to_duckdb.md)
   : Load a GCS Parquet File into DuckDB

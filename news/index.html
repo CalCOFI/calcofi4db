@@ -23,7 +23,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.23.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.24.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -58,6 +58,24 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.24.0" id="calcofi4db-3240">calcofi4db 3.24.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3240"></a></h2>
+<div class="section level3">
+<h3 id="browser-shaped-release-objects-calcofi-explorer-plan-d4--phase-3-24-0">Browser-shaped release objects (CalCOFI Explorer plan D4 — Phase 1)<a class="anchor" aria-label="anchor" href="#browser-shaped-release-objects-calcofi-explorer-plan-d4--phase-3-24-0"></a></h3>
+<ul><li>
+<code><a href="../reference/build_sample_root.html">build_sample_root()</a></code> — one row per root sampling event with a dense, deterministic integer <code>root_id</code> (the join key the browser objects share) plus position, time, cruise, gear, seafloor.</li>
+<li>
+<code>build_obs_slim(con, realm, qual_ok_sql, density_sql)</code> — <code>obs_bio</code> / <code>obs_env</code>: the realm of <code>obs</code> with <code>root_id</code>, <code>year</code>, <code>quarter</code>, <code>depth_bin</code>, the observation’s depth falling back to its sample’s and its root’s, <code>units</code>, <code>qual_ok</code>, the gear and effort of its own sample, the D8 <code>density_per_10m2</code> / <code>density_per_1000m3</code> / <code>effort_class</code>, and <code>hex7</code> — one <code>UBIGINT</code> H3 cell at res 7. The quality predicate and the density expression are passed in from calcofi4r (<code>cc_qual_ok_sql("o")</code>, <code>cc_density_sql()</code>) so there is one copy of each.</li>
+<li>
+<code><a href="../reference/h3_parent_sql.html">h3_parent_sql()</a></code> — an H3 parent as plain bit arithmetic, so a browser without the <code>h3</code> extension aggregates to res 3–6 from <code>hex7</code>; tested against <code>h3_cell_to_parent()</code>.</li>
+<li>
+<code><a href="../reference/build_sample_spatial.html">build_sample_spatial()</a></code> — exact per-root-sample polygon membership for every polygon layer of <code>spatial</code>, chunked per layer, duplicates refused; lines and points (maritime limits, ports) are skipped and reported.</li>
+<li>
+<code><a href="../reference/build_coverage.html">build_coverage()</a></code> — the coverage cube (dataset · dataset × station × year · dataset × year · dataset × variable) behind the explorer’s first paint; deterministic, no wall clock.</li>
+<li>
+<code><a href="../reference/release_sort_keys.html">release_sort_keys()</a></code> registers <code>sample_root</code>, <code>obs_bio</code>, <code>obs_env</code> (partitioned by <code>measurement_type</code>) and <code>sample_spatial</code>.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="3.23.3" id="calcofi4db-3233">calcofi4db 3.23.3<a class="anchor" aria-label="anchor" href="#calcofi4db-3233"></a></h2>
 <ul><li>

@@ -27,12 +27,17 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/assign_grid_key.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assign_sequential_ids.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/bounds_datatable.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/build_coverage.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/build_coverage_stations.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_dataset_taxon.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_grid_reference.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_metadata_json.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/build_obs_slim.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_relationships_json.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_release_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_release_table_registry.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/build_sample_root.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/build_sample_spatial.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_targets_list.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_taxon_group.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_taxon_hierarchy.html</loc></url>
@@ -135,6 +140,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/get_schema_versions.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/get_working_ducklake.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/github_file_link.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/h3_parent_sql.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/index.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ingest_csv_to_db.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ingest_dataset.html</loc></url>
