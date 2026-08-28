@@ -1,0 +1,207 @@
+# Browser-shaped release objects (CalCOFI Explorer plan D4, 2026-08-28).
+#
+# A browser can hold the whole bio realm (~1.3 M rows) or one env variable (~1 M rows) in memory and
+# aggregate it to any grain in milliseconds — what it cannot do is chase footers over the 200 MB `obs`
+# twin or join `sample`, `sample_measurement` and `taxon` on every query. So the release cuts, once:
+#   sample_root     one row per root sampling event with a dense integer `root_id` (the join key the
+#                   browser objects share; `root_sample_key` is the string it stands for)
+#   obs_bio         the bio realm, slim: root_id, hex7 (one UBIGINT H3 cell at res 7; coarser parents
+#                   are bit arithmetic, see h3_parent_sql()), depth_bin, qual_ok, the gear and effort
+#                   of the observation's own sample, and the D8 densities + effort_class
+#   obs_env         the env realm with the same columns, hive-partitioned by measurement_type so one
+#                   variable is one object
+#   sample_spatial  exact per-root-sample polygon membership for every layer of `spatial`, computed
+#                   once here (chunked per layer) instead of per app
+#   coverage.json   n obs / samples by dataset x station x year and by dataset x variable — the first
+#                   paint before any WASM wakes up, and Task 14's inventory backbone
+# The quality predicate and the density expression are calcofi4r's (cc_qual_ok_sql(), cc_density_sql())
+# and are passed in as SQL, so this package never carries a second copy of either.
+
+#' H3 parent of a cell as plain SQL (no extension)
+#'
+#' An H3 index stores its resolution in bits 52–55 and one 3-bit digit per resolution, unused digits
+#' set to 7. The parent at resolution `res` is therefore the same index with the resolution field
+#' rewritten and every finer digit set to 7 — pure bit arithmetic, which a browser without the `h3`
+#' extension can run. Verified against `h3_cell_to_parent()` in the tests.
+#'
+#' @param hex SQL expression for a `UBIGINT` H3 cell.
+#' @param res target resolution (coarser than the cell's).
+#' @return A SQL expression string; `NULL` cells stay `NULL`.
+#' @examples
+#' h3_parent_sql("hex7", 5)
+#' @export
+#' @concept release
+h3_parent_sql <- function(hex, res) {
+  stopifnot(is.numeric(res), length(res) == 1, res >= 0, res <= 15)
+  res <- as.integer(res)
+  sprintf("(((%s & ~(15::UBIGINT << 52)) | (%d::UBIGINT << 52)) | ((1::UBIGINT << %d) - 1))",
+          hex, res, 3L * (15L - res))
+}
+
+#' Root sampling events with a dense integer id
+#'
+#' One row per `sample` with no parent, numbered by `dense_rank()` over `sample_key` so the id is
+#' deterministic across runs; carries the root's position, time, cruise, gear and seafloor depth.
+#' Every browser object joins on `root_id`; `root_sample_key` is what it stands for.
+#'
+#' @param con DuckDB connection holding `sample`.
+#' @param tbl name of the table to (re)create.
+#' @return Invisibly, the row count.
+#' @export
+#' @concept release
+#' @importFrom DBI dbExecute dbGetQuery dbListFields
+#' @importFrom glue glue
+build_sample_root <- function(con, tbl = "sample_root") {
+  seafloor <- if ("seafloor_depth_m" %in% dbListFields(con, "sample")) "seafloor_depth_m" else "NULL::DOUBLE AS seafloor_depth_m"
+  dbExecute(con, glue("
+    CREATE OR REPLACE TABLE {tbl} AS
+    SELECT dense_rank() OVER (ORDER BY sample_key)::INTEGER AS root_id, sample_key AS root_sample_key,
+           dataset_key, sample_type, grid_key, cruise_key, order_occ, latitude, longitude, datetime,
+           depth_min_m, depth_max_m, tow_type, {seafloor}
+    FROM sample WHERE parent_sample_key IS NULL ORDER BY sample_key"))
+  n <- dbGetQuery(con, glue("SELECT count(*) AS n, count(DISTINCT root_id) AS n_id FROM {tbl}"))
+  stopifnot(n$n == n$n_id)
+  invisible(n$n)
+}
+
+#' The bio or env realm of `obs`, browser-shaped
+#'
+#' Slims `obs` to the columns a lens needs, joins the gear and effort of the observation's own sample
+#' (`sample.tow_type`; `std_haul_factor`, `prop_sorted`, `volume_sampled` from `sample_measurement`),
+#' stamps `root_id`, `year`, `quarter`, `depth_bin` (10 m), `hex7`, `qual_ok` (from `qual_ok_sql`)
+#' and the D8 densities + `effort_class` (from `density_sql`). Depth is the observation's, falling back
+#' to its sample's and then its root's, so a net tow carries its integrated span. Both realms get the
+#' same schema (effort and taxon columns are NULL for env — a NULL column costs nothing in parquet), so
+#' one set of SQL templates serves both.
+#'
+#' @param con DuckDB connection holding `obs`, `sample`, `sample_measurement`, `measurement_type` and
+#'   the `sample_root` built by [build_sample_root()].
+#' @param realm `"bio"` or `"env"`.
+#' @param qual_ok_sql the quality predicate over alias `o` — `calcofi4r::cc_qual_ok_sql("o")`.
+#' @param density_sql the density select-list over the unaliased effort columns —
+#'   `calcofi4r::cc_density_sql()`.
+#' @param tbl output table (default `obs_{realm}`).
+#' @return Invisibly, the row count.
+#' @export
+#' @concept release
+build_obs_slim <- function(con, realm = c("bio", "env"), qual_ok_sql, density_sql, tbl = NULL) {
+  realm <- match.arg(realm)
+  tbl   <- tbl %||% paste0("obs_", realm)
+  stopifnot(is.character(qual_ok_sql), length(qual_ok_sql) == 1, is.character(density_sql), length(density_sql) == 1)
+  dbExecute(con, glue("
+    CREATE OR REPLACE TABLE {tbl} AS
+    WITH eff AS (
+      SELECT sample_key,
+             max(measurement_value) FILTER (WHERE measurement_type = 'std_haul_factor') AS std_haul_factor,
+             max(measurement_value) FILTER (WHERE measurement_type = 'prop_sorted')     AS prop_sorted,
+             max(measurement_value) FILTER (WHERE measurement_type = 'volume_sampled')  AS volume_sampled_m3
+      FROM sample_measurement
+      WHERE measurement_type IN ('std_haul_factor', 'prop_sorted', 'volume_sampled') GROUP BY 1),
+    x AS (
+      SELECT o.obs_id, o.dataset_key, r.root_id, o.grid_key, o.cruise_key,
+             o.latitude, o.longitude, o.datetime,
+             year(o.datetime)::SMALLINT AS year, quarter(o.datetime)::TINYINT AS quarter,
+             COALESCE(o.depth_min_m, s.depth_min_m, r.depth_min_m) AS depth_min_m,
+             COALESCE(o.depth_max_m, s.depth_max_m, r.depth_max_m) AS depth_max_m,
+             o.taxon_key, o.life_stage, o.measurement_type, m.units, o.measurement_value,
+             o.measurement_qual, ({qual_ok_sql}) AS qual_ok,
+             s.tow_type, e.std_haul_factor, e.prop_sorted, e.volume_sampled_m3,
+             CASE WHEN o.hex_id IS NULL THEN NULL ELSE {h3_parent_sql('o.hex_id', 7)} END AS hex7
+      FROM obs o
+      LEFT JOIN sample s USING (sample_key)
+      LEFT JOIN sample_root r ON r.root_sample_key = COALESCE(s.root_sample_key, s.sample_key)
+      LEFT JOIN eff e USING (sample_key)
+      LEFT JOIN measurement_type m USING (measurement_type)
+      WHERE o.realm = '{realm}')
+    SELECT obs_id, dataset_key, root_id, grid_key, cruise_key, latitude, longitude, datetime, year, quarter,
+           depth_min_m, depth_max_m, (floor(depth_min_m / 10) * 10)::INTEGER AS depth_bin,
+           taxon_key, life_stage, measurement_type, units, measurement_value AS value, measurement_qual, qual_ok,
+           tow_type, std_haul_factor, prop_sorted, volume_sampled_m3,
+           {density_sql},
+           hex7
+    FROM x"))
+  n <- dbGetQuery(con, glue("SELECT count(*) AS n FROM {tbl}"))$n
+  invisible(n)
+}
+
+#' Exact polygon membership of every root sample, one layer at a time
+#'
+#' `ST_Intersects` between the root samples' points and each layer's polygons, chunked per layer so
+#' the join never holds more than one layer in memory (the spatial join that OOM-ed the 16 GB server
+#' when an app ran it over every layer at once). CRS tags are stripped on both sides through WKB
+#' (`ST_Point` tags `OGC:CRS84`, `ST_Read` tags `EPSG:4326`, and DuckDB refuses to intersect across
+#' them). Only polygon geometries take part: the maritime-limit layers are boundary *lines* and the
+#' ports are points, and a point never intersects either — a layer with no polygons is skipped and
+#' reported with `n_polys = 0`. Asserts per layer that no `(root_id, spatial_key)` pair repeats.
+#'
+#' @param con DuckDB connection with the spatial extension, `sample_root` and `spatial`.
+#' @param layers layers to compute (default: every layer in `spatial`).
+#' @param tbl output table.
+#' @return A tibble with one row per layer: `layer`, `n_polys`, `n_roots`, `n_memberships`.
+#' @export
+#' @concept release
+build_sample_spatial <- function(con, layers = NULL, tbl = "sample_spatial") {
+  if (is.null(layers)) layers <- dbGetQuery(con, "SELECT DISTINCT layer FROM spatial ORDER BY layer")$layer
+  dbExecute(con, glue("CREATE OR REPLACE TABLE {tbl} (root_id INTEGER, root_sample_key VARCHAR, layer VARCHAR, spatial_key VARCHAR, spatial_name VARCHAR)"))
+  dbExecute(con, "CREATE OR REPLACE TEMP TABLE _ss_pts AS
+    SELECT root_id, root_sample_key, ST_GeomFromWKB(ST_AsWKB(ST_Point(longitude, latitude))) AS geom
+    FROM sample_root
+    WHERE longitude IS NOT NULL AND latitude IS NOT NULL AND isfinite(longitude) AND isfinite(latitude)")
+  n_pts <- dbGetQuery(con, "SELECT count(*) AS n FROM _ss_pts")$n
+  out <- lapply(layers, function(ly) {
+    dbExecute(con, glue("CREATE OR REPLACE TEMP TABLE _ss_polys AS
+      SELECT spatial_key, layer, name, ST_GeomFromWKB(ST_AsWKB(geom)) AS geom FROM spatial
+      WHERE layer = {DBI::dbQuoteString(con, ly)} AND ST_GeometryType(geom) IN ('POLYGON', 'MULTIPOLYGON')"))
+    n_polys <- dbGetQuery(con, "SELECT count(*) AS n FROM _ss_polys")$n
+    if (n_polys == 0) return(tibble::tibble(layer = ly, n_polys = 0L, n_roots = 0L, n_memberships = 0L))
+    dbExecute(con, glue("INSERT INTO {tbl}
+      SELECT p.root_id, p.root_sample_key, y.layer, y.spatial_key, y.name
+      FROM _ss_pts p JOIN _ss_polys y ON ST_Intersects(y.geom, p.geom)"))
+    s <- dbGetQuery(con, glue("SELECT count(*) AS n, count(DISTINCT root_id) AS n_roots,
+      count(*) - count(DISTINCT (root_id, spatial_key)) AS n_dup FROM {tbl} WHERE layer = {DBI::dbQuoteString(con, ly)}"))
+    if (s$n_dup > 0) stop(glue("sample_spatial: {s$n_dup} duplicate (root_id, spatial_key) pairs in layer '{ly}'"))
+    if (s$n > n_pts * n_polys) stop(glue("sample_spatial: layer '{ly}' has more memberships than points x polygons"))
+    tibble::tibble(layer = ly, n_polys = n_polys, n_roots = s$n_roots, n_memberships = s$n)
+  })
+  dbExecute(con, "DROP TABLE IF EXISTS _ss_polys"); dbExecute(con, "DROP TABLE IF EXISTS _ss_pts")
+  dplyr::bind_rows(out)
+}
+
+#' The coverage cube behind the explorer's first paint
+#'
+#' n observations and root samples by dataset, by dataset x station x year, by dataset x year and by
+#' dataset x measurement type (with year and depth spans) — small enough to paint the grid before
+#' DuckDB-WASM wakes up, and the variable-based inventory Task 14 asks for. Deterministic: no wall
+#' clock, so a re-run over unchanged inputs writes identical bytes.
+#'
+#' @param con DuckDB connection holding `obs` (with `dataset_key`, `grid_key`, `datetime`) and
+#'   `sample_root`.
+#' @param version the release version string.
+#' @return A list ready for `jsonlite::write_json(auto_unbox = TRUE)`.
+#' @export
+#' @concept release
+build_coverage <- function(con, version) {
+  q <- function(sql) dbGetQuery(con, sql)
+  # obs -> root via sample (obs.sample_key may be a child of the root)
+  dbExecute(con, "CREATE OR REPLACE TEMP VIEW _cov AS
+    SELECT o.dataset_key, o.realm, o.measurement_type, o.grid_key, year(o.datetime) AS year,
+           o.depth_min_m, o.depth_max_m, r.root_id
+    FROM obs o LEFT JOIN sample s USING (sample_key)
+    LEFT JOIN sample_root r ON r.root_sample_key = COALESCE(s.root_sample_key, s.sample_key)")
+  datasets <- q("SELECT dataset_key, any_value(realm) AS realm, count(*) AS n_obs, count(DISTINCT root_id) AS n_roots,
+                        min(year) AS year_min, max(year) AS year_max
+                 FROM _cov GROUP BY dataset_key ORDER BY dataset_key")
+  station_ds <- q("SELECT grid_key, dataset_key, count(*) AS n_obs, count(DISTINCT root_id) AS n_roots,
+                          min(year) AS year_min, max(year) AS year_max
+                   FROM _cov WHERE grid_key IS NOT NULL GROUP BY grid_key, dataset_key ORDER BY grid_key, dataset_key")
+  years <- q("SELECT dataset_key, year, count(*) AS n_obs, count(DISTINCT root_id) AS n_roots
+              FROM _cov WHERE year IS NOT NULL GROUP BY dataset_key, year ORDER BY dataset_key, year")
+  variables <- q("SELECT dataset_key, realm, measurement_type, count(*) AS n_obs, count(DISTINCT root_id) AS n_roots,
+                         min(year) AS year_min, max(year) AS year_max,
+                         min(depth_min_m) AS depth_min_m, max(depth_max_m) AS depth_max_m
+                  FROM _cov GROUP BY dataset_key, realm, measurement_type ORDER BY dataset_key, measurement_type")
+  dbExecute(con, "DROP VIEW IF EXISTS _cov")
+  stations <- lapply(split(station_ds, station_ds$grid_key), function(d)
+    list(grid_key = d$grid_key[1], datasets = d[, setdiff(names(d), "grid_key")]))
+  list(version = version, datasets = datasets, stations = unname(stations), years = years, variables = variables)
+}

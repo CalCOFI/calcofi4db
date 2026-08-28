@@ -1,3 +1,25 @@
+# calcofi4db 3.24.0
+
+## Browser-shaped release objects (CalCOFI Explorer plan D4 — Phase 1)
+
+- `build_sample_root()` — one row per root sampling event with a dense, deterministic integer
+  `root_id` (the join key the browser objects share) plus position, time, cruise, gear, seafloor.
+- `build_obs_slim(con, realm, qual_ok_sql, density_sql)` — `obs_bio` / `obs_env`: the realm of `obs`
+  with `root_id`, `year`, `quarter`, `depth_bin`, the observation's depth falling back to its sample's
+  and its root's, `units`, `qual_ok`, the gear and effort of its own sample, the D8
+  `density_per_10m2` / `density_per_1000m3` / `effort_class`, and `hex7` — one `UBIGINT` H3 cell at
+  res 7. The quality predicate and the density expression are passed in from calcofi4r
+  (`cc_qual_ok_sql("o")`, `cc_density_sql()`) so there is one copy of each.
+- `h3_parent_sql()` — an H3 parent as plain bit arithmetic, so a browser without the `h3` extension
+  aggregates to res 3–6 from `hex7`; tested against `h3_cell_to_parent()`.
+- `build_sample_spatial()` — exact per-root-sample polygon membership for every polygon layer of
+  `spatial`, chunked per layer, duplicates refused; lines and points (maritime limits, ports) are
+  skipped and reported.
+- `build_coverage()` — the coverage cube (dataset · dataset × station × year · dataset × year ·
+  dataset × variable) behind the explorer's first paint; deterministic, no wall clock.
+- `release_sort_keys()` registers `sample_root`, `obs_bio`, `obs_env` (partitioned by
+  `measurement_type`) and `sample_spatial`.
+
 # calcofi4db 3.23.3
 
 * **Bug fix:** `sample_seafloor()` stamped some samples twice — it collapsed positions

@@ -73,7 +73,14 @@ release_sort_keys <- function(core_sort = c("grid_key NULLS LAST", "depth_min_m 
     spatial            = list(partition_by = NULL, order_by = "spatial_key"),
     spatial_attribute  = list(partition_by = NULL, order_by = c("spatial_key", "fld")),
     lookup             = list(partition_by = NULL, order_by = "lookup_id"),
-    taxon_group        = list(partition_by = NULL, order_by = c("taxon_group_key", "taxon_key"))))
+    taxon_group        = list(partition_by = NULL, order_by = c("taxon_group_key", "taxon_key")),
+    # browser-shaped objects (R/explore.R); obs_env is one object per variable
+    sample_root        = list(partition_by = NULL, order_by = "root_id"),
+    obs_bio            = list(partition_by = NULL,
+                              order_by = c("dataset_key", "taxon_key NULLS LAST", "datetime NULLS LAST", "obs_id")),
+    obs_env            = list(partition_by = "measurement_type",
+                              order_by = c("measurement_type", "root_id NULLS LAST", "depth_min_m NULLS LAST", "obs_id")),
+    sample_spatial     = list(partition_by = NULL, order_by = c("layer", "spatial_key", "root_id"))))
 }
 
 .order_cols <- function(order_by) trimws(sub("\\s+NULLS\\s+(FIRST|LAST)$", "", order_by, ignore.case = TRUE))
