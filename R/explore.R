@@ -169,8 +169,9 @@ build_sample_spatial <- function(con, layers = NULL, tbl = "sample_spatial") {
 
 #' The coverage cube behind the explorer's first paint
 #'
-#' n observations and root samples by dataset, by dataset x station x year, by dataset x year, by
-#' dataset x station x month (seasonality) and by dataset x measurement type (with year and depth spans) — small enough to paint the grid before
+#' n observations and root samples by dataset, by dataset x station x year, by dataset x year and by
+#' dataset x measurement type (with year and depth spans); the per-station year x month detail is
+#' [build_coverage_stations()], a second sidecar fetched on demand — small enough to paint the grid before
 #' DuckDB-WASM wakes up, and the variable-based inventory Task 14 asks for. Deterministic: no wall
 #' clock, so a re-run over unchanged inputs writes identical bytes.
 #'
@@ -196,10 +197,6 @@ build_coverage <- function(con, version) {
                    FROM _cov WHERE grid_key IS NOT NULL GROUP BY grid_key, dataset_key ORDER BY grid_key, dataset_key")
   years <- q("SELECT dataset_key, year, count(*) AS n_obs, count(DISTINCT root_id) AS n_roots
               FROM _cov WHERE year IS NOT NULL GROUP BY dataset_key, year ORDER BY dataset_key, year")
-  # seasonality per station (db-viz-station's month row): dataset x station x month
-  station_months <- q("SELECT grid_key, dataset_key, month(datetime) AS month, count(*) AS n_obs
-                       FROM (SELECT o.grid_key, o.dataset_key, o.datetime FROM obs o WHERE o.grid_key IS NOT NULL AND o.datetime IS NOT NULL)
-                       GROUP BY 1, 2, 3 ORDER BY 1, 2, 3")
   variables <- q("SELECT dataset_key, realm, measurement_type, count(*) AS n_obs, count(DISTINCT root_id) AS n_roots,
                          min(year) AS year_min, max(year) AS year_max,
                          min(depth_min_m) AS depth_min_m, max(depth_max_m) AS depth_max_m
@@ -207,6 +204,38 @@ build_coverage <- function(con, version) {
   dbExecute(con, "DROP VIEW IF EXISTS _cov")
   stations <- lapply(split(station_ds, station_ds$grid_key), function(d)
     list(grid_key = d$grid_key[1], datasets = d[, setdiff(names(d), "grid_key")]))
-  list(version = version, datasets = datasets, stations = unname(stations), years = years,
-       station_months = station_months, variables = variables)
+  list(version = version, datasets = datasets, stations = unname(stations), years = years, variables = variables)
+}
+
+#' The per-station coverage card: n obs by dataset x year and by dataset x month, for one station
+#'
+#' What db-viz-station draws when a station is clicked — every dataset sampled there, its rows per
+#' year (`years`: `[[year, n], …]`) and per month (`months`: twelve counts) — for all 218 stations.
+#' Kept out of `coverage.json` so the first paint stays small; fetched when a station is selected.
+#'
+#' @inheritParams build_coverage
+#' @return A list `{version, stations: [{grid_key, datasets: [{dataset_key, n_obs, year_min, year_max, years, months}]}]}`.
+#' @export
+#' @concept release
+build_coverage_stations <- function(con, version) {
+  d <- dbGetQuery(con, "SELECT grid_key, dataset_key, count(*) AS n_obs, min(year(datetime)) AS year_min, max(year(datetime)) AS year_max
+                        FROM obs WHERE grid_key IS NOT NULL AND datetime IS NOT NULL GROUP BY 1, 2 ORDER BY 1, 2")
+  # per (station, dataset): [[year, n]] and the 12 month counts — two small grouped queries, joined in R
+  yrs <- dbGetQuery(con, "SELECT grid_key, dataset_key, year(datetime) AS year, count(*) AS n FROM obs
+                          WHERE grid_key IS NOT NULL AND datetime IS NOT NULL GROUP BY 1, 2, 3 ORDER BY 1, 2, 3")
+  mos <- dbGetQuery(con, "SELECT grid_key, dataset_key, month(datetime) AS month, count(*) AS n FROM obs
+                          WHERE grid_key IS NOT NULL AND datetime IS NOT NULL GROUP BY 1, 2, 3 ORDER BY 1, 2, 3")
+  key <- function(x) paste(x$grid_key, x$dataset_key, sep = "\r")
+  yrs_by <- split(yrs[, c("year", "n")], key(yrs)); mos_by <- split(mos[, c("month", "n")], key(mos))
+  stations <- lapply(split(d, d$grid_key), function(g) list(
+    grid_key = g$grid_key[1],
+    datasets = lapply(seq_len(nrow(g)), function(i) {
+      k <- paste(g$grid_key[i], g$dataset_key[i], sep = "\r")
+      m <- integer(12); mm <- mos_by[[k]]; if (!is.null(mm)) m[mm$month] <- as.integer(mm$n)
+      yy <- yrs_by[[k]]
+      list(dataset_key = g$dataset_key[i], n_obs = g$n_obs[i], year_min = g$year_min[i], year_max = g$year_max[i],
+           years = if (is.null(yy)) list() else lapply(seq_len(nrow(yy)), function(j) c(yy$year[j], yy$n[j])),
+           months = m)
+    })))
+  list(version = version, stations = unname(stations))
 }
