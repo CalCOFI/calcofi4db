@@ -125,6 +125,7 @@ test_that("build_coverage() is the cube behind the first paint, and deterministi
   expect_equal(length(cv$stations), 1); expect_equal(cv$stations[[1]]$grid_key, "st90-ln90")
   expect_equal(cv$stations[[1]]$datasets$dataset_key, c("calcofi_bottle", "swfsc_ichthyo"))
   expect_equal(cv$years$year, c(2019L, 2019L, 2019L))
+  expect_equal(cv$station_months$month, c(4L, 4L)); expect_equal(cv$station_months$dataset_key, c("calcofi_bottle", "swfsc_ichthyo"))
   expect_equal(cv$variables$measurement_type, c("temperature", "sardine_eggs", "abundance"))
   expect_equal(cv$variables$depth_max_m[cv$variables$measurement_type == "temperature"], 250)
   j1 <- jsonlite::toJSON(cv, auto_unbox = TRUE, digits = NA); j2 <- jsonlite::toJSON(build_coverage(con, "v2026.09.01"), auto_unbox = TRUE, digits = NA)
