@@ -19,7 +19,16 @@ template:
       <link rel="stylesheet" href="https://calcofi.io/brand/v1/theme.css">
       <script defer src="https://calcofi.io/brand/v1/theme.js"></script>
       <script>(function(){var r=document.documentElement,last=r.getAttribute("data-bs-theme");new MutationObserver(function(){var t=r.getAttribute("data-bs-theme");if(t===last||(t!=="dark"&&t!=="light"))return;last=t;if(window.ccTheme&&ccTheme.get()!==t)ccTheme.set(t)}).observe(r,{attributes:true,attributeFilter:["data-bs-theme"]})})();</script>
-      <style>.navbar .cc-home .cc-logo{display:inline-block;width:28px;height:28px;vertical-align:middle;background:url(https://calcofi.io/brand/v1/logo_calcofi.svg) center/contain no-repeat}[data-bs-theme=light] .navbar .cc-home .cc-logo{background-image:url(https://calcofi.io/brand/v1/logo_calcofi_light.svg)}</style>
+      <style>
+        .navbar .cc-home .cc-logo{display:inline-block;width:28px;height:28px;vertical-align:middle;background:url(https://calcofi.io/brand/v1/logo_calcofi.svg) center/contain no-repeat}
+        [data-bs-theme=light] .navbar .cc-home .cc-logo{background-image:url(https://calcofi.io/brand/v1/logo_calcofi_light.svg)}
+        /* the light-switch button wears the brand pair (theme.css exports the masks): the sun while
+           the page is dark, the moon-in-sun while it is light — what a click moves toward, as on
+           calcofi4py — in place of Font Awesome's current-mode sun/moon. The menu's own
+           Light / Dark / Auto icons stay. */
+        #dropdown-lightswitch .fa::before{content:"" !important;display:inline-block;width:1.15rem;height:1.15rem;vertical-align:-.25em;background-color:currentColor;-webkit-mask:var(--cc-icon-moon) center/contain no-repeat;mask:var(--cc-icon-moon) center/contain no-repeat}
+        [data-bs-theme=dark] #dropdown-lightswitch .fa::before{-webkit-mask-image:var(--cc-icon-sun);mask-image:var(--cc-icon-sun)}
+      </style>
       <!-- Google tag (gtag.js) -->
       <script async src="https://www.googletagmanager.com/gtag/js?id=G-0HVK8TDMCF"></script>
       <script>
