@@ -170,13 +170,18 @@ build_sample_spatial <- function(con, layers = NULL, tbl = "sample_spatial") {
 #' The coverage cube behind the explorer's first paint
 #'
 #' n observations and root samples by dataset, by dataset x station x year, by dataset x year and by
-#' dataset x measurement type (with year and depth spans); the per-station year x month detail is
+#' dataset x measurement type (with year and depth spans, and — when the `measurement_type` table
+#' carries them — the registry's `category` and `variable`); the per-station year x month detail is
 #' [build_coverage_stations()], a second sidecar fetched on demand — small enough to paint the grid before
-#' DuckDB-WASM wakes up, and the variable-based inventory Task 14 asks for. Deterministic: no wall
-#' clock, so a re-run over unchanged inputs writes identical bytes.
+#' DuckDB-WASM wakes up, and the variable-based inventory Task 14 asks for. Since 3.25.0 also `taxa[]`
+#' (explorer UI plan D14): one row per taxon of the bio realm — key, names, rank, class, n_obs, year
+#' span, life stages and its datasets with n_obs each — so the organism list opens before the engine is
+#' warm and *Browse* can list organisms by category or dataset. Deterministic: no wall clock, so a
+#' re-run over unchanged inputs writes identical bytes.
 #'
-#' @param con DuckDB connection holding `obs` (with `dataset_key`, `grid_key`, `datetime`) and
-#'   `sample_root`.
+#' @param con DuckDB connection holding `obs` (with `dataset_key`, `grid_key`, `datetime`, `taxon_key`,
+#'   `life_stage`) and `sample_root`; `taxon` (for `taxa[]`) and `measurement_type` (for the two
+#'   variable fields) when present.
 #' @param version the release version string.
 #' @return A list ready for `jsonlite::write_json(auto_unbox = TRUE)`.
 #' @export
@@ -184,11 +189,15 @@ build_sample_spatial <- function(con, layers = NULL, tbl = "sample_spatial") {
 build_coverage <- function(con, version) {
   q <- function(sql) dbGetQuery(con, sql)
   # obs -> root via sample (obs.sample_key may be a child of the root)
-  dbExecute(con, "CREATE OR REPLACE TEMP VIEW _cov AS
+  has <- function(t) t %in% DBI::dbListTables(con)
+  ocols <- DBI::dbListFields(con, "obs")
+  tx_col <- if ("taxon_key" %in% ocols) "o.taxon_key" else "NULL::VARCHAR AS taxon_key"
+  ls_col <- if ("life_stage" %in% ocols) "o.life_stage" else "NULL::VARCHAR AS life_stage"
+  dbExecute(con, glue::glue("CREATE OR REPLACE TEMP VIEW _cov AS
     SELECT o.dataset_key, o.realm, o.measurement_type, o.grid_key, year(o.datetime) AS year,
-           o.depth_min_m, o.depth_max_m, r.root_id
+           o.depth_min_m, o.depth_max_m, {tx_col}, {ls_col}, r.root_id
     FROM obs o LEFT JOIN sample s USING (sample_key)
-    LEFT JOIN sample_root r ON r.root_sample_key = COALESCE(s.root_sample_key, s.sample_key)")
+    LEFT JOIN sample_root r ON r.root_sample_key = COALESCE(s.root_sample_key, s.sample_key)"))
   datasets <- q("SELECT dataset_key, any_value(realm) AS realm, count(*) AS n_obs, count(DISTINCT root_id) AS n_roots,
                         min(year) AS year_min, max(year) AS year_max
                  FROM _cov GROUP BY dataset_key ORDER BY dataset_key")
@@ -201,10 +210,39 @@ build_coverage <- function(con, version) {
                          min(year) AS year_min, max(year) AS year_max,
                          min(depth_min_m) AS depth_min_m, max(depth_max_m) AS depth_max_m
                   FROM _cov GROUP BY dataset_key, realm, measurement_type ORDER BY dataset_key, measurement_type")
+  # the registry's category + variable onto variables[] (explorer UI plan D14) — only when the table carries them
+  if (has("measurement_type")) {
+    mcols <- intersect(c("category", "variable"), DBI::dbListFields(con, "measurement_type"))
+    if (length(mcols)) {
+      mt <- q(glue::glue("SELECT measurement_type, {paste(mcols, collapse = ', ')} FROM measurement_type"))
+      for (cl in mcols) variables[[cl]] <- as.character(mt[[cl]][match(variables$measurement_type, mt$measurement_type)])
+    }
+  }
+  # taxa[]: one row per taxon of the bio realm, its datasets nested, names/rank/class from the taxon reference
+  taxa <- list()
+  if ("taxon_key" %in% ocols) {
+    tx_ds <- q("SELECT taxon_key, dataset_key, count(*) AS n_obs, count(DISTINCT root_id) AS n_roots,
+                       min(year) AS year_min, max(year) AS year_max,
+                       string_agg(DISTINCT life_stage, '|' ORDER BY life_stage) AS life_stages
+                FROM _cov WHERE realm = 'bio' AND taxon_key IS NOT NULL GROUP BY 1, 2 ORDER BY 1, 2")
+    tx <- if (has("taxon")) {
+      tcols <- intersect(c("scientific_name", "common_name", "rank", "class"), DBI::dbListFields(con, "taxon"))
+      q(glue::glue("SELECT taxon_key, {paste(tcols, collapse = ', ')} FROM taxon"))
+    } else data.frame(taxon_key = character())
+    taxa <- lapply(split(tx_ds, tx_ds$taxon_key), function(d) {
+      k <- d$taxon_key[1]; j <- match(k, tx$taxon_key)
+      get <- function(cl) if (!is.na(j) && cl %in% names(tx)) tx[[cl]][j] else NA_character_
+      ls <- sort(unique(unlist(strsplit(d$life_stages[!is.na(d$life_stages)], "|", fixed = TRUE))))
+      list(taxon_key = k, scientific_name = get("scientific_name"), common_name = get("common_name"), rank = get("rank"), class = get("class"),
+           n_obs = sum(d$n_obs), n_roots = sum(d$n_roots), year_min = suppressWarnings(min(d$year_min, na.rm = TRUE)), year_max = suppressWarnings(max(d$year_max, na.rm = TRUE)),
+           life_stages = as.list(ls), datasets = d[, c("dataset_key", "n_obs", "n_roots", "year_min", "year_max")])
+    })
+    taxa <- unname(taxa)
+  }
   dbExecute(con, "DROP VIEW IF EXISTS _cov")
   stations <- lapply(split(station_ds, station_ds$grid_key), function(d)
     list(grid_key = d$grid_key[1], datasets = d[, setdiff(names(d), "grid_key")]))
-  list(version = version, datasets = datasets, stations = unname(stations), years = years, variables = variables)
+  list(version = version, datasets = datasets, stations = unname(stations), years = years, variables = variables, taxa = taxa)
 }
 
 #' The per-station coverage card: n obs by dataset x year and by dataset x month, for one station

@@ -243,3 +243,21 @@ test_that("upsert_measurement_types() lets an explicit value win, and adds new t
     d, tibble::tibble(measurement_type = c("a","a"))), "duplicate")
   expect_identical(nrow(upsert_measurement_types(d, NULL)), 2L)
 })
+
+# ---- declare_measurement_fields(): the Browse tab's category + the cross-dataset variable ----
+test_that("declare_measurement_fields() sets category / variable on existing rows only, checked against the category registry", {
+  p <- withr::local_tempfile(fileext = ".csv")
+  readr::write_csv(data.frame(measurement_type = c("temperature", "temperature_ave", "nitrate"), units = c("degC", "degC", "umol/L")), p, na = "")
+  cats <- c("Physical Oceanography", "Nutrients & Chemistry")
+  d <- declare_measurement_fields(data.frame(measurement_type = c("temperature", "temperature_ave"), category = "Physical Oceanography", variable = "temperature"), p, categories = cats, quiet = TRUE)
+  expect_true(all(c("category", "variable") %in% names(d)))              # a registry predating the columns gains them
+  expect_equal(d$variable[d$measurement_type %in% c("temperature", "temperature_ave")], c("temperature", "temperature"))
+  expect_true(is.na(d$category[d$measurement_type == "nitrate"]))       # untouched rows stay empty — and empty, not "NA"
+  expect_false(any(grepl("^NA$", readLines(p))))
+  expect_error(declare_measurement_fields(data.frame(measurement_type = "salinity", category = "Physical Oceanography"), p, cats), "not in the registry")
+  expect_error(declare_measurement_fields(data.frame(measurement_type = "nitrate", category = "Nutrients and Chemistry"), p, cats), "category not in the registry")
+  expect_error(declare_measurement_fields(data.frame(measurement_type = "temperature", variable = "temp"), p, cats), "already-declared")
+  d2 <- declare_measurement_fields(data.frame(measurement_type = "temperature", variable = "temp"), p, cats, overwrite = TRUE, quiet = TRUE)
+  expect_equal(d2$variable[d2$measurement_type == "temperature"], "temp")
+  expect_error(declare_measurement_fields(data.frame(measurement_type = "nitrate", units = "x"), p, cats), "neither category nor variable")
+})

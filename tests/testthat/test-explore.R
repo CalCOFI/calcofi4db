@@ -138,3 +138,31 @@ test_that("build_coverage() is the cube behind the first paint, and deterministi
   expect_identical(j1, j2)
   expect_false(grepl("generated", j1))
 })
+
+test_that("build_coverage() carries taxa[] and the registry's category / variable (explorer UI plan D14)", {
+  con <- ex_con(); ex_fixture(con); build_sample_root(con)
+  # a taxon reference + the two new registry columns; the test fixture's measurement_type has neither by default
+  DBI::dbExecute(con, "CREATE TABLE taxon AS SELECT * FROM (VALUES ('worms:217452', 'Sardinops sagax', 'Pacific sardine', 'Species', 'Teleostei')) t(taxon_key, scientific_name, common_name, rank, class)")
+  DBI::dbExecute(con, "ALTER TABLE measurement_type ADD COLUMN category VARCHAR"); DBI::dbExecute(con, "ALTER TABLE measurement_type ADD COLUMN variable VARCHAR")
+  DBI::dbExecute(con, "UPDATE measurement_type SET category = 'Physical Oceanography', variable = 'temperature' WHERE measurement_type = 'temperature'")
+  cv <- build_coverage(con, "v2026.09.01")
+  # variables[] gains the two fields; a type without them is NA, never an error
+  v <- cv$variables
+  expect_equal(v$category[v$measurement_type == "temperature"], "Physical Oceanography")
+  expect_equal(v$variable[v$measurement_type == "temperature"], "temperature")
+  expect_true(is.na(v$category[v$measurement_type == "abundance"]))
+  # taxa[]: one row for the sardine, its two datasets nested with n_obs each, both life stages, names from the reference
+  expect_equal(length(cv$taxa), 1); tx <- cv$taxa[[1]]
+  expect_equal(tx$taxon_key, "worms:217452"); expect_equal(tx$common_name, "Pacific sardine"); expect_equal(tx$class, "Teleostei"); expect_equal(tx$rank, "Species")
+  expect_equal(tx$n_obs, 2L); expect_equal(tx$year_min, 2019L); expect_equal(tx$year_max, 2019L)
+  expect_equal(unlist(tx$life_stages), c("egg", "larva"))
+  expect_equal(tx$datasets$dataset_key, c("swfsc_cufes", "swfsc_ichthyo")); expect_equal(tx$datasets$n_obs, c(1L, 1L))
+  # deterministic, and it serializes (life_stages as an array, datasets as rows)
+  j1 <- jsonlite::toJSON(cv, auto_unbox = TRUE, digits = NA); j2 <- jsonlite::toJSON(build_coverage(con, "v2026.09.01"), auto_unbox = TRUE, digits = NA)
+  expect_identical(j1, j2); expect_true(grepl('"life_stages":\\["egg","larva"\\]', j1))
+  # an obs without taxon_key / a connection without taxon: taxa is empty, nothing errors
+  DBI::dbExecute(con, "DROP TABLE taxon")
+  expect_equal(build_coverage(con, "v2026.09.01")$taxa[[1]]$common_name, NA_character_)
+  DBI::dbExecute(con, "ALTER TABLE obs DROP COLUMN taxon_key")
+  expect_equal(length(build_coverage(con, "v2026.09.01")$taxa), 0)
+})

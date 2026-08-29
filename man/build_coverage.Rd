@@ -7,8 +7,9 @@
 build_coverage(con, version)
 }
 \arguments{
-\item{con}{DuckDB connection holding \code{obs} (with \code{dataset_key}, \code{grid_key}, \code{datetime}) and
-\code{sample_root}.}
+\item{con}{DuckDB connection holding \code{obs} (with \code{dataset_key}, \code{grid_key}, \code{datetime}, \code{taxon_key},
+\code{life_stage}) and \code{sample_root}; \code{taxon} (for \code{taxa[]}) and \code{measurement_type} (for the two
+variable fields) when present.}
 
 \item{version}{the release version string.}
 }
@@ -17,9 +18,13 @@ A list ready for \code{jsonlite::write_json(auto_unbox = TRUE)}.
 }
 \description{
 n observations and root samples by dataset, by dataset x station x year, by dataset x year and by
-dataset x measurement type (with year and depth spans); the per-station year x month detail is
+dataset x measurement type (with year and depth spans, and — when the \code{measurement_type} table
+carries them — the registry's \code{category} and \code{variable}); the per-station year x month detail is
 \code{\link[=build_coverage_stations]{build_coverage_stations()}}, a second sidecar fetched on demand — small enough to paint the grid before
-DuckDB-WASM wakes up, and the variable-based inventory Task 14 asks for. Deterministic: no wall
-clock, so a re-run over unchanged inputs writes identical bytes.
+DuckDB-WASM wakes up, and the variable-based inventory Task 14 asks for. Since 3.25.0 also \code{taxa[]}
+(explorer UI plan D14): one row per taxon of the bio realm — key, names, rank, class, n_obs, year
+span, life stages and its datasets with n_obs each — so the organism list opens before the engine is
+warm and \emph{Browse} can list organisms by category or dataset. Deterministic: no wall clock, so a
+re-run over unchanged inputs writes identical bytes.
 }
 \concept{release}

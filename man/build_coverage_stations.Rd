@@ -7,8 +7,9 @@
 build_coverage_stations(con, version)
 }
 \arguments{
-\item{con}{DuckDB connection holding \code{obs} (with \code{dataset_key}, \code{grid_key}, \code{datetime}) and
-\code{sample_root}.}
+\item{con}{DuckDB connection holding \code{obs} (with \code{dataset_key}, \code{grid_key}, \code{datetime}, \code{taxon_key},
+\code{life_stage}) and \code{sample_root}; \code{taxon} (for \code{taxa[]}) and \code{measurement_type} (for the two
+variable fields) when present.}
 
 \item{version}{the release version string.}
 }

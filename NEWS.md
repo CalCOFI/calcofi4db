@@ -1,3 +1,19 @@
+# calcofi4db 3.25.0
+
+## `coverage.json` carries taxa and categories (explorer UI plan D14)
+
+- **`build_coverage()`** adds **`taxa[]`** — one row per taxon of the bio realm: `taxon_key`, names,
+  `rank`, `class`, `n_obs`, `n_roots`, year span, `life_stages[]` and its `datasets[]` with `n_obs` each
+  (from `obs.taxon_key` / `life_stage` and the `taxon` reference when present) — so the explorer's organism
+  list opens before the engine is warm and *Browse* can list organisms by category or dataset; and puts the
+  registry's **`category`** and **`variable`** onto `variables[]` when the `measurement_type` table carries
+  them. Still deterministic. `_cov` keeps working on an `obs` without `taxon_key` (`taxa` is then empty).
+- **`declare_measurement_fields()`** — the counterpart of `declare_measurement_bounds()` for the two new
+  descriptive columns of `metadata/measurement_type.csv`: sets `category` (checked against
+  `metadata/category.csv` when `categories` is given) and `variable` (the cross-dataset crosswalk the
+  explorer carried in `src/variables.ts`) on types that already exist, refuses an unknown type or a silent
+  overwrite, and writes with `na = ""`.
+
 # calcofi4db 3.24.0
 
 ## Browser-shaped release objects (CalCOFI Explorer plan D4 — Phase 1)
