@@ -869,6 +869,12 @@ check for other functions or datasets not captured by above categories
   Declare `valid_min` / `valid_max` on measurement types that already
   exist
 
+- [`declare_measurement_fields()`](https://calcofi.io/calcofi4db/reference/declare_measurement_fields.md)
+  :
+
+  Declare `category` / `variable` on measurement types that already
+  exist
+
 - [`derive_cruise_key_on_casts()`](https://calcofi.io/calcofi4db/reference/derive_cruise_key_on_casts.md)
   : Derive Cruise Key on Bottle Casts via Ship Matching
 

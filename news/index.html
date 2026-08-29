@@ -32,7 +32,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.24.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.25.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -67,6 +67,17 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.25.0" id="calcofi4db-3250">calcofi4db 3.25.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3250"></a></h2>
+<div class="section level3">
+<h3 id="coveragejson-carries-taxa-and-categories-explorer-ui-plan-d14-3-25-0">
+<code>coverage.json</code> carries taxa and categories (explorer UI plan D14)<a class="anchor" aria-label="anchor" href="#coveragejson-carries-taxa-and-categories-explorer-ui-plan-d14-3-25-0"></a></h3>
+<ul><li>
+<strong><code><a href="../reference/build_coverage.html">build_coverage()</a></code></strong> adds <strong><code>taxa[]</code></strong> — one row per taxon of the bio realm: <code>taxon_key</code>, names, <code>rank</code>, <code>class</code>, <code>n_obs</code>, <code>n_roots</code>, year span, <code>life_stages[]</code> and its <code>datasets[]</code> with <code>n_obs</code> each (from <code>obs.taxon_key</code> / <code>life_stage</code> and the <code>taxon</code> reference when present) — so the explorer’s organism list opens before the engine is warm and <em>Browse</em> can list organisms by category or dataset; and puts the registry’s <strong><code>category</code></strong> and <strong><code>variable</code></strong> onto <code>variables[]</code> when the <code>measurement_type</code> table carries them. Still deterministic. <code>_cov</code> keeps working on an <code>obs</code> without <code>taxon_key</code> (<code>taxa</code> is then empty).</li>
+<li>
+<strong><code><a href="../reference/declare_measurement_fields.html">declare_measurement_fields()</a></code></strong> — the counterpart of <code><a href="../reference/declare_measurement_bounds.html">declare_measurement_bounds()</a></code> for the two new descriptive columns of <code>metadata/measurement_type.csv</code>: sets <code>category</code> (checked against <code>metadata/category.csv</code> when <code>categories</code> is given) and <code>variable</code> (the cross-dataset crosswalk the explorer carried in <code>src/variables.ts</code>) on types that already exist, refuses an unknown type or a silent overwrite, and writes with <code>na = ""</code>.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="3.24.0" id="calcofi4db-3240">calcofi4db 3.24.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3240"></a></h2>
 <div class="section level3">

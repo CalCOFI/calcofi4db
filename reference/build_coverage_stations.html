@@ -36,7 +36,7 @@ Kept out of coverage.json so the first paint stays small; fetched when a station
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.24.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.25.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -88,8 +88,9 @@ Kept out of <code>coverage.json</code> so the first paint stays small; fetched w
 
 
 <dl><dt id="arg-con">con<a class="anchor" aria-label="anchor" href="#arg-con"></a></dt>
-<dd><p>DuckDB connection holding <code>obs</code> (with <code>dataset_key</code>, <code>grid_key</code>, <code>datetime</code>) and
-<code>sample_root</code>.</p></dd>
+<dd><p>DuckDB connection holding <code>obs</code> (with <code>dataset_key</code>, <code>grid_key</code>, <code>datetime</code>, <code>taxon_key</code>,
+<code>life_stage</code>) and <code>sample_root</code>; <code>taxon</code> (for <code>taxa[]</code>) and <code>measurement_type</code> (for the two
+variable fields) when present.</p></dd>
 
 
 <dt id="arg-version">version<a class="anchor" aria-label="anchor" href="#arg-version"></a></dt>

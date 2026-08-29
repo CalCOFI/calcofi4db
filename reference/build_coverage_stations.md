@@ -17,7 +17,9 @@ build_coverage_stations(con, version)
 - con:
 
   DuckDB connection holding `obs` (with `dataset_key`, `grid_key`,
-  `datetime`) and `sample_root`.
+  `datetime`, `taxon_key`, `life_stage`) and `sample_root`; `taxon` (for
+  `taxa[]`) and `measurement_type` (for the two variable fields) when
+  present.
 
 - version:
 

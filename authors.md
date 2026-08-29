@@ -11,12 +11,12 @@ Source:
 [`DESCRIPTION`](https://github.com/calcofi/calcofi4db/blob/main/DESCRIPTION)
 
 Best B (2026). *calcofi4db: CalCOFI Database Tools*. R package version
-3.24.0, <https://calcofi.io/calcofi4db>.
+3.25.0, <https://calcofi.io/calcofi4db>.
 
     @Manual{,
       title = {calcofi4db: CalCOFI Database Tools},
       author = {Ben Best},
       year = {2026},
-      note = {R package version 3.24.0},
+      note = {R package version 3.25.0},
       url = {https://calcofi.io/calcofi4db},
     }
