@@ -277,3 +277,74 @@ build_coverage_stations <- function(con, version) {
     })))
   list(version = version, stations = unname(stations))
 }
+
+#' The explorer's boundary-layer sidecar: the registry joined with the release's `spatial` table
+#'
+#' `metadata/spatial_layers.csv` is the registry of the boundary layers (Erin's sheet: one row per
+#' drawable layer with its PMTiles group, default symbology, filter expression and provenance), and
+#' the archives at `{pmtiles_base}{dataset_group}.pmtiles` carry the features. The explorer must not
+#' hard-code that list nor fetch the CSV from GitHub at runtime (plan 2026-08-31 D23), so each release
+#' ships `spatial_layers.json`: the registry verbatim **plus what only the release knows** — each
+#' layer's feature count, bbox, its sorted distinct `name`s when there are at most `names_max` (the
+#' by-name palette, D24; `NULL` above that, and the app falls back to an id-hash palette), and
+#' `n_memberships` (distinct root samples in `sample_spatial`, so the Regions lens can list exactly
+#' the layers that can summarize something).
+#'
+#' @param con DuckDB connection holding `spatial` (and, if built, `sample_spatial`).
+#' @param registry_csv Path to `metadata/spatial_layers.csv`.
+#' @param version Release version string, stamped into the sidecar.
+#' @param pmtiles_base URL prefix of the PMTiles archives (source-layer = `dataset_group`).
+#' @param built When the archives were last built (the `ingest_spatial` manifest's mtime) — version
+#'   skew between releases and archives is accepted but must be visible.
+#' @param names_max Above this many distinct names a layer's `names` is `NULL`.
+#' @return A list ready for `jsonlite::write_json(auto_unbox = TRUE)`: `version`, `pmtiles_base`,
+#'   `built`, and `layers[]` with `id` (the registry `dataset_id`), `group`, `name` (the human
+#'   layer name), `source`, `geom`, `filter` (the registry expression verbatim, as parsed JSON),
+#'   the symbology defaults, `name_field`, `description`, `attribution`, `n_features`, `bbox`,
+#'   `names`, `n_memberships`.
+#' @export
+#' @concept explore
+build_spatial_layers <- function(con, registry_csv, version, pmtiles_base,
+                                 built = NULL, names_max = 200) {
+  reg <- readr::read_csv(registry_csv, show_col_types = FALSE, na = c("", "NA"))
+  need <- c("dataset_id", "dataset_group", "layer", "group", "geom_type", "filter_expr",
+            "line_color", "fill_color", "line_width", "fill_opacity", "default_visible",
+            "name_field", "description", "attribution")
+  stopifnot("spatial_layers registry is missing columns" = all(need %in% names(reg)))
+  sp <- DBI::dbGetQuery(con, "
+    SELECT layer, count(*) AS n_features,
+           min(ST_XMin(geom)) AS w, min(ST_YMin(geom)) AS s,
+           max(ST_XMax(geom)) AS e, max(ST_YMax(geom)) AS n
+    FROM spatial GROUP BY 1")
+  nm <- DBI::dbGetQuery(con, "SELECT layer, name FROM spatial WHERE name IS NOT NULL GROUP BY 1, 2 ORDER BY 1, 2")
+  mem <- if ("sample_spatial" %in% DBI::dbListTables(con))
+    DBI::dbGetQuery(con, "SELECT layer, count(DISTINCT root_id) AS n FROM sample_spatial GROUP BY 1")
+  else data.frame(layer = character(), n = integer())
+  missing <- setdiff(reg$layer, sp$layer)
+  if (length(missing))
+    warning("spatial_layers registry rows with no features in `spatial`: ",
+            paste(missing, collapse = ", "), call. = FALSE)
+  blank <- function(x) length(x) != 1 || is.na(x) || identical(as.character(x), "")
+  chr <- function(x) if (blank(x)) NULL else as.character(x)
+  num <- function(x) if (blank(x)) NULL else as.numeric(x)
+  layers <- lapply(seq_len(nrow(reg)), function(i) {
+    r <- reg[i, ]
+    j <- match(r$layer, sp$layer)
+    nms <- nm$name[nm$layer == r$layer]
+    list(
+      id = r$dataset_id, group = r$group, name = r$layer,
+      source = r$dataset_group, geom = r$geom_type,
+      # the filter expression reaches the style verbatim (a MapLibre expression the registry owns)
+      filter = if (blank(r$filter_expr)) NULL else jsonlite::fromJSON(r$filter_expr, simplifyVector = FALSE),
+      line_color = chr(r$line_color), fill_color = chr(r$fill_color),
+      line_width = num(r$line_width), fill_opacity = num(r$fill_opacity),
+      default_visible = isTRUE(as.logical(r$default_visible)),
+      name_field = chr(r$name_field), description = chr(r$description), attribution = chr(r$attribution),
+      n_features = if (is.na(j)) 0L else as.integer(sp$n_features[j]),
+      bbox = if (is.na(j)) NULL else round(c(sp$w[j], sp$s[j], sp$e[j], sp$n[j]), 4),
+      names = if (length(nms) >= 1 && length(nms) <= names_max) as.list(nms) else NULL,
+      n_memberships = { k <- match(r$layer, mem$layer); if (is.na(k)) 0L else as.integer(mem$n[k]) })
+  })
+  list(version = version, pmtiles_base = pmtiles_base,
+       built = if (is.null(built)) NULL else as.character(built), layers = layers)
+}

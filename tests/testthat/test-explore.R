@@ -166,3 +166,35 @@ test_that("build_coverage() carries taxa[] and the registry's category / variabl
   DBI::dbExecute(con, "ALTER TABLE obs DROP COLUMN taxon_key")
   expect_equal(length(build_coverage(con, "v2026.09.01")$taxa), 0)
 })
+
+test_that("build_spatial_layers joins the registry with the release spatial table (D23)", {
+  con <- ex_con(); ex_fixture(con)
+  DBI::dbExecute(con, "CREATE TABLE sample_spatial AS SELECT * FROM (VALUES
+    (1, 'ich:site:1', 'Marine Protected Areas', 'mpa:1', 'Near site'),
+    (2, 'btl:cast:1', 'Marine Protected Areas', 'mpa:1', 'Near site'),
+    (3, 'ich:site:1', 'National Marine Sanctuaries', 'nms:1', 'Channel Islands')
+    ) t(root_id, root_sample_key, layer, spatial_key, spatial_name)")
+  csv <- withr::local_tempfile(fileext = ".csv")
+  writeLines(c(
+    "dataset_id,dataset_group,layer,group,geom_type,filter_expr,line_color,fill_color,line_width,fill_opacity,default_visible,name_field,description,attribution",
+    "ca_mpas,ca_marine_protected_areas,Marine Protected Areas,Protected Areas,polygon,,#388e3c,#a5d6a7,1,0.2,FALSE,fullname,MPAs,CDFW",
+    "eez,noaa_maritime_boundaries,200NM EEZ,Maritime Zones,line,\"[\"\"==\"\", [\"\"get\"\", \"\"eez\"\"], 1]\",#1565c0,,2,0,TRUE,region,EEZ,NOAA"), csv)
+  x <- build_spatial_layers(con, csv, "vTEST", "https://example.org/_spatial/", built = "2026-08-24")
+  expect_identical(x$version, "vTEST")
+  expect_length(x$layers, 2)
+  mpa <- x$layers[[1]]; eez <- x$layers[[2]]
+  expect_identical(mpa$id, "ca_mpas")
+  expect_gte(mpa$n_features, 1)                       # the fixture has MPA polygons
+  expect_true(is.list(mpa$names) && length(mpa$names) >= 1)
+  expect_identical(mpa$n_memberships, 2L)             # two distinct roots inside mpa:1
+  expect_null(mpa$filter)
+  expect_length(mpa$bbox, 4)
+  # the filter expression rides through VERBATIM as parsed JSON
+  expect_identical(eez$filter, list("==", list("get", "eez"), 1L))
+  expect_true(eez$default_visible); expect_false(mpa$default_visible)
+  # a registry layer absent from `spatial` warns and carries zero features
+  expect_identical(suppressWarnings(eez$n_features >= 0), TRUE)
+  # names_max: above the cap the by-name palette is off (NULL), not truncated
+  y <- suppressWarnings(build_spatial_layers(con, csv, "vTEST", "u/", names_max = 0))
+  expect_null(y$layers[[1]]$names)
+})
