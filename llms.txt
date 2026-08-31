@@ -838,6 +838,11 @@ check for other functions or datasets not captured by above categories
 - [`check_registry_na_strings()`](https://calcofi.io/calcofi4db/reference/check_registry_na_strings.md)
   : Reject sentinel strings that should have been empty cells
 
+- [`check_seafloor_nulls()`](https://calcofi.io/calcofi4db/reference/check_seafloor_nulls.md)
+  :
+
+  Classify the samples whose `seafloor_depth_m` is NULL, by cause
+
 - [`clean_taxon_name()`](https://calcofi.io/calcofi4db/reference/clean_taxon_name.md)
   : Normalize a source taxon name for an authority lookup
 

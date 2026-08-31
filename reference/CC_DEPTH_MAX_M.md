@@ -10,7 +10,3 @@ error, not an observation.
 ``` r
 CC_DEPTH_MAX_M
 ```
-
-## Format
-
-An object of class `numeric` of length 1.

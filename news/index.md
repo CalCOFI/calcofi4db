@@ -1,5 +1,22 @@
 # Changelog
 
+## calcofi4db 3.27.0
+
+### The seafloor stamp streams, and an unexplained NULL is a gate (D29)
+
+- **[`sample_seafloor()`](https://calcofi.io/calcofi4db/reference/sample_seafloor.md)
+  accepts a `/vsicurl/` (or plain `https://`) GEBCO source**, so
+  `release_database.qmd`’s `depth_coverage` chunk can fall back to the
+  published `gebco_2025_sub_ice_n90_w180_e90_cog.tif` when
+  `CALCOFI_GEBCO_TIF` names no local file — the release no longer
+  depends on one laptop’s 933 MB download.
+- **`check_seafloor_nulls(con, source_bbox)`** classifies every `sample`
+  row whose `seafloor_depth_m` is NULL by cause — `no_coordinates` /
+  `nan_coordinate` / `outside_source_tile` / `inside_tile_null` — and
+  the release now **fails on any `inside_tile_null`**: a positioned
+  sample inside the sampled tile that reads NULL can only be a
+  regression in the sampling itself.
+
 ## calcofi4db 3.26.0
 
 ### One climatology for every anomaly

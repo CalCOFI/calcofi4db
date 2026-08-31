@@ -17,3 +17,8 @@ Useful links:
 
 **Maintainer**: Ben Best <ben@ecoquants.com>
 ([ORCID](https://orcid.org/0000-0002-2686-0784))
+
+Authors:
+
+- Ben Best <ben@ecoquants.com>
+  ([ORCID](https://orcid.org/0000-0002-2686-0784))

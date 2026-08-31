@@ -42,7 +42,7 @@ warrants."><!-- calcofi.io brand contract (https://calcofi.io/brand/v1/): pkgdow
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.26.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.27.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -109,7 +109,9 @@ warrants.</p>
 
 <dt id="arg-gebco-tif">gebco_tif<a class="anchor" aria-label="anchor" href="#arg-gebco-tif"></a></dt>
 <dd><p>Path to a GEBCO GeoTIFF (elevation, metres, negative below
-sea level). Any extent works; positions outside it return NA.</p></dd>
+sea level). Any extent works; positions outside it return NA. A
+<code>/vsicurl/...</code> (or <code>http(s)://</code>) source streams over GDAL's range reads —
+the release's fallback when no local tile is present (D29).</p></dd>
 
 
 <dt id="arg-sample-tbl-key-col-lon-col-lat-col">sample_tbl, key_col, lon_col, lat_col<a class="anchor" aria-label="anchor" href="#arg-sample-tbl-key-col-lon-col-lat-col"></a></dt>

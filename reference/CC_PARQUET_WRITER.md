@@ -8,7 +8,3 @@ RELEASES.md.
 ``` r
 CC_PARQUET_WRITER
 ```
-
-## Format
-
-An object of class `list` of length 3.

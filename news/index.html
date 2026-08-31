@@ -32,7 +32,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.26.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.27.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -67,6 +67,16 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.27.0" id="calcofi4db-3270">calcofi4db 3.27.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3270"></a></h2>
+<div class="section level3">
+<h3 id="the-seafloor-stamp-streams-and-an-unexplained-null-is-a-gate-d29-3-27-0">The seafloor stamp streams, and an unexplained NULL is a gate (D29)<a class="anchor" aria-label="anchor" href="#the-seafloor-stamp-streams-and-an-unexplained-null-is-a-gate-d29-3-27-0"></a></h3>
+<ul><li>
+<strong><code><a href="../reference/sample_seafloor.html">sample_seafloor()</a></code> accepts a <code>/vsicurl/</code> (or plain <code>https://</code>) GEBCO source</strong>, so <code>release_database.qmd</code>’s <code>depth_coverage</code> chunk can fall back to the published <code>gebco_2025_sub_ice_n90_w180_e90_cog.tif</code> when <code>CALCOFI_GEBCO_TIF</code> names no local file — the release no longer depends on one laptop’s 933 MB download.</li>
+<li>
+<strong><code>check_seafloor_nulls(con, source_bbox)</code></strong> classifies every <code>sample</code> row whose <code>seafloor_depth_m</code> is NULL by cause — <code>no_coordinates</code> / <code>nan_coordinate</code> / <code>outside_source_tile</code> / <code>inside_tile_null</code> — and the release now <strong>fails on any <code>inside_tile_null</code></strong>: a positioned sample inside the sampled tile that reads NULL can only be a regression in the sampling itself.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="3.26.0" id="calcofi4db-3260">calcofi4db 3.26.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3260"></a></h2>
 <div class="section level3">

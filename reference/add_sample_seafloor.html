@@ -38,7 +38,7 @@ GEOMETRY column (the geom on sample)."><!-- calcofi.io brand contract (https://c
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.26.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.27.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -102,7 +102,9 @@ GEBCO depth, see <code><a href="sample_seafloor.html">sample_seafloor()</a></cod
 
 <dt id="arg-gebco-tif">gebco_tif<a class="anchor" aria-label="anchor" href="#arg-gebco-tif"></a></dt>
 <dd><p>Path to a GEBCO GeoTIFF (elevation, metres, negative below
-sea level). Any extent works; positions outside it return NA.</p></dd>
+sea level). Any extent works; positions outside it return NA. A
+<code>/vsicurl/...</code> (or <code>http(s)://</code>) source streams over GDAL's range reads —
+the release's fallback when no local tile is present (D29).</p></dd>
 
 
 <dt id="arg-seafloor">seafloor<a class="anchor" aria-label="anchor" href="#arg-seafloor"></a></dt>

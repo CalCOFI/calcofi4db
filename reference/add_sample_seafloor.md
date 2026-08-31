@@ -28,7 +28,9 @@ add_sample_seafloor(
 - gebco_tif:
 
   Path to a GEBCO GeoTIFF (elevation, metres, negative below sea level).
-  Any extent works; positions outside it return NA.
+  Any extent works; positions outside it return NA. A `/vsicurl/...` (or
+  `http(s)://`) source streams over GDAL's range reads — the release's
+  fallback when no local tile is present (D29).
 
 - seafloor:
 

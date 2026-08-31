@@ -7,7 +7,3 @@ Objects a frozen release must contain before it can be promoted
 ``` r
 RELEASE_REQUIRED_OBJECTS
 ```
-
-## Format
-
-An object of class `character` of length 3.
