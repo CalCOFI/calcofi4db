@@ -60,7 +60,7 @@ row count, e.g. from freeze stats). Used as the denominator when computing
 per-dataset contribution percentages.}
 
 \item{measurement_datasets}{Optional named list, \code{measurement_type ->
-  character vector of provider_datasets} (typically from
+character vector of provider_datasets} (typically from
 \code{\link[=derive_measurement_type_datasets]{derive_measurement_type_datasets()}}). When supplied, it supersedes the
 per-type \code{_source_datasets} hint in \code{measurement_type_csv},
 giving the true one-to-many membership (e.g. \code{temperature} reported by

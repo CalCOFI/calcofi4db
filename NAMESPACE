@@ -57,6 +57,7 @@ export(check_measurement_bounds)
 export(check_multiple_datasets)
 export(check_registry_na_strings)
 export(check_release_complete)
+export(check_seafloor_nulls)
 export(check_taxon_ids)
 export(check_ungridded_obs)
 export(clean_taxon_name)
@@ -265,104 +266,136 @@ export(write_input_fingerprint)
 export(write_parquet_outputs)
 export(write_parquet_table)
 export(write_spatial_manifest)
-importFrom(DBI,Id)
-importFrom(DBI,dbConnect)
-importFrom(DBI,dbDisconnect)
-importFrom(DBI,dbExecute)
-importFrom(DBI,dbExistsTable)
-importFrom(DBI,dbGetInfo)
-importFrom(DBI,dbGetQuery)
-importFrom(DBI,dbListFields)
-importFrom(DBI,dbListTables)
-importFrom(DBI,dbQuoteIdentifier)
-importFrom(DBI,dbReadTable)
-importFrom(DBI,dbWriteTable)
-importFrom(DT,datatable)
-importFrom(DT,formatStyle)
-importFrom(DT,styleEqual)
-importFrom(arrow,read_parquet)
-importFrom(arrow,write_parquet)
+importFrom(DBI,
+  Id,
+  dbConnect,
+  dbDisconnect,
+  dbExecute,
+  dbExistsTable,
+  dbGetInfo,
+  dbGetQuery,
+  dbListFields,
+  dbListTables,
+  dbQuoteIdentifier,
+  dbReadTable,
+  dbWriteTable
+)
+importFrom(DT,
+  datatable,
+  formatStyle,
+  styleEqual
+)
+importFrom(arrow,
+  read_parquet,
+  write_parquet
+)
 importFrom(desc,description)
-importFrom(dm,dm_add_fk)
-importFrom(dm,dm_add_pk)
-importFrom(dm,dm_draw)
-importFrom(dm,dm_enum_pk_candidates)
-importFrom(dm,dm_from_con)
-importFrom(dm,dm_get_all_uks)
-importFrom(dm,dm_set_colors)
-importFrom(dplyr,anti_join)
-importFrom(dplyr,arrange)
-importFrom(dplyr,bind_rows)
-importFrom(dplyr,case_when)
-importFrom(dplyr,collect)
-importFrom(dplyr,desc)
-importFrom(dplyr,distinct)
-importFrom(dplyr,filter)
-importFrom(dplyr,full_join)
-importFrom(dplyr,group_by)
-importFrom(dplyr,inner_join)
-importFrom(dplyr,left_join)
-importFrom(dplyr,mutate)
-importFrom(dplyr,n)
-importFrom(dplyr,pull)
-importFrom(dplyr,row_number)
-importFrom(dplyr,select)
-importFrom(dplyr,slice)
-importFrom(dplyr,tbl)
-importFrom(dplyr,ungroup)
-importFrom(duckdb,dbConnect)
-importFrom(duckdb,dbDisconnect)
-importFrom(duckdb,dbWriteTable)
-importFrom(duckdb,duckdb)
+importFrom(dm,
+  dm_add_fk,
+  dm_add_pk,
+  dm_draw,
+  dm_enum_pk_candidates,
+  dm_from_con,
+  dm_get_all_uks,
+  dm_set_colors
+)
+importFrom(dplyr,
+  anti_join,
+  arrange,
+  bind_rows,
+  case_when,
+  collect,
+  desc,
+  distinct,
+  filter,
+  full_join,
+  group_by,
+  inner_join,
+  left_join,
+  mutate,
+  n,
+  pull,
+  row_number,
+  select,
+  slice,
+  tbl,
+  ungroup
+)
+importFrom(duckdb,
+  dbConnect,
+  dbDisconnect,
+  dbWriteTable,
+  duckdb
+)
 importFrom(fs,path_real)
 importFrom(glue,glue)
-importFrom(googledrive,drive_auth)
-importFrom(googledrive,drive_ls)
+importFrom(googledrive,
+  drive_auth,
+  drive_ls
+)
 importFrom(here,here)
 importFrom(htmltools,HTML)
 importFrom(janitor,make_clean_names)
-importFrom(jsonlite,fromJSON)
-importFrom(jsonlite,read_json)
-importFrom(jsonlite,toJSON)
-importFrom(jsonlite,write_json)
-importFrom(knitr,knit_print)
-importFrom(knitr,opts_chunk)
-importFrom(lubridate,POSIXct)
-importFrom(lubridate,as_datetime)
-importFrom(lubridate,now)
-importFrom(lubridate,year)
-importFrom(purrr,compact)
-importFrom(purrr,imap_dfr)
-importFrom(purrr,list_c)
-importFrom(purrr,map)
-importFrom(purrr,map2)
-importFrom(purrr,map2_chr)
-importFrom(purrr,map2_lgl)
-importFrom(purrr,map_chr)
-importFrom(purrr,map_dbl)
-importFrom(purrr,map_dfr)
-importFrom(purrr,map_int)
-importFrom(purrr,map_lgl)
-importFrom(purrr,pluck)
-importFrom(readr,col_character)
-importFrom(readr,cols)
-importFrom(readr,read_csv)
-importFrom(readr,write_csv)
-importFrom(rlang,"%||%")
-importFrom(rlang,hash)
-importFrom(rlang,parse_expr)
-importFrom(rlang,sym)
-importFrom(stringr,str_detect)
-importFrom(stringr,str_extract)
-importFrom(stringr,str_replace_all)
-importFrom(stringr,str_split)
-importFrom(stringr,str_to_title)
-importFrom(stringr,str_to_upper)
-importFrom(stringr,str_trim)
-importFrom(tibble,as_tibble)
-importFrom(tibble,deframe)
-importFrom(tibble,tibble)
+importFrom(jsonlite,
+  fromJSON,
+  read_json,
+  toJSON,
+  write_json
+)
+importFrom(knitr,
+  knit_print,
+  opts_chunk
+)
+importFrom(lubridate,
+  POSIXct,
+  as_datetime,
+  now,
+  year
+)
+importFrom(purrr,
+  compact,
+  imap_dfr,
+  list_c,
+  map,
+  map2,
+  map2_chr,
+  map2_lgl,
+  map_chr,
+  map_dbl,
+  map_dfr,
+  map_int,
+  map_lgl,
+  pluck
+)
+importFrom(readr,
+  col_character,
+  cols,
+  read_csv,
+  write_csv
+)
+importFrom(rlang,
+  "%||%",
+  hash,
+  parse_expr,
+  sym
+)
+importFrom(stringr,
+  str_detect,
+  str_extract,
+  str_replace_all,
+  str_split,
+  str_to_title,
+  str_to_upper,
+  str_trim
+)
+importFrom(tibble,
+  as_tibble,
+  deframe,
+  tibble
+)
 importFrom(tidyr,unnest)
-importFrom(uuid,UUIDfromName)
-importFrom(uuid,as.UUID)
+importFrom(uuid,
+  UUIDfromName,
+  as.UUID
+)
 importFrom(yaml,yaml.load)

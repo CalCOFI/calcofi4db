@@ -147,3 +147,36 @@ test_that("check_core_pk_unique() passes on unique keys and fails the release on
   DBI::dbExecute(con, "INSERT INTO sample SELECT * FROM sample WHERE sample_key = 'a:cast:1'")
   expect_error(check_core_pk_unique(con, c("sample", "cruise")), "sample\\(sample_key\\): 1 duplicate")
 })
+
+test_that("check_seafloor_nulls classifies every NULL by cause and gates only inside-tile ones", {
+  con <- get_duckdb_con(":memory:")
+  on.exit(DBI::dbDisconnect(con, shutdown = TRUE))
+  DBI::dbExecute(con, "CREATE TABLE sample AS SELECT * FROM (VALUES
+    ('a', 'ds1', -120.0,   33.0, NULL),          -- inside the tile, NULL  -> the gate
+    ('b', 'ds1',   NULL,   33.0, NULL),          -- no coordinates
+    ('c', 'ds2', -120.0,    NULL, NULL),         -- no coordinates
+    ('d', 'ds2', 'NaN'::DOUBLE, 33.0, NULL),     -- NaN coordinate
+    ('e', 'ds2',  -85.0,   33.0, NULL),          -- east of the source tile
+    ('f', 'ds2', -120.0,   33.0, 1234.0)         -- sampled fine: not listed
+  ) t(sample_key, dataset_key, longitude, latitude, seafloor_depth_m)")
+  x <- check_seafloor_nulls(con, source_bbox = c(-180, 0, -90, 90))
+  expect_setequal(x$cause, c("inside_tile_null", "no_coordinates", "nan_coordinate", "outside_source_tile"))
+  expect_equal(x$n[x$cause == "no_coordinates"], 2)
+  expect_equal(x$n[x$cause == "inside_tile_null"], 1)
+  expect_identical(attr(x, "n_inside_null"), 1)
+  expect_match(x$datasets[x$cause == "inside_tile_null"], "ds1")
+})
+
+test_that("sample_seafloor lets a /vsicurl/ path past the existence guard", {
+  con <- get_duckdb_con(":memory:")
+  on.exit(DBI::dbDisconnect(con, shutdown = TRUE))
+  DBI::dbExecute(con, "CREATE TABLE sample (sample_key TEXT, longitude DOUBLE, latitude DOUBLE)")
+  # a plain missing local path errors in OUR guard...
+  expect_error(sample_seafloor(con, "/no/such/file.tif"), "GEBCO tif not found")
+  # ...but a /vsicurl/ (or https://) source must reach terra: whatever an unreachable
+  # URL raises, it is not the guard's message
+  msg <- tryCatch(suppressWarnings(sample_seafloor(
+    con, "/vsicurl/https://storage.googleapis.com/definitely-not-a-bucket-xyz/nope.tif")),
+    error = function(e) conditionMessage(e))
+  expect_false(grepl("GEBCO tif not found", paste(msg, collapse = " ")))
+})

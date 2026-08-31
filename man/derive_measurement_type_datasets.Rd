@@ -12,7 +12,7 @@ derive_measurement_type_datasets(con, table_datasets, from_fn = identity)
 remote parquet over httpfs.}
 
 \item{table_datasets}{Named list, \code{table -> character vector of
-  provider_datasets}. Typically built from the ingest YAML \code{tables_owned}
+provider_datasets}. Typically built from the ingest YAML \code{tables_owned}
 or the metadata \code{contributions} block.}
 
 \item{from_fn}{Function mapping a table name to a SQL FROM source. Defaults to

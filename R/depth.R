@@ -38,7 +38,9 @@ CC_DEPTH_MAX_M <- 6500
 #'
 #' @param con DBI connection holding `sample_tbl`.
 #' @param gebco_tif Path to a GEBCO GeoTIFF (elevation, metres, negative below
-#'   sea level). Any extent works; positions outside it return NA.
+#'   sea level). Any extent works; positions outside it return NA. A
+#'   `/vsicurl/...` (or `http(s)://`) source streams over GDAL's range reads —
+#'   the release's fallback when no local tile is present (D29).
 #' @param sample_tbl,key_col,lon_col,lat_col Table and columns to read.
 #' @return A data.frame: `<key_col>`, `seafloor_depth_m`, `seafloor_max3x3_m`.
 #' @export
@@ -50,7 +52,8 @@ sample_seafloor <- function(con, gebco_tif,
                             lon_col = "longitude", lat_col = "latitude") {
   if (!requireNamespace("terra", quietly = TRUE))
     stop("sample_seafloor() needs the `terra` package", call. = FALSE)
-  if (!file.exists(gebco_tif))
+  if (grepl("^https?://", gebco_tif)) gebco_tif <- paste0("/vsicurl/", gebco_tif)
+  if (!grepl("^/vsi", gebco_tif) && !file.exists(gebco_tif))
     stop("GEBCO tif not found: ", gebco_tif, call. = FALSE)
   pos <- DBI::dbGetQuery(con, glue::glue(
     "SELECT {key_col} AS key, {lon_col} AS lon, {lat_col} AS lat
@@ -279,4 +282,45 @@ check_depth_vs_seafloor <- function(con, seafloor, sample_tbl = "sample",
   out <- tibble::as_tibble(out)
   attr(out, "summary") <- tibble::as_tibble(smry)
   out
+}
+
+#' Classify the samples whose `seafloor_depth_m` is NULL, by cause
+#'
+#' After [add_sample_seafloor()], a `NULL` seafloor can mean four different
+#' things, and only one of them is acceptable to ship silently. This returns one
+#' row per cause with its count — `no_coordinates` (lon or lat NULL),
+#' `nan_coordinate`, `outside_source_tile` (the position genuinely falls off the
+#' GEBCO tile that was sampled) — and `inside_tile_null`, a position **inside**
+#' the tile that still reads NULL, which can only be a regression in the
+#' sampling itself. Gate on that one:
+#' `stopifnot(attr(x, "n_inside_null") == 0)` (D29, 2026-08-31).
+#'
+#' @param con DBI connection holding `sample_tbl` after [add_sample_seafloor()].
+#' @param source_bbox `c(w, s, e, n)` of the GEBCO source that was sampled —
+#'   the full sub-ice tile `c(-180, 0, -90, 90)` by default.
+#' @param sample_tbl,lon_col,lat_col Table and columns to read.
+#' @return data.frame `cause`, `n` (plus a `datasets` summary column for the
+#'   inside-tile rows); attribute `n_inside_null` carries the gate value.
+#' @export
+#' @concept validation
+check_seafloor_nulls <- function(con, source_bbox = c(-180, 0, -90, 90),
+                                 sample_tbl = "sample",
+                                 lon_col = "longitude", lat_col = "latitude") {
+  q <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT
+       CASE
+         WHEN {lon_col} IS NULL OR {lat_col} IS NULL THEN 'no_coordinates'
+         WHEN isnan({lon_col}) OR isnan({lat_col})   THEN 'nan_coordinate'
+         WHEN {lon_col} < {source_bbox[1]} OR {lon_col} > {source_bbox[3]}
+           OR {lat_col} < {source_bbox[2]} OR {lat_col} > {source_bbox[4]}
+                                                     THEN 'outside_source_tile'
+         ELSE 'inside_tile_null'
+       END AS cause,
+       COUNT(*) AS n,
+       string_agg(DISTINCT dataset_key, ', ') AS datasets
+     FROM {sample_tbl}
+     WHERE seafloor_depth_m IS NULL
+     GROUP BY 1 ORDER BY 1"))
+  attr(q, "n_inside_null") <- sum(q$n[q$cause == "inside_tile_null"])
+  q
 }

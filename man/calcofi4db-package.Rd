@@ -19,5 +19,10 @@ Useful links:
 \author{
 \strong{Maintainer}: Ben Best \email{ben@ecoquants.com} (\href{https://orcid.org/0000-0002-2686-0784}{ORCID})
 
+Authors:
+\itemize{
+  \item Ben Best \email{ben@ecoquants.com} (\href{https://orcid.org/0000-0002-2686-0784}{ORCID})
+}
+
 }
 \keyword{internal}

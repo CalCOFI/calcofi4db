@@ -17,7 +17,9 @@ sample_seafloor(
 \item{con}{DBI connection holding \code{sample_tbl}.}
 
 \item{gebco_tif}{Path to a GEBCO GeoTIFF (elevation, metres, negative below
-sea level). Any extent works; positions outside it return NA.}
+sea level). Any extent works; positions outside it return NA. A
+\verb{/vsicurl/...} (or \verb{http(s)://}) source streams over GDAL's range reads —
+the release's fallback when no local tile is present (D29).}
 
 \item{sample_tbl, key_col, lon_col, lat_col}{Table and columns to read.}
 }
