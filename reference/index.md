@@ -525,6 +525,12 @@ check for other functions or datasets not captured by above categories
 - [`build_sample_spatial()`](https://calcofi.io/calcofi4db/reference/build_sample_spatial.md)
   : Exact polygon membership of every root sample, one layer at a time
 
+- [`build_spatial_layers()`](https://calcofi.io/calcofi4db/reference/build_spatial_layers.md)
+  :
+
+  The explorer's boundary-layer sidecar: the registry joined with the
+  release's `spatial` table
+
 - [`build_taxon_group()`](https://calcofi.io/calcofi4db/reference/build_taxon_group.md)
   :
 

@@ -32,7 +32,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.27.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.28.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -67,6 +67,14 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.28.0" id="calcofi4db-3280">calcofi4db 3.28.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3280"></a></h2>
+<div class="section level3">
+<h3 id="the-boundary-layers-are-described-by-the-release-not-hard-coded-explorer-plan-d23-3-28-0">The boundary layers are described by the release, not hard-coded (explorer plan D23)<a class="anchor" aria-label="anchor" href="#the-boundary-layers-are-described-by-the-release-not-hard-coded-explorer-plan-d23-3-28-0"></a></h3>
+<ul><li>
+<strong><code>build_spatial_layers(con, registry_csv, version, pmtiles_base)</code></strong> writes the explorer’s <code>spatial_layers.json</code> sidecar: <code>metadata/spatial_layers.csv</code> verbatim (id, group, geometry, the MapLibre filter expression, default symbology, attribution) joined with what only the release knows — each layer’s feature count, bbox, its sorted distinct <code>name</code>s when ≤ 200 (the by-name palette), and <code>n_memberships</code> from <code>sample_spatial</code> (the Regions lens lists exactly the layers that can summarize something). <code>release_database.qmd</code>’s <code>browser_objects</code> chunk ships it beside <code>coverage.json</code>.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="3.27.0" id="calcofi4db-3270">calcofi4db 3.27.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3270"></a></h2>
 <div class="section level3">

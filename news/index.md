@@ -1,5 +1,19 @@
 # Changelog
 
+## calcofi4db 3.28.0
+
+### The boundary layers are described by the release, not hard-coded (explorer plan D23)
+
+- **`build_spatial_layers(con, registry_csv, version, pmtiles_base)`**
+  writes the explorer’s `spatial_layers.json` sidecar:
+  `metadata/spatial_layers.csv` verbatim (id, group, geometry, the
+  MapLibre filter expression, default symbology, attribution) joined
+  with what only the release knows — each layer’s feature count, bbox,
+  its sorted distinct `name`s when ≤ 200 (the by-name palette), and
+  `n_memberships` from `sample_spatial` (the Regions lens lists exactly
+  the layers that can summarize something). `release_database.qmd`’s
+  `browser_objects` chunk ships it beside `coverage.json`.
+
 ## calcofi4db 3.27.0
 
 ### The seafloor stamp streams, and an unexplained NULL is a gate (D29)
