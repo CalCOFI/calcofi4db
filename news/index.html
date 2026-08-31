@@ -32,7 +32,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.25.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.26.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -67,6 +67,14 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="3.26.0" id="calcofi4db-3260">calcofi4db 3.26.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3260"></a></h2>
+<div class="section level3">
+<h3 id="one-climatology-for-every-anomaly-3-26-0">One climatology for every anomaly<a class="anchor" aria-label="anchor" href="#one-climatology-for-every-anomaly-3-26-0"></a></h3>
+<ul><li>
+<strong><code>build_climatology(con, qual_ok_sql)</code></strong> — the release’s new <strong><code>climatology</code></strong> table: a plain mean per <strong>dataset × station (<code>grid_key</code>) × calendar month × 10 m floor depth bin × measurement type</strong> over the env realm of <code>obs</code>, across <strong>1993–2013</strong> (stamped on every row as <code>clim_yr_min</code> / <code>clim_yr_max</code>), kept only where <strong>≥ 3 distinct cruises</strong> contribute (<code>n_cruises</code>; <code>clim_n</code> and <code>clim_sd</code> ship too). Partitioned by <code>measurement_type</code> like <code>obs_env</code>, so a browser fetches one variable’s baseline. ctd-transects, the Explorer’s Sections lens and <code>calcofi4r::cc_climatology()</code> now subtract this table instead of each computing their own — three implementations had drifted (all-months pooling, 5 m bins over a thinned 10 m series, one arbitrary cast per grid cell), and the same July 2026 section read +1.4 °C in one product and ~0 in another for reasons unrelated to the ocean. <code><a href="../reference/release_sort_keys.html">release_sort_keys()</a></code> registers it. Tested rule by rule (window, month, floor bins, cruise floor, quality predicate, per-dataset rows, n-weighted pooling ≡ the pooled mean).</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="3.25.0" id="calcofi4db-3250">calcofi4db 3.25.0<a class="anchor" aria-label="anchor" href="#calcofi4db-3250"></a></h2>
 <div class="section level3">

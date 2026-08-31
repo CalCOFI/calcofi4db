@@ -1,5 +1,28 @@
 # Changelog
 
+## calcofi4db 3.26.0
+
+### One climatology for every anomaly
+
+- **`build_climatology(con, qual_ok_sql)`** — the release’s new
+  **`climatology`** table: a plain mean per **dataset × station
+  (`grid_key`) × calendar month × 10 m floor depth bin × measurement
+  type** over the env realm of `obs`, across **1993–2013** (stamped on
+  every row as `clim_yr_min` / `clim_yr_max`), kept only where **≥ 3
+  distinct cruises** contribute (`n_cruises`; `clim_n` and `clim_sd`
+  ship too). Partitioned by `measurement_type` like `obs_env`, so a
+  browser fetches one variable’s baseline. ctd-transects, the Explorer’s
+  Sections lens and `calcofi4r::cc_climatology()` now subtract this
+  table instead of each computing their own — three implementations had
+  drifted (all-months pooling, 5 m bins over a thinned 10 m series, one
+  arbitrary cast per grid cell), and the same July 2026 section read
+  +1.4 °C in one product and ~0 in another for reasons unrelated to the
+  ocean.
+  [`release_sort_keys()`](https://calcofi.io/calcofi4db/reference/release_sort_keys.md)
+  registers it. Tested rule by rule (window, month, floor bins, cruise
+  floor, quality predicate, per-dataset rows, n-weighted pooling ≡ the
+  pooled mean).
+
 ## calcofi4db 3.25.0
 
 ### `coverage.json` carries taxa and categories (explorer UI plan D14)

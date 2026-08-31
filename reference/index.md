@@ -487,6 +487,11 @@ check for other functions or datasets not captured by above categories
 - [`assign_grid_key()`](https://calcofi.io/calcofi4db/reference/assign_grid_key.md)
   : Assign Grid Key via Spatial Join
 
+- [`build_climatology()`](https://calcofi.io/calcofi4db/reference/build_climatology.md)
+  :
+
+  Build the release's `climatology` table
+
 - [`build_coverage()`](https://calcofi.io/calcofi4db/reference/build_coverage.md)
   : The coverage cube behind the explorer's first paint
 
