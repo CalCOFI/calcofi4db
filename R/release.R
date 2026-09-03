@@ -429,6 +429,8 @@ build_versions_json <- function(bucket, prefix = CC_RELEASE_PREFIX,
       tables       = length(cat_$tables),
       total_rows   = as.numeric(cat_$total_rows %||% 0),
       size_mb      = round((cat_$total_size %||% 0) / 1024 / 1024, 1))
+    # the version DOI, once publish_release_notes() has written it into the catalog
+    if (!is.null(cat_$doi) && nzchar(cat_$doi)) rec$doi <- cat_$doi
     ret <- tryCatch(jsonlite::fromJSON(https(sprintf("%s/%s/retired.json", prefix, v)),
                                        simplifyVector = FALSE), error = function(e) NULL)
     if (!is.null(ret)) rec$retired <- ret

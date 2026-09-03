@@ -9,7 +9,11 @@ publish_release_notes(
   releases_md,
   dir_releases,
   bucket = "calcofi-db",
-  pkg_versions = NULL
+  pkg_versions = NULL,
+  prefix = "ducklake/releases",
+  zenodo = !is.null(bucket),
+  release_policy = NULL,
+  fetch = NULL
 )
 }
 \arguments{
@@ -22,6 +26,17 @@ publish_release_notes(
 \item{bucket}{GCS bucket (default \code{"calcofi-db"}); \code{NULL} to skip upload.}
 
 \item{pkg_versions}{see \code{\link[=render_release_notes]{render_release_notes()}}.}
+
+\item{prefix}{the release prefix on the bucket (a staging run passes
+\code{ducklake-staging/releases}).}
+
+\item{zenodo}{look the version's DOI up on Zenodo (default: when uploading).}
+
+\item{release_policy}{path to \code{metadata/release_policy.yml}, whose
+\code{consolidated} list \code{\link[=build_versions_json]{build_versions_json()}} stamps when \code{versions.json} is
+rebuilt; default: beside \code{releases_md}.}
+
+\item{fetch}{the HTTP function passed to \code{\link[=zenodo_doi_for_tag]{zenodo_doi_for_tag()}} (tests).}
 }
 \value{
 Invisibly, the local RELEASE_NOTES.md path.
@@ -30,7 +45,15 @@ Invisibly, the local RELEASE_NOTES.md path.
 Notes-only: renders from \code{RELEASES.md} + the version's local sidecars,
 writes \code{dir_releases/{version}/RELEASE_NOTES.md}, and uploads it and
 \code{RELEASES.md} to the bucket with \code{cache-control: no-cache}. Safe to run for
-any version at any time — it never touches data, \code{catalog.json} or
-\code{latest.txt}.
+any version at any time — it never touches data or \code{latest.txt}.
+}
+\details{
+The one exception is the release's DOI. Zenodo mints it minutes after the
+GitHub release is tagged, so when \code{zenodo = TRUE} this asks
+\code{\link[=zenodo_doi_for_tag]{zenodo_doi_for_tag()}} for it and, the first time it answers, writes it into
+the local and published \code{catalog.json} (\code{doi} + \code{citation}, via
+\code{\link[=add_release_citation]{add_release_citation()}}; the objects are untouched) and rebuilds
+\code{versions.json} so the version's record carries \code{doi} — the notes then cite
+the DOI. Nothing changes when Zenodo has no record yet or already agrees.
 }
 \concept{release}

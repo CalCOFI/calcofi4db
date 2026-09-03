@@ -1711,6 +1711,11 @@ write_parquet_outputs <- function(
 #'   each with `table` and optional `shared` (logical) / `note`. When supplied,
 #'   a `contributions` block (per-table row counts) is emitted for these tables
 #'   only, so reference tables loaded from prior ingests are not mis-attributed.
+#' @param sources Optional table from [stamp_source_access()] — when the ingest
+#'   read its sources, and how (`download` / `file_mtime`). Written as
+#'   `sources[]`; the release takes the newest stamp as the dataset's measured
+#'   `source_accessed` ([resolve_source_accessed()]), falling back to the
+#'   sidecar's git history when absent.
 #'
 #' @return Path to the created `metadata.json` file
 #' @export
@@ -1745,7 +1750,8 @@ build_metadata_json <- function(
     provider      = NULL,
     dataset       = NULL,
     workflow_url  = NULL,
-    tables_owned  = NULL) {
+    tables_owned  = NULL,
+    sources       = NULL) {
 
   # get tables from duckdb if not specified
   if (is.null(tables)) {
@@ -1934,6 +1940,8 @@ build_metadata_json <- function(
     tables         = tables_meta,
     columns        = columns_meta)
   if (!is.null(contributions)) metadata$contributions <- contributions
+  # when the sources were read, measured at the point of reading (R/citation.R)
+  if (!is.null(sources) && nrow(sources)) metadata$sources <- sources_block(sources)
 
   # write json
   if (!dir.exists(output_dir)) {
@@ -2458,7 +2466,18 @@ ingest_yaml_to_dataset_df <- function(ingest_yaml) {
       coverage_temporal = s(m$coverage_temporal),
       coverage_spatial  = s(m$coverage_spatial),
       license           = s(m$license),
-      pi_names          = s(m$pi_names))
+      pi_names          = s(m$pi_names),
+      # the attribution contract (2026-09-03, R/citation.R) — additive, appended so
+      # nothing above moves: `doi` bare (`10.…/…`, must resolve), `license` an id
+      # from metadata/license.csv with `license_url` for `custom`, `acknowledgement`
+      # the credit prose a source requires (it used to sit in citation_others),
+      # `contact` a provider-chosen URL/mailto. All checked by
+      # check_dataset_citation(); `source_accessed` is measured at release time,
+      # not authored here.
+      doi               = s(m$doi),
+      license_url       = s(m$license_url),
+      acknowledgement   = s(m$acknowledgement),
+      contact           = s(m$contact))
   }
 
   for (key in names(ingest_yaml)) {
@@ -2481,6 +2500,16 @@ ingest_yaml_to_dataset_df <- function(ingest_yaml) {
     if (is.character(v) && length(v) == 1 && (is.na(v) || v == "")) return(NULL)
     v
   }
+  # a list of ADDITIONAL citations (methods papers), always serialized as an
+  # array — a scalar in the YAML becomes a one-element list so a consumer never
+  # has to branch on string-vs-array. Credit prose belongs in `acknowledgement`.
+  pick_list <- function(k) {
+    v <- unlist(m[[k]])
+    v <- as.character(v[!is.na(v)])
+    v <- v[nzchar(trimws(v))]
+    if (!length(v)) return(NULL)
+    as.list(v)
+  }
   list(
     provider          = provider,
     dataset           = dataset,
@@ -2490,12 +2519,18 @@ ingest_yaml_to_dataset_df <- function(ingest_yaml) {
     color             = pick("color"),
     description       = pick("description"),
     citation_main     = pick("citation_main"),
+    citation_others   = pick_list("citation_others"),
     link_calcofi_org  = pick("link_calcofi_org"),
     link_data_source  = pick("link_data_source"),
     coverage_temporal = pick("coverage_temporal"),
     coverage_spatial  = pick("coverage_spatial"),
     license           = pick("license"),
-    pi_names          = pick("pi_names"))
+    pi_names          = pick("pi_names"),
+    # the attribution contract (R/citation.R): additive keys, dropped when empty
+    doi               = pick("doi"),
+    license_url       = pick("license_url"),
+    acknowledgement   = pick("acknowledgement"),
+    contact           = pick("contact"))
 }
 
 #' Merge Per-Ingest metadata.json into a Release-Level Sidecar
