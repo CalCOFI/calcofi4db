@@ -19,4 +19,12 @@ for further interpolation" and flip \code{is_canonical} to FALSE without a bare
 matching how \code{\link[=read_measurement_type]{read_measurement_type()}} reads it, so no type coercion happens
 here that the registry's own round trip does not already do.
 }
+\details{
+\code{nerc_p01} / \code{units_nerc_p06} followed in 3.32.0 (WS-H2, pre-release decision
+D-S2): the controlled-vocabulary ids a portal export needs — OBIS/DwC eMoF's
+\code{measurementTypeID} (NERC BODC Parameter Usage Vocabulary P01) and
+\code{measurementUnitID} (NERC P06). Both hold the \strong{full concept URI}, and both
+are filled only on an exact vocabulary match, so an empty cell means "no
+concept states exactly what this type is", never "not looked at".
+}
 \keyword{internal}

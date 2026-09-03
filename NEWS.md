@@ -1,3 +1,27 @@
+# calcofi4db 3.32.0
+
+## `declare_measurement_fields()` also sets the NERC vocabulary ids (pre-release plan D-S2)
+
+- **`nerc_p01` and `units_nerc_p06` join the declarable fields.** They are the two ids a Darwin
+  Core / OBIS ENV-DATA eMoF export needs and could not get: `measurementTypeID` (NERC BODC
+  Parameter Usage Vocabulary, P01) and `measurementUnitID` (NERC P06).
+  `publish_ichthyo_to-obis.qmd` wrote `measurementTypeID = NA_character_` on every extended
+  measurement because there was nowhere for the id to live; now there is, and it is the same
+  registry the release publishes.
+- **Both hold the full concept URI, and the collection is checked.** `nerc_uri_prefixes()` pins
+  `nerc_p01` to `http://vocab.nerc.ac.uk/collection/P01/current/<CODE>/` and `units_nerc_p06` to
+  the P06 collection; a P06 unit URI pasted into the P01 column — a plausible-looking string that
+  would otherwise reach a portal export intact — is now an error, as is a bare concept code.
+- **Empty means "no concept says exactly this".** The fill rule is an *exact* vocabulary match: a
+  concept every one of whose stated facets (quantity, matrix, phase, method) the registry or the
+  dataset's documented protocol actually supplies. A generic concept is an exact match at coarser
+  specificity (`TEMPPR01`, *Temperature of the water body*); one that adds a facet nobody recorded
+  is not. Inventing an id to fill the column is the same mistake as inventing a bound to quiet
+  `check_measurement_bounds()`.
+- Unchanged otherwise: the function still touches only the declared columns, only on rows that
+  already exist, refuses an unknown `measurement_type`, needs `overwrite = TRUE` to replace a
+  declared value, and writes with `na = ""`.
+
 # calcofi4db 3.31.0
 
 ## `obs_bio` + `obs_env` are the observation store; `obs` is a view the catalog carries (pre-release plan D-S1)

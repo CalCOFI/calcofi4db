@@ -287,3 +287,49 @@ test_that("declare_measurement_fields() also sets derivation / is_canonical on e
   d2 <- declare_measurement_fields(data.frame(measurement_type = "r_temperature", is_canonical = "TRUE"), p, overwrite = TRUE, quiet = TRUE)
   expect_identical(d2$is_canonical[d2$measurement_type == "r_temperature"], TRUE)
 })
+
+# ---- declare_measurement_fields(): the NERC vocabulary ids (WS-H2, 2026-09-03 — decision D-S2) ----
+test_that("declare_measurement_fields() sets nerc_p01 / units_nerc_p06 and rejects a wrong-collection URI", {
+  p <- withr::local_tempfile(fileext = ".csv")
+  # a registry predating both columns, like measurement_type.csv before this change
+  readr::write_csv(data.frame(measurement_type = c("temperature", "nitrate"),
+                              units = c("degC", "umol/L")), p, na = "")
+  p01 <- "http://vocab.nerc.ac.uk/collection/P01/current/TEMPPR01/"
+  p06 <- "http://vocab.nerc.ac.uk/collection/P06/current/UPAA/"
+  d <- declare_measurement_fields(
+    data.frame(measurement_type = "temperature", nerc_p01 = p01, units_nerc_p06 = p06),
+    p, quiet = TRUE)
+  expect_true(all(c("nerc_p01", "units_nerc_p06") %in% names(d)))
+  expect_identical(d$nerc_p01[d$measurement_type == "temperature"], p01)
+  expect_identical(d$units_nerc_p06[d$measurement_type == "temperature"], p06)
+  # a type with no exact concept stays EMPTY — and empty, not the string "NA"
+  expect_true(is.na(d$nerc_p01[d$measurement_type == "nitrate"]))
+  expect_false(any(grepl("^NA$", readLines(p))))
+
+  # the point of the prefix check: a P06 unit URI in the P01 column is a
+  # plausible-looking string that would otherwise reach an OBIS eMoF export intact
+  expect_error(declare_measurement_fields(
+    data.frame(measurement_type = "nitrate", nerc_p01 = p06), p), "must be a full NERC concept URI")
+  # a bare concept code is not a URI
+  expect_error(declare_measurement_fields(
+    data.frame(measurement_type = "nitrate", nerc_p01 = "NTRAZZXX"), p), "must be a full NERC concept URI")
+  # ...nor is a URI missing its trailing slash
+  expect_error(declare_measurement_fields(
+    data.frame(measurement_type = "nitrate",
+               nerc_p01 = "http://vocab.nerc.ac.uk/collection/P01/current/NTRAZZXX"), p),
+    "must be a full NERC concept URI")
+  expect_error(declare_measurement_fields(
+    data.frame(measurement_type = "nitrate", units_nerc_p06 = p01), p), "must be a full NERC concept URI")
+
+  # same overwrite discipline as the other declarable fields
+  expect_error(declare_measurement_fields(
+    data.frame(measurement_type = "temperature",
+               nerc_p01 = "http://vocab.nerc.ac.uk/collection/P01/current/TEMPST01/"), p),
+    "already-declared")
+  d2 <- declare_measurement_fields(
+    data.frame(measurement_type = "temperature",
+               nerc_p01 = "http://vocab.nerc.ac.uk/collection/P01/current/TEMPST01/"),
+    p, overwrite = TRUE, quiet = TRUE)
+  expect_identical(d2$nerc_p01[d2$measurement_type == "temperature"],
+                   "http://vocab.nerc.ac.uk/collection/P01/current/TEMPST01/")
+})

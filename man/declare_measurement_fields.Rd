@@ -2,7 +2,7 @@
 % Please edit documentation in R/registry.R
 \name{declare_measurement_fields}
 \alias{declare_measurement_fields}
-\title{Declare \code{category} / \code{variable} / \code{derivation} / \code{is_canonical} on measurement types that already exist}
+\title{Declare \code{category} / \code{variable} / \code{derivation} / \code{is_canonical} / NERC ids on measurement types that already exist}
 \usage{
 declare_measurement_fields(
   fields,
@@ -14,8 +14,9 @@ declare_measurement_fields(
 }
 \arguments{
 \item{fields}{data.frame with \code{measurement_type} and at least one of
-\code{category}, \code{variable}, \code{derivation}, \code{is_canonical}
-(\code{\link[=declarable_measurement_fields]{declarable_measurement_fields()}}). \code{NA} leaves that field as it is.}
+\code{category}, \code{variable}, \code{derivation}, \code{is_canonical}, \code{nerc_p01},
+\code{units_nerc_p06} (\code{\link[=declarable_measurement_fields]{declarable_measurement_fields()}}). \code{NA} leaves that
+field as it is.}
 
 \item{path}{path to \code{metadata/measurement_type.csv}}
 
@@ -31,7 +32,7 @@ FALSE)}
 The full updated registry, invisibly if nothing changed.
 }
 \description{
-Four descriptive columns, none of them an ingest's own definition:
+Six descriptive columns, none of them an ingest's own definition:
 \itemize{
 \item \code{category} — one of the registered categories (\code{metadata/category.csv}:
 \emph{Physical Oceanography}, \emph{Nutrients & Chemistry}, \emph{Carbonate System},
@@ -48,9 +49,25 @@ and the CTD's \code{temperature_ave}), which the explorer carried in
 selection; a provider-confirmed fact like "the bottle's \verb{r_*} series are
 interpolated, so they are not canonical" belongs here, not in an ingest's
 own literal.
+\item \code{nerc_p01} — the NERC BODC Parameter Usage Vocabulary (P01) concept URI
+that a DwC/OBIS eMoF export emits as \code{measurementTypeID}.
+\item \code{units_nerc_p06} — the NERC P06 unit concept URI, emitted as
+\code{measurementUnitID}.
 }
 }
 \details{
+The two vocabulary columns are validated against
+\code{\link[=nerc_uri_prefixes]{nerc_uri_prefixes()}}: a value must be a full concept URI in the right
+collection (\verb{.../collection/P01/current/<CODE>/}). They are filled \strong{only on
+an exact vocabulary match} — a concept every one of whose stated facets
+(quantity, matrix, phase, method) the registry or the dataset's documented
+protocol actually supplies. A generic concept is an exact match at coarser
+specificity (\code{TEMPPR01}, \emph{Temperature of the water body}); a concept that
+adds a facet nobody recorded is not. So an empty cell means "no concept says
+exactly this", never "not looked at", and inventing one to fill the column is
+the same mistake as inventing a bound to quiet
+\code{\link[=check_measurement_bounds]{check_measurement_bounds()}}.
+
 Like \code{\link[=declare_measurement_bounds]{declare_measurement_bounds()}} this changes \strong{only} these columns,
 only on rows that already exist, refuses an unknown \code{measurement_type}, and
 writes with \code{na = ""}. A registry predating a column gains it.
