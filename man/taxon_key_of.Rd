@@ -4,27 +4,37 @@
 \alias{taxon_key_of}
 \title{Encode an authority-prefixed \code{taxon_key}}
 \usage{
-taxon_key_of(worms_id, itis_id = NA_integer_, is_bird = FALSE)
+taxon_key_of(worms_id, itis_id = NA_integer_, class = NA_character_)
 }
 \arguments{
 \item{worms_id}{integer WoRMS AphiaID(s) (NA where unknown)}
 
 \item{itis_id}{integer ITIS TSN(s) (NA where unknown)}
 
-\item{is_bird}{logical; TRUE for class Aves, forcing the \verb{itis:} prefix}
+\item{class}{character; the taxon's class from the lineage (\code{"Aves"} selects
+the \verb{itis:} authority). NA means "not known to be Aves".}
 }
 \value{
-character vector of \code{taxon_key}s (NA where neither id resolves)
+character vector of \code{taxon_key}s (NA where no authority id resolves)
 }
 \description{
-The single rule for minting the global taxon key: \strong{\verb{worms:<worms_id>} for all
-taxa, except birds (\code{is_bird = TRUE}, i.e. class Aves) which key on
-\verb{itis:<itis_id>}}. Falls back to \verb{itis:} when no \code{worms_id} is present, and to
-\code{NA} when neither id resolves (callers then apply a dataset-local key). All
-prefixes are lowercase. Vectorized.
+The single rule for minting the global taxon key, stated once:
+}
+\details{
+A taxon keys itis:<tsn> exactly when its class is Aves and an acceptedTSN resolves; otherwise worms:<aphia>; otherwise NA, which callersturn into the dataset-local fallback <dataset_key>:<code> thatcheck_taxon_ids() refuses unless allow-listed.
+
+The class is a fact from the authority's classification (staged by
+\code{\link[=ensure_taxon_lineage]{ensure_taxon_lineage()}}), not a flag a source declares: only one dataset
+ever carried an \code{is_bird} column, so Aves reaching the release through any
+other dataset would have keyed \verb{worms:} and one species could have carried two
+keys. Birds key on ITIS because WoRMS bird taxonomy lags (it still says
+\emph{Oceanodroma}, \emph{Puffinus}, \emph{Phalacrocorax}). A bird with no accepted TSN keys
+\verb{worms:} and gets a note in \code{taxon.notes} — visible, not silent. All prefixes
+are lowercase. Vectorized over the ids; \code{class} recycles.
 }
 \examples{
-taxon_key_of(217452L, 161729L)              # "worms:217452"  (Pacific sardine)
-taxon_key_of(137179L, 174715L, is_bird = TRUE)  # "itis:174715"  (Great Cormorant)
+taxon_key_of(217452L, 161729L)                       # "worms:217452"  (Pacific sardine)
+taxon_key_of(137179L, 174715L, class = "Aves")       # "itis:174715"   (Great Cormorant)
+taxon_key_of(137179L, NA_integer_, class = "Aves")   # "worms:137179"  (a bird with no TSN)
 }
 \concept{taxonomy}

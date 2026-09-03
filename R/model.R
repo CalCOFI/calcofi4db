@@ -563,10 +563,18 @@ ensure_measurement_taxon <- function(con, measurement_taxon = NULL,
     if (!is.null(dataset_key))
       mt <- mt[mt$dataset_key %in% dataset_key, , drop = FALSE]
   }
-  # composites are non-bird, so worms: wins where an AphiaID resolves, itis: else.
-  # guard the empty case: taxon_key_of() recycles to the length of its longest
-  # argument, and the scalar `is_bird` would make a 1-row key for a 0-row frame.
-  mt$taxon_key <- if (nrow(mt)) taxon_key_of(mt$worms_id, mt$itis_id, FALSE) else character()
+  # the same rule resolve_dataset_taxon() applies: worms: where an AphiaID
+  # resolves, itis: where the STAGED lineage says class Aves and a TSN is
+  # present (taxon plan D2). Every row of today's registry carries an AphiaID;
+  # a TSN-only composite keys nothing until ensure_taxon_lineage() has run.
+  mt$worms_id <- suppressWarnings(as.integer(mt$worms_id))
+  mt$itis_id  <- suppressWarnings(as.integer(mt$itis_id))
+  mt$taxon_key <- if (nrow(mt)) {
+    cls <- .class_from_flat(con, data.frame(
+      worms_id = mt$worms_id, itis_id = mt$itis_id, class = NA_character_,
+      stringsAsFactors = FALSE))
+    taxon_key_of(mt$worms_id, mt$itis_id, cls)
+  } else character()
   .replace_table(con, tbl, as.data.frame(mt))
   invisible(tbl)
 }

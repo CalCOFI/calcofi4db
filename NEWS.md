@@ -1,3 +1,79 @@
+# calcofi4db 3.29.0
+
+## The ingest stages its taxon vocabulary; the package fills the key from the class (taxon plan D1, D2, D6)
+
+- **`append_dataset_taxon(con, dataset_key, df, ds_prefix = dataset_key)`** stages a dataset's
+  vocabulary in `dataset_taxon` with `taxon_key` empty. The column contract is explicit —
+  `ds_taxa_code` (unique, non-NA) and `ds_scientific_name` required; `ds_common_name`,
+  `worms_id`, `itis_id`, `gbif_id`, `rank` optional — and a missing required column, an unknown
+  column, a duplicate or NA code, or an id that does not coerce to an integer is a **hard stop at
+  ingest**, not an NA at release. The ids the source supplied land in the new
+  **`ds_source_json`** column (e.g. `{"itis_id":174715}`, NULL when it supplied nothing) — one
+  additive column on the released `dataset_taxon`, so "what did the source claim?" can be audited
+  against `taxon.worms_id` / `itis_id`. Arm-served datasets get it too.
+- **`resolve_dataset_taxon()`** (renamed from `build_dataset_taxon()`, kept as a deprecated alias)
+  fills `taxon_key` **in place** on staged rows — every other column comes back byte-identical —
+  while the seven per-dataset arms still serve datasets that have not staged (coexistence; a
+  staged dataset wins over its arm table).
+- **The Aves rule is derived from the lineage, not declared by a source flag.**
+  `taxon_key_of(worms_id, itis_id, class)`: `itis:<tsn>` exactly when the class is Aves and an
+  accepted TSN resolves; otherwise `worms:<aphia>`; otherwise NA → the dataset-local fallback.
+  `is_bird` is gone from the row template, `taxon_key_of()`, `ensure_taxon_xref()`,
+  `.apply_xref()` and `ensure_taxon_lineage()`. Consequences: a lone TSN on a non-Aves taxon no
+  longer keys `itis:` (it is a local key `check_dataset_taxon()` refuses); a bird with no accepted
+  TSN keys `worms:` and says so in `taxon.notes`; a composite type in `measurement_taxon.csv`
+  carrying only a TSN keys nothing until the lineage is staged (every row of today's registry
+  carries an AphiaID, so nothing released changes).
+- **`ensure_taxon_lineage()` runs two cached passes**: (a) the classification by AphiaID where
+  present, else by TSN — this yields the class; (b) the ITIS chain for Aves taxa with a TSN. Only
+  the chain of the authority a taxon is keyed on is staged, so a bird's WoRMS chain (fetched once
+  to learn its class, then cached in `taxon_lineage.csv`) never becomes `worms:` ancestor rows.
+- **`ensure_taxon_xref()`** chooses its queries from the ids the source supplied: TSN crosswalk for
+  a TSN with no AphiaID, AphiaID backfill for an AphiaID, name fallback for neither. `.apply_xref()`
+  picks its branches from the ids a row arrives with, so a bird that gains its AphiaID in the
+  TSN branch is not then re-keyed by the AphiaID branch.
+- **`check_dataset_taxon(con, dataset_key, allow = character(), halt = TRUE, codes = NULL)`** —
+  the ingest-time gate: every code the observations reference is in the vocabulary
+  (`missing_code`), every row has an authority key or is allow-listed (`unresolved`), every Aves
+  taxon keys `itis:` (`aves_not_itis`). Returns the findings frame; `release_database.qmd`'s
+  `check_taxon_ids()` stays as the backstop.
+
+## Groups come from a registry (D4)
+
+- **`build_taxon_group(con, rules)`** reads `metadata/taxon_group.csv`
+  (**`read_taxon_group_rules()`**, strict): a `class` rule groups every *vocabulary* taxon whose
+  released `class` equals `rule_value` (`calcofi:seabirds` = Aves, `calcofi:marine_mammals` =
+  Mammalia — cross-dataset by construction, never a bare lineage ancestor); a `dataset_taxon`
+  rule matches `(dataset_key, match_column ∈ ds_taxa_code/ds_scientific_name/ds_common_name,
+  match_value)` (the phytoplankton functional groups). A rule naming a column the vocabulary
+  lacks errors; a rule for a dataset absent from the connection is skipped. Needs `taxon` and
+  `dataset_taxon` in the connection. The pre-3.29 positional call
+  `build_taxon_group(con, mt_taxon, tx_over)` warns (deprecated) and falls back to the registry
+  under `here::here("metadata/taxon_group.csv")`.
+- **Consumers:** `calcofi:marine_mammals` loses the two sea turtles (*Chelonia mydas*,
+  *Lepidochelys olivacea*) the farallon arm's `!is_bird` put there; `calcofi:seabirds` is
+  unchanged (94 = the Aves vocabulary).
+
+## No hard-coded dataset lists; one written common-name precedence (D5)
+
+- Deleted: `.prio` in `build_taxon_reference()` (now coalesces by source kind — flattened
+  classification, hierarchy, vocabularies — then `dataset_key`, then `ds_taxon_key`),
+  `.TAXON_ARM_DATASETS` and `.check_overrides_claimed()` (an override row for a dataset absent
+  from the connection is left to that dataset's ingest; **`check_taxon_registries(con,
+  overrides, group_rules, measurement_taxon)`** is the release-time check that every
+  `dataset_key` a registry names is one `dataset_taxon` ∪ `measurement_taxon` supplies), and
+  `merge_taxon_shards(priority = )` (first non-NULL in dataset directory order; `notes` unioned).
+- **`apply_taxon_common()`** is the ranked `COALESCE`: manual choice in `taxon_common.csv`
+  (`source = "manual"`) > `swfsc_ichthyo`'s own name (`curated = `) > WoRMS single vernacular >
+  any other dataset's `ds_common_name` in `dataset_key` order > empty. The merged table's own
+  `common_name` is no longer consulted. Returns the per-rank counts. Two codes of one dataset
+  sharing a key are broken by the code whose `ds_scientific_name` equals `taxon.scientific_name`,
+  then `ds_taxon_key` (so `worms:126175` stays "Rockfishes", not "Sunset rockfish").
+- **`mark_taxon_common_manual()`** writes the `source = "manual"` tag into the registry once
+  (a filled row whose value is not WoRMS's single candidate was a human edit);
+  `ensure_taxon_common()` keeps and assigns the tag from then on; **`write_taxon_common()`** is
+  the one writer (`na = ""`).
+
 # calcofi4db 3.28.0
 
 ## The boundary layers are described by the release, not hard-coded (explorer plan D23)

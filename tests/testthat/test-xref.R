@@ -43,6 +43,14 @@ new_xref_fixture <- function() {
     UNION ALL SELECT 'BLWH','Blue Whale','Balaenoptera musculus',180528,FALSE,TRUE,FALSE,TRUE")
   DBI::dbExecute(con, "CREATE TABLE mesopelagic_fish_taxon AS
     SELECT 'Bathophilus sp.' scientific_name, NULL::INTEGER worms_id, NULL::VARCHAR rank")
+  # the staged classification: the class (not a source flag) decides itis: (D2).
+  # BADT is looked up by its ACCEPTED TSN, which is what the cross-reference
+  # re-keys it onto before the class is read.
+  DBI::dbExecute(con, "CREATE TABLE _taxon_lineage_flat AS
+    SELECT 174715 requested_id, 'ITIS' authority, 'Species' AS \"rank\", 174712 parent_id,
+           'Phalacrocorax carbo' scientific_name, 'Animalia' kingdom, 'Chordata' phylum,
+           'Aves' AS \"class\", 'Pelecaniformes' order_taxon, 'Phalacrocoracidae' AS \"family\"
+    UNION ALL SELECT 1255050,'ITIS','Species',1255018,'Ardenna grisea','Animalia','Chordata','Aves','Procellariiformes','Procellariidae'")
   con
 }
 
@@ -79,7 +87,7 @@ test_that("a bird gains worms_id but KEEPS its itis: key", {
   con <- new_xref_fixture(); on.exit(close_duckdb(con))
   stage_xref(con, xref_fixture_csv(withr::local_tempdir()))
   build_taxon_reference(con, overrides = bm_override())
-  build_dataset_taxon(con, overrides = bm_override())
+  resolve_dataset_taxon(con, overrides = bm_override())
 
   tx <- DBI::dbGetQuery(con, "SELECT * FROM taxon")
   grco <- tx[tx$taxon_key == "itis:174715", ]
@@ -88,15 +96,15 @@ test_that("a bird gains worms_id but KEEPS its itis: key", {
   expect_equal(grco$itis_id,  174715L)   # ...and the key authority is unchanged
   expect_false(any(tx$taxon_key == "worms:137179"))
 
-  # taxon_key_of() itself is untouched: both ids present still keys itis:
-  expect_equal(taxon_key_of(137179L, 174715L, is_bird = TRUE), "itis:174715")
+  # taxon_key_of() itself: both ids present still keys itis: when the class is Aves
+  expect_equal(taxon_key_of(137179L, 174715L, class = "Aves"), "itis:174715")
 })
 
 test_that("a deprecated TSN is re-keyed onto the ITIS-accepted id", {
   con <- new_xref_fixture(); on.exit(close_duckdb(con))
   stage_xref(con, xref_fixture_csv(withr::local_tempdir()))
   build_taxon_reference(con, overrides = bm_override())
-  build_dataset_taxon(con, overrides = bm_override())
+  resolve_dataset_taxon(con, overrides = bm_override())
 
   dt <- DBI::dbGetQuery(con, "SELECT * FROM dataset_taxon")
   badt <- dt[dt$ds_taxa_code == "BADT", ]
@@ -142,7 +150,7 @@ test_that("a ' sp.' name resolves by cleaned name, and ds_taxa_code is NOT rewri
   # orphan every observation of these six taxa.
   con <- new_xref_fixture(); on.exit(close_duckdb(con))
   stage_xref(con, xref_fixture_csv(withr::local_tempdir()))
-  build_dataset_taxon(con, overrides = bm_override())
+  resolve_dataset_taxon(con, overrides = bm_override())
 
   mf <- DBI::dbGetQuery(con,
     "SELECT * FROM dataset_taxon WHERE dataset_key='sio_mesopelagic-fish'")
@@ -150,12 +158,16 @@ test_that("a ' sp.' name resolves by cleaned name, and ds_taxa_code is NOT rewri
   expect_equal(mf$taxon_key,    "worms:126203")           # ...but resolved
 })
 
-test_that("without a staged cross-reference nothing changes", {
+test_that("without a staged cross-reference nothing is re-keyed", {
   con <- new_xref_fixture(); on.exit(close_duckdb(con))
-  build_dataset_taxon(con, overrides = bm_override())
+  resolve_dataset_taxon(con, overrides = bm_override())
   dt <- DBI::dbGetQuery(con, "SELECT * FROM dataset_taxon")
 
-  expect_equal(dt$taxon_key[dt$ds_taxa_code == "BADT"], "itis:174553")
+  # the deprecated TSN never reached the lineage, so no class says Aves and no
+  # AphiaID resolved: the honest outcome is the dataset-local key (which
+  # check_dataset_taxon() refuses), not a key minted on a deprecated id
+  expect_equal(dt$taxon_key[dt$ds_taxa_code == "BADT"], "farallon_bird-mammal:BADT")
+  expect_equal(dt$taxon_key[dt$ds_taxa_code == "GRCO"], "itis:174715")   # class Aves is staged
   expect_equal(dt$taxon_key[dt$ds_taxa_code == "Bathophilus sp."],
                "sio_mesopelagic-fish:Bathophilus sp.")
 })

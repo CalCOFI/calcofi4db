@@ -7,8 +7,6 @@
 merge_taxon_shards(
   con,
   root = ".",
-  priority = c("swfsc_ichthyo", "farallon_bird-mammal", "cce-lter_zoodb",
-    "cce-lter_zooscan", "calcofi_phytoplankton"),
   parquet_dir = cc_stage_path("parquet"),
   exclude = release_excluded_datasets(root)
 )
@@ -17,8 +15,6 @@ merge_taxon_shards(
 \item{con}{a DuckDB connection}
 
 \item{root}{workflows repo root}
-
-\item{priority}{dataset dirs in descending priority}
 
 \item{parquet_dir}{directory holding the per-dataset output dirs. Defaults
 to the local staging root (see \code{\link[=cc_stage_dir]{cc_stage_dir()}}), where the bulk parquet
@@ -34,9 +30,11 @@ lives; an absolute path is used as-is, a relative one is resolved against
 Each ingest emits the taxon rows its own vocabulary reaches. The same taxon
 can appear in several shards (Appendicularia is in both zoodb and zooscan), so
 rows are collapsed on \code{taxon_key} and each field takes the first non-NULL
-value by source priority — the WoRMS-lineage-bearing shard (\code{swfsc_ichthyo},
-which carries the hierarchy) first, then the curated seabird/mammal and
-plankton vocabularies, then everything else. This reproduces the coalescing
-\code{build_taxon_reference()} did when it saw every source at once.
+value in \strong{dataset directory order}. There is no priority list (taxon plan
+D5): every shard's \code{scientific_name} / \code{rank} / classification comes from the
+same cached authority lineage, so shards agree wherever both have a value and
+the order only settles which shard fills a gap. \code{common_name} is not decided
+here at all — the release applies the written precedence with
+\code{\link[=apply_taxon_common]{apply_taxon_common()}} — and \code{notes} is unioned, never picked.
 }
 \concept{shards}

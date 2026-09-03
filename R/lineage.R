@@ -308,15 +308,30 @@ fetch_taxon_lineage <- function(worms_ids = integer(), itis_ids = integer(),
 
 #' Materialize the WoRMS/ITIS lineage `build_taxon_reference()` reads
 #'
-#' Resolves every authority id this dataset's vocabulary reaches — from its own
-#' taxon tables *and* from `measurement_taxon.csv`, which is where the taxa that
-#' had no lineage at all came from — fetches their classification (cached), and
-#' writes it into `con` as the DwC-shaped `taxon` hierarchy table.
+#' Resolves every authority id this dataset's vocabulary reaches — from the
+#' staged `dataset_taxon` rows, its own taxon tables *and* from
+#' `measurement_taxon.csv`, which is where the taxa that had no lineage at all
+#' came from — fetches their classification (cached), and writes it into `con`
+#' as the DwC-shaped `taxon` hierarchy table.
 #'
-#' Call it **before** [build_taxon_reference()], which reads that table as its
-#' rank / parent / classification authority. An existing hierarchy is merged, not
-#' replaced, so `swfsc_ichthyo` (which builds its own via
-#' [build_taxon_hierarchy()]) keeps what it has and gains only what is missing.
+#' **Two cached passes** (taxon plan D2), because the class decides the key:
+#'
+#' 1. the classification by the resolved AphiaID where present, else by TSN —
+#'    this yields each taxon's `class`;
+#' 2. for rows whose class is Aves and whose TSN resolved, the **ITIS chain**, so
+#'    `parent_taxon_key` ancestry is `itis:` all the way up.
+#'
+#' What is staged is the chain of the authority each taxon is **keyed** on: the
+#' ITIS chain for an Aves taxon with a TSN, the WoRMS chain for everything else.
+#' A bird's WoRMS chain is fetched (and cached) only to learn its class; it
+#' never becomes `worms:` ancestor rows beside the `itis:` ones. A bird with no
+#' TSN keys `worms:` and its WoRMS chain is staged, with a note on the taxon.
+#'
+#' Call it **after** [ensure_taxon_xref()] (so the fetch asks about the accepted
+#' id) and **before** [build_taxon_reference()] / [resolve_dataset_taxon()],
+#' which read the staged class. An existing hierarchy is merged, not replaced, so
+#' `swfsc_ichthyo` (which builds its own via [build_taxon_hierarchy()]) keeps
+#' what it has and gains only what is missing.
 #'
 #' @param con a DuckDB connection holding this dataset's taxon vocabulary tables
 #' @param measurement_taxon the composite crosswalk (`metadata/measurement_taxon.csv`),
@@ -340,14 +355,39 @@ ensure_taxon_lineage <- function(con, measurement_taxon = NULL, overrides = NULL
                                  refresh = FALSE, sleep = 0.3, verbose = TRUE,
                                  xref_cache_csv = .xref_csv_beside(cache_csv)) {
   rows <- .taxon_norm_sources(con, measurement_taxon, overrides)
-  # which authority each taxon is KEYED on decides which one to ask: worms: for
-  # everything except the Aves-keyed seabirds (see taxon_key_of()).
-  keyed_itis <- rows$is_bird & !is.na(rows$itis_id)
-  w_ids <- rows$worms_id[!keyed_itis]
-  i_ids <- rows$itis_id[keyed_itis]
+  has_w <- !is.na(rows$worms_id)
+  has_i <- !is.na(rows$itis_id)
 
-  lin <- fetch_taxon_lineage(w_ids, i_ids, cache_csv = cache_csv,
-                             refresh = refresh, sleep = sleep, verbose = verbose)
+  # pass (a): the classification — by AphiaID where present, else by TSN. This
+  # is where the class comes from; no source flag is consulted.
+  lin_a <- fetch_taxon_lineage(rows$worms_id[has_w], rows$itis_id[has_i & !has_w],
+                               cache_csv = cache_csv, refresh = refresh,
+                               sleep = sleep, verbose = verbose)
+  flat_a <- .lineage_flat(lin_a)
+  fk  <- paste(flat_a$authority, flat_a$requested_id)
+  cls <- dplyr::coalesce(
+    as.character(flat_a$class[match(paste("WoRMS", rows$worms_id), fk)]),
+    as.character(flat_a$class[match(paste("ITIS",  rows$itis_id),  fk)]),
+    as.character(rows$class))
+  keyed_itis <- !is.na(cls) & cls == "Aves" & has_i
+
+  # pass (b): the ITIS chain for the Aves taxa that carry a TSN (the ones
+  # taxon_key_of() will key itis:), so their ancestry is itis: all the way up
+  lin_b <- if (any(keyed_itis))
+    fetch_taxon_lineage(integer(), rows$itis_id[keyed_itis], cache_csv = cache_csv,
+                        refresh = refresh, sleep = sleep, verbose = verbose)
+  else .empty_lineage()
+
+  # stage the chain of the authority each taxon is KEYED on, and only that one:
+  # a bird's WoRMS chain taught us its class and stops there
+  w_ids <- unique(rows$worms_id[has_w & !keyed_itis])
+  i_ids <- unique(rows$itis_id[keyed_itis])
+  lin <- rbind(
+    lin_a[lin_a$authority == "WoRMS" & lin_a$requested_id %in% w_ids, , drop = FALSE],
+    lin_b[lin_b$authority == "ITIS"  & lin_b$requested_id %in% i_ids, , drop = FALSE])
+  if (verbose) message(glue::glue(
+    "taxon lineage: {sum(keyed_itis)} Aves taxa keyed on ITIS, ",
+    "{length(w_ids)} taxa on WoRMS"))
 
   # DwC hierarchy rows: every ancestor-or-self, deduped across requesters. This
   # is the shape build_taxon_reference() consumes.

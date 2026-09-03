@@ -2,30 +2,61 @@
 % Please edit documentation in R/common_names.R
 \name{apply_taxon_common}
 \alias{apply_taxon_common}
-\title{Apply the vernacular-name registry to a taxon table}
+\title{Apply the common-name precedence to the merged \code{taxon} table}
 \usage{
-apply_taxon_common(con, cache_csv, tbl = "taxon", verbose = TRUE)
+apply_taxon_common(
+  con,
+  cache_csv,
+  tbl = "taxon",
+  dataset_taxon = "dataset_taxon",
+  curated = "swfsc_ichthyo",
+  verbose = TRUE
+)
 }
 \arguments{
-\item{con}{DBI connection holding \code{tbl}.}
+\item{con}{DBI connection holding \code{tbl} (and \code{dataset_taxon}, for ranks 2
+and 4; without it those ranks are simply empty).}
 
 \item{cache_csv}{path to the registry (see \code{\link[=ensure_taxon_common]{ensure_taxon_common()}}).}
 
 \item{tbl}{taxon table name (default \code{"taxon"}).}
 
-\item{verbose}{report how many names were filled.}
+\item{dataset_taxon}{crosswalk table name (default \code{"dataset_taxon"}).}
+
+\item{curated}{the dataset whose vocabulary is rank 2 (default
+\code{"swfsc_ichthyo"}, the CalCOFI species list).}
+
+\item{verbose}{report how many names each rank supplied.}
 }
 \value{
-number of rows filled, invisibly.
+a data.frame of per-rank counts (\code{rank}, \code{source}, \code{n}), invisibly.
 }
 \description{
-Fills \code{common_name} on \code{tbl} for taxa that have none of their own. \strong{A
-dataset's own vocabulary always wins} — it is the name the provider
-publishes, and overwriting it from WoRMS would rename their data under them.
-A taxon still awaiting a choice keeps NULL, which publishes no common name
-rather than a guessed one.
+Sets \code{common_name} on \code{tbl} for every taxon as one \code{COALESCE}, in this order
+(taxon plan D5):
 }
 \details{
+\enumerate{
+\item a \strong{human choice} in the registry (\code{source = "manual"}) — the override;
+\item the \strong{curated species list's} own name — \code{dataset_taxon.ds_common_name}
+where \code{dataset_key = curated} (\code{swfsc_ichthyo}, CalCOFI's own names);
+\item \strong{WoRMS}, when it offers exactly one English vernacular
+(\code{source = "worms"}, \code{n_candidates_en = 1});
+\item any \strong{other dataset's} \code{ds_common_name}, in \code{dataset_key} order (this is
+where the seabird and marine-mammal names come from — WoRMS holds almost no
+bird vernaculars);
+\item empty. Never a guess.
+}
+
+The merged table's existing \code{common_name} is \strong{not} a rank: it is whichever
+shard won the merge, which is the undocumented order this replaces.
+
+When two codes of one dataset resolve to the same taxon (ichthyo 683
+\emph{Sebastes} "Rockfishes" and 3023 \emph{Sebastes crocotulus} "Sunset rockfish" both
+carry the genus AphiaID), the code whose \code{ds_scientific_name} equals
+\code{taxon.scientific_name} — the code that \emph{is} the taxon rather than one finer
+or coarser than it — wins; failing that, \code{ds_taxon_key} ascending.
+
 Called by \code{release_database.qmd} on the merged \code{taxon} table, so the registry
 is applied once rather than in each of the 10 taxa-emitting ingests.
 }

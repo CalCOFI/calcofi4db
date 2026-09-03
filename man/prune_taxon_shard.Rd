@@ -16,7 +16,7 @@ optionally \code{taxon_group}) as built by the three builders}
 (invisibly) a named list of the surviving row counts
 }
 \description{
-\code{build_taxon_reference()} / \code{build_dataset_taxon()} / \code{build_taxon_group()}
+\code{build_taxon_reference()} / \code{resolve_dataset_taxon()} / \code{build_taxon_group()}
 read \emph{whichever} taxon sources are present in \code{con}, which inside an ingest is
 normally just that dataset's vocabulary — but not always. An ingest may have
 loaded another dataset's tables as references, and \code{swfsc_ichthyo} holds a

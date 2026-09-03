@@ -92,8 +92,9 @@ test_that("an ITIS-keyed taxon gets an ITIS parent, not a minted worms: key", {
   con <- get_duckdb_con(":memory:")
   on.exit(close_duckdb(con))
 
-  # a seabird: taxon_key_of() keys Aves on itis:, so its lineage must too —
-  # pasting "worms:<parentNameUsageID>" would mint a key resolving to nothing
+  # a seabird carrying only a TSN: pass (a) classifies it by that TSN (class
+  # Aves), pass (b) keeps the ITIS chain, so the key is itis: and its parent is
+  # too — pasting "worms:<parentNameUsageID>" would mint a key resolving to nothing
   DBI::dbExecute(con, "CREATE TABLE bird_mammal_species AS
     SELECT 'GRCO' species_code, 'Great Cormorant' common_name,
            'Phalacrocorax carbo' scientific_name, 174715 itis_id,
@@ -106,9 +107,63 @@ test_that("an ITIS-keyed taxon gets an ITIS parent, not a minted worms: key", {
   gr <- tx[tx$taxon_key == "itis:174715", ]
   expect_equal(nrow(gr), 1L)
   expect_equal(gr$parent_taxon_key, "itis:174712")
+  expect_equal(gr$class, "Aves")
   expect_false(any(grepl("^worms:1747", tx$taxon_key)))
   expect_equal(sum(!is.na(tx$parent_taxon_key) &
                    !tx$parent_taxon_key %in% tx$taxon_key), 0L)
+})
+
+test_that("the Aves rule is derived from the lineage: a bird with both ids keys itis: and stages only the ITIS chain", {
+  skip_if_not_installed("duckdb")
+  d <- withr::local_tempdir()
+  p <- lineage_fixture_csv(d)
+  # the bird's WoRMS chain, as pass (a) would fetch it by AphiaID: class Aves
+  lin <- utils::read.csv(p, stringsAsFactors = FALSE)
+  lin <- rbind(lin, data.frame(
+    requested_id = 137179L, authority = "WoRMS",
+    taxonID = c(2L, 1836L, 137071L, 137179L), parentNameUsageID = c(NA, 2L, 1836L, 137071L),
+    scientificName = c("Animalia", "Aves", "Phalacrocorax", "Phalacrocorax carbo"),
+    taxonRank = c("Kingdom", "Class", "Genus", "Species"), stringsAsFactors = FALSE))
+  utils::write.csv(lin, p, row.names = FALSE, na = "")
+  con <- get_duckdb_con(":memory:")
+  on.exit(close_duckdb(con))
+
+  # after ensure_taxon_xref() the bird carries BOTH ids; no source flag says "bird"
+  append_dataset_taxon(con, "demo_ds", data.frame(
+    ds_taxa_code = "GRCO", ds_scientific_name = "Phalacrocorax carbo",
+    worms_id = 137179L, itis_id = 174715L, stringsAsFactors = FALSE))
+
+  out <- ensure_taxon_lineage(con, NULL, NULL, cache_csv = p, verbose = FALSE)
+  flat <- DBI::dbGetQuery(con, "SELECT * FROM _taxon_lineage_flat")
+  # the class was learned from WoRMS, the staged chain is the ITIS one
+  expect_true(174715L %in% flat$requested_id[flat$authority == "ITIS"])
+  expect_false(137179L %in% flat$requested_id[flat$authority == "WoRMS"])
+  expect_false(1836L %in% flat$requested_id)      # no worms: Aves ancestor row
+
+  resolve_dataset_taxon(con)
+  build_taxon_reference(con)
+  expect_equal(DBI::dbGetQuery(con, "SELECT taxon_key FROM dataset_taxon")$taxon_key, "itis:174715")
+  tx <- DBI::dbGetQuery(con, "SELECT taxon_key, worms_id, class FROM taxon WHERE taxon_key = 'itis:174715'")
+  expect_equal(tx$class, "Aves")
+  expect_equal(tx$worms_id, 137179L)               # the cross-reference survives
+  expect_false(any(grepl("^worms:1371", DBI::dbGetQuery(con, "SELECT taxon_key FROM taxon")$taxon_key)))
+})
+
+test_that("a non-bird with both ids stages its WoRMS chain and keys worms:", {
+  skip_if_not_installed("duckdb")
+  d <- withr::local_tempdir()
+  p <- lineage_fixture_csv(d)
+  con <- get_duckdb_con(":memory:")
+  on.exit(close_duckdb(con))
+  append_dataset_taxon(con, "demo_ds", data.frame(
+    ds_taxa_code = "SARD", ds_scientific_name = "Sardinops sagax",
+    worms_id = 217452L, itis_id = 161729L, stringsAsFactors = FALSE))
+  ensure_taxon_lineage(con, NULL, NULL, cache_csv = p, verbose = FALSE)
+  flat <- DBI::dbGetQuery(con, "SELECT * FROM _taxon_lineage_flat")
+  expect_true(217452L %in% flat$requested_id[flat$authority == "WoRMS"])
+  expect_false(161729L %in% flat$requested_id)    # ITIS never asked: not Aves
+  resolve_dataset_taxon(con)
+  expect_equal(DBI::dbGetQuery(con, "SELECT taxon_key FROM dataset_taxon")$taxon_key, "worms:217452")
 })
 
 test_that("a hierarchy already in the connection is merged, not replaced", {

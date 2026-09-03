@@ -12,10 +12,11 @@ build_taxon_reference(
 )
 }
 \arguments{
-\item{con}{a DuckDB connection with the per-dataset taxon tables loaded}
+\item{con}{a DuckDB connection with the staged vocabulary (and/or the
+per-dataset taxon tables) loaded}
 
 \item{measurement_taxon}{optional data.frame of the composite-type crosswalk
-(\code{metadata/measurement_taxon.csv}) so cufes/phyllosoma/euphausiid taxa,
+(\code{metadata/measurement_taxon.csv}) so cufes/phyllosoma/crab taxa,
 which live in \code{measurement_type} names not a taxon table, are included}
 
 \item{overrides}{optional data.frame of manual id resolution
@@ -28,12 +29,17 @@ which live in \code{measurement_type} names not a taxon table, are included}
 }
 \description{
 Assembles one authoritative row per distinct \code{taxon_key} across every dataset's
-local taxa \strong{plus the WoRMS lineage ancestors} (from the pre-built \code{taxon}
+local taxa \strong{plus the WoRMS/ITIS lineage ancestors} (from the pre-built \code{taxon}
 hierarchy table, so \code{parent_taxon_key} chains resolve for descendant
 expansion). Duplicate taxa across datasets collapse — e.g. Appendicularia
 (AphiaID 146421) in both \code{zoodb_taxon} and \code{zooscan_taxon} becomes one
-\code{worms:146421} row. Names/rank/lineage are coalesced with source priority
-(WoRMS hierarchy > CalCOFI species / seabird-mammal > per-dataset lineage >
-composite crosswalk). \code{rank_order} folds in the old \code{taxa_rank} lookup.
+\code{worms:146421} row. Names/rank/lineage are coalesced by \strong{source kind}, not
+by dataset: the flattened classification (the authority) first, then the
+hierarchy, then the vocabularies in \code{dataset_key} order. There is no list of
+datasets to maintain. \code{rank_order} folds in the old \code{taxa_rank} lookup.
+}
+\details{
+\code{common_name} in this shard is the dataset's own; the release applies the
+written precedence centrally with \code{\link[=apply_taxon_common]{apply_taxon_common()}}.
 }
 \concept{taxonomy}

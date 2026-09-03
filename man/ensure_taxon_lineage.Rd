@@ -46,15 +46,31 @@ beside \code{cache_csv}, which is the layout every ingest uses; \code{NULL} skip
 (invisibly) a list with \code{n_ids}, \code{n_rows} and \code{n_unresolved}
 }
 \description{
-Resolves every authority id this dataset's vocabulary reaches — from its own
-taxon tables \emph{and} from \code{measurement_taxon.csv}, which is where the taxa that
-had no lineage at all came from — fetches their classification (cached), and
-writes it into \code{con} as the DwC-shaped \code{taxon} hierarchy table.
+Resolves every authority id this dataset's vocabulary reaches — from the
+staged \code{dataset_taxon} rows, its own taxon tables \emph{and} from
+\code{measurement_taxon.csv}, which is where the taxa that had no lineage at all
+came from — fetches their classification (cached), and writes it into \code{con}
+as the DwC-shaped \code{taxon} hierarchy table.
 }
 \details{
-Call it \strong{before} \code{\link[=build_taxon_reference]{build_taxon_reference()}}, which reads that table as its
-rank / parent / classification authority. An existing hierarchy is merged, not
-replaced, so \code{swfsc_ichthyo} (which builds its own via
-\code{\link[=build_taxon_hierarchy]{build_taxon_hierarchy()}}) keeps what it has and gains only what is missing.
+\strong{Two cached passes} (taxon plan D2), because the class decides the key:
+\enumerate{
+\item the classification by the resolved AphiaID where present, else by TSN —
+this yields each taxon's \code{class};
+\item for rows whose class is Aves and whose TSN resolved, the \strong{ITIS chain}, so
+\code{parent_taxon_key} ancestry is \verb{itis:} all the way up.
+}
+
+What is staged is the chain of the authority each taxon is \strong{keyed} on: the
+ITIS chain for an Aves taxon with a TSN, the WoRMS chain for everything else.
+A bird's WoRMS chain is fetched (and cached) only to learn its class; it
+never becomes \verb{worms:} ancestor rows beside the \verb{itis:} ones. A bird with no
+TSN keys \verb{worms:} and its WoRMS chain is staged, with a note on the taxon.
+
+Call it \strong{after} \code{\link[=ensure_taxon_xref]{ensure_taxon_xref()}} (so the fetch asks about the accepted
+id) and \strong{before} \code{\link[=build_taxon_reference]{build_taxon_reference()}} / \code{\link[=resolve_dataset_taxon]{resolve_dataset_taxon()}},
+which read the staged class. An existing hierarchy is merged, not replaced, so
+\code{swfsc_ichthyo} (which builds its own via \code{\link[=build_taxon_hierarchy]{build_taxon_hierarchy()}}) keeps
+what it has and gains only what is missing.
 }
 \concept{taxonomy}

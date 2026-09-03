@@ -111,14 +111,15 @@ assemble_core_table <- function(con, table, root = ".", id_col = NULL,
 #' Each ingest emits the taxon rows its own vocabulary reaches. The same taxon
 #' can appear in several shards (Appendicularia is in both zoodb and zooscan), so
 #' rows are collapsed on `taxon_key` and each field takes the first non-NULL
-#' value by source priority — the WoRMS-lineage-bearing shard (`swfsc_ichthyo`,
-#' which carries the hierarchy) first, then the curated seabird/mammal and
-#' plankton vocabularies, then everything else. This reproduces the coalescing
-#' `build_taxon_reference()` did when it saw every source at once.
+#' value in **dataset directory order**. There is no priority list (taxon plan
+#' D5): every shard's `scientific_name` / `rank` / classification comes from the
+#' same cached authority lineage, so shards agree wherever both have a value and
+#' the order only settles which shard fills a gap. `common_name` is not decided
+#' here at all — the release applies the written precedence with
+#' [apply_taxon_common()] — and `notes` is unioned, never picked.
 #'
 #' @param con a DuckDB connection
 #' @param root workflows repo root
-#' @param priority dataset dirs in descending priority
 #' @param parquet_dir directory holding the per-dataset output dirs. Defaults
 #'   to the local staging root (see [cc_stage_dir()]), where the bulk parquet
 #'   lives; an absolute path is used as-is, a relative one is resolved against
@@ -128,10 +129,6 @@ assemble_core_table <- function(con, table, root = ".", id_col = NULL,
 #' @export
 #' @concept shards
 merge_taxon_shards <- function(con, root = ".",
-                               priority = c("swfsc_ichthyo",
-                                            "farallon_bird-mammal",
-                                            "cce-lter_zoodb", "cce-lter_zooscan",
-                                            "calcofi_phytoplankton"),
                                parquet_dir = cc_stage_path("parquet"),
                                exclude = release_excluded_datasets(root)) {
   base  <- .shard_base(root, parquet_dir)
@@ -142,29 +139,26 @@ merge_taxon_shards <- function(con, root = ".",
     message("merge_taxon_shards(): no taxon shards found")
     return(invisible(0L))
   }
-  prio <- function(p) {
-    d <- basename(dirname(p))
-    m <- match(d, priority)
-    if (is.na(m)) length(priority) + 1L else m
-  }
+  # the shard's dataset directory name is the tie-break key: deterministic,
+  # and nothing to append to when a dataset is added
   arms <- vapply(paths, function(p) glue::glue(
-    "SELECT {prio(p)} AS \"_prio\", * FROM read_parquet('{p}', union_by_name = true)"), "")
+    "SELECT '{basename(dirname(p))}' AS \"_src\", * FROM read_parquet('{p}', union_by_name = true)"), "")
   sel <- paste(arms, collapse = "\nUNION ALL BY NAME\n")
 
   cols <- DBI::dbGetQuery(con, glue::glue(
     "SELECT * FROM ({sel}) LIMIT 0"))
-  val_cols <- setdiff(names(cols), c("_prio", "taxon_key"))
-  # first non-NULL by priority, then by shard order — arg_min over _prio ignores
-  # NULLs, which is exactly the coalesce-with-priority we want
+  val_cols <- setdiff(names(cols), c("_src", "taxon_key"))
+  # first non-NULL in dataset order — arg_min over _src ignores NULLs, which is
+  # exactly the coalesce we want
   # quote every identifier: `rank` and `order` are reserved words in DuckDB
   #
   # `notes` is the exception: it is append-only provenance, so a taxon two
-  # datasets both reach must keep BOTH lines rather than let the higher-priority
-  # shard's note silently win. Identical blocks (the common case — the xref cache
-  # is global) collapse via DISTINCT.
+  # datasets both reach must keep BOTH lines rather than let the first shard's
+  # note silently win. Identical blocks (the common case — the xref cache is
+  # global) collapse via DISTINCT.
   aggs <- paste(vapply(val_cols, function(cl) if (cl == "notes") glue::glue(
     'string_agg(DISTINCT "{cl}", chr(10)) AS "{cl}"') else glue::glue(
-    'arg_min("{cl}", "_prio") FILTER (WHERE "{cl}" IS NOT NULL) AS "{cl}"'), ""),
+    'arg_min("{cl}", "_src") FILTER (WHERE "{cl}" IS NOT NULL) AS "{cl}"'), ""),
     collapse = ",\n         ")
 
   DBI::dbExecute(con, "DROP VIEW IF EXISTS taxon")
@@ -226,7 +220,7 @@ supplemental_core_tables <- function(root = ".", which = TRUE) {
 #'
 #' Convenience wrapper: `sample`, `obs`, `obs_attribute`, `sample_measurement`
 #' (surrogate ids renumbered globally), the supplemental `obs_ctd_full`, and the
-#' taxa references (`taxon` merged with priority; `dataset_taxon` /`taxon_group`
+#' taxa references (`taxon` merged in dataset order; `dataset_taxon` /`taxon_group`
 #' deduplicated). Errors if `sample_key` is not globally unique — the namespacing
 #' guarantee the whole model rests on.
 #'

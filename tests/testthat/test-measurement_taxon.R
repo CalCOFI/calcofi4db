@@ -85,7 +85,18 @@ test_that("ensure_measurement_taxon derives taxon_key, which the raw CSV lacks",
   got <- DBI::dbGetQuery(con,
     "SELECT raw_measurement_type, taxon_key FROM _measurement_taxon
      ORDER BY raw_measurement_type")
-  # worms: wins where an AphiaID resolves, itis: only where it does not
+  # worms: where an AphiaID resolves; a TSN keys itis: only once the lineage
+  # says the taxon is class Aves (taxon plan D2) — before that it has no key
+  expect_equal(got$taxon_key, c(NA_character_, "worms:1837"))
+
+  DBI::dbExecute(con, "CREATE TABLE _taxon_lineage_flat AS
+    SELECT 174371 requested_id, 'ITIS' authority, 'Class' AS \"rank\", 914181 parent_id,
+           'Aves' scientific_name, 'Animalia' kingdom, 'Chordata' phylum,
+           'Aves' AS \"class\", NULL::VARCHAR order_taxon, NULL::VARCHAR AS \"family\"")
+  ensure_measurement_taxon(con, mt, dataset_key = "farallon_bird-mammal")
+  got <- DBI::dbGetQuery(con,
+    "SELECT raw_measurement_type, taxon_key FROM _measurement_taxon
+     ORDER BY raw_measurement_type")
   expect_equal(got$taxon_key, c("itis:174371", "worms:1837"))
 })
 

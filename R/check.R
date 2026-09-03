@@ -483,6 +483,171 @@ check_taxon_ids <- function(con, allow = character(), halt = TRUE,
 
   if (verbose) rpt else invisible(rpt)
 }
+
+# check_dataset_taxon ----------------------------------------------------------
+
+#' The ingest asserts its own taxon crosswalk (taxon plan D6)
+#'
+#' Call it after [resolve_dataset_taxon()] and before `append_obs()`. Three
+#' findings, each a row of the returned report:
+#'
+#' - **`missing_code`** — a code the observations reference (`codes`) that is not
+#'   in this dataset's `dataset_taxon`. Farallon's `MEGU` (the pre-split Mew Gull
+#'   code, present in the observations and absent from the species list) is the
+#'   case that motivated it: an `obs` projection joining on the code would drop
+#'   or NULL those rows with no error anywhere.
+#' - **`unresolved`** — a `dataset_taxon` row with no authority `taxon_key`
+#'   (`worms:` / `itis:`), unless its dataset-local key is in `allow` — the
+#'   ingest's own declaration of a genuinely non-taxonomic class (zooscan
+#'   "nauplii", phyto "undefined code"), one key at a time, with a comment.
+#' - **`aves_not_itis`** — a taxon whose class is Aves that did not key `itis:`
+#'   (no accepted TSN resolved; see [taxon_key_of()]). Checked here because this
+#'   is where it is cheap to fix — a TSN in `taxon_override.csv`. An ingest that
+#'   accepts the `worms:` key lists that key in `allow`. Needs `taxon` in `con`
+#'   ([build_taxon_reference()]) for the class; skipped without it.
+#'
+#' `release_database.qmd`'s [check_taxon_ids()] stays as the backstop.
+#'
+#' @param con a DBI connection holding `dataset_taxon` (and `taxon`)
+#' @param dataset_key the dataset whose crosswalk is checked
+#' @param allow character vector of `taxon_key`s accepted as-is: dataset-local
+#'   keys of non-taxonomic classes, or a `worms:` key for an Aves taxon with no
+#'   TSN
+#' @param halt logical; `stop()` on any finding (default `TRUE`)
+#' @param codes optional character vector of the `ds_taxa_code`s the
+#'   observations reference (e.g. `DISTINCT species_code` of the source
+#'   observation table); every one must be in the vocabulary
+#' @param verbose logical; message the summary
+#' @return a data.frame with one row per finding (`check`, `ds_taxon_key`,
+#'   `ds_taxa_code`, `taxon_key`, `detail`); zero rows when clean. Invisible
+#'   when `verbose = FALSE`.
+#' @export
+#' @concept check
+check_dataset_taxon <- function(con, dataset_key, allow = character(), halt = TRUE,
+                                codes = NULL, verbose = TRUE) {
+  stopifnot(is.character(dataset_key), length(dataset_key) == 1L)
+  present <- DBI::dbListTables(con)
+  dt <- if ("dataset_taxon" %in% present) DBI::dbGetQuery(con, "
+    SELECT ds_taxon_key, ds_taxa_code, ds_scientific_name, taxon_key
+    FROM dataset_taxon WHERE dataset_key = ? ORDER BY ds_taxon_key",
+    params = list(dataset_key)) else NULL
+  if (is.null(dt) || !nrow(dt)) stop(glue::glue(
+    "check_dataset_taxon(): no dataset_taxon rows for '{dataset_key}' — call ",
+    "append_dataset_taxon() and resolve_dataset_taxon() first."), call. = FALSE)
+
+  empty <- data.frame(check = character(), ds_taxon_key = character(),
+                      ds_taxa_code = character(), taxon_key = character(),
+                      detail = character(), stringsAsFactors = FALSE)
+  find <- list()
+
+  # 1. every code the observations use exists in the vocabulary
+  if (!is.null(codes)) {
+    codes <- unique(as.character(codes)); codes <- codes[!is.na(codes)]
+    miss  <- setdiff(codes, dt$ds_taxa_code)
+    if (length(miss)) find$missing <- data.frame(
+      check = "missing_code", ds_taxon_key = NA_character_, ds_taxa_code = miss,
+      taxon_key = NA_character_,
+      detail = "referenced by the observations, absent from dataset_taxon",
+      stringsAsFactors = FALSE)
+  }
+
+  # 2. every row has an authority key, or is declared
+  local <- is.na(dt$taxon_key) | !grepl("^(worms|itis):", dt$taxon_key)
+  un <- dt[local & !(dt$taxon_key %in% allow), , drop = FALSE]
+  if (nrow(un)) find$unresolved <- data.frame(
+    check = "unresolved", ds_taxon_key = un$ds_taxon_key, ds_taxa_code = un$ds_taxa_code,
+    taxon_key = un$taxon_key,
+    detail = paste0("no authority id resolved",
+                    ifelse(is.na(un$ds_scientific_name), "",
+                           paste0(" for \"", un$ds_scientific_name, "\""))),
+    stringsAsFactors = FALSE)
+
+  # 3. every Aves taxon keys itis:
+  if ("taxon" %in% present) {
+    cls <- DBI::dbGetQuery(con, "SELECT taxon_key FROM taxon WHERE \"class\" = 'Aves'")$taxon_key
+    av <- dt[dt$taxon_key %in% cls & !grepl("^itis:", dt$taxon_key) &
+             !(dt$taxon_key %in% allow), , drop = FALSE]
+    if (nrow(av)) find$aves <- data.frame(
+      check = "aves_not_itis", ds_taxon_key = av$ds_taxon_key, ds_taxa_code = av$ds_taxa_code,
+      taxon_key = av$taxon_key,
+      detail = "class Aves but keyed worms: (no accepted TSN resolved)",
+      stringsAsFactors = FALSE)
+  }
+
+  rpt <- if (length(find)) dplyr::bind_rows(find) else empty
+  rpt <- as.data.frame(rpt, stringsAsFactors = FALSE)
+
+  if (verbose) message(glue::glue(
+    "check_dataset_taxon('{dataset_key}'): {nrow(dt)} taxa, ",
+    "{sum(!local)} keyed by an authority, {sum(local)} local ",
+    "({sum(local & dt$taxon_key %in% allow)} allowed); {nrow(rpt)} finding(s)"))
+
+  if (nrow(rpt)) {
+    detail <- paste(sprintf("  [%s] %s  %s", rpt$check,
+                            ifelse(is.na(rpt$ds_taxon_key), rpt$ds_taxa_code, rpt$ds_taxon_key),
+                            rpt$detail), collapse = "\n")
+    msg <- paste0(
+      "check_dataset_taxon('", dataset_key, "'): ", nrow(rpt), " finding(s):\n", detail,
+      "\n  missing_code: add the code to the vocabulary (append_dataset_taxon());",
+      "\n  unresolved: resolve it (metadata/taxon_override.csv, or clean the source name)",
+      "\n    or declare it in `allow` as a known non-taxonomic class;",
+      "\n  aves_not_itis: supply the TSN via metadata/taxon_override.csv, or `allow` the worms: key.")
+    if (halt) stop(msg, call. = FALSE) else warning(msg, call. = FALSE)
+  }
+  if (verbose) rpt else invisible(rpt)
+}
+
+# check_taxon_registries -------------------------------------------------------
+
+#' Every dataset a taxon registry names must be one some dataset supplies
+#'
+#' `metadata/taxon_override.csv` and `metadata/taxon_group.csv` are read whole
+#' by every ingest while each loads only its own vocabulary, so a row for
+#' another dataset is normal there and cannot be validated. This is the check
+#' for the place where every dataset IS present — the release, after
+#' `assemble_core()` — replacing the hard-coded list of dataset names the
+#' package used to validate against (taxon plan D5). The allowed set is the
+#' `dataset_key`s present in `dataset_taxon` ∪ `measurement_taxon`; a row naming
+#' anything else (a typo, a retired dataset) errors, because a registry row that
+#' matches nothing is how a missing id hides.
+#'
+#' @param con a DBI connection holding the assembled `dataset_taxon`
+#' @param overrides the override registry (`metadata/taxon_override.csv`), or NULL
+#' @param group_rules the group registry ([read_taxon_group_rules()]), or NULL
+#' @param measurement_taxon the composite crosswalk (`metadata/measurement_taxon.csv`),
+#'   whose `dataset_key`s count as supplied, or NULL
+#' @param halt logical; `stop()` on an orphan (default `TRUE`)
+#' @return (invisibly) a named list of the orphan `dataset_key`s per registry
+#' @export
+#' @concept check
+check_taxon_registries <- function(con, overrides = NULL, group_rules = NULL,
+                                   measurement_taxon = NULL, halt = TRUE) {
+  if (!"dataset_taxon" %in% DBI::dbListTables(con))
+    stop("check_taxon_registries(): needs `dataset_taxon` in `con`.")
+  known <- DBI::dbGetQuery(con, "SELECT DISTINCT dataset_key FROM dataset_taxon")$dataset_key
+  if (!is.null(measurement_taxon) && nrow(measurement_taxon))
+    known <- union(known, as.character(measurement_taxon$dataset_key))
+  known <- stats::na.omit(known)
+
+  orphans <- function(reg) {
+    if (is.null(reg) || !nrow(reg) || is.null(reg$dataset_key)) return(character())
+    setdiff(stats::na.omit(unique(as.character(reg$dataset_key))), known)
+  }
+  out <- list(overrides = orphans(overrides), group_rules = orphans(group_rules))
+  bad <- Filter(length, out)
+  if (length(bad)) {
+    msg <- paste0(
+      "taxon registries name dataset_key(s) nothing supplies:\n",
+      paste(sprintf("  %s: %s", names(bad),
+                    vapply(bad, function(x) paste(sprintf("`%s`", x), collapse = ", "), "")),
+            collapse = "\n"),
+      "\n  Known: ", paste(sort(known), collapse = ", "),
+      "\n  A registry row that matches no dataset is how a typo becomes a missing id.")
+    if (halt) stop(msg, call. = FALSE) else warning(msg, call. = FALSE)
+  }
+  invisible(out)
+}
+
 # check_cruise_coverage --------------------------------------------------------
 
 #' Cruises that carry samples but no observations — the silent-loss guard

@@ -1,9 +1,9 @@
 # taxon authority cross-reference ----------------------------------------------
 # Fill the hole that made every seabird and marine mammal unreachable.
 #
-# `taxon_key_of()` keys birds on `itis:<TSN>` because WoRMS bird taxonomy lags
-# (it still calls these Oceanodroma / Puffinus / Phalacrocorax). That rule is
-# right, but nothing ever populated the `worms_id` COLUMN for those taxa, so a
+# `taxon_key_of()` keys class Aves on `itis:<TSN>` because WoRMS bird taxonomy
+# lags (it still calls these Oceanodroma / Puffinus / Phalacrocorax). That rule
+# is right, but nothing ever populated the `worms_id` COLUMN for those taxa, so a
 # consumer joining on `worms_id` — which is what `db-viz-hex::get_sp()` does —
 # matched zero rows for all 128 Farallon taxa and 64,956 observations. The key
 # authority and the cross-reference columns are different questions, and the code
@@ -461,15 +461,16 @@ ensure_taxon_xref <- function(con, measurement_taxon = NULL, overrides = NULL,
   # read the vocabulary BEFORE staging, so this call is not self-referential
   rows <- .taxon_norm_sources(con, measurement_taxon, overrides, xref = NULL)
 
-  # which authority each taxon is KEYED on decides what to ask for:
-  #  - keyed itis: (the Aves rule) -> crosswalk the TSN, gain worms_id
-  #  - keyed worms:                -> backfill the itis_id cross-reference
-  #  - keyed on neither            -> last resort, match the name
-  keyed_itis <- rows$is_bird & !is.na(rows$itis_id)
-  i_ids <- rows$itis_id[keyed_itis]
-  w_ids <- rows$worms_id[!keyed_itis & !is.na(rows$worms_id)]
-  nameless <- is.na(rows$worms_id) & is.na(rows$itis_id)
-  nms <- rows$scientific_name[nameless]
+  # whichever id the SOURCE supplied decides what to ask for (taxon plan D2 —
+  # no source flag, no key yet):
+  #  - a TSN and no AphiaID -> crosswalk the TSN, gain worms_id (the seabirds)
+  #  - an AphiaID           -> backfill the itis_id cross-reference
+  #  - neither              -> last resort, match the name
+  has_w <- !is.na(rows$worms_id)
+  has_i <- !is.na(rows$itis_id)
+  i_ids <- rows$itis_id[has_i & !has_w]
+  w_ids <- rows$worms_id[has_w]
+  nms <- rows$scientific_name[!has_w & !has_i]
   nms <- nms[!is.na(nms)]
 
   xref <- fetch_taxon_xref(itis_ids = i_ids, worms_ids = w_ids, names = nms,
@@ -531,8 +532,15 @@ ensure_taxon_xref <- function(con, measurement_taxon = NULL, overrides = NULL,
   # links that chain just established.
   set <- if (rekey) function(dst, src) ifelse(is.na(src), dst, src) else take
 
-  # a. ITIS-keyed taxa: gain worms_id, re-key onto the ITIS-accepted TSN
-  ki <- which(rows$is_bird & !is.na(rows$itis_id))
+  # the branches are chosen from the ids the row ARRIVES with, before (a) fills
+  # anything: a bird that gains its worms_id in (a) must not then be handed to
+  # (b), where the AphiaID's linked TSN could re-key it off its own accepted TSN
+  has_w0 <- !is.na(rows$worms_id)
+  has_i0 <- !is.na(rows$itis_id)
+
+  # a. taxa carrying a TSN and no AphiaID (the seabirds, and every ITIS lineage
+  # row): gain worms_id, re-key onto the ITIS-accepted TSN
+  ki <- which(has_i0 & !has_w0)
   if (length(ki)) {
     x <- pick("tsn", rows$itis_id[ki])
     hit <- !is.na(x$query_value)
@@ -547,8 +555,8 @@ ensure_taxon_xref <- function(con, measurement_taxon = NULL, overrides = NULL,
     }
   }
 
-  # b. WoRMS-keyed taxa: backfill the itis_id cross-reference
-  kw <- which(!(rows$is_bird & !is.na(rows$itis_id)) & !is.na(rows$worms_id))
+  # b. taxa carrying an AphiaID: backfill the itis_id cross-reference
+  kw <- which(has_w0)
   if (length(kw)) {
     x <- pick("aphia", rows$worms_id[kw])
     hit <- !is.na(x$query_value)

@@ -85,21 +85,26 @@ test_that("assemble_core() rejects a sample_key colliding across shards", {
                "duplicate sample_key")
 })
 
-test_that("taxon shards collapse on taxon_key, coalescing by source priority", {
+test_that("taxon shards collapse on taxon_key, coalescing in dataset order — no priority list", {
   skip_if_not_installed("duckdb")
   skip_if_not_installed("withr")
   root <- make_shard_root()
   con <- get_duckdb_con(":memory:")
   on.exit(close_duckdb(con))
 
-  n <- merge_taxon_shards(con, root, priority = c("ds_a", "ds_b"))
+  # the hard-coded dataset priority is gone (taxon plan D5): every shard's
+  # authority fields come from the same cached lineage, so a disagreement is
+  # settled deterministically by dataset directory name, not by a list an
+  # added dataset must be appended to
+  expect_error(merge_taxon_shards(con, root, priority = c("ds_a", "ds_b")), "unused argument")
+  n <- merge_taxon_shards(con, root)
   expect_equal(n, 2L)
 
   got <- DBI::dbGetQuery(con,
     "SELECT taxon_key, scientific_name, taxon_rank, family FROM taxon ORDER BY taxon_key")
   expect_equal(got$taxon_key, c("worms:1", "worms:2"))
   # worms:2 appears in both shards -> ONE row, taking each field from the
-  # highest-priority shard that actually has it
+  # first shard (by name) that actually has it
   expect_equal(got$taxon_rank[2], "species")                  # from ds_a
   expect_equal(got$scientific_name[2], "Euphausia pacifica")  # ds_a is NULL -> ds_b
   expect_equal(got$family[2], "Euphausiidae")           # from ds_a

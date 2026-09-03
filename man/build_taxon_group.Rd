@@ -2,36 +2,45 @@
 % Please edit documentation in R/taxa.R
 \name{build_taxon_group}
 \alias{build_taxon_group}
-\title{Build the \code{taxon_group} grouping table (many taxa per group)}
+\title{Build the \code{taxon_group} grouping table (many taxa per group) from the registry}
 \usage{
-build_taxon_group(
-  con,
-  measurement_taxon = NULL,
-  overrides = NULL,
-  tbl = "taxon_group"
-)
+build_taxon_group(con, rules = NULL, tbl = "taxon_group", ...)
 }
 \arguments{
-\item{con}{a DuckDB connection with the per-dataset taxon tables loaded}
+\item{con}{a DuckDB connection holding \code{taxon} and \code{dataset_taxon}}
 
-\item{measurement_taxon}{optional data.frame of the composite-type crosswalk
-(\code{metadata/measurement_taxon.csv}) so cufes/phyllosoma/euphausiid taxa,
-which live in \code{measurement_type} names not a taxon table, are included}
-
-\item{overrides}{optional data.frame of manual id resolution
-(\code{metadata/taxon_override.csv}) for coarse taxa (phyto groups, mammals)}
+\item{rules}{the registry as read by \code{\link[=read_taxon_group_rules]{read_taxon_group_rules()}}, or a path to
+it. \code{NULL} looks for \code{metadata/taxon_group.csv} under \code{here::here()}.}
 
 \item{tbl}{target table name (default \code{"taxon_group"})}
+
+\item{...}{the pre-3.29 \code{measurement_taxon} / \code{overrides} arguments, accepted
+with a deprecation warning and ignored (the groups are not derived from
+them any more)}
 }
 \value{
 (invisibly) the row count written
 }
 \description{
-Seeds portable, cross-dataset groupings (\code{taxon_group_key} =
-\code{"<dataset-or-known-list>:<group>"}, lowercase; a \code{description}; many
-\code{taxon_key}) from the groupings each dataset already carries — phytoplankton
-functional groups (\code{phyto_taxon.taxa}, e.g. \verb{diatom, centric}) and the
-seabird/mammal \code{is_bird}/\code{is_mammal} flags. Curated \verb{calcofi:*} groups (e.g.
-\code{forage_fish}) can be appended later.
+Groups come from \code{metadata/taxon_group.csv} (taxon plan D4), not from code:
+}
+\details{
+\itemize{
+\item \strong{\code{class}} — every vocabulary taxon whose released \code{class} equals
+\code{rule_value}: \code{calcofi:seabirds} = Aves, \code{calcofi:marine_mammals} =
+Mammalia. Cross-dataset by construction; no dataset column. Scoped to taxa
+some dataset actually observes (present in \code{dataset_taxon}), never to a bare
+lineage ancestor — a group selects observed taxa, and the ancestors are
+reachable through \code{parent_taxon_key} anyway.
+\item \strong{\code{dataset_taxon}} — by \verb{(dataset_key, match_column, match_value)} against
+\code{dataset_taxon}, the same matcher \code{taxon_override.csv} uses: the
+phytoplankton functional groups on \code{ds_common_name}.
+}
+
+A rule naming a \code{match_column} the vocabulary lacks errors; a rule for a
+dataset absent from this connection is skipped (it is another ingest's), and
+\code{\link[=check_taxon_registries]{check_taxon_registries()}} catches one nobody supplies at the release. Needs
+\code{taxon} and \code{dataset_taxon} in \code{con}, i.e. call it after
+\code{\link[=build_taxon_reference]{build_taxon_reference()}} and \code{\link[=resolve_dataset_taxon]{resolve_dataset_taxon()}}.
 }
 \concept{taxonomy}
