@@ -53,6 +53,41 @@ create_cruise_key <- function(
     FROM {ship_tbl} s
     WHERE cr.ship_key = s.ship_key"))
 
+  # a ship with a NULL/blank ship_nodc mints a cruise_key with an empty trailing
+  # segment (DuckDB's CONCAT() treats NULL as ''), and that key is NOT NULL, so it
+  # passes every downstream "cruise_key IS NOT NULL" check silently. This is
+  # exactly how the July 2019 Bold Horizon cruise was released as
+  # cruise_key = "2019-07-": ship.ship_nodc was blank when create_cruise_key() ran,
+  # a later correction (apply_data_corrections()) patched the ship row, and the
+  # key was never re-derived (WS-B / questions swfsc_ichthyo_13). Refuse outright
+  # — this must run AFTER any ship_nodc correction, never before — and name the
+  # ship so the fix is obvious rather than a downstream mismatch nobody traces
+  # back here.
+  # ship_name is display-only (not guaranteed on every ship_tbl this is called
+  # against), so it is a LEFT JOIN best-effort rather than a hard dependency
+  ship_has_name <- "ship_name" %in% DBI::dbGetQuery(con, glue::glue(
+    "SELECT column_name FROM information_schema.columns
+      WHERE table_name = '{ship_tbl}'"))$column_name
+  name_sel <- if (ship_has_name) "s.ship_name" else "NULL::VARCHAR AS ship_name"
+  bad <- DBI::dbGetQuery(con, glue::glue("
+    SELECT cr.cruise_key, s.ship_key, {name_sel}, s.ship_nodc
+    FROM {cruise_tbl} cr
+    JOIN {ship_tbl} s ON cr.ship_key = s.ship_key
+    WHERE s.ship_nodc IS NULL OR s.ship_nodc = ''
+       OR NOT regexp_matches(cr.cruise_key, '^\\d{{4}}-(0[1-9]|1[0-2])-[A-Za-z0-9]{{4}}$')
+    ORDER BY cr.cruise_key"))
+  if (nrow(bad) > 0) {
+    label <- ifelse(is.na(bad$ship_name), bad$ship_key,
+                     glue::glue("'{bad$ship_name}' [{bad$ship_key}]"))
+    examples <- paste(glue::glue(
+      "{bad$cruise_key} (ship {label}, ship_nodc = '{bad$ship_nodc}')"), collapse = "; ")
+    stop(glue::glue(
+      "create_cruise_key(): {nrow(bad)} cruise(s) would mint a malformed ",
+      "cruise_key from a blank/NULL ship_nodc or fail the YYYY-MM-NODC format: ",
+      "{examples}. Fix the ship's ship_nodc (e.g. via apply_data_corrections()) ",
+      "BEFORE calling create_cruise_key(), not after."), call. = FALSE)
+  }
+
   # verify uniqueness
   dups <- DBI::dbGetQuery(con, glue::glue("
     SELECT cruise_key, COUNT(*) as n

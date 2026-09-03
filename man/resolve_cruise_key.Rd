@@ -59,6 +59,12 @@ event (nearest span centre on the rare tie);
 designation, when supplied and well-formed;
 \item \strong{month} — the event's own year-month (the legacy rule).
 }
-Every key is \verb{YYYY-MM-} + the ship's NODC code from \code{ship_tbl}.
+Every key is \verb{YYYY-MM-} + the ship's NODC code from \code{ship_tbl}. Steps 2–3
+(which mint a key rather than copy one from \code{cruise_tbl}) require
+\code{ship_nodc} to be non-NULL/non-blank — a blank NODC (DuckDB's \code{CONCAT()}
+treats NULL as \code{''}) used to mint \verb{YYYY-MM-} silently (WS-B / the July 2019
+Bold Horizon cruise, \code{cruise_key = "2019-07-"}); those rows now stay
+unresolved (\code{cruise_key} NULL, method NULL) rather than shipping a malformed
+key.
 }
 \concept{ship}

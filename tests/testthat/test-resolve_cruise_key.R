@@ -139,6 +139,38 @@ test_that("add_cruise_date_span() writes spans and reports spill + overlap", {
   expect_equal(as.character(sp2$date_min[sp2$cruise_key == "1955-09-31BD"]), "1955-09-02")
 })
 
+test_that("a blank-NODC ship yields NULL cruise_key/method, never 'YYYY-MM-'", {
+  # WS-B: the July 2019 Bold Horizon cruise was released as cruise_key
+  # "2019-07-" because DuckDB's CONCAT() treats NULL as '' and nothing refused
+  # it. Steps 2 (source) and 3 (month) must not mint a key from a blank/NULL
+  # ship_nodc; the row stays unresolved instead of shipping a malformed key.
+  con <- ck_con()
+  DBI::dbWriteTable(con, "ship", data.frame(
+    ship_key = c("31BD", "BH"), ship_name = c("BLACK DOUGLAS", "BOLD HORIZON"),
+    ship_nodc = c("31BD", ""), stringsAsFactors = FALSE))
+  DBI::dbWriteTable(con, "cruise", data.frame(
+    cruise_key = "1955-08-31BD", ship_key = "31BD",
+    date_ym = as.Date("1955-08-01"),
+    date_min = as.Date("1955-08-07"), date_max = as.Date("1955-09-03"),
+    stringsAsFactors = FALSE))
+  DBI::dbWriteTable(con, "ev", data.frame(
+    ship_key = c("BH", "BH"),
+    cruise   = c("201907", NA),
+    datetime_utc = as.POSIXct(c("2019-07-15 00:00:00", "2019-07-20 00:00:00"),
+                              tz = "UTC"),
+    stringsAsFactors = FALSE))
+  st <- resolve_cruise_key(con, "ev", datetime_col = "datetime_utc",
+                           cruise_ym_col = "cruise")
+  got <- DBI::dbGetQuery(con, "SELECT cruise_key, cruise_key_method FROM ev")
+  # row 1 would resolve "source" (has a designation), row 2 "month" (no
+  # designation) if ship_nodc were populated; both must stay NULL instead
+  expect_true(all(is.na(got$cruise_key)))
+  expect_true(all(is.na(got$cruise_key_method)))
+  expect_false(any(grepl("^2019-07-$", got$cruise_key)))
+  expect_equal(st$method[st$method == "none"], "none")
+  expect_equal(st$n[st$method == "none"], 2)
+})
+
 test_that("a numeric (DOUBLE) designation column resolves like a character one", {
   # the bottle CSV reader typed all-digit `Cruise` as DOUBLE, so CAST gave
   # '195508.0' and 0 of 5,408 unspanned casts took the source step (2026-08-24)

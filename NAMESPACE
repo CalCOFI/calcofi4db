@@ -55,6 +55,7 @@ export(cc_station_regions)
 export(changed_inputs)
 export(check_core_pk_unique)
 export(check_cruise_coverage)
+export(check_cruise_key_integrity)
 export(check_data_integrity)
 export(check_dataset_citation)
 export(check_dataset_taxon)
@@ -84,6 +85,7 @@ export(compare_local_vs_archive)
 export(compare_releases)
 export(compat_event_sql)
 export(compat_measurement_sql)
+export(complete_cruise_reference)
 export(complete_version_release)
 export(consolidate_ichthyo_tables)
 export(convert_cruise_key_format)
@@ -171,6 +173,7 @@ export(match_by_site_datetime)
 export(match_cruise_by_track)
 export(match_nearest_by_depth)
 export(match_ships)
+export(match_station_occupation)
 export(measurement_var_meta)
 export(merge_metadata_json)
 export(merge_relationships_json)
@@ -314,6 +317,7 @@ importFrom(DBI,
   dbListFields,
   dbListTables,
   dbQuoteIdentifier,
+  dbQuoteString,
   dbReadTable,
   dbWriteTable
 )

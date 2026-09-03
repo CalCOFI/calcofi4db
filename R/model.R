@@ -146,6 +146,11 @@ ns_key <- function(dataset_key, sample_type, id_sql) {
   # a stale DB rather than on anything the caller did.
   DBI::dbExecute(con, glue::glue(
     "ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS data_stage VARCHAR"))
+  # `source_uuid` was added in 3.32.0 (WS-B, Ed Weber's ask): the provider's own
+  # identifier for the event as shipped (SWFSC site_uuid/tow_uuid/net_uuid), NULL
+  # for the 15 datasets that mint none. Same ALTER-guard reasoning as data_stage.
+  DBI::dbExecute(con, glue::glue(
+    "ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS source_uuid UUID"))
   invisible(tbl)
 }
 
@@ -304,12 +309,13 @@ append_sample_measurement <- function(con, select_sql, tbl = "sample_measurement
 #' of the base contract — `sample_key`, `sample_type`, `parent_sample_key`,
 #' `root_sample_key`, `dataset_key`, `grid_key`, `site_key`, `cruise_key`,
 #' `order_occ`, `latitude`, `longitude`, `datetime`, `depth_min_m`, `depth_max_m`,
-#' `tow_type` — or those 15 plus a trailing 16th, `data_stage`. `geom` is minted
-#' here as `ST_Point(longitude, latitude)`. `tow_type` is the net gear code
-#' (ichthyo tow/net grains: C1/CB/CV/PV oblique/vertical, MT manta), NULL for
-#' gears/datasets without one. Call it once per event level — a multi-level
-#' dataset (ichthyo `site`->`tow`->`net`, bottle `cast`->`bottle`) appends one arm
-#' per level, and [sample_arm_self()] writes the single-level case for you.
+#' `tow_type` — those 15 plus a trailing 16th, `data_stage` — or those 16 plus a
+#' trailing 17th, `source_uuid`. `geom` is minted here as `ST_Point(longitude,
+#' latitude)`. `tow_type` is the net gear code (ichthyo tow/net grains: C1/CB/CV/PV
+#' oblique/vertical, MT manta), NULL for gears/datasets without one. Call it once
+#' per event level — a multi-level dataset (ichthyo `site`->`tow`->`net`, bottle
+#' `cast`->`bottle`) appends one arm per level, and [sample_arm_self()] writes the
+#' single-level case for you.
 #'
 #' `data_stage` is **optional and trailing** on purpose: it records the source's
 #' own processing state for the event (`final` vs `preliminary` for CTD casts, per
@@ -317,6 +323,12 @@ append_sample_measurement <- function(con, select_sql, tbl = "sample_measurement
 #' it positional column 16 rather than inserting it into the contract lets a
 #' dataset opt in when it has a meaningful stage without touching the other arms —
 #' a 15-column arm gets `NULL` and keeps working unchanged.
+#'
+#' `source_uuid` (added 3.32.0, WS-B/Ed Weber's ask) is the provider's own
+#' identifier for *that* event exactly as shipped — ichthyo's `site_uuid` /
+#' `tow_uuid` / `net_uuid` — typed `UUID`, trailing 17th column, same
+#' opt-in-without-disturbing-other-arms reasoning as `data_stage`: a 15- or
+#' 16-column arm gets `NULL::UUID` and keeps working unchanged.
 #' @inheritParams append_obs
 #' @param sample_tbl target table (default `"sample"`)
 #' @return (invisibly) the total row count of `sample_tbl` after the append
@@ -331,15 +343,19 @@ append_sample <- function(con, select_sql, sample_tbl = "sample") {
     "dataset_key", "grid_key", "site_key", "cruise_key", "order_occ",
     "latitude", "longitude", "datetime", "depth_min_m", "depth_max_m", "tow_type")
   # DESCRIBE, not a LIMIT 0 scan: the arity has to be known before the positional
-  # alias list is written, and a 15-vs-16 mismatch must be a named error rather
-  # than DuckDB's "table function has N columns but M names were given".
+  # alias list is written, and a mismatch must be a named error rather than
+  # DuckDB's "table function has N columns but M names were given".
   n_col <- nrow(DBI::dbGetQuery(con, glue::glue("DESCRIBE ({select_sql})")))
-  if (!n_col %in% c(15L, 16L))
-    stop("append_sample(): `select_sql` must yield 15 columns (the base contract) ",
-         "or 16 (with `data_stage` trailing); got ", n_col, ".", call. = FALSE)
-  has_stage <- n_col == 16L
+  if (!n_col %in% c(15L, 16L, 17L))
+    stop("append_sample(): `select_sql` must yield 15 columns (the base contract), ",
+         "16 (with `data_stage` trailing) or 17 (with `source_uuid` also trailing); ",
+         "got ", n_col, ".", call. = FALSE)
+  has_stage <- n_col %in% c(16L, 17L)
+  has_source_uuid <- n_col == 17L
   if (has_stage) src_cols <- c(src_cols, "data_stage")
+  if (has_source_uuid) src_cols <- c(src_cols, "source_uuid")
   stage_sel <- if (has_stage) "data_stage" else "NULL::VARCHAR AS data_stage"
+  source_uuid_sel <- if (has_source_uuid) "source_uuid" else "NULL::UUID AS source_uuid"
   src_alias <- paste(src_cols, collapse = ", ")
 
   # NaN/Inf coordinates are normalised to NULL before anything is minted from
@@ -367,7 +383,7 @@ append_sample <- function(con, select_sql, sample_tbl = "sample") {
     "INSERT INTO {sample_tbl}
        (sample_key, sample_type, parent_sample_key, root_sample_key,
         dataset_key, grid_key, site_key, cruise_key, order_occ, latitude, longitude, datetime,
-        depth_min_m, depth_max_m, tow_type, data_stage, geom)
+        depth_min_m, depth_max_m, tow_type, data_stage, source_uuid, geom)
      WITH src AS (SELECT * FROM ( {select_sql} ) AS s({src_alias})),
           fin AS (
             SELECT * REPLACE (
@@ -378,7 +394,7 @@ append_sample <- function(con, select_sql, sample_tbl = "sample") {
             FROM src)
      SELECT sample_key, sample_type, parent_sample_key, root_sample_key,
             dataset_key, grid_key, site_key, cruise_key, order_occ, latitude, longitude, datetime,
-            depth_min_m, depth_max_m, tow_type, {stage_sel},
+            depth_min_m, depth_max_m, tow_type, {stage_sel}, {source_uuid_sel},
             -- EPSG:4326 explicitly. ST_Point() alone tags OGC:CRS84, while
             -- ST_Read() over GeoJSON (ingest_spatial) tags EPSG:4326 — the same
             -- WGS 84 lon/lat under two labels. DuckDB refuses ST_Intersects

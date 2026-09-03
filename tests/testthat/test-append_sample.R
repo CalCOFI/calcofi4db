@@ -107,6 +107,41 @@ test_that("append_sample() takes 15 or 16 columns; the 16th is data_stage", {
     "CB")
 })
 
+test_that("append_sample() takes 17 columns; the 17th is source_uuid", {
+  # source_uuid (3.32.0, WS-B) is trailing and optional for the same reason
+  # data_stage is: the 15 other datasets that mint no provider UUID keep working
+  # untouched, and a 16-column arm (data_stage only, no source_uuid) still works.
+  con <- new_ichthyo_fixture()
+  on.exit(close_duckdb(con))
+
+  # 17 columns -> the trailing value lands in source_uuid, data_stage in between
+  append_sample(con, glue::glue(
+    "SELECT *, 'preliminary_with_bottle'::VARCHAR AS data_stage,
+            '11111111-1111-1111-1111-111111111111'::UUID AS source_uuid
+     FROM ({ich_sample_sql[['tow']]}) AS a(
+       sample_key, sample_type, parent_sample_key, root_sample_key, dataset_key,
+       grid_key, site_key, cruise_key, order_occ, latitude, longitude, datetime,
+       depth_min_m, depth_max_m, tow_type)"))
+
+  su <- function(key) DBI::dbGetQuery(con, glue::glue(
+    "SELECT source_uuid FROM sample WHERE sample_key = '{key}'"))$source_uuid
+  expect_equal(as.character(su("swfsc_ichthyo:tow:T1")),
+               "11111111-1111-1111-1111-111111111111")
+
+  # a 15-column arm (no data_stage, no source_uuid) leaves source_uuid NULL
+  append_sample(con, ich_sample_sql[["site"]])
+  expect_true(is.na(su("swfsc_ichthyo:site:S1")))
+
+  # and a 16-column arm (data_stage, no source_uuid) also leaves source_uuid NULL
+  append_sample(con, glue::glue(
+    "SELECT *, 'final'::VARCHAR AS data_stage
+     FROM ({ich_sample_sql[['net']]}) AS a(
+       sample_key, sample_type, parent_sample_key, root_sample_key, dataset_key,
+       grid_key, site_key, cruise_key, order_occ, latitude, longitude, datetime,
+       depth_min_m, depth_max_m, tow_type)"))
+  expect_true(is.na(su("swfsc_ichthyo:net:N1")))
+})
+
 test_that("append_sample() rejects any other arity by name", {
   con <- new_ichthyo_fixture()
   on.exit(close_duckdb(con))
@@ -116,7 +151,7 @@ test_that("append_sample() rejects any other arity by name", {
   cols <- function(n) paste(rep("NULL::VARCHAR", n), collapse = ", ")
   expect_error(append_sample(con, paste("SELECT", cols(14))),
                "must yield 15 columns")
-  expect_error(append_sample(con, paste("SELECT", cols(17))), "got 17")
+  expect_error(append_sample(con, paste("SELECT", cols(18))), "got 18")
 })
 
 test_that("sample_arm_self qualifies caller-supplied column expressions", {
