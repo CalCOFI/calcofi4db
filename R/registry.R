@@ -338,13 +338,34 @@ upsert_measurement_types <- function(
 #' matching how [read_measurement_type()] reads it, so no type coercion happens
 #' here that the registry's own round trip does not already do.
 #'
+#' `nerc_p01` / `units_nerc_p06` followed in 3.32.0 (WS-H2, pre-release decision
+#' D-S2): the controlled-vocabulary ids a portal export needs — OBIS/DwC eMoF's
+#' `measurementTypeID` (NERC BODC Parameter Usage Vocabulary P01) and
+#' `measurementUnitID` (NERC P06). Both hold the **full concept URI**, and both
+#' are filled only on an exact vocabulary match, so an empty cell means "no
+#' concept states exactly what this type is", never "not looked at".
+#'
 #' @return Character vector of the allowed field names.
 #' @keywords internal
-declarable_measurement_fields <- function() c("category", "variable", "derivation", "is_canonical")
+declarable_measurement_fields <- function()
+  c("category", "variable", "derivation", "is_canonical", "nerc_p01", "units_nerc_p06")
 
-#' Declare `category` / `variable` / `derivation` / `is_canonical` on measurement types that already exist
+#' The NERC NVS collections [declare_measurement_fields()] validates against
 #'
-#' Four descriptive columns, none of them an ingest's own definition:
+#' Maps each vocabulary column to the collection its URIs must come from. A typo
+#' in a concept id is invisible (it is just a string), but a URI in the wrong
+#' collection — a P06 unit where a P01 parameter belongs — is exactly the kind of
+#' mistake that reaches a portal export intact, so the prefix is checked.
+#'
+#' @return Named character vector: column name -> required URI prefix.
+#' @keywords internal
+nerc_uri_prefixes <- function() c(
+  nerc_p01       = "http://vocab.nerc.ac.uk/collection/P01/current/",
+  units_nerc_p06 = "http://vocab.nerc.ac.uk/collection/P06/current/")
+
+#' Declare `category` / `variable` / `derivation` / `is_canonical` / NERC ids on measurement types that already exist
+#'
+#' Six descriptive columns, none of them an ingest's own definition:
 #' * `category` — one of the registered categories (`metadata/category.csv`:
 #'   *Physical Oceanography*, *Nutrients & Chemistry*, *Carbonate System*,
 #'   *Productivity & Pigments*, *Meteorology & Sea State*, …), read by the
@@ -360,14 +381,31 @@ declarable_measurement_fields <- function() c("category", "variable", "derivatio
 #'   selection; a provider-confirmed fact like "the bottle's `r_*` series are
 #'   interpolated, so they are not canonical" belongs here, not in an ingest's
 #'   own literal.
+#' * `nerc_p01` — the NERC BODC Parameter Usage Vocabulary (P01) concept URI
+#'   that a DwC/OBIS eMoF export emits as `measurementTypeID`.
+#' * `units_nerc_p06` — the NERC P06 unit concept URI, emitted as
+#'   `measurementUnitID`.
+#'
+#' The two vocabulary columns are validated against
+#' [nerc_uri_prefixes()]: a value must be a full concept URI in the right
+#' collection (`.../collection/P01/current/<CODE>/`). They are filled **only on
+#' an exact vocabulary match** — a concept every one of whose stated facets
+#' (quantity, matrix, phase, method) the registry or the dataset's documented
+#' protocol actually supplies. A generic concept is an exact match at coarser
+#' specificity (`TEMPPR01`, *Temperature of the water body*); a concept that
+#' adds a facet nobody recorded is not. So an empty cell means "no concept says
+#' exactly this", never "not looked at", and inventing one to fill the column is
+#' the same mistake as inventing a bound to quiet
+#' [check_measurement_bounds()].
 #'
 #' Like [declare_measurement_bounds()] this changes **only** these columns,
 #' only on rows that already exist, refuses an unknown `measurement_type`, and
 #' writes with `na = ""`. A registry predating a column gains it.
 #'
 #' @param fields data.frame with `measurement_type` and at least one of
-#'   `category`, `variable`, `derivation`, `is_canonical`
-#'   ([declarable_measurement_fields()]). `NA` leaves that field as it is.
+#'   `category`, `variable`, `derivation`, `is_canonical`, `nerc_p01`,
+#'   `units_nerc_p06` ([declarable_measurement_fields()]). `NA` leaves that
+#'   field as it is.
 #' @param path path to `metadata/measurement_type.csv`
 #' @param categories the allowed `category` values — the `category` column of
 #'   `metadata/category.csv`; `NULL` skips the check (not recommended)
@@ -398,6 +436,16 @@ declare_measurement_fields <- function(fields, path, categories = NULL, overwrit
     bad <- setdiff(stats::na.omit(unique(as.character(fields$category))), categories)
     if (length(bad))
       stop("category not in the registry (metadata/category.csv): ", paste(bad, collapse = ", "), call. = FALSE)
+  }
+  # a NERC id is just a string, so a wrong-collection URI would ship intact
+  for (cl in intersect(names(nerc_uri_prefixes()), cols)) {
+    pre <- unname(nerc_uri_prefixes()[cl])
+    v   <- stats::na.omit(unique(as.character(fields[[cl]])))
+    v   <- v[nzchar(trimws(v))]
+    bad <- v[!grepl(paste0("^", gsub("([.|()\\^{}+$*?\\[\\]])", "\\\\\\1", pre), "[A-Za-z0-9_]+/$"), v)]
+    if (length(bad))
+      stop(cl, " must be a full NERC concept URI of the form ", pre, "<CODE>/ — got: ",
+           paste(bad, collapse = ", "), call. = FALSE)
   }
   for (cl in declarable_measurement_fields()) if (!cl %in% names(d)) d[[cl]] <- NA_character_
   i <- match(fields$measurement_type, d$measurement_type)
