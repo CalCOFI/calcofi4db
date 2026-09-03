@@ -1,3 +1,51 @@
+# calcofi4db 3.30.0
+
+## Attribution is a contract, checked like links (`R/citation.R`)
+
+Until 2026-09-03 nothing validated a dataset's citation or license: 8 of 16
+`citation_main` were empty, 3 licenses were the free text `"CC BY 4.0"`, and the
+release cited nothing, itself included.
+
+- **`check_dataset_citation(ingest_yaml, network, cache_dir)`** — one row per
+  (dataset, finding): `missing_citation` · `no_year` · `no_locator` ·
+  `missing_license` · `license_unregistered` · `license_custom_no_url` ·
+  `doi_unresolved` (errors) · `authority_drift` · `authority_unavailable`
+  (warnings) · `ok`. The structural half always runs; the network half asks the
+  source's own authority — EDI's cite service (newest revision by probing it: PASTA's
+  revision listing answers 403 to public access), an NCEI landing page's "Cite as",
+  an ERDDAP `.das`, DataCite (`rightsList` SPDX id + doi.org content negotiation) — and
+  caches every fetch in `metadata/{provider}/{dataset}/citation_authority.json`.
+  Drift is reported with both strings and **never written into the YAML**. A finding is
+  `exempt` while an `open`/`proposed` `questions.csv` row on `related_table = dataset`
+  covers the field; `assert_dataset_citation()` stops on anything else. The resolver
+  parsers (`parse_edi_cite()`, `parse_erddap_das()`, `parse_ncei_landing()`,
+  `parse_datacite()`, `parse_doi_bibliography()`) and `normalize_citation()` are
+  exported and pinned on saved responses.
+- **`read_license_registry()`** + `license_statuses()` — `metadata/license.csv`
+  (`license, name, url, status, notes`), read strictly like every registry.
+- **`ingest_yaml_to_dataset_df()`** gains `doi`, `license_url`, `acknowledgement`,
+  `contact` (appended; nothing renamed or moved); **`.dataset_entry()`** gains those and
+  `citation_others` as an always-array list, so `metadata.json` carries them.
+- **`source_accessed` is measured**: `source_accessed_from_git()` (the sidecar's last
+  commit, method `sidecar_commit`), `stamp_source_access(files, urls)` for future ingest
+  runs (`download` / `file_mtime`), written by `build_metadata_json(sources = )` as
+  `sources[]`, and `resolve_source_accessed()` which prefers the stamp over git.
+- **The release cites itself**: `release_citation(version, date, doi, all_versions)`
+  (decided wording, three partners, db-schema URL until the DOI exists; concept DOI
+  `10.5281/zenodo.22281994` for all versions), `add_release_citation(catalog, doi)` for
+  `catalog.json` (`citation`, `concept_doi`, `doi`), a **How to cite** section in every
+  `render_release_notes()` appendix (release + each dataset's `citation_main` · license),
+  `zenodo_doi_for_tag()` / `zenodo_record_for_tag()` (the record by its GitHub tree
+  identifier, else by version under the concept), and `publish_release_notes()` now
+  writes a newly minted DOI into the local and published `catalog.json` and rebuilds
+  `versions.json` (records gain `doi`; `build_versions_json()` carries it) — objects
+  untouched. `publish_release_notes()` also takes `prefix` for a staging run.
+- **`zenodo_metadata()` / `citation_cff()` / `write_citation_files()`** generate
+  `.zenodo.json` (dataset record: the three partners as creators, PIs from `pi_names` as
+  `DataCollector`, curators, `cc-by-4.0`, `isSupplementTo` the GCS release,
+  `isDocumentedBy` db-schema; `version` left to the tag) and `CITATION.cff` (concept DOI).
+- `curl` joins Suggests (the network half of the check).
+
 # calcofi4db 3.29.0
 
 ## The ingest stages its taxon vocabulary; the package fills the key from the class (taxon plan D1, D2, D6)

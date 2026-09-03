@@ -15,7 +15,8 @@ build_metadata_json(
   provider = NULL,
   dataset = NULL,
   workflow_url = NULL,
-  tables_owned = NULL
+  tables_owned = NULL,
+  sources = NULL
 )
 }
 \arguments{
@@ -50,6 +51,12 @@ as parsed from the \code{calcofi$tables_owned} YAML block: a list of entries
 each with \code{table} and optional \code{shared} (logical) / \code{note}. When supplied,
 a \code{contributions} block (per-table row counts) is emitted for these tables
 only, so reference tables loaded from prior ingests are not mis-attributed.}
+
+\item{sources}{Optional table from \code{\link[=stamp_source_access]{stamp_source_access()}} — when the ingest
+read its sources, and how (\code{download} / \code{file_mtime}). Written as
+\code{sources[]}; the release takes the newest stamp as the dataset's measured
+\code{source_accessed} (\code{\link[=resolve_source_accessed]{resolve_source_accessed()}}), falling back to the
+sidecar's git history when absent.}
 }
 \value{
 Path to the created \code{metadata.json} file
