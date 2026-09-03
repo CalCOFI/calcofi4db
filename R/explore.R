@@ -64,7 +64,7 @@ build_sample_root <- function(con, tbl = "sample_root") {
   invisible(n$n)
 }
 
-#' The bio or env realm of `obs`, browser-shaped
+#' The bio or env realm of `obs`, browser-shaped — and, since 3.31.0, its physical store
 #'
 #' Slims `obs` to the columns a lens needs, joins the gear and effort of the observation's own sample
 #' (`sample.tow_type`; `std_haul_factor`, `prop_sorted`, `volume_sampled` from `sample_measurement`),
@@ -73,6 +73,16 @@ build_sample_root <- function(con, tbl = "sample_root") {
 #' to its sample's and then its root's, so a net tow carries its integrated span. Both realms get the
 #' same schema (effort and taxon columns are NULL for env — a NULL column costs nothing in parquet), so
 #' one set of SQL templates serves both.
+#'
+#' Since 3.31.0 (pre-release plan D-S1) the pair is a **strict superset of `obs` under a name
+#' mapping**: each row also carries `sample_key` (the observation's own sampling event — without it
+#' a consumer reaches only the root and loses the net / bottle grain), `measurement_prec` and
+#' `hex_id` (the res-10 H3 cell `hex7` is the parent of); `realm` is implied by the table and
+#' `measurement_value` is `value`. [obs_view_sql()] is the UNION ALL that reconstructs `obs` from the
+#' pair under its original 18 column names, and [check_obs_pair_parity()] asserts the pair holds
+#' exactly `obs`'s rows. The one deliberate difference is the depth fallback above: where `obs`
+#' has no depth for a bio row (a net tow whose span lives on `sample`), the pair — and therefore the
+#' view — carries the sample's span; a non-NULL `obs` depth is never changed.
 #'
 #' @param con DuckDB connection holding `obs`, `sample`, `sample_measurement`, `measurement_type` and
 #'   the `sample_root` built by [build_sample_root()].
@@ -98,14 +108,15 @@ build_obs_slim <- function(con, realm = c("bio", "env"), qual_ok_sql, density_sq
       FROM sample_measurement
       WHERE measurement_type IN ('std_haul_factor', 'prop_sorted', 'volume_sampled') GROUP BY 1),
     x AS (
-      SELECT o.obs_id, o.dataset_key, r.root_id, o.grid_key, o.cruise_key,
+      SELECT o.obs_id, o.dataset_key, r.root_id, o.sample_key, o.grid_key, o.cruise_key,
              o.latitude, o.longitude, o.datetime,
              year(o.datetime)::SMALLINT AS year, quarter(o.datetime)::TINYINT AS quarter,
              COALESCE(o.depth_min_m, s.depth_min_m, r.depth_min_m) AS depth_min_m,
              COALESCE(o.depth_max_m, s.depth_max_m, r.depth_max_m) AS depth_max_m,
              o.taxon_key, o.life_stage, o.measurement_type, m.units, o.measurement_value,
-             o.measurement_qual, ({qual_ok_sql}) AS qual_ok,
+             o.measurement_qual, o.measurement_prec, ({qual_ok_sql}) AS qual_ok,
              s.tow_type, e.std_haul_factor, e.prop_sorted, e.volume_sampled_m3,
+             o.hex_id,
              CASE WHEN o.hex_id IS NULL THEN NULL ELSE {h3_parent_sql('o.hex_id', 7)} END AS hex7
       FROM obs o
       LEFT JOIN sample s USING (sample_key)
@@ -113,15 +124,153 @@ build_obs_slim <- function(con, realm = c("bio", "env"), qual_ok_sql, density_sq
       LEFT JOIN eff e USING (sample_key)
       LEFT JOIN measurement_type m USING (measurement_type)
       WHERE o.realm = '{realm}')
-    SELECT obs_id, dataset_key, root_id, grid_key, cruise_key, latitude, longitude, datetime, year, quarter,
+    SELECT obs_id, dataset_key, root_id, sample_key, grid_key, cruise_key, latitude, longitude, datetime, year, quarter,
            depth_min_m, depth_max_m, (floor(depth_min_m / 10) * 10)::INTEGER AS depth_bin,
-           taxon_key, life_stage, measurement_type, units, measurement_value AS value, measurement_qual, qual_ok,
+           taxon_key, life_stage, measurement_type, units, measurement_value AS value, measurement_qual, measurement_prec, qual_ok,
            tow_type, std_haul_factor, prop_sorted, volume_sampled_m3,
            {density_sql},
-           hex7
+           hex_id, hex7
     FROM x"))
   n <- dbGetQuery(con, glue("SELECT count(*) AS n FROM {tbl}"))$n
   invisible(n)
+}
+
+#' The 18 columns of `obs`, in order
+#'
+#' The public shape of `obs` (v2026.02 → v2026.09) that [obs_view_sql()] reconstructs from
+#' `obs_bio` + `obs_env`. Order matters: a consumer that `UNION`s or reads positionally sees the
+#' view exactly as it saw the table.
+#' @export
+#' @concept release
+OBS_VIEW_COLUMNS <- c(
+  "obs_id", "realm", "dataset_key", "sample_key", "grid_key", "cruise_key",
+  "latitude", "longitude", "datetime", "depth_min_m", "depth_max_m",
+  "taxon_key", "life_stage", "measurement_type", "measurement_value",
+  "measurement_qual", "measurement_prec", "hex_id")
+
+#' `obs` as a view over `obs_bio` + `obs_env`
+#'
+#' The UNION ALL that reconstructs `obs` — its 18 columns, in [OBS_VIEW_COLUMNS] order, under their
+#' original names — from the bifurcated pair (pre-release plan D-S1): `realm` is the constant each
+#' branch contributes, `value` becomes `measurement_value`. The default sources are the **tokens**
+#' `{{obs_bio}}` / `{{obs_env}}`, which is how the SQL is stored in a release's `catalog.json`
+#' (`views.obs`): every resolver — `calcofi4r::cc_get_db()`, `calcofi4py.cc_get_db()`, db-query's
+#' `__TBL:obs__` — substitutes its own way of reading each table ([substitute_view_tables()]), a
+#' quoted table name inside a connection or a `read_parquet(...)` over the catalog's objects.
+#'
+#' @param bio,env what to put after `FROM` for each realm: a token, a quoted table name, or a
+#'   `read_parquet(...)` expression.
+#' @return A length-one SQL string (no trailing semicolon; wrap in parentheses to use it in a
+#'   `FROM`).
+#' @examples
+#' cat(obs_view_sql())
+#' cat(obs_view_sql('"obs_bio"', '"obs_env"'))
+#' @export
+#' @concept release
+obs_view_sql <- function(bio = "{{obs_bio}}", env = "{{obs_env}}") {
+  stopifnot(is.character(bio), length(bio) == 1, is.character(env), length(env) == 1)
+  branch <- function(realm, src) paste0(
+    "SELECT obs_id, '", realm, "' AS realm, dataset_key, sample_key, grid_key, cruise_key,\n",
+    "       latitude, longitude, datetime, depth_min_m, depth_max_m,\n",
+    "       taxon_key, life_stage, measurement_type, value AS measurement_value,\n",
+    "       measurement_qual, measurement_prec, hex_id\n",
+    "FROM ", src)
+  paste(branch("bio", bio), branch("env", env), sep = "\nUNION ALL\n")
+}
+
+#' The tables a catalog view reads, and the SQL with them resolved
+#'
+#' A view in `catalog.json` names its source tables as `{{table}}` tokens so that the SQL is
+#' storage-agnostic. `release_view_tables()` lists them; `substitute_view_tables()` replaces each
+#' with `rp(table)` — a quoted identifier by default, or whatever the caller reads a table through.
+#'
+#' @param sql a view's SQL carrying `{{table}}` tokens.
+#' @param rp `function(table) -> character(1)`; default quotes the name.
+#' @return `release_view_tables()`: the distinct table names, in order of first appearance;
+#'   `substitute_view_tables()`: the SQL with every token replaced.
+#' @examples
+#' release_view_tables(obs_view_sql())
+#' @export
+#' @concept release
+release_view_tables <- function(sql) {
+  m <- regmatches(sql, gregexpr("\\{\\{([A-Za-z0-9_]+)\\}\\}", sql))[[1]]
+  unique(gsub("^\\{\\{|\\}\\}$", "", m))
+}
+
+#' @rdname release_view_tables
+#' @export
+substitute_view_tables <- function(sql, rp = function(table) paste0('"', table, '"')) {
+  stopifnot(is.function(rp))
+  for (t in release_view_tables(sql))
+    sql <- gsub(paste0("{{", t, "}}"), rp(t), sql, fixed = TRUE)
+  sql
+}
+
+#' Assert that `obs_bio` + `obs_env` hold exactly the rows of `obs`
+#'
+#' The gate behind D-S1: before `obs` can be served as [obs_view_sql()] over the pair, the pair
+#' must reproduce it. Per `(realm, dataset_key)` this compares the row count, the number of
+#' distinct `obs_id`s and an order-independent signature (`bit_xor(hash(...))`) of every column
+#' except depth between `obs` and the view run over the pair, and — joining the two on `obs_id` —
+#' counts the rows whose depth the pair **filled** (NULL in `obs`, the sample's span in the pair:
+#' the documented fallback of [build_obs_slim()]) and the rows whose non-NULL depth it **changed**
+#' (never allowed). Any group on one side only, any count / signature mismatch, or any changed
+#' depth is an error naming the group.
+#'
+#' @param con DuckDB connection holding `obs`, `bio` and `env`.
+#' @param obs,bio,env table names.
+#' @return Invisibly, a tibble with one row per `(realm, dataset_key)`: `n_obs`, `n_pair`,
+#'   `n_id_pair`, `sig_ok`, `n_depth_filled`, `n_depth_changed`, `ok`.
+#' @export
+#' @concept release
+#' @importFrom DBI dbGetQuery
+#' @importFrom glue glue
+check_obs_pair_parity <- function(con, obs = "obs", bio = "obs_bio", env = "obs_env") {
+  q <- function(x) paste0('"', x, '"')
+  view <- obs_view_sql(q(bio), q(env))
+  sig_cols <- setdiff(OBS_VIEW_COLUMNS, c("depth_min_m", "depth_max_m"))
+  h <- paste0("hash(", paste(sig_cols, collapse = ", "), ")")
+  agg <- function(src) dbGetQuery(con, glue("
+    SELECT realm, dataset_key, count(*)::BIGINT AS n, count(DISTINCT obs_id)::BIGINT AS n_id,
+           bit_xor({h}) AS sig
+    FROM ({src}) GROUP BY 1, 2"))
+  a <- agg(glue("SELECT * FROM {q(obs)}"))
+  b <- agg(view)
+  d <- dbGetQuery(con, glue("
+    SELECT o.realm, o.dataset_key,
+           count(*) FILTER (WHERE o.depth_min_m IS NULL AND p.depth_min_m IS NOT NULL)::BIGINT AS n_depth_filled,
+           count(*) FILTER (WHERE (o.depth_min_m IS NOT NULL AND o.depth_min_m IS DISTINCT FROM p.depth_min_m)
+                               OR (o.depth_max_m IS NOT NULL AND o.depth_max_m IS DISTINCT FROM p.depth_max_m))::BIGINT AS n_depth_changed
+    FROM (SELECT obs_id, realm, dataset_key, depth_min_m, depth_max_m FROM {q(obs)}) o
+    JOIN (SELECT obs_id, depth_min_m, depth_max_m FROM ({view})) p USING (obs_id)
+    GROUP BY 1, 2"))
+  key <- function(x) paste(x$realm, x$dataset_key, sep = "|")
+  groups <- sort(union(key(a), key(b)))
+  ia <- match(groups, key(a)); ib <- match(groups, key(b)); id <- match(groups, key(d))
+  out <- tibble::tibble(
+    realm           = sub("\\|.*$", "", groups),
+    dataset_key     = sub("^[^|]*\\|", "", groups),
+    n_obs           = as.numeric(a$n[ia]),
+    n_pair          = as.numeric(b$n[ib]),
+    n_id_pair       = as.numeric(b$n_id[ib]),
+    sig_ok          = !is.na(ia) & !is.na(ib) & a$sig[ia] == b$sig[ib],
+    n_depth_filled  = as.numeric(d$n_depth_filled[id]),
+    n_depth_changed = as.numeric(d$n_depth_changed[id]))
+  out$n_depth_filled[is.na(out$n_depth_filled)] <- 0
+  out$n_depth_changed[is.na(out$n_depth_changed)] <- 0
+  out$ok <- !is.na(out$n_obs) & !is.na(out$n_pair) & out$n_obs == out$n_pair &
+    out$n_pair == out$n_id_pair & out$sig_ok & out$n_depth_changed == 0
+  if (!all(out$ok)) {
+    bad <- out[!out$ok, , drop = FALSE]
+    stop("obs_bio + obs_env do not reproduce obs for ", nrow(bad), " (realm, dataset_key) group(s): ",
+         paste(sprintf("%s/%s (obs %s, pair %s%s%s)", bad$realm, bad$dataset_key,
+                       ifelse(is.na(bad$n_obs), "absent", bad$n_obs),
+                       ifelse(is.na(bad$n_pair), "absent", bad$n_pair),
+                       ifelse(bad$sig_ok %in% TRUE, "", ", values differ"),
+                       ifelse(bad$n_depth_changed > 0, sprintf(", %s depths changed", bad$n_depth_changed), "")),
+               collapse = "; "), call. = FALSE)
+  }
+  invisible(out)
 }
 
 #' Exact polygon membership of every root sample, one layer at a time

@@ -29,13 +29,14 @@ ex_fixture <- function(con) {
   DBI::dbExecute(con, "CREATE TABLE measurement_type AS SELECT * FROM (VALUES
     ('abundance', 'count'), ('temperature', 'degC'), ('sardine_eggs', 'count')) t(measurement_type, units)")
   # hex_id at res 10 for (32.9, -117.3) computed once with h3; hard-coded so the test needs no extension
+  # column order is the released obs's (OBS_VIEW_COLUMNS): the view tests compare positionally
   DBI::dbExecute(con, "CREATE TABLE obs AS SELECT * FROM (VALUES
-    (1, 'bio', 'ich:net:1', 'st90-ln90', '2019-04-33UD', 32.9, -117.3, TIMESTAMP '2019-04-02 22:10', NULL, NULL, 'worms:217452', 'larva', 'abundance', 10.0, NULL, NULL, 623333527607443455::UBIGINT, 'swfsc_ichthyo'),
-    (2, 'env', 'btl:b:1',   'st90-ln90', '2019-04-33UD', 32.9, -117.3, TIMESTAMP '2019-04-02 23:00', 10.0, 10.0, NULL, NULL, 'temperature', 15.5, '6', NULL, 623333527607443455::UBIGINT, 'calcofi_bottle'),
-    (3, 'env', 'btl:b:2',   'st90-ln90', '2019-04-33UD', 32.9, -117.3, TIMESTAMP '2019-04-02 23:00', 250.0, 250.0, NULL, NULL, 'temperature', 8.1, '8', NULL, 623333527607443455::UBIGINT, 'calcofi_bottle'),
-    (4, 'bio', 'cuf:u:1',   NULL,        '2019-04-33UD', 33.5, -118.0, TIMESTAMP '2019-04-03 01:00', 0.0, 0.0, 'worms:217452', 'egg', 'sardine_eggs', 3.0, NULL, NULL, NULL, 'swfsc_cufes')
-    ) t(obs_id, realm, sample_key, grid_key, cruise_key, latitude, longitude, datetime, depth_min_m, depth_max_m, taxon_key, life_stage,
-        measurement_type, measurement_value, measurement_qual, measurement_prec, hex_id, dataset_key)")
+    (1, 'bio', 'swfsc_ichthyo',  'ich:net:1', 'st90-ln90', '2019-04-33UD', 32.9, -117.3, TIMESTAMP '2019-04-02 22:10', NULL::DOUBLE, NULL::DOUBLE, 'worms:217452', 'larva', 'abundance', 10.0, NULL, NULL::DOUBLE, 623333527607443455::UBIGINT),
+    (2, 'env', 'calcofi_bottle', 'btl:b:1',   'st90-ln90', '2019-04-33UD', 32.9, -117.3, TIMESTAMP '2019-04-02 23:00', 10.0, 10.0, NULL, NULL, 'temperature', 15.5, '6', NULL, 623333527607443455::UBIGINT),
+    (3, 'env', 'calcofi_bottle', 'btl:b:2',   'st90-ln90', '2019-04-33UD', 32.9, -117.3, TIMESTAMP '2019-04-02 23:00', 250.0, 250.0, NULL, NULL, 'temperature', 8.1, '8', NULL, 623333527607443455::UBIGINT),
+    (4, 'bio', 'swfsc_cufes',    'cuf:u:1',   NULL,        '2019-04-33UD', 33.5, -118.0, TIMESTAMP '2019-04-03 01:00', 0.0, 0.0, 'worms:217452', 'egg', 'sardine_eggs', 3.0, NULL, NULL, NULL)
+    ) t(obs_id, realm, dataset_key, sample_key, grid_key, cruise_key, latitude, longitude, datetime, depth_min_m, depth_max_m, taxon_key, life_stage,
+        measurement_type, measurement_value, measurement_qual, measurement_prec, hex_id)")
   DBI::dbExecute(con, "CREATE TABLE spatial AS SELECT spatial_key, id, layer, name, ST_GeomFromText(wkt) AS geom FROM (VALUES
     ('mpa:1', 1, 'Marine Protected Areas', 'Near site',   'POLYGON((-117.4 32.8, -117.2 32.8, -117.2 33.0, -117.4 33.0, -117.4 32.8))'),
     ('mpa:2', 2, 'Marine Protected Areas', 'Far away',    'POLYGON((-120 35, -119 35, -119 36, -120 36, -120 35))'),
@@ -97,6 +98,60 @@ test_that("build_obs_slim() carries root_id, the net's span and effort, qual_ok,
   expect_equal(e$qual_ok, c(TRUE, FALSE)); expect_equal(e$depth_bin, c(10L, 250L))
   expect_true(all(is.na(e$density_per_10m2))); expect_equal(unique(e$effort_class), "other_unit")
   expect_equal(e$units, c("degC", "degC")); expect_equal(e$value, c(15.5, 8.1))
+  # D-S1 (3.31.0): the pair is a strict superset of obs under a name mapping — the observation's
+  # own sample_key (the net / bottle, not just the root), measurement_prec and the res-10 hex_id
+  expect_equal(b$sample_key, c("ich:net:1", "cuf:u:1")); expect_equal(e$sample_key, c("btl:b:1", "btl:b:2"))
+  expect_true(all(is.na(b$measurement_prec))); expect_true("measurement_prec" %in% names(e))
+  expect_equal(b$hex_id[1], DBI::dbGetQuery(con, "SELECT hex_id FROM obs WHERE obs_id = 1")$hex_id)
+  expect_true(is.na(b$hex_id[2]))
+  expect_true(all(c("sample_key", "measurement_prec", "hex_id", "hex7") %in% names(e)))
+})
+
+test_that("obs_view_sql() reconstructs obs from the pair: 18 columns in order, tokens or tables", {
+  con <- ex_con(); ex_fixture(con); build_sample_root(con)
+  build_obs_slim(con, "bio", QUAL_OK, DENSITY); build_obs_slim(con, "env", QUAL_OK, DENSITY)
+  # the stored form carries tokens; every resolver substitutes its own reader
+  sql <- obs_view_sql()
+  expect_equal(release_view_tables(sql), c("obs_bio", "obs_env"))
+  expect_match(sql, "'bio' AS realm"); expect_match(sql, "'env' AS realm"); expect_match(sql, "value AS measurement_value")
+  expect_equal(substitute_view_tables(sql), obs_view_sql('"obs_bio"', '"obs_env"'))
+  expect_equal(substitute_view_tables(sql, function(t) paste0("read_parquet('", t, ".parquet')")),
+               obs_view_sql("read_parquet('obs_bio.parquet')", "read_parquet('obs_env.parquet')"))
+  expect_false(grepl("{{", substitute_view_tables(sql), fixed = TRUE))
+  v <- DBI::dbGetQuery(con, paste("SELECT * FROM (", substitute_view_tables(sql), ") ORDER BY obs_id"))
+  expect_identical(names(v), OBS_VIEW_COLUMNS)
+  expect_identical(names(v), DBI::dbListFields(con, "obs"))
+  expect_equal(v$obs_id, 1:4); expect_equal(v$realm, c("bio", "env", "env", "bio"))
+  expect_equal(v$measurement_value, c(10, 15.5, 8.1, 3))
+  # row for row the view IS obs, except the documented depth fallback: the ichthyo larva had no depth
+  # in obs and carries its net's 0-210 m span through the pair
+  diff_a <- DBI::dbGetQuery(con, paste("SELECT * FROM (", substitute_view_tables(sql), ") EXCEPT SELECT * FROM obs"))
+  diff_b <- DBI::dbGetQuery(con, paste("SELECT * FROM obs EXCEPT SELECT * FROM (", substitute_view_tables(sql), ")"))
+  expect_equal(nrow(diff_a), 1); expect_equal(nrow(diff_b), 1)
+  expect_equal(diff_a$obs_id, 1); expect_equal(diff_a$depth_min_m, 0); expect_equal(diff_a$depth_max_m, 210)
+  expect_true(is.na(diff_b$depth_min_m))
+})
+
+test_that("check_obs_pair_parity() passes on the pair and names the group that breaks it", {
+  con <- ex_con(); ex_fixture(con); build_sample_root(con)
+  build_obs_slim(con, "bio", QUAL_OK, DENSITY); build_obs_slim(con, "env", QUAL_OK, DENSITY)
+  p <- check_obs_pair_parity(con)
+  expect_equal(nrow(p), 3); expect_true(all(p$ok))
+  expect_equal(p$realm, c("bio", "bio", "env")); expect_equal(p$dataset_key, c("swfsc_cufes", "swfsc_ichthyo", "calcofi_bottle"))
+  expect_equal(p$n_obs, c(1, 1, 2)); expect_equal(p$n_pair, p$n_obs); expect_equal(p$n_id_pair, p$n_obs)
+  expect_equal(p$n_depth_filled, c(0, 1, 0)); expect_equal(p$n_depth_changed, c(0, 0, 0))
+  # a lost row
+  DBI::dbExecute(con, "CREATE TABLE obs_env_short AS SELECT * FROM obs_env WHERE obs_id <> 3")
+  expect_error(check_obs_pair_parity(con, env = "obs_env_short"), "env/calcofi_bottle \\(obs 2, pair 1")
+  # a changed value (same rows, same ids)
+  DBI::dbExecute(con, "CREATE TABLE obs_env_val AS SELECT * REPLACE (value + 1 AS value) FROM obs_env")
+  expect_error(check_obs_pair_parity(con, env = "obs_env_val"), "values differ")
+  # a non-NULL depth rewritten
+  DBI::dbExecute(con, "CREATE TABLE obs_env_dep AS SELECT * REPLACE (depth_min_m + 5 AS depth_min_m) FROM obs_env")
+  expect_error(check_obs_pair_parity(con, env = "obs_env_dep"), "2 depths changed")
+  # a group on one side only
+  DBI::dbExecute(con, "CREATE TABLE obs_bio_ds AS SELECT * REPLACE ('x_y' AS dataset_key) FROM obs_bio")
+  expect_error(check_obs_pair_parity(con, bio = "obs_bio_ds"), "absent")
 })
 
 test_that("build_sample_spatial() is exact per root sample, chunked per layer, and refuses duplicates", {

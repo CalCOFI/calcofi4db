@@ -150,9 +150,27 @@ render_release_notes <- function(version, releases_md, catalog = NULL,
     "## Contents (generated)")
   if (!is.null(catalog) && length(catalog$tables)) {
     tb <- catalog$tables
-    if (!is.data.frame(tb)) tb <- do.call(rbind, lapply(tb, function(t)
-      data.frame(name = t$name, rows = t$rows %||% NA_real_,
-                 partitioned = isTRUE(t$partitioned), supplemental = isTRUE(t$supplemental))))
+    # a deprecated table (catalog.json `deprecated` / `replaced_by` / `removed_in`,
+    # 3.31.0) says so in the appendix, whichever form the catalog was read in
+    dep_note <- function(dep, rep, rem) {
+      if (!isTRUE(dep)) return("")
+      rep <- as.character(unlist(rep)); rep <- rep[!is.na(rep)]
+      sprintf("deprecated%s%s",
+              if (length(rep)) paste0(" → ", paste(sprintf("`%s`", rep), collapse = ", ")) else "",
+              if (!is.null(rem) && !is.na(rem)) sprintf(" (objects removed in %s)", rem) else "")
+    }
+    if (!is.data.frame(tb)) {
+      notes <- vapply(tb, function(t) dep_note(t$deprecated, t$replaced_by, t$removed_in), "")
+      tb <- do.call(rbind, lapply(tb, function(t)
+        data.frame(name = t$name, rows = t$rows %||% NA_real_,
+                   partitioned = isTRUE(t$partitioned), supplemental = isTRUE(t$supplemental))))
+    } else {
+      notes <- vapply(seq_len(nrow(tb)), function(i) dep_note(
+        tb$deprecated[i] %||% FALSE,
+        if (is.null(tb$replaced_by)) NULL else tb$replaced_by[[i]],
+        if (is.null(tb$removed_in)) NULL else tb$removed_in[i]), "")
+    }
+    tb$dep_note <- notes
     for (cl in c("partitioned", "supplemental"))
       if (is.null(tb[[cl]])) tb[[cl]] <- FALSE
     if (is.null(tb$rows)) tb$rows <- NA_real_
@@ -160,8 +178,9 @@ render_release_notes <- function(version, releases_md, catalog = NULL,
     fmt <- function(x) format(x, big.mark = ",", scientific = FALSE, trim = TRUE)
     out <- c(out, "", "| table | rows | |", "|---|---:|---|",
              sprintf("| `%s` | %s | %s |", tb$name, fmt(tb$rows),
+                     ifelse(nzchar(tb$dep_note), tb$dep_note,
                      ifelse(tb$supplemental %in% TRUE, "supplemental",
-                            ifelse(tb$partitioned %in% TRUE, "partitioned", ""))),
+                            ifelse(tb$partitioned %in% TRUE, "partitioned", "")))),
              "",
              sprintf("**%d tables, %s rows, %s GB.**", nrow(tb), fmt(sum(tb$rows, na.rm = TRUE)),
                      if (!is.null(catalog$total_size)) sprintf("%.2f", catalog$total_size / 1e9) else "?"))

@@ -296,6 +296,29 @@ freeze_plan <- function(objects, prev_catalog, version, layout = c("compat", "ca
   objects
 }
 
+#' Views a release carries beside its tables
+#'
+#' The registry behind `catalog.json`'s top-level `views` map (3.31.0, pre-release plan D-S1):
+#' one entry per view, with the SQL over `{{table}}` tokens ([obs_view_sql()]), the source
+#' `tables` it needs, the physical table it `replaces` (marked `deprecated` in the catalog while
+#' it still ships) and `removed_in`, the release its objects disappear in. [build_release_catalog()]
+#' consults it by default and includes a view only when every source table is in the release.
+#'
+#' `"next"` is deliberate for `removed_in`: release versions are dates and the next one is not known
+#' at freeze time. A consumer treats any non-NULL `removed_in` as "migrate now".
+#'
+#' @param removed_in the release `obs`'s objects are dropped in (default `"next"`).
+#' @return Named list of `list(sql, tables, replaces, removed_in)`.
+#' @export
+#' @concept release
+release_views <- function(removed_in = "next") {
+  list(obs = list(
+    sql        = obs_view_sql(),
+    tables     = c("obs_bio", "obs_env"),
+    replaces   = "obs",
+    removed_in = removed_in))
+}
+
 #' Build the release catalog with per-table hashes and objects
 #'
 #' Keeps every field consumers read today (`name`, `rows`, `partitioned`,
@@ -303,16 +326,25 @@ freeze_plan <- function(objects, prev_catalog, version, layout = c("compat", "ca
 #' (`path`, `bytes`, `sha256`, `content_hash`, `since`, `partition_by`,
 #' `partition_value`) and, for the canonical layout, `compat_path`.
 #'
+#' Since 3.31.0 the catalog also carries a top-level **`views`** map — view name → SQL over
+#' `{{table}}` tokens — for every entry of `views` whose source tables are all in `tables_df`, and
+#' the table a view `replaces` gains `deprecated: true`, `replaced_by: [...]` and `removed_in` while
+#' it still ships. A resolver (`calcofi4r::cc_get_db()`, `calcofi4py.cc_get_db()`, db-query) creates
+#' the views after the tables; a deprecated table's objects are read only when the view's sources
+#' were not loaded.
+#'
 #' @param version release version.
 #' @param tables_df data.frame with `name, rows, partitioned, supplemental`.
 #' @param plan tibble from [freeze_plan()].
 #' @param layout as in [freeze_plan()].
 #' @param release_date character date.
+#' @param views the view registry, see [release_views()]; `list()` for none.
 #' @return A list ready for `jsonlite::write_json(auto_unbox = TRUE)`.
 #' @export
 #' @concept release
 build_release_catalog <- function(version, tables_df, plan, layout = "compat",
-                                  release_date = as.character(Sys.Date())) {
+                                  release_date = as.character(Sys.Date()),
+                                  views = release_views()) {
   tbls <- lapply(seq_len(nrow(tables_df)), function(i) {
     nm <- tables_df$name[i]
     o <- plan[plan$table == nm, , drop = FALSE]
@@ -344,10 +376,28 @@ build_release_catalog <- function(version, tables_df, plan, layout = "compat",
     }
     t
   })
-  list(version = version, release_date = release_date, layout = layout,
-       writer = CC_PARQUET_WRITER,
-       total_rows = sum(tables_df$rows, na.rm = TRUE),
-       total_size = sum(plan$bytes), tables = tbls)
+  # views over the tables above (D-S1): included only when every source table
+  # ships; the table a view replaces is marked deprecated while it still ships
+  vw <- list()
+  for (nm in names(views)) {
+    v   <- views[[nm]]
+    src <- v$tables %||% release_view_tables(v$sql)
+    if (!length(src) || !all(src %in% tables_df$name)) next
+    vw[[nm]] <- v$sql
+    rep <- v$replaces
+    if (!is.null(rep) && rep %in% tables_df$name) {
+      i <- match(rep, tables_df$name)
+      tbls[[i]]$deprecated  <- TRUE
+      tbls[[i]]$replaced_by <- I(src)          # always a JSON array, even of one
+      tbls[[i]]$removed_in  <- v$removed_in %||% "next"
+    }
+  }
+  out <- list(version = version, release_date = release_date, layout = layout,
+              writer = CC_PARQUET_WRITER,
+              total_rows = sum(tables_df$rows, na.rm = TRUE),
+              total_size = sum(plan$bytes), tables = tbls)
+  if (length(vw)) out$views <- vw
+  out
 }
 
 #' Execute a freeze plan against GCS

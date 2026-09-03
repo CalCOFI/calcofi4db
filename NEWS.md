@@ -1,3 +1,28 @@
+# calcofi4db 3.31.0
+
+## `obs_bio` + `obs_env` are the observation store; `obs` is a view the catalog carries (pre-release plan D-S1)
+
+- **`build_obs_slim()` adds `sample_key`, `measurement_prec` and `hex_id`** to `obs_bio` / `obs_env`
+  (keeping `value`, `root_id`, `hex7`), so each is a strict superset of `obs` under a name mapping
+  (`realm` is the table, `value` is `measurement_value`). The one deliberate difference stays: a bio
+  row with no depth in `obs` carries its sample's span (the tow) through the pair.
+- **`obs_view_sql(bio, env)`** — the UNION ALL that reconstructs `obs` (18 columns, in
+  **`OBS_VIEW_COLUMNS`** order, original names) from the pair; by default over the tokens
+  `{{obs_bio}}` / `{{obs_env}}`, which **`release_view_tables()`** lists and
+  **`substitute_view_tables(sql, rp)`** resolves to a quoted table name or any reader.
+- **`check_obs_pair_parity(con)`** — per `(realm, dataset_key)`: row count, distinct `obs_id`s and
+  an order-independent `bit_xor(hash(...))` signature of every non-depth column, `obs` vs the view
+  over the pair, plus the depths the pair *filled* (reported) and *changed* (an error). Any
+  mismatch names the group; `release_database.qmd`'s `browser_objects` chunk runs it as a gate.
+- **`release_views()`** — the registry of catalog views (`obs` → SQL, source tables, the table it
+  replaces, `removed_in`), and **`build_release_catalog(views = release_views())`** writes a top-level
+  **`views`** map (`obs` → the token SQL) whenever the pair ships, marking the `obs` table entry
+  `deprecated: true`, `replaced_by: ["obs_bio", "obs_env"]`, `removed_in: "next"` while its objects
+  still ship. Nothing else in the catalog moves; `.catalog_objects()`, `freeze_plan()` and the
+  redirect / verify / thinning scripts ignore the new keys.
+- `render_release_notes()`'s appendix says `deprecated → obs_bio, obs_env (objects removed in next)`
+  for such a table, in both catalog forms.
+
 # calcofi4db 3.28.0
 
 ## The boundary layers are described by the release, not hard-coded (explorer plan D23)

@@ -2,7 +2,7 @@
 % Please edit documentation in R/explore.R
 \name{build_obs_slim}
 \alias{build_obs_slim}
-\title{The bio or env realm of \code{obs}, browser-shaped}
+\title{The bio or env realm of \code{obs}, browser-shaped — and, since 3.31.0, its physical store}
 \usage{
 build_obs_slim(
   con,
@@ -36,5 +36,16 @@ and the D8 densities + \code{effort_class} (from \code{density_sql}). Depth is t
 to its sample's and then its root's, so a net tow carries its integrated span. Both realms get the
 same schema (effort and taxon columns are NULL for env — a NULL column costs nothing in parquet), so
 one set of SQL templates serves both.
+}
+\details{
+Since 3.31.0 (pre-release plan D-S1) the pair is a \strong{strict superset of \code{obs} under a name
+mapping}: each row also carries \code{sample_key} (the observation's own sampling event — without it
+a consumer reaches only the root and loses the net / bottle grain), \code{measurement_prec} and
+\code{hex_id} (the res-10 H3 cell \code{hex7} is the parent of); \code{realm} is implied by the table and
+\code{measurement_value} is \code{value}. \code{\link[=obs_view_sql]{obs_view_sql()}} is the UNION ALL that reconstructs \code{obs} from the
+pair under its original 18 column names, and \code{\link[=check_obs_pair_parity]{check_obs_pair_parity()}} asserts the pair holds
+exactly \code{obs}'s rows. The one deliberate difference is the depth fallback above: where \code{obs}
+has no depth for a bio row (a net tow whose span lives on \code{sample}), the pair — and therefore the
+view — carries the sample's span; a non-NULL \code{obs} depth is never changed.
 }
 \concept{release}

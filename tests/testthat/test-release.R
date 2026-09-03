@@ -157,6 +157,53 @@ test_that("freeze_plan() + build_release_catalog(): since is inherited, unchange
   expect_message(upload_release_objects(p4, d, "calcofi-db", dry_run = TRUE), "release objects")
 })
 
+test_that("build_release_catalog() carries the obs view and deprecates obs only when the pair ships (D-S1)", {
+  con <- rl_con(); rl_fixture(con, 4)
+  d <- withr::local_tempdir()
+  # stand-ins: the pair as two tiny single-file tables, obs as the partitioned table of the fixture
+  DBI::dbExecute(con, "CREATE TABLE obs_bio AS SELECT obs_id, measurement_value AS value FROM obs LIMIT 10")
+  DBI::dbExecute(con, "CREATE TABLE obs_env AS SELECT obs_id, measurement_value AS value FROM obs LIMIT 10 OFFSET 10")
+  files <- export_release_parquet(con, "obs", file.path(d, "obs"), ob$order_by, partition_by = "dataset_key")
+  fb <- export_release_parquet(con, "obs_bio", file.path(d, "obs_bio.parquet"), "obs_id")
+  fe <- export_release_parquet(con, "obs_env", file.path(d, "obs_env.parquet"), "obs_id")
+  objs <- rbind(release_objects(con, "obs", d, files, "v1", "dataset_key"),
+                release_objects(con, "obs_bio", d, fb, "v1"),
+                release_objects(con, "obs_env", d, fe, "v1"))
+  tables_df <- data.frame(name = c("obs", "obs_bio", "obs_env"), rows = c(5000, 10, 10),
+                          partitioned = c(TRUE, FALSE, FALSE), supplemental = FALSE)
+  p <- freeze_plan(objs, NULL, "v1", "canonical")
+  cat_ <- build_release_catalog("v1", tables_df, p, "canonical", "2026-09-03")
+  # the view rides in the catalog with its {{tokens}}; obs is deprecated, still with its objects
+  expect_equal(names(cat_$views), "obs")
+  expect_equal(cat_$views$obs, obs_view_sql())
+  expect_equal(release_view_tables(cat_$views$obs), c("obs_bio", "obs_env"))
+  o <- cat_$tables[[1]]
+  expect_equal(o$name, "obs"); expect_true(o$deprecated)
+  expect_equal(as.character(o$replaced_by), c("obs_bio", "obs_env")); expect_equal(o$removed_in, "next")
+  expect_equal(length(o$objects), 3)
+  expect_null(cat_$tables[[2]]$deprecated)
+  # round-trip: replaced_by is a JSON array, views a map, and both survive simplifyVector
+  j <- jsonlite::toJSON(cat_, auto_unbox = TRUE)
+  expect_match(as.character(j), '"replaced_by":\\["obs_bio","obs_env"\\]')
+  expect_match(as.character(j), '"views":\\{"obs":"SELECT obs_id')
+  s <- jsonlite::fromJSON(j, simplifyVector = TRUE)
+  expect_equal(s$views$obs, obs_view_sql()); expect_equal(s$tables$deprecated, c(TRUE, NA, NA))
+  expect_equal(s$tables$replaced_by[[1]], c("obs_bio", "obs_env"))
+  # .catalog_objects() (the reuse ledger) is untouched by the new keys
+  expect_equal(nrow(.catalog_objects(s)), 5)
+  # a registry entry pinning the removal version
+  cat2 <- build_release_catalog("v1", tables_df, p, "canonical", "2026-09-03",
+                                views = release_views(removed_in = "v2026.10.01"))
+  expect_equal(cat2$tables[[1]]$removed_in, "v2026.10.01")
+  # without the pair there is no view and obs is not deprecated; without views, no key at all
+  cat3 <- build_release_catalog("v1", tables_df[1, ], p[p$table == "obs", ], "canonical", "2026-09-03")
+  expect_null(cat3$views); expect_null(cat3$tables[[1]]$deprecated)
+  expect_false("views" %in% names(build_release_catalog("v1", tables_df, p, "canonical", "2026-09-03", views = list())))
+  # a view whose replaced table is absent (the release after the deprecation window) still ships the view
+  cat4 <- build_release_catalog("v1", tables_df[-1, ], p[p$table != "obs", ], "canonical", "2026-09-03")
+  expect_equal(names(cat4$views), "obs"); expect_equal(vapply(cat4$tables, `[[`, "", "name"), c("obs_bio", "obs_env"))
+})
+
 test_that("thin_plan() keeps consolidated + newest two, retires the rest to the next kept version", {
   vs <- c("v2026.03.14", "v2026.04.08", "v2026.05.14", "v2026.05.15", "v2026.06.07",
           "v2026.06.26", "v2026.08.11", "v2026.08.14", "v2026.08.25")
