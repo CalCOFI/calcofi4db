@@ -23,6 +23,15 @@
 - `render_release_notes()`'s appendix says `deprecated → obs_bio, obs_env (objects removed in next)`
   for such a table, in both catalog forms.
 
+## `declare_measurement_fields()` also sets `derivation` and `is_canonical` (WS-DG)
+
+- **`declare_measurement_fields()`** now accepts `derivation` and `is_canonical` beside `category`
+  and `variable` — the settable columns come from one internal list (`declarable_measurement_fields()`)
+  instead of two hard-coded vectors, and `is_canonical` round-trips as logical through
+  `read_measurement_type()`. WS-G uses it to record Rasmus Swalethorp's answer on the bottle's six
+  `r_*` pre-QC types (interpolated to standard depth, `is_canonical = FALSE`) without a bare
+  `write_csv()`.
+
 # calcofi4db 3.30.0
 
 ## Attribution is a contract, checked like links (`R/citation.R`)
