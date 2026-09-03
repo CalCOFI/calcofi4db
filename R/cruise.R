@@ -113,7 +113,13 @@ add_cruise_date_span <- function(con, event_sql, cruise_tbl = "cruise") {
 #'     designation, when supplied and well-formed;
 #'   \item \strong{month} — the event's own year-month (the legacy rule).
 #' }
-#' Every key is `YYYY-MM-` + the ship's NODC code from `ship_tbl`.
+#' Every key is `YYYY-MM-` + the ship's NODC code from `ship_tbl`. Steps 2–3
+#' (which mint a key rather than copy one from `cruise_tbl`) require
+#' `ship_nodc` to be non-NULL/non-blank — a blank NODC (DuckDB's `CONCAT()`
+#' treats NULL as `''`) used to mint `YYYY-MM-` silently (WS-B / the July 2019
+#' Bold Horizon cruise, `cruise_key = "2019-07-"`); those rows now stay
+#' unresolved (`cruise_key` NULL, method NULL) rather than shipping a malformed
+#' key.
 #'
 #' @param con DBI connection to DuckDB holding `table_name`, `cruise_tbl` (with
 #'   `date_min`/`date_max` from [add_cruise_date_span()]) and `ship_tbl`.
@@ -225,6 +231,7 @@ resolve_cruise_key <- function(con,
                       s.ship_nodc) AS key
         FROM {tbl} t JOIN {st} s ON s.ship_key = t.{sk}
         WHERE t.cruise_key IS NULL
+          AND s.ship_nodc IS NOT NULL AND s.ship_nodc <> ''
           AND regexp_matches({ym_norm}, '^\\d{{4}}(0[1-9]|1[0-2])$')) k
       WHERE {tbl}.rowid = k.rid AND {tbl}.cruise_key IS NULL
         {sub('cruise_key IN', 'k.key IN', in_cruise)}"))
@@ -238,7 +245,8 @@ resolve_cruise_key <- function(con,
       SELECT t.rowid AS rid,
              CONCAT(strftime(CAST(t.{dt} AS DATE), '%Y-%m'), '-', s.ship_nodc) AS key
       FROM {tbl} t JOIN {st} s ON s.ship_key = t.{sk}
-      WHERE t.cruise_key IS NULL AND t.{dt} IS NOT NULL) k
+      WHERE t.cruise_key IS NULL AND t.{dt} IS NOT NULL
+        AND s.ship_nodc IS NOT NULL AND s.ship_nodc <> '') k
     WHERE {tbl}.rowid = k.rid AND {tbl}.cruise_key IS NULL
       {sub('cruise_key IN', 'k.key IN', in_cruise)}"))
   stamp("month")

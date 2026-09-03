@@ -21,12 +21,12 @@ append_sample(con, select_sql, sample_tbl = "sample")
 of the base contract — \code{sample_key}, \code{sample_type}, \code{parent_sample_key},
 \code{root_sample_key}, \code{dataset_key}, \code{grid_key}, \code{site_key}, \code{cruise_key},
 \code{order_occ}, \code{latitude}, \code{longitude}, \code{datetime}, \code{depth_min_m}, \code{depth_max_m},
-\code{tow_type} — or those 15 plus a trailing 16th, \code{data_stage}. \code{geom} is minted
-here as \code{ST_Point(longitude, latitude)}. \code{tow_type} is the net gear code
-(ichthyo tow/net grains: C1/CB/CV/PV oblique/vertical, MT manta), NULL for
-gears/datasets without one. Call it once per event level — a multi-level
-dataset (ichthyo \code{site}->\code{tow}->\code{net}, bottle \code{cast}->\code{bottle}) appends one arm
-per level, and \code{\link[=sample_arm_self]{sample_arm_self()}} writes the single-level case for you.
+\code{tow_type} — those 15 plus a trailing 16th, \code{data_stage} — or those 16 plus a
+trailing 17th, \code{source_uuid}. \code{geom} is minted here as \code{ST_Point(longitude, latitude)}. \code{tow_type} is the net gear code (ichthyo tow/net grains: C1/CB/CV/PV
+oblique/vertical, MT manta), NULL for gears/datasets without one. Call it once
+per event level — a multi-level dataset (ichthyo \code{site}->\code{tow}->\code{net}, bottle
+\code{cast}->\code{bottle}) appends one arm per level, and \code{\link[=sample_arm_self]{sample_arm_self()}} writes the
+single-level case for you.
 }
 \details{
 \code{data_stage} is \strong{optional and trailing} on purpose: it records the source's
@@ -35,5 +35,11 @@ question \code{calcofi_ctd-cast_14}), which most datasets do not distinguish. Ma
 it positional column 16 rather than inserting it into the contract lets a
 dataset opt in when it has a meaningful stage without touching the other arms —
 a 15-column arm gets \code{NULL} and keeps working unchanged.
+
+\code{source_uuid} (added 3.32.0, WS-B/Ed Weber's ask) is the provider's own
+identifier for \emph{that} event exactly as shipped — ichthyo's \code{site_uuid} /
+\code{tow_uuid} / \code{net_uuid} — typed \code{UUID}, trailing 17th column, same
+opt-in-without-disturbing-other-arms reasoning as \code{data_stage}: a 15- or
+16-column arm gets \verb{NULL::UUID} and keeps working unchanged.
 }
 \concept{model}

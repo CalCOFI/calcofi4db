@@ -22,6 +22,45 @@
   already exist, refuses an unknown `measurement_type`, needs `overwrite = TRUE` to replace a
   declared value, and writes with `na = ""`.
 
+## Provider UUIDs are columns, and the cruise key is checked against the cruise (WS-B, Ed Weber's ask)
+
+- **`append_sample()` gains a 17th, trailing, optional column: `source_uuid`** (typed `UUID`),
+  same opt-in-without-disturbing-other-arms rule as `data_stage` (15/16/17-column arities; NULL
+  when absent). `.ensure_sample_schema()` adds the column via `ALTER TABLE ... ADD COLUMN IF NOT
+  EXISTS`, so a pre-3.32.0 wrangling DB keeps working.
+- **`create_cruise_key()` refuses a blank/NULL `ship_nodc`** rather than silently minting
+  `YYYY-MM-` (DuckDB's `CONCAT()` treats NULL as `''`) — this is exactly how the July 2019 Bold
+  Horizon cruise was released as `cruise_key = "2019-07-"` (an empty NODC segment): the ship's
+  `ship_nodc` was blank when the key was minted, a later correction patched it, and the key was
+  never re-derived. Also validates every minted key against `^\d{4}-(0[1-9]|1[0-2])-[A-Za-z0-9]{4}$`
+  and `stop()`s naming every offending ship, rather than warning. **`resolve_cruise_key()`**'s
+  steps 2 (source) and 3 (month) now require a non-blank `ship_nodc` too, so a blank-NODC ship
+  leaves an event's `cruise_key` NULL instead of minting the same malformed key downstream.
+- **`R/keys.R` (new)**: `complete_cruise_reference()` adds a `cruise` row (`cruise_key_method =
+  'derived'`, `cruise_key_datasets`) for every `cruise_key` a dataset designates that the SWFSC
+  ichthyo export itself has no station row for — 152 such cruises were measured at v2026.08.25,
+  carrying 153,306 `sample` rows and 3.8M `obs` rows that no FK could ever have caught, because
+  none was declared. `check_cruise_key_integrity()` is the release gate: format, `date_ym`/NODC
+  agreement, the FK to `cruise`, `cruise_uuid` hygiene (unique for `'swfsc'` rows, NULL for
+  `'derived'` ones), each event's date within its cruise's span (`tolerance_days`, with named
+  `known_outside_span` exceptions), the ichthyo notebook's own `cruise_uuid`/`cruise_key`
+  agreement and `source_uuid` coverage (via its manifest), and three ratchets (span overlaps,
+  derived-row count, NULL-`cruise_key` backlog per dataset). `match_station_occupation()` stamps
+  `sample.station_uuid` + `station_uuid_method` (`self` | `order_occ` | `datetime` | NULL) — the
+  SWFSC station occupation (ichthyo `site`) every event belongs to, computed once per root sample
+  and copied to every row under it, so the crab's examined subsamples (already parented directly
+  to an ichthyo `site` via `parent_sample_key`) inherit it for free.
+- **`release_database.qmd`'s `{table}_new` merge now dedups on the table's DECLARED primary key**
+  (`core_relationships(base_tbl)$primary_keys[[base_tbl]]`), not its first column by ordinal
+  position — for `cruise` that ordinal-first column is `cruise_uuid`, NULL on every delta row, so
+  `WHERE cruise_uuid NOT IN (...)` evaluated NULL and no row could ever have inserted. No
+  behaviour change today (every current `_new` table's first column already is its PK); this is
+  the prerequisite for a future `cruise_new` delta.
+- Tests: `test-append_sample.R` (17-column arity), `test-create_cruise_key.R` (new),
+  `test-resolve_cruise_key.R` (blank-NODC case), `test-keys.R` (new — one fixture per
+  `check_cruise_key_integrity()` check/ratchet, and `self`/`order_occ`/`datetime`/NULL station
+  matching with row-count and PK-uniqueness assertions).
+
 # calcofi4db 3.31.0
 
 ## `obs_bio` + `obs_env` are the observation store; `obs` is a view the catalog carries (pre-release plan D-S1)
