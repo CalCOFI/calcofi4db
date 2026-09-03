@@ -9,7 +9,8 @@ build_release_catalog(
   tables_df,
   plan,
   layout = "compat",
-  release_date = as.character(Sys.Date())
+  release_date = as.character(Sys.Date()),
+  views = release_views()
 )
 }
 \arguments{
@@ -22,6 +23,8 @@ build_release_catalog(
 \item{layout}{as in \code{\link[=freeze_plan]{freeze_plan()}}.}
 
 \item{release_date}{character date.}
+
+\item{views}{the view registry, see \code{\link[=release_views]{release_views()}}; \code{list()} for none.}
 }
 \value{
 A list ready for \code{jsonlite::write_json(auto_unbox = TRUE)}.
@@ -31,5 +34,13 @@ Keeps every field consumers read today (\code{name}, \code{rows}, \code{partitio
 \code{supplemental}) and adds \code{content_hash}, \code{bytes}, \code{objects[]}
 (\code{path}, \code{bytes}, \code{sha256}, \code{content_hash}, \code{since}, \code{partition_by},
 \code{partition_value}) and, for the canonical layout, \code{compat_path}.
+}
+\details{
+Since 3.31.0 the catalog also carries a top-level \strong{\code{views}} map — view name → SQL over
+\code{{{table}}} tokens — for every entry of \code{views} whose source tables are all in \code{tables_df}, and
+the table a view \code{replaces} gains \code{deprecated: true}, \verb{replaced_by: [...]} and \code{removed_in} while
+it still ships. A resolver (\code{calcofi4r::cc_get_db()}, \code{calcofi4py.cc_get_db()}, db-query) creates
+the views after the tables; a deprecated table's objects are read only when the view's sources
+were not loaded.
 }
 \concept{release}

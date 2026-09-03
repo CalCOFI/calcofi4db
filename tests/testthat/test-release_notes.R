@@ -68,6 +68,27 @@ test_that("render_release_notes() carries the narrative and a generated appendix
   expect_error(render_release_notes("v2026.08.25", rn_md), "no section")
 })
 
+test_that("render_release_notes() marks a deprecated table, in both catalog forms (D-S1)", {
+  # list form (jsonlite simplifyVector = FALSE), as cc_catalog() reads it
+  cat_l <- list(version = "v2026.08.14", release_date = "2026-08-14", total_size = 1e9,
+                tables = list(
+                  list(name = "obs", rows = 26261931, partitioned = TRUE, supplemental = FALSE,
+                       deprecated = TRUE, replaced_by = list("obs_bio", "obs_env"), removed_in = "next"),
+                  list(name = "obs_bio", rows = 1255348, partitioned = FALSE, supplemental = FALSE)),
+                views = list(obs = "SELECT 1"))
+  md <- render_release_notes("v2026.08.14", rn_md, cat_l)
+  expect_match(md, "\\| `obs` \\| 26,261,931 \\| deprecated → `obs_bio`, `obs_env` \\(objects removed in next\\) \\|")
+  expect_match(md, "\\| `obs_bio` \\| 1,255,348 \\|  \\|")
+  # data-frame form (simplifyVector = TRUE), as publish_release_notes() reads the sidecar
+  cat_d <- jsonlite::fromJSON(jsonlite::toJSON(cat_l, auto_unbox = TRUE), simplifyVector = TRUE)
+  expect_true(is.data.frame(cat_d$tables))
+  expect_identical(render_release_notes("v2026.08.14", rn_md, cat_d), md)
+  # no deprecation fields at all: unchanged rendering
+  expect_match(render_release_notes("v2026.08.14", rn_md, list(release_date = "2026-08-14",
+    tables = data.frame(name = "obs", rows = 5, partitioned = TRUE, supplemental = FALSE))),
+    "\\| `obs` \\| 5 \\| partitioned \\|")
+})
+
 test_that("publish_release_notes() writes the local file from the sidecars (no upload)", {
   d <- withr::local_tempdir()
   dir.create(file.path(d, "v2026.08.14"))
