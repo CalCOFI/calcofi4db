@@ -2,7 +2,7 @@
 % Please edit documentation in R/registry.R
 \name{declare_measurement_fields}
 \alias{declare_measurement_fields}
-\title{Declare \code{category} / \code{variable} on measurement types that already exist}
+\title{Declare \code{category} / \code{variable} / \code{derivation} / \code{is_canonical} on measurement types that already exist}
 \usage{
 declare_measurement_fields(
   fields,
@@ -14,7 +14,8 @@ declare_measurement_fields(
 }
 \arguments{
 \item{fields}{data.frame with \code{measurement_type} and at least one of
-\code{category}, \code{variable}. \code{NA} leaves that field as it is.}
+\code{category}, \code{variable}, \code{derivation}, \code{is_canonical}
+(\code{\link[=declarable_measurement_fields]{declarable_measurement_fields()}}). \code{NA} leaves that field as it is.}
 
 \item{path}{path to \code{metadata/measurement_type.csv}}
 
@@ -30,18 +31,32 @@ FALSE)}
 The full updated registry, invisibly if nothing changed.
 }
 \description{
-The two descriptive columns the CalCOFI Explorer's \emph{Browse} tab reads
-(explorer UI plan D14): \code{category} — one of the registered categories
-(\code{metadata/category.csv}: \emph{Physical Oceanography}, \emph{Nutrients & Chemistry},
-\emph{Carbonate System}, \emph{Productivity & Pigments}, \emph{Meteorology & Sea State}, …) —
-and \code{variable}, the crosswalk that says which types measure the same thing
-comparably across datasets (\code{temperature} for the bottle's \code{temperature} and the
-CTD's \code{temperature_ave}), which the explorer carried in \code{src/variables.ts} as a
-stopgap. Like \code{\link[=declare_measurement_bounds]{declare_measurement_bounds()}} it changes \strong{only} these columns,
+Four descriptive columns, none of them an ingest's own definition:
+\itemize{
+\item \code{category} — one of the registered categories (\code{metadata/category.csv}:
+\emph{Physical Oceanography}, \emph{Nutrients & Chemistry}, \emph{Carbonate System},
+\emph{Productivity & Pigments}, \emph{Meteorology & Sea State}, …), read by the
+CalCOFI Explorer's \emph{Browse} tab (explorer UI plan D14).
+\item \code{variable} — the crosswalk that says which types measure the same thing
+comparably across datasets (\code{temperature} for the bottle's \code{temperature}
+and the CTD's \code{temperature_ave}), which the explorer carried in
+\code{src/variables.ts} as a stopgap.
+\item \code{derivation} — free text saying how a \emph{derived} type was produced (the
+\verb{_cruise_corr} vs \verb{_sta_corr} distinction, or that a pre-QC \verb{r_*} type is
+"interpolated to standard depth and carries no quality code by design").
+\item \code{is_canonical} — whether the type reaches the default \code{obs}/\code{ctd_thin}
+selection; a provider-confirmed fact like "the bottle's \verb{r_*} series are
+interpolated, so they are not canonical" belongs here, not in an ingest's
+own literal.
+}
+}
+\details{
+Like \code{\link[=declare_measurement_bounds]{declare_measurement_bounds()}} this changes \strong{only} these columns,
 only on rows that already exist, refuses an unknown \code{measurement_type}, and
-writes with \code{na = ""}. A registry predating the columns gains them.
+writes with \code{na = ""}. A registry predating a column gains it.
 }
 \seealso{
-\code{\link[=build_coverage]{build_coverage()}}, which puts both onto \code{coverage.json}'s \code{variables[]}.
+\code{\link[=build_coverage]{build_coverage()}}, which puts \code{category}/\code{variable} onto
+\code{coverage.json}'s \code{variables[]}.
 }
 \concept{registry}

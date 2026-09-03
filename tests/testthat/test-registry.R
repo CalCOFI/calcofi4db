@@ -259,5 +259,31 @@ test_that("declare_measurement_fields() sets category / variable on existing row
   expect_error(declare_measurement_fields(data.frame(measurement_type = "temperature", variable = "temp"), p, cats), "already-declared")
   d2 <- declare_measurement_fields(data.frame(measurement_type = "temperature", variable = "temp"), p, cats, overwrite = TRUE, quiet = TRUE)
   expect_equal(d2$variable[d2$measurement_type == "temperature"], "temp")
-  expect_error(declare_measurement_fields(data.frame(measurement_type = "nitrate", units = "x"), p, cats), "neither category nor variable")
+  expect_error(declare_measurement_fields(data.frame(measurement_type = "nitrate", units = "x"), p, cats), "none of")
+})
+
+# ---- declare_measurement_fields(): derivation / is_canonical (WS-G, 2026-09-03 — the bottle r_* types) ----
+test_that("declare_measurement_fields() also sets derivation / is_canonical on existing rows only", {
+  p <- withr::local_tempfile(fileext = ".csv")
+  # no derivation/is_canonical column yet — a registry predating them, like measurement_type.csv today
+  readr::write_csv(data.frame(measurement_type = c("r_temperature", "temperature")), p, na = "")
+  d <- declare_measurement_fields(
+    data.frame(measurement_type = "r_temperature",
+               derivation = "reported value interpolated to standard depth (pre-QC, decodr); carries no quality code by design; not an input for further interpolation",
+               is_canonical = "FALSE"),
+    p, quiet = TRUE)
+  expect_true(all(c("derivation", "is_canonical") %in% names(d)))         # a registry predating the columns gains them
+  # is_canonical round-trips through read_measurement_type() as LOGICAL (readr
+  # type-guesses "TRUE"/"FALSE" text on re-read, same as the real registry) —
+  # declare_measurement_fields() compares/writes via as.character() internally,
+  # so this is a property of the reader, not something the function must resist.
+  expect_identical(d$is_canonical[d$measurement_type == "r_temperature"], FALSE)
+  expect_match(d$derivation[d$measurement_type == "r_temperature"], "^reported value interpolated")
+  expect_true(is.na(d$is_canonical[d$measurement_type == "temperature"]))  # untouched row stays empty
+  expect_false(any(grepl("^NA$", readLines(p))))                          # na = "" round trip, not the literal string "NA"
+
+  expect_error(declare_measurement_fields(data.frame(measurement_type = "salinity", derivation = "x"), p), "not in the registry")
+  expect_error(declare_measurement_fields(data.frame(measurement_type = "r_temperature", is_canonical = "TRUE"), p), "already-declared")
+  d2 <- declare_measurement_fields(data.frame(measurement_type = "r_temperature", is_canonical = "TRUE"), p, overwrite = TRUE, quiet = TRUE)
+  expect_identical(d2$is_canonical[d2$measurement_type == "r_temperature"], TRUE)
 })

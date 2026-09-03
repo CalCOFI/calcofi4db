@@ -327,21 +327,47 @@ upsert_measurement_types <- function(
   out[order(out$measurement_type), , drop = FALSE]
 }
 
-#' Declare `category` / `variable` on measurement types that already exist
+#' The columns [declare_measurement_fields()] is allowed to touch
 #'
-#' The two descriptive columns the CalCOFI Explorer's *Browse* tab reads
-#' (explorer UI plan D14): `category` — one of the registered categories
-#' (`metadata/category.csv`: *Physical Oceanography*, *Nutrients & Chemistry*,
-#' *Carbonate System*, *Productivity & Pigments*, *Meteorology & Sea State*, …) —
-#' and `variable`, the crosswalk that says which types measure the same thing
-#' comparably across datasets (`temperature` for the bottle's `temperature` and the
-#' CTD's `temperature_ave`), which the explorer carried in `src/variables.ts` as a
-#' stopgap. Like [declare_measurement_bounds()] it changes **only** these columns,
+#' `category` / `variable` were the original two (the Explorer's *Browse* tab);
+#' `derivation` / `is_canonical` were added in calcofi4db 3.29.0 so the bottle
+#' `r_*` pre-QC types could record "interpolated to standard depth, not an input
+#' for further interpolation" and flip `is_canonical` to FALSE without a bare
+#' `write_csv()` (WS-G, 2026-09-03). Both new columns are treated as character —
+#' `is_canonical` is stored in the CSV as the literal string `"TRUE"`/`"FALSE"`,
+#' matching how [read_measurement_type()] reads it, so no type coercion happens
+#' here that the registry's own round trip does not already do.
+#'
+#' @return Character vector of the allowed field names.
+#' @keywords internal
+declarable_measurement_fields <- function() c("category", "variable", "derivation", "is_canonical")
+
+#' Declare `category` / `variable` / `derivation` / `is_canonical` on measurement types that already exist
+#'
+#' Four descriptive columns, none of them an ingest's own definition:
+#' * `category` — one of the registered categories (`metadata/category.csv`:
+#'   *Physical Oceanography*, *Nutrients & Chemistry*, *Carbonate System*,
+#'   *Productivity & Pigments*, *Meteorology & Sea State*, …), read by the
+#'   CalCOFI Explorer's *Browse* tab (explorer UI plan D14).
+#' * `variable` — the crosswalk that says which types measure the same thing
+#'   comparably across datasets (`temperature` for the bottle's `temperature`
+#'   and the CTD's `temperature_ave`), which the explorer carried in
+#'   `src/variables.ts` as a stopgap.
+#' * `derivation` — free text saying how a *derived* type was produced (the
+#'   `_cruise_corr` vs `_sta_corr` distinction, or that a pre-QC `r_*` type is
+#'   "interpolated to standard depth and carries no quality code by design").
+#' * `is_canonical` — whether the type reaches the default `obs`/`ctd_thin`
+#'   selection; a provider-confirmed fact like "the bottle's `r_*` series are
+#'   interpolated, so they are not canonical" belongs here, not in an ingest's
+#'   own literal.
+#'
+#' Like [declare_measurement_bounds()] this changes **only** these columns,
 #' only on rows that already exist, refuses an unknown `measurement_type`, and
-#' writes with `na = ""`. A registry predating the columns gains them.
+#' writes with `na = ""`. A registry predating a column gains it.
 #'
 #' @param fields data.frame with `measurement_type` and at least one of
-#'   `category`, `variable`. `NA` leaves that field as it is.
+#'   `category`, `variable`, `derivation`, `is_canonical`
+#'   ([declarable_measurement_fields()]). `NA` leaves that field as it is.
 #' @param path path to `metadata/measurement_type.csv`
 #' @param categories the allowed `category` values — the `category` column of
 #'   `metadata/category.csv`; `NULL` skips the check (not recommended)
@@ -352,14 +378,16 @@ upsert_measurement_types <- function(
 #' @return The full updated registry, invisibly if nothing changed.
 #' @export
 #' @concept registry
-#' @seealso [build_coverage()], which puts both onto `coverage.json`'s `variables[]`.
+#' @seealso [build_coverage()], which puts `category`/`variable` onto
+#'   `coverage.json`'s `variables[]`.
 #' @importFrom readr write_csv
 declare_measurement_fields <- function(fields, path, categories = NULL, overwrite = FALSE, quiet = FALSE) {
   d <- read_measurement_type(path)
   if (is.null(fields) || !nrow(fields)) return(invisible(d))
   stopifnot("fields needs a measurement_type column" = "measurement_type" %in% names(fields))
-  cols <- intersect(c("category", "variable"), names(fields))
-  if (!length(cols)) stop("fields has neither category nor variable", call. = FALSE)
+  cols <- intersect(declarable_measurement_fields(), names(fields))
+  if (!length(cols))
+    stop("fields has none of ", paste(declarable_measurement_fields(), collapse = " / "), call. = FALSE)
   unknown <- setdiff(fields$measurement_type, d$measurement_type)
   if (length(unknown))
     stop("not in the registry: ", paste(unknown, collapse = ", "),
@@ -371,7 +399,7 @@ declare_measurement_fields <- function(fields, path, categories = NULL, overwrit
     if (length(bad))
       stop("category not in the registry (metadata/category.csv): ", paste(bad, collapse = ", "), call. = FALSE)
   }
-  for (cl in c("category", "variable")) if (!cl %in% names(d)) d[[cl]] <- NA_character_
+  for (cl in declarable_measurement_fields()) if (!cl %in% names(d)) d[[cl]] <- NA_character_
   i <- match(fields$measurement_type, d$measurement_type)
   changed <- character()
   for (cl in cols) {
@@ -385,7 +413,7 @@ declare_measurement_fields <- function(fields, path, categories = NULL, overwrit
     hit <- set & (is.na(old) | old != new)
     if (any(hit)) { d[[cl]][i[hit]] <- new[hit]; changed <- c(changed, fields$measurement_type[hit]) }
   }
-  if (!length(changed)) { if (!quiet) message("measurement_type category/variable unchanged"); return(invisible(d)) }
+  if (!length(changed)) { if (!quiet) message("measurement_type fields unchanged"); return(invisible(d)) }
   readr::write_csv(d, path, na = "")
   d <- read_measurement_type(path)
   if (!quiet) message(glue::glue("measurement_type registry: declared {paste(cols, collapse = ' / ')} on {length(unique(changed))} type(s)"))
