@@ -10,7 +10,7 @@ upsert_measurement_types(
   d,
   new_types,
   preserve = c("valid_min", "valid_max", "valid_depth_min_m", "valid_depth_max_m"),
-  authoritative = declarable_measurement_fields()
+  authoritative = c(declarable_measurement_fields(), "denominator")
 )
 ```
 
@@ -34,9 +34,10 @@ upsert_measurement_types(
 - authoritative:
 
   registry-owned columns (default
-  [`declarable_measurement_fields()`](https://calcofi.io/calcofi4db/reference/declarable_measurement_fields.md)):
-  the existing registry value wins whenever it is non-NA, even over an
-  explicit value in `new_types`, because only
+  [`declarable_measurement_fields()`](https://calcofi.io/calcofi4db/reference/declarable_measurement_fields.md)
+  plus `denominator`, the D8 effort vocabulary): the existing registry
+  value wins whenever it is non-NA, even over an explicit value in
+  `new_types`, because only
   [`declare_measurement_fields()`](https://calcofi.io/calcofi4db/reference/declare_measurement_fields.md)
   may set them. A type new to the registry takes the literal's value.
 

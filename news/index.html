@@ -32,7 +32,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.0.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.0.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -67,6 +67,16 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.0.2" id="calcofi4db-402">calcofi4db 4.0.2<a class="anchor" aria-label="anchor" href="#calcofi4db-402"></a></h2>
+<ul><li>
+<strong><code><a href="../reference/upsert_measurement_types.html">upsert_measurement_types()</a></code></strong> also treats <code>denominator</code> (the D8 effort vocabulary) as registry-owned: the 2026-09-04 re-render of <code>ingest_cce-lter_euphausiids.qmd</code> blanked <code>euphausiid_abundance</code>’s <code>denominator = area</code> because the 4.0.0 fix listed only [declarable_measurement_fields()].</li>
+</ul></div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.0.1" id="calcofi4db-401">calcofi4db 4.0.1<a class="anchor" aria-label="anchor" href="#calcofi4db-401"></a></h2>
+<ul><li>
+<strong><code><a href="../reference/validate_for_release.html">validate_for_release()</a></code></strong> no longer reports <code>sample.source_uuid</code> / <code>sample.station_uuid</code> as “nulls” findings: both are NULL by contract wherever the provider mints no identifier (only <code>swfsc_ichthyo</code> supplies <code>source_uuid</code>; <code>station_uuid</code> is stamped at release for matched occupations only). Every non-ichthyo ingest was reporting 100 % NULL <code>source_uuid</code>, and the Dungeness crab notebook’s strict NULL reconciler halted the 2026-09-04 release run on it.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.0.0" id="calcofi4db-400">calcofi4db 4.0.0<a class="anchor" aria-label="anchor" href="#calcofi4db-400"></a></h2>
 <div class="section level3">

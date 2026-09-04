@@ -34,7 +34,7 @@ freshly-built literal in its place:'><!-- calcofi.io brand contract (https://cal
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.0.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.0.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -81,7 +81,7 @@ freshly-built literal in its place:</p>
 <span>  <span class="va">d</span>,</span>
 <span>  <span class="va">new_types</span>,</span>
 <span>  preserve <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"valid_min"</span>, <span class="st">"valid_max"</span>, <span class="st">"valid_depth_min_m"</span>, <span class="st">"valid_depth_max_m"</span><span class="op">)</span>,</span>
-<span>  authoritative <span class="op">=</span> <span class="fu"><a href="declarable_measurement_fields.html">declarable_measurement_fields</a></span><span class="op">(</span><span class="op">)</span></span>
+<span>  authoritative <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="declarable_measurement_fields.html">declarable_measurement_fields</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"denominator"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -106,7 +106,8 @@ the ones an ingest never authors and a provider has agreed.</p></dd>
 
 <dt id="arg-authoritative">authoritative<a class="anchor" aria-label="anchor" href="#arg-authoritative"></a></dt>
 <dd><p>registry-owned columns (default
-<code><a href="declarable_measurement_fields.html">declarable_measurement_fields()</a></code>): the existing registry value wins
+<code><a href="declarable_measurement_fields.html">declarable_measurement_fields()</a></code> plus <code>denominator</code>, the D8 effort
+vocabulary): the existing registry value wins
 whenever it is non-NA, even over an explicit value in <code>new_types</code>, because
 only <code><a href="declare_measurement_fields.html">declare_measurement_fields()</a></code> may set them. A type new to the
 registry takes the literal's value.</p></dd>
