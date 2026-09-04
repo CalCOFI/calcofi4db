@@ -1,3 +1,10 @@
+# calcofi4db 4.0.2
+
+- **`upsert_measurement_types()`** also treats `denominator` (the D8 effort vocabulary) as
+  registry-owned: the 2026-09-04 re-render of `ingest_cce-lter_euphausiids.qmd` blanked
+  `euphausiid_abundance`'s `denominator = area` because the 4.0.0 fix listed only
+  [declarable_measurement_fields()].
+
 # calcofi4db 4.0.1
 
 - **`validate_for_release()`** no longer reports `sample.source_uuid` / `sample.station_uuid` as

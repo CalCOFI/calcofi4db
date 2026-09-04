@@ -283,7 +283,8 @@ declare_measurement_bounds <- function(bounds, path, overwrite = FALSE,
 #'   [read_measurement_type()])
 #' @param new_types data.frame of definitions to upsert; needs `measurement_type`
 #' @param authoritative registry-owned columns (default
-#'   [declarable_measurement_fields()]): the existing registry value wins
+#'   [declarable_measurement_fields()] plus `denominator`, the D8 effort
+#'   vocabulary): the existing registry value wins
 #'   whenever it is non-NA, even over an explicit value in `new_types`, because
 #'   only [declare_measurement_fields()] may set them. A type new to the
 #'   registry takes the literal's value.
@@ -305,7 +306,7 @@ upsert_measurement_types <- function(
     d, new_types,
     preserve = c("valid_min", "valid_max",
                  "valid_depth_min_m", "valid_depth_max_m"),
-    authoritative = declarable_measurement_fields()) {
+    authoritative = c(declarable_measurement_fields(), "denominator")) {
 
   if (is.null(new_types) || !nrow(new_types)) return(d)
   stopifnot("new_types needs a measurement_type column" =

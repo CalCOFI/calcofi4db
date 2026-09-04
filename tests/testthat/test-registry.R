@@ -344,6 +344,7 @@ test_that("upsert_measurement_types() keeps the registry-owned fields across an 
     derivation = c(NA, "interpolated to standard depth"), is_canonical = c("TRUE", "FALSE"),
     nerc_p01 = c(NA, "http://vocab.nerc.ac.uk/collection/P01/current/TEMPPR01/"),
     units_nerc_p06 = c("http://vocab.nerc.ac.uk/collection/P06/current/UPMS/", NA),
+    denominator = c("area", NA),
     stringsAsFactors = FALSE)
   # the ingest's literal predates the registry columns and re-asserts is_canonical = TRUE
   lit <- data.frame(measurement_type = c("euphausiid_abundance", "r_temperature", "brand_new"),
@@ -355,6 +356,7 @@ test_that("upsert_measurement_types() keeps the registry-owned fields across an 
   expect_equal(row("euphausiid_abundance")$category, "Euphausiids (Krill)")
   expect_equal(row("euphausiid_abundance")$units_nerc_p06, "http://vocab.nerc.ac.uk/collection/P06/current/UPMS/")
   expect_equal(row("euphausiid_abundance")$description, "krill!")          # not registry-owned: literal wins
+  expect_equal(row("euphausiid_abundance")$denominator, "area")             # D8 vocabulary is registry-owned too
   expect_equal(row("r_temperature")$is_canonical, "FALSE")                 # registry wins over the literal's TRUE
   expect_equal(row("r_temperature")$derivation, "interpolated to standard depth")
   expect_equal(row("r_temperature")$variable, "temperature")
