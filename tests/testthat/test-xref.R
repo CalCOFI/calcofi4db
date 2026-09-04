@@ -181,3 +181,75 @@ test_that("fetch_taxon_xref serves a warm cache offline and scopes its return", 
   # the aphia/name rows are in the cache but were not asked for
   expect_false(any(out$query_type %in% c("aphia", "name")))
 })
+
+
+# --- branch (c): a name-resolved taxon also takes the TSN WoRMS links --------
+# E-Ph2's finding: `.apply_xref()` (c) filled only worms_id for a row resolved
+# by name, so a bird with no source id could never key itis: without an
+# override row even when WoRMS links the TSN (GUMU / MABO / NABO). The
+# name -> AphiaID -> linked TSN -> itis: hop is D3's, and it is generic.
+
+test_that("a bird with no source id keys itis: through name -> AphiaID -> linked TSN", {
+  con <- get_duckdb_con(":memory:"); on.exit(close_duckdb(con))
+  append_dataset_taxon(con, "farallon_bird-mammal", data.frame(
+    ds_taxa_code = "GUMU", ds_scientific_name = "Synthliboramphus hypoleucus",
+    ds_common_name = "Guadalupe Murrelet", stringsAsFactors = FALSE))
+  DBI::dbWriteTable(con, "_taxon_xref", data.frame(
+    query_type   = c("name", "aphia"),
+    query_value  = c("Synthliboramphus hypoleucus", "344122"),
+    worms_id     = c(344122L, 344122L),
+    itis_id      = c(NA_integer_, 177011L),
+    matched_name = "Synthliboramphus hypoleucus", accepted_name = "Synthliboramphus hypoleucus",
+    rank = "Species", status = "accepted", checked_date = "2026-09-04",
+    notes = c("2026-09-04: worms_id 344122 matched by name \"Synthliboramphus hypoleucus\"",
+              "2026-09-04: itis_id 177011 via WoRMS external link"),
+    stringsAsFactors = FALSE))
+  DBI::dbExecute(con, "CREATE TABLE _taxon_lineage_flat AS
+    SELECT 344122 requested_id, 'WoRMS' authority, 'Species' AS \"rank\", 344118 parent_id,
+           'Synthliboramphus hypoleucus' scientific_name, 'Animalia' kingdom, 'Chordata' phylum,
+           'Aves' AS \"class\", 'Charadriiformes' order_taxon, 'Alcidae' AS \"family\"
+    UNION ALL SELECT 177011,'ITIS','Species',177005,'Synthliboramphus hypoleucus','Animalia','Chordata','Aves','Charadriiformes','Alcidae'")
+  resolve_dataset_taxon(con)
+  build_taxon_reference(con)
+  dt <- DBI::dbGetQuery(con, "SELECT * FROM dataset_taxon")
+  expect_equal(dt$taxon_key, "itis:177011")
+  expect_true(is.na(dt$ds_source_json))                   # the source still claimed nothing
+  tx <- DBI::dbGetQuery(con, "SELECT * FROM taxon WHERE taxon_key = 'itis:177011'")
+  expect_equal(tx$worms_id, 344122L)
+  expect_equal(tx$itis_id, 177011L)
+  expect_match(tx$notes, "matched by name")
+  expect_match(tx$notes, "via WoRMS external link")
+  expect_equal(nrow(check_dataset_taxon(con, "farallon_bird-mammal", verbose = FALSE)), 0L)
+})
+
+test_that("ensure_taxon_xref asks for the AphiaID -> TSN link of every name-resolved taxon", {
+  con <- get_duckdb_con(":memory:"); withr::defer(close_duckdb(con))   # never a bare on.exit() beside a mock
+  append_dataset_taxon(con, "farallon_bird-mammal", data.frame(
+    ds_taxa_code = c("GUMU", "GRCO"),
+    ds_scientific_name = c("Synthliboramphus hypoleucus", "Phalacrocorax carbo"),
+    itis_id = c(NA, 174715L), stringsAsFactors = FALSE))
+  calls <- list()
+  fixture <- data.frame(
+    query_type   = c("name", "aphia", "tsn"),
+    query_value  = c("Synthliboramphus hypoleucus", "344122", "174715"),
+    worms_id     = c(344122L, 344122L, 137179L),
+    itis_id      = c(NA_integer_, 177011L, 174715L),
+    matched_name = NA_character_, accepted_name = NA_character_, rank = "Species",
+    status = "accepted", checked_date = "2026-09-04", notes = NA_character_,
+    stringsAsFactors = FALSE)
+  testthat::local_mocked_bindings(fetch_taxon_xref = function(
+      itis_ids = integer(), worms_ids = integer(), names = character(), ...) {
+    calls[[length(calls) + 1L]] <<- list(itis = itis_ids, worms = worms_ids, names = names)
+    fixture[(fixture$query_type == "tsn"   & fixture$query_value %in% as.character(itis_ids)) |
+            (fixture$query_type == "aphia" & fixture$query_value %in% as.character(worms_ids)) |
+            (fixture$query_type == "name"  & fixture$query_value %in% names), , drop = FALSE]
+  })
+  ensure_taxon_xref(con, verbose = FALSE)
+  # first call: the source's TSN and the id-less name; a later call: the AphiaID
+  # the name resolved to, so its linked TSN is staged beside it
+  expect_equal(calls[[1]]$itis, 174715L)
+  expect_equal(calls[[1]]$names, "Synthliboramphus hypoleucus")
+  expect_true(any(vapply(calls[-1], function(k) 344122L %in% k$worms, logical(1))))
+  staged <- DBI::dbGetQuery(con, "SELECT query_type, query_value FROM _taxon_xref ORDER BY 1, 2")
+  expect_true(any(staged$query_type == "aphia" & staged$query_value == "344122"))
+})

@@ -310,3 +310,118 @@ test_that("check_taxon_registries catches an override or group rule naming a dat
                       match_value = "v", stringsAsFactors = FALSE)
   expect_error(check_taxon_registries(con, group_rules = rules), "nope_ds")
 })
+
+# --- the override rule (Ben, 2026-09-04): an override never replaces an id the
+# source supplied. A row matched on a NON-code column (`ds_common_name`,
+# `ds_scientific_name`; the phyto arm's `taxa`) applies only where the source
+# supplied no worms_id / itis_id; a row matched on the dataset's own code
+# (`ds_taxa_code`) applies always. v2026.08.25 released 22 phytoplankton keys
+# for 393 codes because six functional-group rows replaced 287 species ids.
+
+phyto_pair <- function() data.frame(
+  ds_taxa_code       = c("600", "316"),
+  ds_scientific_name = c("Actinocyclus", NA),
+  ds_common_name     = c("diatom, centric", "diatom, centric"),
+  worms_id           = c(196347L, NA),
+  stringsAsFactors = FALSE)
+
+group_override <- function(match_column = "ds_common_name", match_value = "diatom, centric")
+  data.frame(dataset_key = "calcofi_phytoplankton", match_column = match_column,
+             match_value = match_value, worms_id = 148899L, itis_id = NA_integer_,
+             scientific_name = "Bacillariophyceae", rank = "Class",
+             stringsAsFactors = FALSE)
+
+test_that("a non-code override applies only where the source supplied no id", {
+  con <- new_staged_con(); on.exit(close_duckdb(con))
+  append_dataset_taxon(con, "calcofi_phytoplankton", phyto_pair())
+  resolve_dataset_taxon(con, overrides = group_override())
+  dt <- read_dt(con)
+  expect_equal(dt$taxon_key[dt$ds_taxa_code == "600"], "worms:196347")   # the source's own id, kept
+  expect_equal(dt$taxon_key[dt$ds_taxa_code == "316"], "worms:148899")   # the source had none: filled
+})
+
+test_that("a code-matched override applies even where the source supplied an id", {
+  con <- new_staged_con(); on.exit(close_duckdb(con))
+  append_dataset_taxon(con, "calcofi_phytoplankton", phyto_pair())
+  resolve_dataset_taxon(con, overrides = group_override("ds_taxa_code", "600"))
+  dt <- read_dt(con)
+  expect_equal(dt$taxon_key[dt$ds_taxa_code == "600"], "worms:148899")   # the code names the row: wins
+  expect_equal(dt$taxon_key[dt$ds_taxa_code == "316"], "calcofi_phytoplankton:316")
+})
+
+test_that("a code-matched override wins over a name-matched one on the same row", {
+  con <- new_staged_con(); on.exit(close_duckdb(con))
+  append_dataset_taxon(con, "calcofi_phytoplankton", phyto_pair())
+  ov <- rbind(group_override(),                                   # name -> Bacillariophyceae
+              group_override("ds_taxa_code", "316"))              # code -> something finer
+  ov$worms_id[2] <- 196347L; ov$scientific_name[2] <- "Actinocyclus"; ov$rank[2] <- "Genus"
+  resolve_dataset_taxon(con, overrides = ov)
+  dt <- read_dt(con)
+  expect_equal(dt$taxon_key[dt$ds_taxa_code == "316"], "worms:196347")
+  # ...whichever order the registry lists them in
+  resolve_dataset_taxon(con, overrides = ov[2:1, ])
+  expect_equal(read_dt(con)$taxon_key[read_dt(con)$ds_taxa_code == "316"], "worms:196347")
+})
+
+test_that("report_taxon_overrides counts matched / applied / skipped per override row", {
+  con <- new_staged_con(); on.exit(close_duckdb(con))
+  append_dataset_taxon(con, "calcofi_phytoplankton", phyto_pair())
+  resolve_dataset_taxon(con, overrides = group_override())
+  rpt <- report_taxon_overrides(con, group_override(), verbose = FALSE)
+  expect_s3_class(rpt, "data.frame")
+  expect_equal(nrow(rpt), 1L)
+  expect_equal(rpt$dataset_key, "calcofi_phytoplankton")
+  expect_equal(rpt$match_column, "ds_common_name")
+  expect_equal(rpt$n_matched, 2L)
+  expect_equal(rpt$n_applied, 1L)
+  expect_equal(rpt$n_skipped, 1L)
+  expect_equal(rpt$skipped_codes, "600")
+  expect_true(rpt$source_json_known)
+  # a code-matched row skips nothing
+  rpt <- report_taxon_overrides(con, group_override("ds_taxa_code", "600"), verbose = FALSE)
+  expect_equal(c(rpt$n_matched, rpt$n_applied, rpt$n_skipped), c(1L, 1L, 0L))
+  # a row that matches nothing is reported as such, not dropped
+  rpt <- report_taxon_overrides(con, group_override("ds_taxa_code", "999"), verbose = FALSE)
+  expect_equal(c(rpt$n_matched, rpt$n_applied, rpt$n_skipped), c(0L, 0L, 0L))
+})
+
+test_that("resolve_dataset_taxon stages the override report and says what it skipped", {
+  con <- new_staged_con(); on.exit(close_duckdb(con))
+  append_dataset_taxon(con, "calcofi_phytoplankton", phyto_pair())
+  expect_message(resolve_dataset_taxon(con, overrides = group_override()), "1 skipped")
+  st <- DBI::dbGetQuery(con, "SELECT * FROM _taxon_override_report")
+  expect_equal(st$n_skipped, 1L)
+  # the staged table and the recomputation agree (the drift guard)
+  rpt <- report_taxon_overrides(con, group_override(), verbose = FALSE)
+  cols <- c("dataset_key", "match_column", "match_value", "n_matched", "n_applied", "n_skipped")
+  expect_equal(st[cols], rpt[cols])
+})
+
+test_that("report_taxon_overrides at release flags a shard that predates ds_source_json", {
+  skip_if_not_installed("duckdb")
+  con <- get_duckdb_con(":memory:"); on.exit(close_duckdb(con))
+  # an assembled dataset_taxon (no staging marker), one dataset with the column NULL throughout
+  DBI::dbWriteTable(con, "dataset_taxon", data.frame(
+    ds_taxon_key = c("calcofi_phytoplankton:600", "calcofi_phytoplankton:316", "demo_ds:A"),
+    dataset_key  = c("calcofi_phytoplankton", "calcofi_phytoplankton", "demo_ds"),
+    taxon_key    = c("worms:148899", "worms:148899", "worms:1"),
+    ds_scientific_name = c("Actinocyclus", NA, "Aus"),
+    ds_common_name = c("diatom, centric", "diatom, centric", "a"),
+    ds_taxa_code = c("600", "316", "A"),
+    ds_source_json = c(NA, NA, '{"worms_id":1}'),
+    stringsAsFactors = FALSE))
+  ov <- rbind(group_override(),
+              data.frame(dataset_key = "demo_ds", match_column = "ds_common_name", match_value = "a",
+                         worms_id = 2L, itis_id = NA_integer_, scientific_name = "B", rank = "Genus",
+                         stringsAsFactors = FALSE))
+  rpt <- report_taxon_overrides(con, ov, verbose = FALSE)
+  p <- rpt[rpt$dataset_key == "calcofi_phytoplankton", ]
+  expect_false(p$source_json_known)
+  expect_true(is.na(p$n_skipped))            # unknowable: the shard never said what the source supplied
+  expect_equal(p$n_matched, 2L)
+  d <- rpt[rpt$dataset_key == "demo_ds", ]
+  expect_true(d$source_json_known)
+  expect_equal(d$n_skipped, 1L)
+  # a match_column the vocabulary cannot expose errors, as it does at ingest
+  expect_error(report_taxon_overrides(con, group_override("taxa_typo"), verbose = FALSE), "taxa_typo")
+})

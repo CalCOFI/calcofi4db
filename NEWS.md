@@ -1,3 +1,48 @@
+# calcofi4db 3.33.0
+
+## An override never replaces an id the source supplied (taxon plan Phase 3a; Ben, 2026-09-04)
+
+- **The override rule, stated once and enforced everywhere `taxon_override.csv` is applied.** A
+  registry row matched on a **non-code** column (`ds_common_name`, `ds_scientific_name`; the phyto
+  arm's `taxa`) applies only to vocabulary rows whose source supplied **no** `worms_id` / `itis_id`
+  (nothing in `ds_source_json`); a row matched on the dataset's own **code** (`ds_taxa_code`;
+  the arms' `species_code` / `species_id` / `taxon_id`) applies always, and wins over a non-code
+  row on the same vocabulary row whatever order the registry lists them in. Before this, six
+  `taxa`-matched functional-group rows replaced the AphiaID of every phytoplankton species in
+  their group, and v2026.08.25 released **22** `taxon_key`s for **393** phytoplankton codes
+  although the source resolved 294 distinct AphiaIDs. The functional group belongs to
+  `taxon_group`; the species keeps its key.
+- **`resolve_dataset_taxon()` says what the rule kept** — a per-dataset message
+  (`… 2 applied, 1 skipped (the source supplied an id …)`) and a staged
+  `_taxon_override_report` table — and gains `verbose`.
+- **New `report_taxon_overrides(con, overrides)`** recomputes the same report from `dataset_taxon`
+  alone (one row per override row: `n_matched`, `n_applied`, `n_skipped`, `skipped_codes`,
+  `source_json_known`), so `release_database.qmd` shows it beside `check_taxon_ids()`. A dataset
+  whose shard predates `ds_source_json` (or whose source supplied no ids at all) reports
+  `n_skipped = NA` with `source_json_known = FALSE` rather than a wrong zero. A dataset that has not
+  staged yet is read through a transitional alias of the arm's match columns (`taxa` →
+  `ds_common_name`, `species_code` → `ds_taxa_code`), deleted with the arms.
+
+## A group label is never a common name
+
+- **`apply_taxon_common()` rank 4 refuses labels that are not names**: any `match_value` of a
+  `dataset_taxon` rule in `group_rules` (new argument; pass
+  `read_taxon_group_rules(here("metadata/taxon_group.csv"))`) and the `ds_common_name` of any
+  dataset-local key. "diatom, centric", "other" and "undefined (code not in source definitions;
+  Q05)" were being published as the `common_name` of every taxon in their group — 24 taxa on the
+  v2026.08.25 fixture (9 "undefined", 9 "other", coccolithophore, silicoflagellate, and zooscan's
+  four operational classes). The count is returned as a sixth row, `other_excluded_label`. The
+  group's own name in `taxon_group` is unchanged.
+
+## A bird with no source id keys `itis:` through name → AphiaID → linked TSN
+
+- **`.apply_xref()` branch (c) now takes the TSN WoRMS links to a name-resolved AphiaID**, and
+  `ensure_taxon_xref()` fetches (and caches) that link for every name-resolved taxon in a third
+  pass. Until now only `worms_id` was filled for a row resolved by name, so a bird carrying no
+  source id could never key `itis:` without an override row supplying the TSN by hand — the
+  Farallon `GUMU` / `MABO` / `NABO` rows added in Phase 2 existed for exactly this hop, which D3
+  described and nothing implemented. A TSN the row already carries is never replaced.
+
 # calcofi4db 3.32.0
 
 ## `declare_measurement_fields()` also sets the NERC vocabulary ids (pre-release plan D-S2)

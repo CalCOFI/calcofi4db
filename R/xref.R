@@ -493,6 +493,20 @@ ensure_taxon_xref <- function(con, measurement_taxon = NULL, overrides = NULL,
       xref <- dplyr::bind_rows(xref, nx)
     }
   }
+
+  # third pass: the TSN WoRMS links to an AphiaID that a NAME resolved. Branch
+  # (c) of .apply_xref() takes it, so a bird with no source id at all keys
+  # itis: through name -> AphiaID -> linked TSN (taxon plan D3) without an
+  # override row. Farallon's GUMU / MABO / NABO needed three registry rows for
+  # exactly this hop. Cached like every other query.
+  by_name <- xref$query_type == "name" & !is.na(xref$worms_id)
+  more_w  <- setdiff(unique(xref$worms_id[by_name]),
+                     xref$worms_id[xref$query_type == "aphia"])
+  if (length(more_w)) {
+    ax <- fetch_taxon_xref(worms_ids = more_w, cache_csv = cache_csv,
+                           refresh = refresh, sleep = sleep, verbose = verbose)
+    if (!is.null(ax) && nrow(ax)) xref <- dplyr::bind_rows(xref, ax)
+  }
   .replace_table(con, tbl, as.data.frame(xref))
 
   n_rekey <- sum(xref$query_type == "tsn" &
@@ -574,7 +588,10 @@ ensure_taxon_xref <- function(con, measurement_taxon = NULL, overrides = NULL,
   # c. anything STILL without a worms_id after (a) and (b): last-resort name
   # match. Not just the taxa with neither id — a TSN WoRMS does not link (genus
   # `Ardenna`, ITIS 1255018) leaves an itis_id and no worms_id, which is the very
-  # hole this closes. Only `worms_id` is filled here; the key authority is untouched.
+  # hole this closes. `worms_id` is filled, and then the TSN WoRMS links to that
+  # AphiaID is TAKEN (never replacing one the row carries): that hop is what
+  # lets a bird with no source id key itis: (D3); until 3.33.0 only worms_id was
+  # filled here, so such a bird needed an override row to carry its TSN.
   kn <- which(is.na(rows$worms_id) & !is.na(rows$scientific_name))
   if (length(kn)) {
     x <- pick("name", clean_taxon_name(rows$scientific_name[kn]))
@@ -586,6 +603,16 @@ ensure_taxon_xref <- function(con, measurement_taxon = NULL, overrides = NULL,
       rows$status_checked[k]   <- take(rows$status_checked[k], xh$checked_date)
       rows$notes[k] <- as.character(mapply(
         .append_note, rows$notes[k], xh$notes, USE.NAMES = FALSE))
+      xa <- pick("aphia", rows$worms_id[k])
+      ha <- !is.na(xa$query_value)
+      if (any(ha)) {
+        ka <- k[ha]; xah <- xa[ha, , drop = FALSE]
+        rows$itis_id[ka]          <- take(rows$itis_id[ka], xah$itis_id)
+        rows$taxonomic_status[ka] <- take(rows$taxonomic_status[ka], xah$status)
+        rows$status_checked[ka]   <- take(rows$status_checked[ka], xah$checked_date)
+        rows$notes[ka] <- as.character(mapply(
+          .append_note, rows$notes[ka], xah$notes, USE.NAMES = FALSE))
+      }
     }
   }
   rows

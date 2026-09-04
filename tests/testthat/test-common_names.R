@@ -250,3 +250,53 @@ test_that("ensure_taxon_common keeps a manual tag on re-run and tags a new human
     expect_equal(unname(src["worms:158711"]), "worms")
   })
 })
+
+
+# --- group labels are not common names (Ben, 2026-09-04) ---------------------
+# Rank 4 used to publish "other" x8 and "undefined (code not in source
+# definitions; Q05)" x9 as common_name: a phyto functional-group label is the
+# `ds_common_name` of every code in the group, and an operational class carries
+# its label the same way. Neither is a name for the taxon.
+
+test_that("a group label or the label of a dataset-local key never becomes a common name", {
+  con <- common_release_con()
+  on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
+  csv <- common_release_csv()
+  DBI::dbExecute(con, "INSERT INTO taxon VALUES
+    ('worms:196347', 'Actinocyclus', 'stale'),
+    ('worms:8', 'Otherus secundus', NULL),
+    ('calcofi_phytoplankton:218', NULL, NULL),
+    ('cce-lter_zooscan:16', NULL, NULL)")
+  DBI::dbExecute(con, "INSERT INTO dataset_taxon VALUES
+    ('calcofi_phytoplankton:600', 'calcofi_phytoplankton', 'worms:196347', 'Actinocyclus', 'diatom, centric', '600'),
+    ('calcofi_phytoplankton:7',   'calcofi_phytoplankton', 'worms:8',      'Otherus secundus', 'other', '7'),
+    ('cce-lter_zoodb:8',          'cce-lter_zoodb',        'worms:8',      'Otherus secundus', 'Second other', '8'),
+    ('calcofi_phytoplankton:218', 'calcofi_phytoplankton', 'calcofi_phytoplankton:218', NULL, 'undefined (code not in source definitions; Q05)', '218'),
+    ('cce-lter_zooscan:16',       'cce-lter_zooscan',      'cce-lter_zooscan:16', NULL, 'nauplii', '16')")
+  rules <- data.frame(
+    taxon_group_key = c("calcofi_phytoplankton:diatom_centric", "calcofi_phytoplankton:other", "calcofi:seabirds"),
+    description = "d", rule = c("dataset_taxon", "dataset_taxon", "class"),
+    rule_value = c(NA, NA, "Aves"), dataset_key = c("calcofi_phytoplankton", "calcofi_phytoplankton", NA),
+    match_column = c("ds_common_name", "ds_common_name", NA),
+    match_value = c("diatom, centric", "other", NA), stringsAsFactors = FALSE)
+
+  counts <- apply_taxon_common(con, csv, group_rules = rules, verbose = FALSE)
+  got <- DBI::dbGetQuery(con, "SELECT taxon_key, common_name FROM taxon")
+  nm <- setNames(got$common_name, got$taxon_key)
+  expect_true(is.na(nm[["worms:196347"]]))                 # "diatom, centric" is a group label
+  expect_equal(unname(nm["worms:8"]), "Second other")      # "other" skipped; the next dataset's name flows
+  expect_true(is.na(nm[["calcofi_phytoplankton:218"]]))    # the label of a local key
+  expect_true(is.na(nm[["cce-lter_zooscan:16"]]))          # ...whether or not a group names it
+  expect_equal(unname(nm["worms:4"]), "worms single 4")    # everything else unchanged
+  # the taxa that lost their only rank-4 candidate are counted, visibly
+  expect_equal(counts$n[counts$source == "other_excluded_label"], 3L)
+  expect_equal(counts$n[counts$source == "other"], 1L)
+  # without the registry the local-key labels are still refused; group labels are not known
+  apply_taxon_common(con, csv, verbose = FALSE)
+  nm <- DBI::dbGetQuery(con, "SELECT common_name FROM taxon WHERE taxon_key = 'worms:196347'")$common_name
+  expect_equal(nm, "diatom, centric")
+  nm <- DBI::dbGetQuery(con, "SELECT common_name FROM taxon WHERE taxon_key = 'cce-lter_zooscan:16'")$common_name
+  expect_true(is.na(nm))
+  # the group's own name is not touched: apply_taxon_common() never writes taxon_group
+  expect_false("taxon_group" %in% DBI::dbListTables(con))
+})

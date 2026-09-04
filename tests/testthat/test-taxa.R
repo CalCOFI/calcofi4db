@@ -408,3 +408,35 @@ test_that("a connection-local taxa_rank still wins, and never fans out", {
   # not the hierarchy) subsets as NA and would smuggle an NA into the comparison
   expect_equal(unique(tx$rank_order[which(tx$rank == "Species")]), 260L)
 })
+
+
+
+# the override rule on an ARM (the unstaged phyto_taxon table, until Phase 3b):
+# a `taxa`-matched functional-group row is a non-code override, so it fills the
+# rows with no aphia_id and leaves every species-resolved row alone. This is the
+# v2026.08.25 regression — 22 keys for 393 codes — kept as a named assertion.
+
+test_that("phytoplankton: a `taxa`-matched group override never replaces a species AphiaID", {
+  con <- new_taxa_fixture(); on.exit(close_duckdb(con))
+  ov <- data.frame(dataset_key = "calcofi_phytoplankton", match_column = "taxa",
+                   match_value = "diatom, centric", worms_id = 148899L, itis_id = NA_integer_,
+                   scientific_name = "Bacillariophyceae", rank = "Class",
+                   stringsAsFactors = FALSE)
+  resolve_dataset_taxon(con, overrides = ov)
+  dt <- DBI::dbGetQuery(con,
+    "SELECT * FROM dataset_taxon WHERE dataset_key = 'calcofi_phytoplankton'")
+  expect_equal(dt$taxon_key[dt$ds_taxa_code == "600"], "worms:196347")   # Actinocyclus keeps its id
+  expect_equal(dt$taxon_key[dt$ds_taxa_code == "316"], "worms:148899")   # the coarse row takes the class
+  # and the arm's own match column is reported through the same alias the
+  # release uses (`taxa` is what dataset_taxon carries as ds_common_name)
+  rpt <- report_taxon_overrides(con, ov, verbose = FALSE)
+  expect_equal(rpt$n_matched, 2L)
+  expect_equal(rpt$n_skipped, 1L)
+  expect_equal(rpt$skipped_codes, "600")
+  # a code-matched row on the arm still applies always
+  ov$match_column <- "species_code"; ov$match_value <- "600"
+  resolve_dataset_taxon(con, overrides = ov)
+  dt <- DBI::dbGetQuery(con,
+    "SELECT * FROM dataset_taxon WHERE dataset_key = 'calcofi_phytoplankton'")
+  expect_equal(dt$taxon_key[dt$ds_taxa_code == "600"], "worms:148899")
+})

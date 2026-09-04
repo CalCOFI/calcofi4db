@@ -264,7 +264,16 @@ ensure_taxon_common <- function(taxa, cache_csv = NULL, refresh = FALSE,
 #'    (`source = "worms"`, `n_candidates_en = 1`);
 #' 4. any **other dataset's** `ds_common_name`, in `dataset_key` order (this is
 #'    where the seabird and marine-mammal names come from — WoRMS holds almost no
-#'    bird vernaculars);
+#'    bird vernaculars) — **except a label that is not a name**: a value that is
+#'    a `match_value` of a `dataset_taxon` rule in `group_rules`
+#'    (`metadata/taxon_group.csv`: "diatom, centric", "other", …) or the
+#'    `ds_common_name` of any dataset-local (non-authority) key ("undefined (code
+#'    not in source definitions; Q05)", zooscan "nauplii"). Those are what a
+#'    source calls a *group* or an *operational class*, and rank 4 used to
+#'    publish them as the common name of every taxon in the group (Ben,
+#'    2026-09-04: a group label is never a `common_name`; the group's own name
+#'    in `taxon_group` is unchanged). The taxa that lose their only rank-4
+#'    candidate this way are counted as `other_excluded_label`;
 #' 5. empty. Never a guess.
 #'
 #' The merged table's existing `common_name` is **not** a rank: it is whichever
@@ -286,13 +295,20 @@ ensure_taxon_common <- function(taxa, cache_csv = NULL, refresh = FALSE,
 #' @param dataset_taxon crosswalk table name (default `"dataset_taxon"`).
 #' @param curated the dataset whose vocabulary is rank 2 (default
 #'   `"swfsc_ichthyo"`, the CalCOFI species list).
+#' @param group_rules the group registry as read by [read_taxon_group_rules()],
+#'   or a path to it; its `dataset_taxon` rules' `match_value`s are labels rank
+#'   4 refuses. `NULL` (the default) refuses only the labels of dataset-local
+#'   keys, which need no registry to recognise.
 #' @param verbose report how many names each rank supplied.
-#' @return a data.frame of per-rank counts (`rank`, `source`, `n`), invisibly.
+#' @return a data.frame of per-rank counts (`rank`, `source`, `n`) — the five
+#'   ranks plus `other_excluded_label`, the taxa whose only rank-4 candidate was
+#'   a refused label — invisibly.
 #' @export
 #' @concept taxa
 apply_taxon_common <- function(con, cache_csv, tbl = "taxon",
                                dataset_taxon = "dataset_taxon",
-                               curated = "swfsc_ichthyo", verbose = TRUE) {
+                               curated = "swfsc_ichthyo", group_rules = NULL,
+                               verbose = TRUE) {
   cache  <- read_taxon_common(cache_csv)
   filled <- !is.na(cache$common_name) & nzchar(cache$common_name)
   manual <- cache[filled & cache$source %in% "manual", c("taxon_key", "common_name"), drop = FALSE]
@@ -300,36 +316,60 @@ apply_taxon_common <- function(con, cache_csv, tbl = "taxon",
                   c("taxon_key", "common_name"), drop = FALSE]
 
   tx <- DBI::dbGetQuery(con, glue::glue("SELECT taxon_key, scientific_name FROM {tbl}"))
-  dt <- if (dataset_taxon %in% DBI::dbListTables(con)) DBI::dbGetQuery(con, glue::glue("
+  has_dt <- dataset_taxon %in% DBI::dbListTables(con)
+  dt <- if (has_dt) DBI::dbGetQuery(con, glue::glue("
     SELECT dataset_key, ds_taxon_key, taxon_key, ds_scientific_name, ds_common_name
     FROM {dataset_taxon}
     WHERE taxon_key IS NOT NULL AND ds_common_name IS NOT NULL AND ds_common_name <> ''"))
   else data.frame(dataset_key = character(), ds_taxon_key = character(),
                   taxon_key = character(), ds_scientific_name = character(),
                   ds_common_name = character(), stringsAsFactors = FALSE)
+
+  # labels that are not names: a group's match_value in the registry, and the
+  # ds_common_name of any dataset-local key (an operational class carries its
+  # label the same way a group member does). Rank 4 refuses both.
+  excl <- character()
+  if (!is.null(group_rules)) {
+    gr <- if (is.character(group_rules)) read_taxon_group_rules(group_rules)
+          else .validate_group_rules(group_rules)
+    excl <- gr$match_value[gr$rule == "dataset_taxon"]
+  }
+  if (has_dt) excl <- c(excl, DBI::dbGetQuery(con, glue::glue("
+    SELECT DISTINCT ds_common_name FROM {dataset_taxon}
+    WHERE taxon_key IS NOT NULL AND taxon_key NOT LIKE 'worms:%' AND taxon_key NOT LIKE 'itis:%'
+      AND ds_common_name IS NOT NULL AND ds_common_name <> ''"))$ds_common_name)
+  excl <- unique(stats::na.omit(excl))
+
   # the intra-dataset tie-break: the code named as the taxon first, then ds_taxon_key
   self <- dt$ds_scientific_name == tx$scientific_name[match(dt$taxon_key, tx$taxon_key)]
   self[is.na(self)] <- FALSE
   dt <- dt[order(dt$taxon_key, dt$dataset_key, !self, dt$ds_taxon_key), , drop = FALSE]
   ich <- dt[dt$dataset_key %in% curated, , drop = FALSE]
   ich <- ich[!duplicated(ich$taxon_key), , drop = FALSE]
-  oth <- dt[!dt$dataset_key %in% curated, , drop = FALSE]
+  oth_all <- dt[!dt$dataset_key %in% curated, , drop = FALSE]
+  oth_raw <- oth_all[!duplicated(oth_all$taxon_key), , drop = FALSE]     # rank 4 before the refusal
+  oth <- oth_all[!oth_all$ds_common_name %in% excl, , drop = FALSE]
   oth <- oth[!duplicated(oth$taxon_key), , drop = FALSE]
 
   r1 <- manual$common_name[match(tx$taxon_key, manual$taxon_key)]
   r2 <- ich$ds_common_name[match(tx$taxon_key, ich$taxon_key)]
   r3 <- single$common_name[match(tx$taxon_key, single$taxon_key)]
   r4 <- oth$ds_common_name[match(tx$taxon_key, oth$taxon_key)]
+  r4_raw <- oth_raw$ds_common_name[match(tx$taxon_key, oth_raw$taxon_key)]
   src <- dplyr::case_when(!is.na(r1) ~ "manual", !is.na(r2) ~ curated,
                           !is.na(r3) ~ "worms_single", !is.na(r4) ~ "other",
                           TRUE ~ "empty")
   name <- dplyr::coalesce(r1, r2, r3, r4)
+  # the taxa that would have been named by a refused label and by nothing else
+  n_excl <- sum(src == "empty" & !is.na(r4_raw))
 
   counts <- data.frame(
     rank   = 1:5,
     source = c("manual", curated, "worms_single", "other", "empty"),
     stringsAsFactors = FALSE)
   counts$n <- vapply(counts$source, function(x) sum(src == x), integer(1))
+  counts <- rbind(counts, data.frame(rank = 4L, source = "other_excluded_label",
+                                     n = n_excl, stringsAsFactors = FALSE))
 
   DBI::dbWriteTable(con, "_taxon_common", data.frame(
     taxon_key = tx$taxon_key, common_name = as.character(name),
@@ -344,6 +384,7 @@ apply_taxon_common <- function(con, cache_csv, tbl = "taxon",
 
   if (verbose) message(glue::glue(
     "apply_taxon_common(): {nrow(tx)} taxa — ",
-    "{paste(sprintf('%s %d', counts$source, counts$n), collapse = ', ')}"))
+    "{paste(sprintf('%s %d', counts$source, counts$n), collapse = ', ')} ",
+    "({length(excl)} group / local-key label(s) refused as names)"))
   invisible(counts)
 }

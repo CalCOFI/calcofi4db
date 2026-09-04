@@ -10,6 +10,7 @@ apply_taxon_common(
   tbl = "taxon",
   dataset_taxon = "dataset_taxon",
   curated = "swfsc_ichthyo",
+  group_rules = NULL,
   verbose = TRUE
 )
 }
@@ -26,10 +27,17 @@ and 4; without it those ranks are simply empty).}
 \item{curated}{the dataset whose vocabulary is rank 2 (default
 \code{"swfsc_ichthyo"}, the CalCOFI species list).}
 
+\item{group_rules}{the group registry as read by \code{\link[=read_taxon_group_rules]{read_taxon_group_rules()}},
+or a path to it; its \code{dataset_taxon} rules' \code{match_value}s are labels rank
+4 refuses. \code{NULL} (the default) refuses only the labels of dataset-local
+keys, which need no registry to recognise.}
+
 \item{verbose}{report how many names each rank supplied.}
 }
 \value{
-a data.frame of per-rank counts (\code{rank}, \code{source}, \code{n}), invisibly.
+a data.frame of per-rank counts (\code{rank}, \code{source}, \code{n}) — the five
+ranks plus \code{other_excluded_label}, the taxa whose only rank-4 candidate was
+a refused label — invisibly.
 }
 \description{
 Sets \code{common_name} on \code{tbl} for every taxon as one \code{COALESCE}, in this order
@@ -44,7 +52,16 @@ where \code{dataset_key = curated} (\code{swfsc_ichthyo}, CalCOFI's own names);
 (\code{source = "worms"}, \code{n_candidates_en = 1});
 \item any \strong{other dataset's} \code{ds_common_name}, in \code{dataset_key} order (this is
 where the seabird and marine-mammal names come from — WoRMS holds almost no
-bird vernaculars);
+bird vernaculars) — \strong{except a label that is not a name}: a value that is
+a \code{match_value} of a \code{dataset_taxon} rule in \code{group_rules}
+(\code{metadata/taxon_group.csv}: "diatom, centric", "other", …) or the
+\code{ds_common_name} of any dataset-local (non-authority) key ("undefined (code
+not in source definitions; Q05)", zooscan "nauplii"). Those are what a
+source calls a \emph{group} or an \emph{operational class}, and rank 4 used to
+publish them as the common name of every taxon in the group (Ben,
+2026-09-04: a group label is never a \code{common_name}; the group's own name
+in \code{taxon_group} is unchanged). The taxa that lose their only rank-4
+candidate this way are counted as \code{other_excluded_label};
 \item empty. Never a guess.
 }
 

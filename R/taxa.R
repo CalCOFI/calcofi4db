@@ -262,20 +262,61 @@ taxa_rank_reference <- function() {
   tibble::as_tibble(df)
 }
 
+# the override rule (Ben, 2026-09-04), stated once and used in two places — here,
+# where the ids are filled, and in report_taxon_overrides(), where the same
+# decision is recomputed from `dataset_taxon` for the notebook and the release:
+#
+#   AN OVERRIDE NEVER REPLACES AN ID THE SOURCE SUPPLIED, unless it names the
+#   row by the dataset's own code.
+#
+# A row matched on a non-code column (`ds_common_name`, `ds_scientific_name`;
+# the phyto arm's `taxa`) is a rule for the rows the source could not resolve —
+# it applies only where the source supplied no worms_id / itis_id. A row matched
+# on the code (`ds_taxa_code`) is a statement about that one row, and applies
+# always. v2026.08.25 released 22 phytoplankton keys for 393 codes because six
+# `taxa`-matched functional-group rows replaced 287 species ids the source had
+# resolved; the group label belongs to `taxon_group`, the species keeps its key.
+.override_hits <- function(matched, is_code, src_has_id)
+  matched & (isTRUE(is_code) | !src_has_id)
+
+.override_report_cols <- c("dataset_key", "match_column", "match_value", "override_key",
+                           "n_matched", "n_applied", "n_skipped", "skipped_codes",
+                           "source_json_known")
+
+.empty_override_report <- function()
+  data.frame(dataset_key = character(), match_column = character(),
+             match_value = character(), override_key = character(),
+             n_matched = integer(), n_applied = integer(), n_skipped = integer(),
+             skipped_codes = character(), source_json_known = logical(),
+             stringsAsFactors = FALSE)
+
+# the key an override row asserts (informational, for the report)
+.override_key_of <- function(worms_id, itis_id) {
+  w <- suppressWarnings(as.integer(worms_id)); i <- suppressWarnings(as.integer(itis_id))
+  ifelse(!is.na(w), paste0("worms:", w), ifelse(!is.na(i), paste0("itis:", i), NA_character_))
+}
+
 # apply an overrides frame (dataset_key, match_column, match_value, worms_id,
 # itis_id, scientific_name, rank) to a per-source normalized frame in place,
-# filling worms_id/itis_id/scientific_name/rank. Overrides take precedence over
-# the source-supplied id (they exist because the source id is missing or coarse).
+# filling worms_id/itis_id/scientific_name/rank under the override rule above.
 #
 # `match_cols` is a NAMED LIST of candidate columns this source exposes, each
 # aligned with `rows` — the override row's declared `match_column` selects which
-# one to match against. A staged vocabulary (append_dataset_taxon()) exposes
-# exactly `ds_taxa_code`, `ds_scientific_name`, `ds_common_name`. That
+# one to match against; `code_col` names the one that IS the dataset's code. A
+# staged vocabulary (append_dataset_taxon()) exposes exactly `ds_taxa_code`,
+# `ds_scientific_name`, `ds_common_name`, with `ds_taxa_code` the code. That
 # declaration used to be ignored entirely; it now errors when a PRESENT dataset's
 # row names a column the source does not expose. A row for a dataset absent from
 # this connection is another ingest's business and is left alone —
 # check_taxon_registries() is where a dataset nobody supplies fails.
-.apply_overrides <- function(rows, overrides, dataset_key, match_cols) {
+#
+# Returns `rows` with an "override_report" attribute: one row per override row
+# of this dataset, with how many vocabulary rows it matched, applied to and
+# skipped (kept the source's id) — which resolve_dataset_taxon() stages as
+# `_taxon_override_report` so the notebook shows it.
+.apply_overrides <- function(rows, overrides, dataset_key, match_cols,
+                             code_col = names(match_cols)[1]) {
+  attr(rows, "override_report") <- .empty_override_report()
   if (is.null(overrides) || !nrow(overrides)) return(rows)
   ov <- overrides[!is.na(overrides$dataset_key) &
                   overrides$dataset_key == dataset_key, , drop = FALSE]
@@ -288,13 +329,36 @@ taxa_rank_reference <- function() {
     "taxon_override.csv: dataset_key '{dataset_key}' declares match_column(s) ",
     "{paste(sprintf('`%s`', bad), collapse = ', ')} that this source does not ",
     "expose. Available: {paste(sprintf('`%s`', names(match_cols)), collapse = ', ')}."))
+  if (!code_col %in% names(match_cols)) stop(glue::glue(
+    ".apply_overrides('{dataset_key}'): code_col `{code_col}` is not one of the match columns."))
+
+  # the ids the SOURCE supplied, read once before any pass: the rule is about
+  # the source's claim, never about what an earlier override filled
+  src_has_id <- !is.na(rows$worms_id) | !is.na(rows$itis_id)
 
   # one pass per declared match_column, so a dataset can key some overrides on a
-  # code and others on a name
-  for (mc in unique(as.character(ov$match_column))) {
+  # code and others on a name. Non-code passes run first and the code pass last,
+  # so a row named by its code takes the code row's id whatever order the
+  # registry lists them in.
+  cols <- unique(as.character(ov$match_column))
+  cols <- c(setdiff(cols, code_col), intersect(cols, code_col))
+  rpt <- list()
+  for (mc in cols) {
     o <- ov[ov$match_column == mc, , drop = FALSE]
     m   <- match(as.character(match_cols[[mc]]), as.character(o$match_value))
-    hit <- !is.na(m)
+    matched <- !is.na(m)
+    hit <- .override_hits(matched, mc == code_col, src_has_id)
+    for (j in seq_len(nrow(o))) {
+      mj <- matched & m == j
+      sk <- rows$ds_taxa_code[which(mj & !hit)]
+      rpt[[length(rpt) + 1L]] <- data.frame(
+        dataset_key = dataset_key, match_column = mc,
+        match_value = as.character(o$match_value[j]),
+        override_key = .override_key_of(o$worms_id[j], o$itis_id[j]),
+        n_matched = sum(mj), n_applied = sum(mj & hit), n_skipped = sum(mj & !hit),
+        skipped_codes = if (length(sk)) paste(utils::head(sk, 20), collapse = ", ") else NA_character_,
+        source_json_known = TRUE, stringsAsFactors = FALSE)
+    }
     if (!any(hit)) next
     rows$worms_id[hit] <- dplyr::coalesce(
       suppressWarnings(as.integer(o$worms_id[m[hit]])), rows$worms_id[hit])
@@ -306,8 +370,23 @@ taxa_rank_reference <- function() {
     if (!is.null(o$rank))
       rows$rank[hit] <- dplyr::coalesce(o$rank[m[hit]], rows$rank[hit])
   }
+  attr(rows, "override_report") <- if (length(rpt))
+    dplyr::bind_rows(rpt)[, .override_report_cols] else .empty_override_report()
   rows
 }
+
+# the arms' own match columns, as `dataset_taxon` carries them — so the release,
+# which sees only `dataset_taxon`, can recompute the override rule for a dataset
+# that has not staged yet. TRANSITIONAL: deleted with the arms (Phase 3b); after
+# that a `match_column` is one of the three ds_* columns or an error. Note the
+# mesopelagic arm's code IS its scientific name; a row matched on
+# `scientific_name` is treated as code-matched by the arm and as name-matched
+# here — no such row exists, and the alias goes with the arm.
+.override_match_alias <- c(
+  species_id = "ds_taxa_code", species_code = "ds_taxa_code", taxon_id = "ds_taxa_code",
+  taxa = "ds_common_name", common_name = "ds_common_name",
+  taxon_zoodb = "ds_common_name", taxon_zooscan = "ds_common_name",
+  scientific_name = "ds_scientific_name")
 
 # the datasets whose vocabulary was staged by append_dataset_taxon(): a marker
 # table beside `dataset_taxon`, because after resolve_dataset_taxon() every row
@@ -549,7 +628,7 @@ append_dataset_taxon <- function(con, dataset_key, df, ds_prefix = dataset_key) 
       arms[[paste0("staged:", ds)]] <- .apply_overrides(r, overrides, ds, list(
         ds_taxa_code       = d$ds_taxa_code,
         ds_scientific_name = d$ds_scientific_name,
-        ds_common_name     = d$ds_common_name))
+        ds_common_name     = d$ds_common_name), code_col = "ds_taxa_code")
     }
   }
   # an arm whose dataset has staged is skipped: the staged rows are the
@@ -576,7 +655,7 @@ append_dataset_taxon <- function(con, dataset_key, df, ds_prefix = dataset_key) 
     arms$species <- .apply_overrides(r, overrides, "swfsc_ichthyo", list(
       species_id      = sp$species_id,
       scientific_name = sp$scientific_name,
-      common_name     = sp$common_name))
+      common_name     = sp$common_name), code_col = "species_id")
   }
 
   # --- phytoplankton: aphia_id, coarse groups via overrides (match on `taxa`) -
@@ -590,11 +669,12 @@ append_dataset_taxon <- function(con, dataset_key, df, ds_prefix = dataset_key) 
       scientific_name = ph$scientific_name_accepted, rank = ph$rank,
       kingdom = ph$kingdom, phylum = ph$phylum,
       stringsAsFactors = FALSE))
-    # coarse functional groups (NULL aphia_id) resolve via overrides keyed on `taxa`
+    # coarse functional groups (NULL aphia_id) resolve via overrides keyed on
+    # `taxa` — a non-code column, so they never touch a row the source resolved
     arms$phyto <- .apply_overrides(r, overrides, "calcofi_phytoplankton", list(
       taxa            = ph$taxa,
       species_code    = ph$species_code,
-      scientific_name = ph$scientific_name_accepted))
+      scientific_name = ph$scientific_name_accepted), code_col = "species_code")
   }
 
   # --- zoodb / zooscan: aphia_id + denormalized lineage -----------------------
@@ -613,7 +693,7 @@ append_dataset_taxon <- function(con, dataset_key, df, ds_prefix = dataset_key) 
         family = z$family, stringsAsFactors = FALSE))
       mc <- list(taxon_id = z$taxon_id, scientific_name = z$scientific_name)
       mc[[lbl]] <- z[[lbl]]
-      arms[[nm]] <- .apply_overrides(r, overrides, ds, mc)
+      arms[[nm]] <- .apply_overrides(r, overrides, ds, mc, code_col = "taxon_id")
     }
   }
 
@@ -632,7 +712,7 @@ append_dataset_taxon <- function(con, dataset_key, df, ds_prefix = dataset_key) 
       rank = eu$rank, stringsAsFactors = FALSE))
     arms$euphausiids <- .apply_overrides(r, overrides, "cce-lter_euphausiids", list(
       taxon_id = eu$taxon_id, scientific_name = eu$scientific_name,
-      genus    = eu$genus))
+      genus    = eu$genus), code_col = "taxon_id")
   }
 
   # --- mesopelagic fish: taxa named by scientific name in the source columns --
@@ -650,8 +730,9 @@ append_dataset_taxon <- function(con, dataset_key, df, ds_prefix = dataset_key) 
       ds_taxa_code = mf$scientific_name, ds_scientific_name = mf$scientific_name,
       worms_id = mf$worms_id, scientific_name = mf$scientific_name,
       rank = mf$rank, stringsAsFactors = FALSE))
+    # the code IS the name here, so a `scientific_name` match is a code match
     arms$mesopelagic <- .apply_overrides(r, overrides, "sio_mesopelagic-fish", list(
-      scientific_name = mf$scientific_name))
+      scientific_name = mf$scientific_name), code_col = "scientific_name")
   }
 
   # --- seabirds + marine mammals (the unstaged form) --------------------------
@@ -676,7 +757,7 @@ append_dataset_taxon <- function(con, dataset_key, df, ds_prefix = dataset_key) 
     r <- .apply_overrides(r, overrides, "farallon_bird-mammal", list(
       species_code    = bm$species_code,
       scientific_name = bm$scientific_name,
-      common_name     = bm$common_name))
+      common_name     = bm$common_name), code_col = "species_code")
     # coarse fallbacks for unidentified: bird -> Aves (itis 174371), mammal -> Mammalia (worms 1837)
     unid <- isTRUE_vec(bm$is_unidentified)
     r$itis_id[unid & isTRUE_vec(bm$is_bird)]    <- 174371L
@@ -702,6 +783,10 @@ append_dataset_taxon <- function(con, dataset_key, df, ds_prefix = dataset_key) 
 
   if (!length(arms)) stop(".taxon_norm_sources(): no taxon vocabulary found — ",
                           "append_dataset_taxon() first, or load a source table.")
+  # what each arm's overrides matched / applied / skipped, harvested before
+  # bind_rows() drops the attribute; resolve_dataset_taxon() stages it
+  ov_rpt <- lapply(arms, attr, "override_report")
+  ov_rpt <- ov_rpt[!vapply(ov_rpt, is.null, logical(1))]
   rows <- dplyr::bind_rows(arms)
 
   # the authority cross-reference, staged by ensure_taxon_xref(). Applied HERE,
@@ -732,6 +817,8 @@ append_dataset_taxon <- function(con, dataset_key, df, ds_prefix = dataset_key) 
   rows$taxon_key[local_fb] <- paste0(rows$dataset_key[local_fb], ":", rows$ds_taxa_code[local_fb])
   # ds_taxon_key = "<prefix>:<local code>"
   rows$ds_taxon_key <- paste0(rows$ds_prefix, ":", rows$ds_taxa_code)
+  attr(rows, "override_report") <- if (length(ov_rpt))
+    dplyr::bind_rows(ov_rpt) else .empty_override_report()
   rows
 }
 
@@ -753,6 +840,19 @@ append_dataset_taxon <- function(con, dataset_key, df, ds_prefix = dataset_key) 
 #' by [taxon_key_of()] from the resolved ids and the class the staged lineage
 #' supplies, so call [ensure_taxon_xref()] then [ensure_taxon_lineage()] first.
 #'
+#' **The override rule** (Ben, 2026-09-04): a `taxon_override.csv` row **never
+#' replaces an id the source supplied, unless it names the row by the dataset's
+#' own code**. A row matched on a non-code column (`ds_common_name`,
+#' `ds_scientific_name`) applies only to vocabulary rows whose source supplied
+#' no `worms_id` / `itis_id` (nothing in `ds_source_json`); a row matched on
+#' `ds_taxa_code` applies always, and wins over a non-code row on the same
+#' vocabulary row whatever order the registry lists them in. The rows an
+#' override was *skipped* for are counted per registry row and staged as
+#' `_taxon_override_report` (see [report_taxon_overrides()]), and summarised in
+#' a message, so the notebook shows what the rule kept. v2026.08.25 released 22
+#' phytoplankton keys for 393 codes because six `taxa`-matched functional-group
+#' rows replaced 287 species AphiaIDs the source had resolved.
+#'
 #' Renamed from `build_dataset_taxon()` in 3.29.0, which remains as a deprecated
 #' alias: that name described a rebuild from the arms, which is exactly what an
 #' ingest could not stage against.
@@ -765,12 +865,14 @@ append_dataset_taxon <- function(con, dataset_key, df, ds_prefix = dataset_key) 
 #' @param overrides optional data.frame of manual id resolution
 #'   (`metadata/taxon_override.csv`) for coarse taxa (phyto groups, mammals)
 #' @param tbl target table name (default `"dataset_taxon"`)
+#' @param verbose logical; message what the overrides applied to and skipped
 #' @return (invisibly) the row count written
 #' @export
 #' @concept taxonomy
 resolve_dataset_taxon <- function(con, measurement_taxon = NULL, overrides = NULL,
-                                  tbl = "dataset_taxon") {
+                                  tbl = "dataset_taxon", verbose = TRUE) {
   rows <- .taxon_norm_sources(con, measurement_taxon, overrides)
+  rpt  <- attr(rows, "override_report")
   out <- rows |>
     dplyr::transmute(
       ds_taxon_key = .data$ds_taxon_key, dataset_key = .data$dataset_key,
@@ -780,7 +882,27 @@ resolve_dataset_taxon <- function(con, measurement_taxon = NULL, overrides = NUL
     dplyr::distinct(.data$ds_taxon_key, .keep_all = TRUE) |>
     dplyr::arrange(.data$dataset_key, .data$ds_taxon_key) |>
     as.data.frame()
-  .replace_table(con, tbl, out)
+  n <- .replace_table(con, tbl, out)
+
+  # what the overrides did, staged beside the crosswalk so the notebook can show
+  # it, and said out loud: a skip is the rule working, not an error, but it is
+  # the kind of fact that must not be silent
+  if (is.null(rpt)) rpt <- .empty_override_report()
+  .replace_table(con, "_taxon_override_report", as.data.frame(rpt))
+  if (verbose && nrow(rpt)) .message_override_report(rpt)
+  invisible(n)
+}
+
+.message_override_report <- function(rpt) {
+  for (ds in sort(unique(rpt$dataset_key))) {
+    r <- rpt[rpt$dataset_key == ds, , drop = FALSE]
+    n_sk <- sum(r$n_skipped, na.rm = TRUE)
+    message(glue::glue(
+      "taxon overrides ('{ds}'): {nrow(r)} registry row(s) matched ",
+      "{sum(r$n_matched)} vocabulary row(s): {sum(r$n_applied)} applied, ",
+      "{n_sk} skipped",
+      if (n_sk) " (the source supplied an id; see report_taxon_overrides())" else ""))
+  }
 }
 
 #' @rdname resolve_dataset_taxon
@@ -789,6 +911,100 @@ build_dataset_taxon <- function(con, measurement_taxon = NULL, overrides = NULL,
                                 tbl = "dataset_taxon") {
   lifecycle::deprecate_warn("3.29.0", "build_dataset_taxon()", "resolve_dataset_taxon()")
   resolve_dataset_taxon(con, measurement_taxon, overrides, tbl)
+}
+
+# report_taxon_overrides -------------------------------------------------------
+
+#' What each `taxon_override.csv` row matched, applied to and skipped
+#'
+#' Recomputes the override rule (see [resolve_dataset_taxon()]) from
+#' `dataset_taxon` alone — the dataset's vocabulary, its `ds_source_json` (what
+#' the source supplied) and the registry — so the same report is available in
+#' an ingest after the resolve and in `release_database.qmd`, where every
+#' dataset is present and only `dataset_taxon` is. One row per override row:
+#'
+#' - `n_matched` — vocabulary rows whose `match_column` equals `match_value`;
+#' - `n_applied` — of those, the rows the override keyed (a code match, or a
+#'   row whose source supplied no id);
+#' - `n_skipped` — of those, the rows that kept the source's own id, with the
+#'   first of their codes in `skipped_codes`. `NA` when `source_json_known` is
+#'   `FALSE`: no row of that dataset carries `ds_source_json`, so the shard
+#'   either predates calcofi4db 3.29.0 or its source supplied no ids at all, and
+#'   the release cannot tell which — the ingest's own message can.
+#'
+#' `match_column` is one of `dataset_taxon`'s `ds_taxa_code` /
+#' `ds_scientific_name` / `ds_common_name`; a dataset that has not staged yet
+#' (Phase 3b) is read through the arm's alias (`taxa` is `ds_common_name`,
+#' `species_code` is `ds_taxa_code`). Anything else errors, as it does at
+#' ingest. A row that matches nothing is reported with zeros, not dropped —
+#' [check_taxon_registries()] is where a dataset nobody supplies fails.
+#'
+#' @param con a DBI connection holding `dataset_taxon`
+#' @param overrides the override registry (`metadata/taxon_override.csv`)
+#' @param tbl crosswalk table name (default `"dataset_taxon"`)
+#' @param verbose logical; message the per-dataset summary
+#' @return a data.frame (`dataset_key`, `match_column`, `match_value`,
+#'   `override_key`, `n_matched`, `n_applied`, `n_skipped`, `skipped_codes`,
+#'   `source_json_known`), one row per override row, invisibly when
+#'   `verbose = FALSE`
+#' @export
+#' @concept taxonomy
+report_taxon_overrides <- function(con, overrides, tbl = "dataset_taxon", verbose = TRUE) {
+  if (!.tbl_has(con, tbl)) stop(glue::glue(
+    "report_taxon_overrides(): needs `{tbl}` in `con`."))
+  if (is.null(overrides) || !nrow(overrides)) {
+    out <- .empty_override_report()
+    return(if (verbose) out else invisible(out))
+  }
+  if (is.null(overrides$match_column))
+    stop("taxon_override.csv is missing the `match_column` column.")
+  ds_cols <- c("ds_taxa_code", "ds_scientific_name", "ds_common_name")
+  have <- DBI::dbListFields(con, tbl)
+  dt <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT dataset_key, {paste(intersect(c(ds_cols, 'ds_source_json'), have), collapse = ', ')} FROM {tbl}"))
+  for (cl in c(ds_cols, "ds_source_json")) if (is.null(dt[[cl]])) dt[[cl]] <- NA_character_
+  src <- .parse_source_json(as.character(dt$ds_source_json))
+  src_has_id <- !is.na(src$worms_id) | !is.na(src$itis_id)
+  # a staged dataset said what its source supplied even when that was nothing;
+  # an assembled shard with the column NULL throughout may simply predate it
+  staged <- .staged_datasets(con)$dataset_key
+  known  <- stats::setNames(
+    vapply(unique(dt$dataset_key), function(d)
+      d %in% staged || any(!is.na(dt$ds_source_json[dt$dataset_key == d])), logical(1)),
+    unique(dt$dataset_key))
+
+  col_of <- function(mc) {
+    if (mc %in% ds_cols) return(mc)
+    if (mc %in% names(.override_match_alias)) return(.override_match_alias[[mc]])
+    stop(glue::glue(
+      "taxon_override.csv: match_column `{mc}` is not a dataset_taxon column ",
+      "({paste(sprintf('`%s`', ds_cols), collapse = ', ')}) nor an arm column this ",
+      "release knows."))
+  }
+  ov <- overrides[!is.na(overrides$dataset_key), , drop = FALSE]
+  rpt <- lapply(seq_len(nrow(ov)), function(j) {
+    ds <- as.character(ov$dataset_key[j]); mc <- as.character(ov$match_column[j])
+    col <- col_of(mc)
+    matched <- dt$dataset_key %in% ds &
+               as.character(dt[[col]]) %in% as.character(ov$match_value[j])
+    hit <- .override_hits(matched, col == "ds_taxa_code", src_has_id)
+    kn  <- isTRUE(known[ds])
+    sk  <- dt$ds_taxa_code[which(matched & !hit)]
+    data.frame(
+      dataset_key = ds, match_column = mc, match_value = as.character(ov$match_value[j]),
+      override_key = .override_key_of(ov$worms_id[j], ov$itis_id[j]),
+      n_matched = sum(matched),
+      n_applied = if (kn) sum(hit) else NA_integer_,
+      n_skipped = if (kn) sum(matched & !hit) else NA_integer_,
+      skipped_codes = if (kn && length(sk)) paste(utils::head(sk, 20), collapse = ", ") else NA_character_,
+      source_json_known = if (is.na(known[ds])) FALSE else kn,
+      stringsAsFactors = FALSE)
+  })
+  out <- if (length(rpt)) dplyr::bind_rows(rpt) else .empty_override_report()
+  out <- out[order(out$dataset_key, out$match_column, out$match_value), , drop = FALSE]
+  rownames(out) <- NULL
+  if (verbose && nrow(out)) .message_override_report(out)
+  if (verbose) out else invisible(out)
 }
 
 # build_taxon_reference --------------------------------------------------------

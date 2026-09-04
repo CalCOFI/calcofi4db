@@ -9,7 +9,8 @@ resolve_dataset_taxon(
   con,
   measurement_taxon = NULL,
   overrides = NULL,
-  tbl = "dataset_taxon"
+  tbl = "dataset_taxon",
+  verbose = TRUE
 )
 
 build_dataset_taxon(
@@ -31,6 +32,8 @@ which live in \code{measurement_type} names not a taxon table, are included}
 (\code{metadata/taxon_override.csv}) for coarse taxa (phyto groups, mammals)}
 
 \item{tbl}{target table name (default \code{"dataset_taxon"})}
+
+\item{verbose}{logical; message what the overrides applied to and skipped}
 }
 \value{
 (invisibly) the row count written
@@ -50,6 +53,19 @@ is a no-op. Datasets that have not staged are still read from their source
 tables (the seven arms — coexistence during the migration). The key is minted
 by \code{\link[=taxon_key_of]{taxon_key_of()}} from the resolved ids and the class the staged lineage
 supplies, so call \code{\link[=ensure_taxon_xref]{ensure_taxon_xref()}} then \code{\link[=ensure_taxon_lineage]{ensure_taxon_lineage()}} first.
+
+\strong{The override rule} (Ben, 2026-09-04): a \code{taxon_override.csv} row \strong{never
+replaces an id the source supplied, unless it names the row by the dataset's
+own code}. A row matched on a non-code column (\code{ds_common_name},
+\code{ds_scientific_name}) applies only to vocabulary rows whose source supplied
+no \code{worms_id} / \code{itis_id} (nothing in \code{ds_source_json}); a row matched on
+\code{ds_taxa_code} applies always, and wins over a non-code row on the same
+vocabulary row whatever order the registry lists them in. The rows an
+override was \emph{skipped} for are counted per registry row and staged as
+\verb{_taxon_override_report} (see \code{\link[=report_taxon_overrides]{report_taxon_overrides()}}), and summarised in
+a message, so the notebook shows what the rule kept. v2026.08.25 released 22
+phytoplankton keys for 393 codes because six \code{taxa}-matched functional-group
+rows replaced 287 species AphiaIDs the source had resolved.
 
 Renamed from \code{build_dataset_taxon()} in 3.29.0, which remains as a deprecated
 alias: that name described a rebuild from the arms, which is exactly what an
