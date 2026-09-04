@@ -1,3 +1,11 @@
+# calcofi4db 4.0.1
+
+- **`validate_for_release()`** no longer reports `sample.source_uuid` / `sample.station_uuid` as
+  "nulls" findings: both are NULL by contract wherever the provider mints no identifier (only
+  `swfsc_ichthyo` supplies `source_uuid`; `station_uuid` is stamped at release for matched
+  occupations only). Every non-ichthyo ingest was reporting 100 % NULL `source_uuid`, and the
+  Dungeness crab notebook's strict NULL reconciler halted the 2026-09-04 release run on it.
+
 # calcofi4db 4.0.0
 
 ## An ingest re-run never undoes a registry declaration

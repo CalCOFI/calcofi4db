@@ -267,7 +267,14 @@ validate_for_release <- function(
                     WHERE table_name = '{tbl}'"))$column_name
 
       required_cols <- cols[grepl("(_id|_uuid|_key)$", cols)]
-      required_cols <- setdiff(required_cols, c("_source_uuid"))  # exclude provenance
+      # excluded: provenance, and the provider-identifier columns that are NULL
+      # by contract wherever the provider mints none — `sample.source_uuid`
+      # (calcofi4db 3.32.0, only swfsc_ichthyo supplies one) and
+      # `sample.station_uuid` (stamped at release for matched occupations only).
+      # Without this every non-ichthyo ingest reported 100 % NULL source_uuid as a
+      # "nulls" finding, and the crab notebook's strict reconciler halted the
+      # 2026-09-04 release run on it.
+      required_cols <- setdiff(required_cols, c("_source_uuid", "source_uuid", "station_uuid"))
 
       for (col in required_cols) {
         null_count <- DBI::dbGetQuery(
