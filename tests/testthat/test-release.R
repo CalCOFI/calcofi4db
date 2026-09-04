@@ -129,6 +129,24 @@ test_that("freeze_plan() + build_release_catalog(): since is inherited, unchange
   expect_true(all(p2$since[!p2$partition_value %in% "c_z"] == "v1"))
   expect_equal(p2$source[p2$table == "sample"], "ducklake/releases/v1/parquet/sample.parquet")
   expect_equal(p2$path[p2$table == "sample"], "ducklake/releases/v2/parquet/sample.parquet")
+  # a copied object is the PREVIOUS release's bytes: the plan and the catalog describe that object,
+  # not the local re-export (row-identical, not byte-identical) — regression for v2026.09.04's 173
+  # size/sha256 mismatches. Simulate a byte-different re-export of an unchanged partition.
+  o2b <- o2; i_ax <- which(o2b$partition_value %in% "a_x")
+  o2b$sha256[i_ax] <- strrep("f", 64); o2b$bytes[i_ax] <- o2b$bytes[i_ax] + 7
+  p2b <- freeze_plan(o2b, j, "v2", "compat")
+  prev_ax <- j$tables$objects[[1]][j$tables$objects[[1]]$partition_value == "a_x", ]
+  expect_equal(p2b$action[i_ax], "copy")
+  expect_equal(p2b$sha256[i_ax], prev_ax$sha256)
+  expect_equal(p2b$bytes[i_ax],  prev_ax$bytes)
+  expect_equal(p2b$sha256_local[i_ax], strrep("f", 64))
+  cat2b <- build_release_catalog("v2", tables_df, p2b, "compat", "2026-09-02")
+  obj_ax <- Filter(function(o) identical(o$partition_value, "a_x"), cat2b$tables[[1]]$objects)[[1]]
+  expect_equal(obj_ax$sha256, prev_ax$sha256)
+  expect_equal(obj_ax$bytes,  prev_ax$bytes)
+  # the uploaded (changed) partition keeps its own local values
+  i_cz <- which(p2b$partition_value %in% "c_z")
+  expect_equal(p2b$sha256[i_cz], p2b$sha256_local[i_cz])
   # canonical layout: paths are content-addressed, compat_path kept, catalog says so
   p3 <- freeze_plan(o2, j, "v2", "canonical")
   expect_match(p3$path[p3$table == "sample"], "^ducklake/tables/sample/[0-9a-f]{24}/sample\\.parquet$")

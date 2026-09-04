@@ -267,7 +267,12 @@ release_objects <- function(con, table, dir_out, files, version, partition_by = 
 #' @param version,release_prefix the release and its prefix.
 #' @return `objects` plus `path` (bucket-relative destination), `action`
 #'   (`upload` | `copy` | `exists`) and `source` (bucket-relative path copied from,
-#'   or NA).
+#'   or NA). For a `copy`/`exists` object `bytes` and `sha256` describe the object
+#'   that will actually sit at `path` — the previous release's — and the local
+#'   export's values move to `bytes_local`/`sha256_local` (4.0.3): identity is the
+#'   row signature, and a row-identical re-export is not byte-identical for every
+#'   table (v2026.09.04 shipped 173 catalog entries whose size/sha256 described
+#'   the local file while the path held the copied object).
 #' @export
 #' @concept release
 freeze_plan <- function(objects, prev_catalog, version, layout = c("compat", "canonical"),
@@ -277,6 +282,8 @@ freeze_plan <- function(objects, prev_catalog, version, layout = c("compat", "ca
   key_new <- paste(objects$table, objects$partition_value, objects$content_hash, sep = "|")
   key_old <- paste(prev$table, prev$partition_value, prev$content_hash, sep = "|")
   m <- match(key_new, key_old)
+  objects$bytes_local  <- objects$bytes
+  objects$sha256_local <- objects$sha256
   objects$compat_path <- sprintf("%s/%s/parquet/%s", release_prefix, version, objects$rel_path)
   if (layout == "compat") {
     objects$path   <- objects$compat_path
@@ -292,6 +299,14 @@ freeze_plan <- function(objects, prev_catalog, version, layout = c("compat", "ca
     objects$action <- ifelse(!is.na(m) & prev$path[pmax(m, 1)] == objects$path & !is.na(m),
                              "exists", "upload")
     objects$source <- NA_character_
+  }
+  # a reused object keeps the previous release's bytes/sha256 (a legacy catalog
+  # without them falls back to the local export's)
+  reuse <- objects$action %in% c("copy", "exists") & !is.na(m)
+  if (any(reuse)) {
+    pb <- prev$bytes[m[reuse]];  ps <- prev$sha256[m[reuse]]
+    objects$bytes[reuse]  <- ifelse(is.na(pb), objects$bytes[reuse],  pb)
+    objects$sha256[reuse] <- ifelse(is.na(ps), objects$sha256[reuse], ps)
   }
   objects
 }

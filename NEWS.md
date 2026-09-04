@@ -1,3 +1,13 @@
+# calcofi4db 4.0.3
+
+- **`freeze_plan()`**: a `copy`/`exists` object now carries the *previous release's* `bytes` and
+  `sha256` (the object that actually sits at its path); the local re-export's values move to
+  `bytes_local`/`sha256_local`. A row-identical re-export is not byte-identical for every table
+  (`obs_ctd_full`, `obs_mets_full`, `obs`'s CTD/METS partitions), so v2026.09.04's catalog
+  described 173 objects by the local file while the path held the copied bytes, and
+  `verify_release_objects.R` flagged every one. Legacy catalogs without `bytes`/`sha256` fall
+  back to the local values.
+
 # calcofi4db 4.0.2
 
 - **`upsert_measurement_types()`** also treats `denominator` (the D8 effort vocabulary) as

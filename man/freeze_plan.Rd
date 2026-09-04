@@ -26,7 +26,12 @@ ones are server-side copied from the previous release) or \code{"canonical"}
 \value{
 \code{objects} plus \code{path} (bucket-relative destination), \code{action}
 (\code{upload} | \code{copy} | \code{exists}) and \code{source} (bucket-relative path copied from,
-or NA).
+or NA). For a \code{copy}/\code{exists} object \code{bytes} and \code{sha256} describe the object
+that will actually sit at \code{path} — the previous release's — and the local
+export's values move to \code{bytes_local}/\code{sha256_local} (4.0.3): identity is the
+row signature, and a row-identical re-export is not byte-identical for every
+table (v2026.09.04 shipped 173 catalog entries whose size/sha256 described
+the local file while the path held the copied object).
 }
 \description{
 Decide, per object, whether to upload or reuse
