@@ -32,7 +32,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.0.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.0.3</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -67,6 +67,11 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.0.3" id="calcofi4db-403">calcofi4db 4.0.3<a class="anchor" aria-label="anchor" href="#calcofi4db-403"></a></h2>
+<ul><li>
+<strong><code><a href="../reference/freeze_plan.html">freeze_plan()</a></code></strong>: a <code>copy</code>/<code>exists</code> object now carries the <em>previous release’s</em> <code>bytes</code> and <code>sha256</code> (the object that actually sits at its path); the local re-export’s values move to <code>bytes_local</code>/<code>sha256_local</code>. A row-identical re-export is not byte-identical for every table (<code>obs_ctd_full</code>, <code>obs_mets_full</code>, <code>obs</code>’s CTD/METS partitions), so v2026.09.04’s catalog described 173 objects by the local file while the path held the copied bytes, and <code>verify_release_objects.R</code> flagged every one. Legacy catalogs without <code>bytes</code>/<code>sha256</code> fall back to the local values.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.0.2" id="calcofi4db-402">calcofi4db 4.0.2<a class="anchor" aria-label="anchor" href="#calcofi4db-402"></a></h2>
 <ul><li>

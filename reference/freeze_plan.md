@@ -42,4 +42,10 @@ freeze_plan(
 
 `objects` plus `path` (bucket-relative destination), `action` (`upload`
 \| `copy` \| `exists`) and `source` (bucket-relative path copied from,
-or NA).
+or NA). For a `copy`/`exists` object `bytes` and `sha256` describe the
+object that will actually sit at `path` — the previous release's — and
+the local export's values move to `bytes_local`/`sha256_local` (4.0.3):
+identity is the row signature, and a row-identical re-export is not
+byte-identical for every table (v2026.09.04 shipped 173 catalog entries
+whose size/sha256 described the local file while the path held the
+copied object).

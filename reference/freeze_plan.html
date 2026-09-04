@@ -32,7 +32,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.0.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.0.3</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -109,7 +109,12 @@ ones are server-side copied from the previous release) or <code>"canonical"</cod
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p><code>objects</code> plus <code>path</code> (bucket-relative destination), <code>action</code>
 (<code>upload</code> | <code>copy</code> | <code>exists</code>) and <code>source</code> (bucket-relative path copied from,
-or NA).</p>
+or NA). For a <code>copy</code>/<code>exists</code> object <code>bytes</code> and <code>sha256</code> describe the object
+that will actually sit at <code>path</code> — the previous release's — and the local
+export's values move to <code>bytes_local</code>/<code>sha256_local</code> (4.0.3): identity is the
+row signature, and a row-identical re-export is not byte-identical for every
+table (v2026.09.04 shipped 173 catalog entries whose size/sha256 described
+the local file while the path held the copied object).</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
