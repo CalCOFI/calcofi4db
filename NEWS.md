@@ -1,5 +1,15 @@
 # calcofi4db 4.0.0
 
+## An ingest re-run never undoes a registry declaration
+
+- **`upsert_measurement_types()`** gains `authoritative = declarable_measurement_fields()`: for
+  `category`, `variable`, `derivation`, `is_canonical`, `nerc_p01` and `units_nerc_p06` the existing
+  registry value wins whenever it is non-NA, even over an explicit value in the ingest's literal (only
+  [declare_measurement_fields()] may set them); a type new to the registry takes the literal's value.
+  Before this, re-rendering `ingest_cce-lter_euphausiids.qmd` silently blanked `category`, `variable`
+  and `units_nerc_p06` on `euphausiid_abundance` — every re-run ingest would have lost the WS-H2 ids and
+  the bottle `r_*` `is_canonical = FALSE` flip (found 2026-09-04).
+
 ## No dataset arms in the package: the ingest stages its vocabulary, or it errors (taxon plan Phase 3b)
 
 - **The seven per-dataset arms in `.taxon_norm_sources()` are deleted** — `species` (ichthyo),

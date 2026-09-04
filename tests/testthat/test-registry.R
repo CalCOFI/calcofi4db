@@ -333,3 +333,32 @@ test_that("declare_measurement_fields() sets nerc_p01 / units_nerc_p06 and rejec
   expect_identical(d2$nerc_p01[d2$measurement_type == "temperature"],
                    "http://vocab.nerc.ac.uk/collection/P01/current/TEMPST01/")
 })
+
+
+test_that("upsert_measurement_types() keeps the registry-owned fields across an ingest re-run", {
+  d <- data.frame(
+    measurement_type = c("euphausiid_abundance", "r_temperature"),
+    description = c("krill", "reported temp"), units = c("count", "degC"),
+    valid_min = c(0, -3), valid_max = c(NA, 40),
+    category = c("Euphausiids (Krill)", "Hydrography"), variable = c(NA, "temperature"),
+    derivation = c(NA, "interpolated to standard depth"), is_canonical = c("TRUE", "FALSE"),
+    nerc_p01 = c(NA, "http://vocab.nerc.ac.uk/collection/P01/current/TEMPPR01/"),
+    units_nerc_p06 = c("http://vocab.nerc.ac.uk/collection/P06/current/UPMS/", NA),
+    stringsAsFactors = FALSE)
+  # the ingest's literal predates the registry columns and re-asserts is_canonical = TRUE
+  lit <- data.frame(measurement_type = c("euphausiid_abundance", "r_temperature", "brand_new"),
+                    description = c("krill!", "reported temp", "new thing"), units = c("count", "degC", "m"),
+                    is_canonical = c("TRUE", "TRUE", "TRUE"), category = c(NA, NA, "Hydrography"),
+                    stringsAsFactors = FALSE)
+  out <- upsert_measurement_types(d, lit)
+  row <- function(mt) out[out$measurement_type == mt, ]
+  expect_equal(row("euphausiid_abundance")$category, "Euphausiids (Krill)")
+  expect_equal(row("euphausiid_abundance")$units_nerc_p06, "http://vocab.nerc.ac.uk/collection/P06/current/UPMS/")
+  expect_equal(row("euphausiid_abundance")$description, "krill!")          # not registry-owned: literal wins
+  expect_equal(row("r_temperature")$is_canonical, "FALSE")                 # registry wins over the literal's TRUE
+  expect_equal(row("r_temperature")$derivation, "interpolated to standard depth")
+  expect_equal(row("r_temperature")$variable, "temperature")
+  expect_equal(row("r_temperature")$valid_min, -3)                         # bounds still preserved
+  expect_equal(row("brand_new")$category, "Hydrography")                   # a new type takes the literal
+  expect_equal(row("brand_new")$is_canonical, "TRUE")
+})

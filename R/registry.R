@@ -282,6 +282,11 @@ declare_measurement_bounds <- function(bounds, path, overwrite = FALSE,
 #' @param d the current registry (a data.frame, e.g. from
 #'   [read_measurement_type()])
 #' @param new_types data.frame of definitions to upsert; needs `measurement_type`
+#' @param authoritative registry-owned columns (default
+#'   [declarable_measurement_fields()]): the existing registry value wins
+#'   whenever it is non-NA, even over an explicit value in `new_types`, because
+#'   only [declare_measurement_fields()] may set them. A type new to the
+#'   registry takes the literal's value.
 #' @param preserve columns to carry forward from the existing row when
 #'   `new_types` does not supply a non-`NA` value. Defaults to the bound columns —
 #'   the ones an ingest never authors and a provider has agreed.
@@ -299,7 +304,8 @@ declare_measurement_bounds <- function(bounds, path, overwrite = FALSE,
 upsert_measurement_types <- function(
     d, new_types,
     preserve = c("valid_min", "valid_max",
-                 "valid_depth_min_m", "valid_depth_max_m")) {
+                 "valid_depth_min_m", "valid_depth_max_m"),
+    authoritative = declarable_measurement_fields()) {
 
   if (is.null(new_types) || !nrow(new_types)) return(d)
   stopifnot("new_types needs a measurement_type column" =
@@ -317,6 +323,24 @@ upsert_measurement_types <- function(
     } else {
       # an explicit value in new_types wins; NA means "not authored here"
       keep <- is.na(new_types[[cl]])
+      new_types[[cl]][keep] <- old[keep]
+    }
+  }
+
+  # the registry-owned fields (set only through declare_measurement_fields()):
+  # the registry's value wins whenever it has one, even over an explicit value in
+  # the ingest's literal — an ingest re-run must never undo a declaration. Until
+  # 4.0.0 these were not preserved at all, so re-rendering
+  # ingest_cce-lter_euphausiids.qmd blanked `category`, `variable` and
+  # `units_nerc_p06` on euphausiid_abundance (found 2026-09-04, WS-E Phase 3b).
+  # A type new to the registry takes whatever the literal supplies.
+  for (cl in setdiff(authoritative, preserve)) {
+    if (!cl %in% names(d)) next
+    old <- d[[cl]][match(new_types$measurement_type, d$measurement_type)]
+    if (!cl %in% names(new_types)) {
+      new_types[[cl]] <- old
+    } else {
+      keep <- !is.na(old)
       new_types[[cl]][keep] <- old[keep]
     }
   }

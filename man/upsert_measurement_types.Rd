@@ -7,7 +7,8 @@
 upsert_measurement_types(
   d,
   new_types,
-  preserve = c("valid_min", "valid_max", "valid_depth_min_m", "valid_depth_max_m")
+  preserve = c("valid_min", "valid_max", "valid_depth_min_m", "valid_depth_max_m"),
+  authoritative = declarable_measurement_fields()
 )
 }
 \arguments{
@@ -19,6 +20,12 @@ upsert_measurement_types(
 \item{preserve}{columns to carry forward from the existing row when
 \code{new_types} does not supply a non-\code{NA} value. Defaults to the bound columns —
 the ones an ingest never authors and a provider has agreed.}
+
+\item{authoritative}{registry-owned columns (default
+\code{\link[=declarable_measurement_fields]{declarable_measurement_fields()}}): the existing registry value wins
+whenever it is non-NA, even over an explicit value in \code{new_types}, because
+only \code{\link[=declare_measurement_fields]{declare_measurement_fields()}} may set them. A type new to the
+registry takes the literal's value.}
 }
 \value{
 The updated registry, sorted by \code{measurement_type}.
