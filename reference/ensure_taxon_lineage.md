@@ -1,10 +1,10 @@
 # Materialize the WoRMS/ITIS lineage `build_taxon_reference()` reads
 
-Resolves every authority id this dataset's vocabulary reaches — from its
-own taxon tables *and* from `measurement_taxon.csv`, which is where the
-taxa that had no lineage at all came from — fetches their classification
-(cached), and writes it into `con` as the DwC-shaped `taxon` hierarchy
-table.
+Resolves every authority id this dataset's vocabulary reaches — from the
+staged `dataset_taxon` rows, its own taxon tables *and* from
+`measurement_taxon.csv`, which is where the taxa that had no lineage at
+all came from — fetches their classification (cached), and writes it
+into `con` as the DwC-shaped `taxon` hierarchy table.
 
 ## Usage
 
@@ -76,10 +76,29 @@ ensure_taxon_lineage(
 
 ## Details
 
-Call it **before**
-[`build_taxon_reference()`](https://calcofi.io/calcofi4db/reference/build_taxon_reference.md),
-which reads that table as its rank / parent / classification authority.
-An existing hierarchy is merged, not replaced, so `swfsc_ichthyo` (which
-builds its own via
+**Two cached passes** (taxon plan D2), because the class decides the
+key:
+
+1.  the classification by the resolved AphiaID where present, else by
+    TSN — this yields each taxon's `class`;
+
+2.  for rows whose class is Aves and whose TSN resolved, the **ITIS
+    chain**, so `parent_taxon_key` ancestry is `itis:` all the way up.
+
+What is staged is the chain of the authority each taxon is **keyed** on:
+the ITIS chain for an Aves taxon with a TSN, the WoRMS chain for
+everything else. A bird's WoRMS chain is fetched (and cached) only to
+learn its class; it never becomes `worms:` ancestor rows beside the
+`itis:` ones. A bird with no TSN keys `worms:` and its WoRMS chain is
+staged, with a note on the taxon.
+
+Call it **after**
+[`ensure_taxon_xref()`](https://calcofi.io/calcofi4db/reference/ensure_taxon_xref.md)
+(so the fetch asks about the accepted id) and **before**
+[`build_taxon_reference()`](https://calcofi.io/calcofi4db/reference/build_taxon_reference.md)
+/
+[`resolve_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/resolve_dataset_taxon.md),
+which read the staged class. An existing hierarchy is merged, not
+replaced, so `swfsc_ichthyo` (which builds its own via
 [`build_taxon_hierarchy()`](https://calcofi.io/calcofi4db/reference/build_taxon_hierarchy.md))
 keeps what it has and gains only what is missing.

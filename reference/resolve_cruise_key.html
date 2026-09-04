@@ -7,7 +7,13 @@ event (nearest span centre on the rare tie);
 source — cruise_ym_col, the source's own YYYYMM
 designation, when supplied and well-formed;
 month — the event's own year-month (the legacy rule).
-Every key is YYYY-MM- + the ship's NODC code from ship_tbl."><meta property="og:description" content="Writes cruise_key (and cruise_key_method) onto table_name for every row
+Every key is YYYY-MM- + the ship's NODC code from ship_tbl. Steps 2–3
+(which mint a key rather than copy one from cruise_tbl) require
+ship_nodc to be non-NULL/non-blank — a blank NODC (DuckDB's CONCAT()
+treats NULL as '') used to mint YYYY-MM- silently (WS-B / the July 2019
+Bold Horizon cruise, cruise_key = &quot;2019-07-&quot;); those rows now stay
+unresolved (cruise_key NULL, method NULL) rather than shipping a malformed
+key."><meta property="og:description" content="Writes cruise_key (and cruise_key_method) onto table_name for every row
 with a matched ship_key, trying in order:
 span — the reference cruise of the same ship whose
 date_min - tolerance_days .. date_max + tolerance_days contains the
@@ -15,7 +21,13 @@ event (nearest span centre on the rare tie);
 source — cruise_ym_col, the source's own YYYYMM
 designation, when supplied and well-formed;
 month — the event's own year-month (the legacy rule).
-Every key is YYYY-MM- + the ship's NODC code from ship_tbl."><!-- calcofi.io brand contract (https://calcofi.io/brand/v1/): pkgdown's own
+Every key is YYYY-MM- + the ship's NODC code from ship_tbl. Steps 2–3
+(which mint a key rather than copy one from cruise_tbl) require
+ship_nodc to be non-NULL/non-blank — a blank NODC (DuckDB's CONCAT()
+treats NULL as '') used to mint YYYY-MM- silently (WS-B / the July 2019
+Bold Horizon cruise, cruise_key = &quot;2019-07-&quot;); those rows now stay
+unresolved (cruise_key NULL, method NULL) rather than shipping a malformed
+key."><!-- calcofi.io brand contract (https://calcofi.io/brand/v1/): pkgdown's own
      light-switch stays as the toggle (its key is localStorage.theme, the
      same one theme.js reads); the pre-paint below also writes that key so
      the switch and the cross-site cookie agree, and the observer pushes a
@@ -48,7 +60,7 @@ Every key is YYYY-MM- + the ship's NODC code from ship_tbl."><!-- calcofi.io bra
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.28.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.0.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -92,7 +104,13 @@ event (nearest span centre on the rare tie);</p></li>
 <li><p><strong>source</strong> — <code>cruise_ym_col</code>, the source's own YYYYMM
 designation, when supplied and well-formed;</p></li>
 <li><p><strong>month</strong> — the event's own year-month (the legacy rule).</p></li>
-</ol><p>Every key is <code>YYYY-MM-</code> + the ship's NODC code from <code>ship_tbl</code>.</p>
+</ol><p>Every key is <code>YYYY-MM-</code> + the ship's NODC code from <code>ship_tbl</code>. Steps 2–3
+(which mint a key rather than copy one from <code>cruise_tbl</code>) require
+<code>ship_nodc</code> to be non-NULL/non-blank — a blank NODC (DuckDB's <code>CONCAT()</code>
+treats NULL as <code>''</code>) used to mint <code>YYYY-MM-</code> silently (WS-B / the July 2019
+Bold Horizon cruise, <code>cruise_key = "2019-07-"</code>); those rows now stay
+unresolved (<code>cruise_key</code> NULL, method NULL) rather than shipping a malformed
+key.</p>
     </div>
 
     <div class="section level2">

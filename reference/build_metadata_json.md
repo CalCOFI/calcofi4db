@@ -18,7 +18,8 @@ build_metadata_json(
   provider = NULL,
   dataset = NULL,
   workflow_url = NULL,
-  tables_owned = NULL
+  tables_owned = NULL,
+  sources = NULL
 )
 ```
 
@@ -78,6 +79,16 @@ build_metadata_json(
   `contributions` block (per-table row counts) is emitted for these
   tables only, so reference tables loaded from prior ingests are not
   mis-attributed.
+
+- sources:
+
+  Optional table from
+  [`stamp_source_access()`](https://calcofi.io/calcofi4db/reference/stamp_source_access.md)
+  — when the ingest read its sources, and how (`download` /
+  `file_mtime`). Written as `sources[]`; the release takes the newest
+  stamp as the dataset's measured `source_accessed`
+  ([`resolve_source_accessed()`](https://calcofi.io/calcofi4db/reference/resolve_source_accessed.md)),
+  falling back to the sidecar's git history when absent.
 
 ## Value
 

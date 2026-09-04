@@ -1,4 +1,4 @@
-# The bio or env realm of `obs`, browser-shaped
+# The bio or env realm of `obs`, browser-shaped — and, since 3.31.0, its physical store
 
 Slims `obs` to the columns a lens needs, joins the gear and effort of
 the observation's own sample (`sample.tow_type`; `std_haul_factor`,
@@ -52,3 +52,21 @@ build_obs_slim(
 ## Value
 
 Invisibly, the row count.
+
+## Details
+
+Since 3.31.0 (pre-release plan D-S1) the pair is a **strict superset of
+`obs` under a name mapping**: each row also carries `sample_key` (the
+observation's own sampling event — without it a consumer reaches only
+the root and loses the net / bottle grain), `measurement_prec` and
+`hex_id` (the res-10 H3 cell `hex7` is the parent of); `realm` is
+implied by the table and `measurement_value` is `value`.
+[`obs_view_sql()`](https://calcofi.io/calcofi4db/reference/obs_view_sql.md)
+is the UNION ALL that reconstructs `obs` from the pair under its
+original 18 column names, and
+[`check_obs_pair_parity()`](https://calcofi.io/calcofi4db/reference/check_obs_pair_parity.md)
+asserts the pair holds exactly `obs`'s rows. The one deliberate
+difference is the depth fallback above: where `obs` has no depth for a
+bio row (a net tow whose span lives on `sample`), the pair — and
+therefore the view — carries the sample's span; a non-NULL `obs` depth
+is never changed.

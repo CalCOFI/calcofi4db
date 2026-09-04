@@ -38,7 +38,7 @@ partition_value) and, for the canonical layout, compat_path."><!-- calcofi.io br
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.28.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.0.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -88,7 +88,8 @@ partition_value) and, for the canonical layout, compat_path."><!-- calcofi.io br
 <span>  <span class="va">tables_df</span>,</span>
 <span>  <span class="va">plan</span>,</span>
 <span>  layout <span class="op">=</span> <span class="st">"compat"</span>,</span>
-<span>  release_date <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.Date</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
+<span>  release_date <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.Date</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  views <span class="op">=</span> <span class="fu"><a href="release_views.html">release_views</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -115,10 +116,23 @@ partition_value) and, for the canonical layout, compat_path."><!-- calcofi.io br
 <dt id="arg-release-date">release_date<a class="anchor" aria-label="anchor" href="#arg-release-date"></a></dt>
 <dd><p>character date.</p></dd>
 
+
+<dt id="arg-views">views<a class="anchor" aria-label="anchor" href="#arg-views"></a></dt>
+<dd><p>the view registry, see <code><a href="release_views.html">release_views()</a></code>; <code><a href="https://rdrr.io/r/base/list.html" class="external-link">list()</a></code> for none.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A list ready for <code>jsonlite::write_json(auto_unbox = TRUE)</code>.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>Since 3.31.0 the catalog also carries a top-level <strong><code>views</code></strong> map — view name → SQL over
+<code>{{table}}</code> tokens — for every entry of <code>views</code> whose source tables are all in <code>tables_df</code>, and
+the table a view <code>replaces</code> gains <code>deprecated: true</code>, <code>replaced_by: [...]</code> and <code>removed_in</code> while
+it still ships. A resolver (<code>calcofi4r::cc_get_db()</code>, <code>calcofi4py.cc_get_db()</code>, db-query) creates
+the views after the tables; a deprecated table's objects are read only when the view's sources
+were not loaded.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

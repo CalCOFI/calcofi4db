@@ -32,7 +32,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.28.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.0.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -554,6 +554,13 @@
 
         <dt>
 
+          <code><a href="check_dataset_taxon.html">check_dataset_taxon()</a></code>
+
+        </dt>
+        <dd>The ingest asserts its own taxon crosswalk (taxon plan D6)</dd>
+
+        <dt>
+
           <code><a href="check_multiple_datasets.html">check_multiple_datasets()</a></code>
 
         </dt>
@@ -565,6 +572,13 @@
 
         </dt>
         <dd>The taxa that no authority resolved, per dataset — reported, and gated</dd>
+
+        <dt>
+
+          <code><a href="check_taxon_registries.html">check_taxon_registries()</a></code>
+
+        </dt>
+        <dd>Every dataset a taxon registry names must be one some dataset supplies</dd>
 
         <dt>
 
@@ -1241,6 +1255,13 @@
 
         <dt>
 
+          <code><a href="OBS_VIEW_COLUMNS.html">OBS_VIEW_COLUMNS</a></code>
+
+        </dt>
+        <dd>The 18 columns of <code>obs</code>, in order</dd>
+
+        <dt>
+
           <code><a href="add_cruise_date_span.html">add_cruise_date_span()</a></code>
 
         </dt>
@@ -1255,10 +1276,24 @@
 
         <dt>
 
+          <code><a href="add_release_citation.html">add_release_citation()</a></code>
+
+        </dt>
+        <dd>Write the release citation into a <code>catalog.json</code> list</dd>
+
+        <dt>
+
           <code><a href="add_sample_seafloor.html">add_sample_seafloor()</a></code>
 
         </dt>
         <dd>Stamp <code>seafloor_depth_m</code> onto the sample table</dd>
+
+        <dt>
+
+          <code><a href="append_dataset_taxon.html">append_dataset_taxon()</a></code>
+
+        </dt>
+        <dd>Stage a dataset's taxon vocabulary in <code>dataset_taxon</code> (taxon plan D1)</dd>
 
         <dt>
 
@@ -1293,7 +1328,7 @@
           <code><a href="apply_taxon_common.html">apply_taxon_common()</a></code>
 
         </dt>
-        <dd>Apply the vernacular-name registry to a taxon table</dd>
+        <dd>Apply the common-name precedence to the merged <code>taxon</code> table</dd>
 
         <dt>
 
@@ -1308,6 +1343,13 @@
 
         </dt>
         <dd>Assemble one core table from its per-dataset shards</dd>
+
+        <dt>
+
+          <code><a href="assert_dataset_citation.html">assert_dataset_citation()</a></code>
+
+        </dt>
+        <dd>Stop on any non-exempt error finding from <code><a href="../reference/check_dataset_citation.html">check_dataset_citation()</a></code></dd>
 
         <dt>
 
@@ -1339,13 +1381,6 @@
 
         <dt>
 
-          <code><a href="build_dataset_taxon.html">build_dataset_taxon()</a></code>
-
-        </dt>
-        <dd>Build the <code>dataset_taxon</code> crosswalk (per-dataset vocabulary -&gt; <code>taxon</code>)</dd>
-
-        <dt>
-
           <code><a href="build_grid_reference.html">build_grid_reference()</a></code>
 
         </dt>
@@ -1356,7 +1391,7 @@
           <code><a href="build_obs_slim.html">build_obs_slim()</a></code>
 
         </dt>
-        <dd>The bio or env realm of <code>obs</code>, browser-shaped</dd>
+        <dd>The bio or env realm of <code>obs</code>, browser-shaped — and, since 3.31.0, its physical store</dd>
 
         <dt>
 
@@ -1391,7 +1426,7 @@
           <code><a href="build_taxon_group.html">build_taxon_group()</a></code>
 
         </dt>
-        <dd>Build the <code>taxon_group</code> grouping table (many taxa per group)</dd>
+        <dd>Build the <code>taxon_group</code> grouping table (many taxa per group) from the registry</dd>
 
         <dt>
 
@@ -1458,6 +1493,20 @@
 
         <dt>
 
+          <code><a href="check_cruise_key_integrity.html">check_cruise_key_integrity()</a></code>
+
+        </dt>
+        <dd>Fail (or ratchet) the release on a <code>cruise_key</code> that does not hold up</dd>
+
+        <dt>
+
+          <code><a href="check_dataset_citation.html">check_dataset_citation()</a></code>
+
+        </dt>
+        <dd>Check every dataset's citation, license and DOI, structurally and against its authority</dd>
+
+        <dt>
+
           <code><a href="check_depth_bounds.html">check_depth_bounds()</a></code>
 
         </dt>
@@ -1472,6 +1521,13 @@
 
         <dt>
 
+          <code><a href="check_obs_pair_parity.html">check_obs_pair_parity()</a></code>
+
+        </dt>
+        <dd>Assert that <code>obs_bio</code> + <code>obs_env</code> hold exactly the rows of <code>obs</code></dd>
+
+        <dt>
+
           <code><a href="check_registry_na_strings.html">check_registry_na_strings()</a></code>
 
         </dt>
@@ -1483,6 +1539,13 @@
 
         </dt>
         <dd>Classify the samples whose <code>seafloor_depth_m</code> is NULL, by cause</dd>
+
+        <dt>
+
+          <code><a href="citation_findings.html">citation_findings()</a></code> <code><a href="citation_findings.html">citation_error_findings()</a></code>
+
+        </dt>
+        <dd>The findings <code><a href="../reference/check_dataset_citation.html">check_dataset_citation()</a></code> can report, with their level</dd>
 
         <dt>
 
@@ -1504,6 +1567,13 @@
 
         </dt>
         <dd>Rebuild a per-dataset measurement table as a VIEW over <code>obs</code></dd>
+
+        <dt>
+
+          <code><a href="complete_cruise_reference.html">complete_cruise_reference()</a></code>
+
+        </dt>
+        <dd>Complete the <code>cruise</code> reference with cruises no SWFSC site row names</dd>
 
         <dt>
 
@@ -1552,7 +1622,7 @@
           <code><a href="declare_measurement_fields.html">declare_measurement_fields()</a></code>
 
         </dt>
-        <dd>Declare <code>category</code> / <code>variable</code> on measurement types that already exist</dd>
+        <dd>Declare <code>category</code> / <code>variable</code> / <code>derivation</code> / <code>is_canonical</code> / NERC ids on measurement types that already exist</dd>
 
         <dt>
 
@@ -1654,10 +1724,24 @@
 
         <dt>
 
+          <code><a href="license_statuses.html">license_statuses()</a></code>
+
+        </dt>
+        <dd>The allowed <code>status</code> values of <code>metadata/license.csv</code></dd>
+
+        <dt>
+
           <code><a href="load_gcs_parquet_to_duckdb.html">load_gcs_parquet_to_duckdb()</a></code>
 
         </dt>
         <dd>Load a GCS Parquet File into DuckDB</dd>
+
+        <dt>
+
+          <code><a href="mark_taxon_common_manual.html">mark_taxon_common_manual()</a></code>
+
+        </dt>
+        <dd>Tag the hand-picked rows of the registry as <code>source = "manual"</code></dd>
 
         <dt>
 
@@ -1686,6 +1770,13 @@
 
         </dt>
         <dd>Match Ship Codes Across Datasets Using Multi-Source References</dd>
+
+        <dt>
+
+          <code><a href="match_station_occupation.html">match_station_occupation()</a></code>
+
+        </dt>
+        <dd>Stamp <code>sample.station_uuid</code>: the SWFSC station occupation an event belongs to</dd>
 
         <dt>
 
@@ -1745,10 +1836,24 @@
 
         <dt>
 
+          <code><a href="normalize_citation.html">normalize_citation()</a></code>
+
+        </dt>
+        <dd>Normalize a citation string for comparison</dd>
+
+        <dt>
+
           <code><a href="ns_key.html">ns_key()</a></code>
 
         </dt>
         <dd>Namespaced <code>sample_key</code> expression: <code>dataset_key:sample_type:id</code></dd>
+
+        <dt>
+
+          <code><a href="obs_view_sql.html">obs_view_sql()</a></code>
+
+        </dt>
+        <dd><code>obs</code> as a view over <code>obs_bio</code> + <code>obs_env</code></dd>
 
         <dt>
 
@@ -1763,6 +1868,13 @@
 
         </dt>
         <dd>Measure Observed Temporal and Spatial Coverage per Dataset</dd>
+
+        <dt>
+
+          <code><a href="parse_edi_cite.html">parse_edi_cite()</a></code> <code><a href="parse_edi_cite.html">parse_erddap_das()</a></code> <code><a href="parse_edi_cite.html">parse_ncei_landing()</a></code> <code><a href="parse_edi_cite.html">parse_datacite()</a></code> <code><a href="parse_edi_cite.html">parse_doi_bibliography()</a></code>
+
+        </dt>
+        <dd>Parse a resolver's response into the fields the citation cache carries</dd>
 
         <dt>
 
@@ -1899,6 +2011,13 @@
 
         <dt>
 
+          <code><a href="read_license_registry.html">read_license_registry()</a></code>
+
+        </dt>
+        <dd>Read <code>metadata/license.csv</code>, the registry of dataset licenses</dd>
+
+        <dt>
+
           <code><a href="read_measurement_type.html">read_measurement_type()</a></code>
 
         </dt>
@@ -1948,10 +2067,24 @@
 
         <dt>
 
+          <code><a href="read_taxon_group_rules.html">read_taxon_group_rules()</a></code>
+
+        </dt>
+        <dd>Read the <code>taxon_group</code> rule registry (<code>metadata/taxon_group.csv</code>)</dd>
+
+        <dt>
+
           <code><a href="register_measurement_types.html">register_measurement_types()</a></code>
 
         </dt>
         <dd>Append new measurement types to the shared registry, safely</dd>
+
+        <dt>
+
+          <code><a href="release_citation.html">release_citation()</a></code>
+
+        </dt>
+        <dd>The citation for a release of the integrated database</dd>
 
         <dt>
 
@@ -1983,6 +2116,20 @@
 
         <dt>
 
+          <code><a href="release_view_tables.html">release_view_tables()</a></code> <code><a href="release_view_tables.html">substitute_view_tables()</a></code>
+
+        </dt>
+        <dd>The tables a catalog view reads, and the SQL with them resolved</dd>
+
+        <dt>
+
+          <code><a href="release_views.html">release_views()</a></code>
+
+        </dt>
+        <dd>Views a release carries beside its tables</dd>
+
+        <dt>
+
           <code><a href="render_release_notes.html">render_release_notes()</a></code>
 
         </dt>
@@ -1997,10 +2144,31 @@
 
         <dt>
 
+          <code><a href="report_taxon_overrides.html">report_taxon_overrides()</a></code>
+
+        </dt>
+        <dd>What each <code>taxon_override.csv</code> row matched, applied to and skipped</dd>
+
+        <dt>
+
           <code><a href="resolve_cruise_key.html">resolve_cruise_key()</a></code>
 
         </dt>
         <dd>Resolve <code>cruise_key</code> on an event table by span, designation, then month</dd>
+
+        <dt>
+
+          <code><a href="resolve_dataset_taxon.html">resolve_dataset_taxon()</a></code> <code><a href="resolve_dataset_taxon.html">build_dataset_taxon()</a></code>
+
+        </dt>
+        <dd>Fill <code>taxon_key</code> on the <code>dataset_taxon</code> crosswalk (per-dataset vocabulary -&gt; <code>taxon</code>)</dd>
+
+        <dt>
+
+          <code><a href="resolve_source_accessed.html">resolve_source_accessed()</a></code>
+
+        </dt>
+        <dd>Resolve each dataset's <code>source_accessed</code>: the ingest's own stamp, else git</dd>
 
         <dt>
 
@@ -2022,6 +2190,20 @@
 
         </dt>
         <dd>Recover the column names from a fixed-width Sea-Bird ASCII header</dd>
+
+        <dt>
+
+          <code><a href="source_accessed_from_git.html">source_accessed_from_git()</a></code>
+
+        </dt>
+        <dd>When was a dataset's source last read? Measured from git</dd>
+
+        <dt>
+
+          <code><a href="stamp_source_access.html">stamp_source_access()</a></code> <code><a href="stamp_source_access.html">sources_block()</a></code>
+
+        </dt>
+        <dd>Record when an ingest read its sources</dd>
 
         <dt>
 
@@ -2085,6 +2267,27 @@
 
         </dt>
         <dd>Replace a measurement type's definition while keeping its curated columns</dd>
+
+        <dt>
+
+          <code><a href="write_taxon_common.html">write_taxon_common()</a></code>
+
+        </dt>
+        <dd>Write the vernacular-name registry</dd>
+
+        <dt>
+
+          <code><a href="zenodo_doi_for_tag.html">zenodo_doi_for_tag()</a></code> <code><a href="zenodo_doi_for_tag.html">zenodo_record_for_tag()</a></code>
+
+        </dt>
+        <dd>Find the Zenodo record (and DOI) minted for a release tag</dd>
+
+        <dt>
+
+          <code><a href="zenodo_metadata.html">zenodo_metadata()</a></code> <code><a href="zenodo_metadata.html">citation_cff()</a></code> <code><a href="zenodo_metadata.html">write_citation_files()</a></code>
+
+        </dt>
+        <dd>Metadata for <code>.zenodo.json</code> and <code>CITATION.cff</code> at the workflows repo root</dd>
       </dl></div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

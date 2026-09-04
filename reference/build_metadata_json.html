@@ -36,7 +36,7 @@ to parquet via COPY TO, so this provides the metadata externally."><!-- calcofi.
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">3.28.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.0.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -91,7 +91,8 @@ to parquet via <code>COPY TO</code>, so this provides the metadata externally.</
 <span>  provider <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  dataset <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  workflow_url <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  tables_owned <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  tables_owned <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  sources <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -151,6 +152,14 @@ as parsed from the <code>calcofi$tables_owned</code> YAML block: a list of entri
 each with <code>table</code> and optional <code>shared</code> (logical) / <code>note</code>. When supplied,
 a <code>contributions</code> block (per-table row counts) is emitted for these tables
 only, so reference tables loaded from prior ingests are not mis-attributed.</p></dd>
+
+
+<dt id="arg-sources">sources<a class="anchor" aria-label="anchor" href="#arg-sources"></a></dt>
+<dd><p>Optional table from <code><a href="stamp_source_access.html">stamp_source_access()</a></code> — when the ingest
+read its sources, and how (<code>download</code> / <code>file_mtime</code>). Written as
+<code>sources[]</code>; the release takes the newest stamp as the dataset's measured
+<code>source_accessed</code> (<code><a href="resolve_source_accessed.html">resolve_source_accessed()</a></code>), falling back to the
+sidecar's git history when absent.</p></dd>
 
 </dl></div>
     <div class="section level2">

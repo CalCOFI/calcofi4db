@@ -2,8 +2,8 @@
 
 Convenience wrapper: `sample`, `obs`, `obs_attribute`,
 `sample_measurement` (surrogate ids renumbered globally), the
-supplemental `obs_ctd_full`, and the taxa references (`taxon` merged
-with priority; `dataset_taxon` /`taxon_group` deduplicated). Errors if
+supplemental `obs_ctd_full`, and the taxa references (`taxon` merged in
+dataset order; `dataset_taxon` /`taxon_group` deduplicated). Errors if
 `sample_key` is not globally unique — the namespacing guarantee the
 whole model rests on.
 

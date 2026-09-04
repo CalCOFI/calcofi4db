@@ -2,7 +2,7 @@
 
 [`build_taxon_reference()`](https://calcofi.io/calcofi4db/reference/build_taxon_reference.md)
 /
-[`build_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/build_dataset_taxon.md)
+[`resolve_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/resolve_dataset_taxon.md)
 /
 [`build_taxon_group()`](https://calcofi.io/calcofi4db/reference/build_taxon_group.md)
 read *whichever* taxon sources are present in `con`, which inside an

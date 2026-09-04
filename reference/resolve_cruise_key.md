@@ -12,7 +12,13 @@ every row with a matched `ship_key`, trying in order:
 
 3.  **month** — the event's own year-month (the legacy rule).
 
-Every key is `YYYY-MM-` + the ship's NODC code from `ship_tbl`.
+Every key is `YYYY-MM-` + the ship's NODC code from `ship_tbl`. Steps
+2–3 (which mint a key rather than copy one from `cruise_tbl`) require
+`ship_nodc` to be non-NULL/non-blank — a blank NODC (DuckDB's `CONCAT()`
+treats NULL as `''`) used to mint `YYYY-MM-` silently (WS-B / the July
+2019 Bold Horizon cruise, `cruise_key = "2019-07-"`); those rows now
+stay unresolved (`cruise_key` NULL, method NULL) rather than shipping a
+malformed key.
 
 ## Usage
 

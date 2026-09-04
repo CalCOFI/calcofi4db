@@ -179,11 +179,16 @@ functions for data validation and integrity checking
   guard
 - [`check_data_integrity()`](https://calcofi.io/calcofi4db/reference/check_data_integrity.md)
   : Check Data Integrity for Ingestion
+- [`check_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/check_dataset_taxon.md)
+  : The ingest asserts its own taxon crosswalk (taxon plan D6)
 - [`check_multiple_datasets()`](https://calcofi.io/calcofi4db/reference/check_multiple_datasets.md)
   : Check Multiple Datasets for Integrity
 - [`check_taxon_ids()`](https://calcofi.io/calcofi4db/reference/check_taxon_ids.md)
   : The taxa that no authority resolved, per dataset — reported, and
   gated
+- [`check_taxon_registries()`](https://calcofi.io/calcofi4db/reference/check_taxon_registries.md)
+  : Every dataset a taxon registry names must be one some dataset
+  supplies
 - [`check_ungridded_obs()`](https://calcofi.io/calcofi4db/reference/check_ungridded_obs.md)
   : Observations that resolve no CalCOFI grid cell — reported, never
   dropped
@@ -442,16 +447,31 @@ check for other functions or datasets not captured by above categories
   [`CC_TABLES_PREFIX`](https://calcofi.io/calcofi4db/reference/CC_RELEASE_PREFIX.md)
   : Release layout prefixes (bucket-relative)
 
+- [`OBS_VIEW_COLUMNS`](https://calcofi.io/calcofi4db/reference/OBS_VIEW_COLUMNS.md)
+  :
+
+  The 18 columns of `obs`, in order
+
 - [`add_cruise_date_span()`](https://calcofi.io/calcofi4db/reference/add_cruise_date_span.md)
   : Add the observed date span of each cruise to the cruise reference
 
 - [`add_point_geom()`](https://calcofi.io/calcofi4db/reference/add_point_geom.md)
   : Add Point Geometry Column to a DuckDB Table
 
+- [`add_release_citation()`](https://calcofi.io/calcofi4db/reference/add_release_citation.md)
+  :
+
+  Write the release citation into a `catalog.json` list
+
 - [`add_sample_seafloor()`](https://calcofi.io/calcofi4db/reference/add_sample_seafloor.md)
   :
 
   Stamp `seafloor_depth_m` onto the sample table
+
+- [`append_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/append_dataset_taxon.md)
+  :
+
+  Stage a dataset's taxon vocabulary in `dataset_taxon` (taxon plan D1)
 
 - [`append_obs()`](https://calcofi.io/calcofi4db/reference/append_obs.md)
   :
@@ -476,13 +496,21 @@ check for other functions or datasets not captured by above categories
   table
 
 - [`apply_taxon_common()`](https://calcofi.io/calcofi4db/reference/apply_taxon_common.md)
-  : Apply the vernacular-name registry to a taxon table
+  :
+
+  Apply the common-name precedence to the merged `taxon` table
 
 - [`assemble_core()`](https://calcofi.io/calcofi4db/reference/assemble_core.md)
   : Assemble the whole consolidated core from the ingest shards
 
 - [`assemble_core_table()`](https://calcofi.io/calcofi4db/reference/assemble_core_table.md)
   : Assemble one core table from its per-dataset shards
+
+- [`assert_dataset_citation()`](https://calcofi.io/calcofi4db/reference/assert_dataset_citation.md)
+  :
+
+  Stop on any non-exempt error finding from
+  [`check_dataset_citation()`](https://calcofi.io/calcofi4db/reference/check_dataset_citation.md)
 
 - [`assign_grid_key()`](https://calcofi.io/calcofi4db/reference/assign_grid_key.md)
   : Assign Grid Key via Spatial Join
@@ -499,12 +527,6 @@ check for other functions or datasets not captured by above categories
   : The per-station coverage card: n obs by dataset x year and by
   dataset x month, for one station
 
-- [`build_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/build_dataset_taxon.md)
-  :
-
-  Build the `dataset_taxon` crosswalk (per-dataset vocabulary -\>
-  `taxon`)
-
 - [`build_grid_reference()`](https://calcofi.io/calcofi4db/reference/build_grid_reference.md)
   :
 
@@ -514,7 +536,8 @@ check for other functions or datasets not captured by above categories
 - [`build_obs_slim()`](https://calcofi.io/calcofi4db/reference/build_obs_slim.md)
   :
 
-  The bio or env realm of `obs`, browser-shaped
+  The bio or env realm of `obs`, browser-shaped — and, since 3.31.0, its
+  physical store
 
 - [`build_release_catalog()`](https://calcofi.io/calcofi4db/reference/build_release_catalog.md)
   : Build the release catalog with per-table hashes and objects
@@ -534,7 +557,8 @@ check for other functions or datasets not captured by above categories
 - [`build_taxon_group()`](https://calcofi.io/calcofi4db/reference/build_taxon_group.md)
   :
 
-  Build the `taxon_group` grouping table (many taxa per group)
+  Build the `taxon_group` grouping table (many taxa per group) from the
+  registry
 
 - [`build_taxon_hierarchy()`](https://calcofi.io/calcofi4db/reference/build_taxon_hierarchy.md)
   : Build Taxon Hierarchy from Local spp.duckdb via Recursive CTEs
@@ -567,11 +591,25 @@ check for other functions or datasets not captured by above categories
 - [`check_core_pk_unique()`](https://calcofi.io/calcofi4db/reference/check_core_pk_unique.md)
   : Fail unless every core table is unique on its primary key
 
+- [`check_cruise_key_integrity()`](https://calcofi.io/calcofi4db/reference/check_cruise_key_integrity.md)
+  :
+
+  Fail (or ratchet) the release on a `cruise_key` that does not hold up
+
+- [`check_dataset_citation()`](https://calcofi.io/calcofi4db/reference/check_dataset_citation.md)
+  : Check every dataset's citation, license and DOI, structurally and
+  against its authority
+
 - [`check_depth_bounds()`](https://calcofi.io/calcofi4db/reference/check_depth_bounds.md)
   : Check depth coordinates against an absolute range
 
 - [`check_depth_vs_seafloor()`](https://calcofi.io/calcofi4db/reference/check_depth_vs_seafloor.md)
   : Find samples deeper than the seafloor at their position
+
+- [`check_obs_pair_parity()`](https://calcofi.io/calcofi4db/reference/check_obs_pair_parity.md)
+  :
+
+  Assert that `obs_bio` + `obs_env` hold exactly the rows of `obs`
 
 - [`check_registry_na_strings()`](https://calcofi.io/calcofi4db/reference/check_registry_na_strings.md)
   : Reject sentinel strings that should have been empty cells
@@ -580,6 +618,14 @@ check for other functions or datasets not captured by above categories
   :
 
   Classify the samples whose `seafloor_depth_m` is NULL, by cause
+
+- [`citation_findings()`](https://calcofi.io/calcofi4db/reference/citation_findings.md)
+  [`citation_error_findings()`](https://calcofi.io/calcofi4db/reference/citation_findings.md)
+  :
+
+  The findings
+  [`check_dataset_citation()`](https://calcofi.io/calcofi4db/reference/check_dataset_citation.md)
+  can report, with their level
 
 - [`clean_taxon_name()`](https://calcofi.io/calcofi4db/reference/clean_taxon_name.md)
   : Normalize a source taxon name for an authority lookup
@@ -593,6 +639,11 @@ check for other functions or datasets not captured by above categories
   :
 
   Rebuild a per-dataset measurement table as a VIEW over `obs`
+
+- [`complete_cruise_reference()`](https://calcofi.io/calcofi4db/reference/complete_cruise_reference.md)
+  :
+
+  Complete the `cruise` reference with cruises no SWFSC site row names
 
 - [`core_output_tables()`](https://calcofi.io/calcofi4db/reference/core_output_tables.md)
   : Core tables an ingest writes to parquet
@@ -620,8 +671,8 @@ check for other functions or datasets not captured by above categories
 - [`declare_measurement_fields()`](https://calcofi.io/calcofi4db/reference/declare_measurement_fields.md)
   :
 
-  Declare `category` / `variable` on measurement types that already
-  exist
+  Declare `category` / `variable` / `derivation` / `is_canonical` / NERC
+  ids on measurement types that already exist
 
 - [`derive_cruise_key_on_casts()`](https://calcofi.io/calcofi4db/reference/derive_cruise_key_on_casts.md)
   : Derive Cruise Key on Bottle Casts via Ship Matching
@@ -677,8 +728,18 @@ check for other functions or datasets not captured by above categories
 - [`h3_parent_sql()`](https://calcofi.io/calcofi4db/reference/h3_parent_sql.md)
   : H3 parent of a cell as plain SQL (no extension)
 
+- [`license_statuses()`](https://calcofi.io/calcofi4db/reference/license_statuses.md)
+  :
+
+  The allowed `status` values of `metadata/license.csv`
+
 - [`load_gcs_parquet_to_duckdb()`](https://calcofi.io/calcofi4db/reference/load_gcs_parquet_to_duckdb.md)
   : Load a GCS Parquet File into DuckDB
+
+- [`mark_taxon_common_manual()`](https://calcofi.io/calcofi4db/reference/mark_taxon_common_manual.md)
+  :
+
+  Tag the hand-picked rows of the registry as `source = "manual"`
 
 - [`match_by_site_datetime()`](https://calcofi.io/calcofi4db/reference/match_by_site_datetime.md)
   : Match Records to a Reference Table by Key + Datetime Window
@@ -692,6 +753,12 @@ check for other functions or datasets not captured by above categories
 
 - [`match_ships()`](https://calcofi.io/calcofi4db/reference/match_ships.md)
   : Match Ship Codes Across Datasets Using Multi-Source References
+
+- [`match_station_occupation()`](https://calcofi.io/calcofi4db/reference/match_station_occupation.md)
+  :
+
+  Stamp `sample.station_uuid`: the SWFSC station occupation an event
+  belongs to
 
 - [`measurement_var_meta()`](https://calcofi.io/calcofi4db/reference/measurement_var_meta.md)
   :
@@ -724,9 +791,17 @@ check for other functions or datasets not captured by above categories
 - [`nc_profile_write()`](https://calcofi.io/calcofi4db/reference/nc_profile_write.md)
   : Write one chunk of a CF profile file
 
+- [`normalize_citation()`](https://calcofi.io/calcofi4db/reference/normalize_citation.md)
+  : Normalize a citation string for comparison
+
 - [`ns_key()`](https://calcofi.io/calcofi4db/reference/ns_key.md) :
 
   Namespaced `sample_key` expression: `dataset_key:sample_type:id`
+
+- [`obs_view_sql()`](https://calcofi.io/calcofi4db/reference/obs_view_sql.md)
+  :
+
+  `obs` as a view over `obs_bio` + `obs_env`
 
 - [`obs_wide_sql()`](https://calcofi.io/calcofi4db/reference/obs_wide_sql.md)
   :
@@ -735,6 +810,14 @@ check for other functions or datasets not captured by above categories
 
 - [`observed_coverage()`](https://calcofi.io/calcofi4db/reference/observed_coverage.md)
   : Measure Observed Temporal and Spatial Coverage per Dataset
+
+- [`parse_edi_cite()`](https://calcofi.io/calcofi4db/reference/parse_edi_cite.md)
+  [`parse_erddap_das()`](https://calcofi.io/calcofi4db/reference/parse_edi_cite.md)
+  [`parse_ncei_landing()`](https://calcofi.io/calcofi4db/reference/parse_edi_cite.md)
+  [`parse_datacite()`](https://calcofi.io/calcofi4db/reference/parse_edi_cite.md)
+  [`parse_doi_bibliography()`](https://calcofi.io/calcofi4db/reference/parse_edi_cite.md)
+  : Parse a resolver's response into the fields the citation cache
+  carries
 
 - [`plan_dataset_netcdf()`](https://calcofi.io/calcofi4db/reference/plan_dataset_netcdf.md)
   : Plan the netCDF shape for a dataset
@@ -804,6 +887,11 @@ check for other functions or datasets not captured by above categories
 - [`read_ctd_upload()`](https://calcofi.io/calcofi4db/reference/read_ctd_upload.md)
   : Read any supported CTD upload
 
+- [`read_license_registry()`](https://calcofi.io/calcofi4db/reference/read_license_registry.md)
+  :
+
+  Read `metadata/license.csv`, the registry of dataset licenses
+
 - [`read_measurement_type()`](https://calcofi.io/calcofi4db/reference/read_measurement_type.md)
   :
 
@@ -837,8 +925,16 @@ check for other functions or datasets not captured by above categories
 - [`read_taxon_common()`](https://calcofi.io/calcofi4db/reference/read_taxon_common.md)
   : Read the vernacular-name registry
 
+- [`read_taxon_group_rules()`](https://calcofi.io/calcofi4db/reference/read_taxon_group_rules.md)
+  :
+
+  Read the `taxon_group` rule registry (`metadata/taxon_group.csv`)
+
 - [`register_measurement_types()`](https://calcofi.io/calcofi4db/reference/register_measurement_types.md)
   : Append new measurement types to the shared registry, safely
+
+- [`release_citation()`](https://calcofi.io/calcofi4db/reference/release_citation.md)
+  : The citation for a release of the integrated database
 
 - [`release_notes_section()`](https://calcofi.io/calcofi4db/reference/release_notes_section.md)
   : The RELEASES.md section that documents a version
@@ -852,17 +948,42 @@ check for other functions or datasets not captured by above categories
 - [`release_sort_keys()`](https://calcofi.io/calcofi4db/reference/release_sort_keys.md)
   : Sort keys (and partition column) for every released table
 
+- [`release_view_tables()`](https://calcofi.io/calcofi4db/reference/release_view_tables.md)
+  [`substitute_view_tables()`](https://calcofi.io/calcofi4db/reference/release_view_tables.md)
+  : The tables a catalog view reads, and the SQL with them resolved
+
+- [`release_views()`](https://calcofi.io/calcofi4db/reference/release_views.md)
+  : Views a release carries beside its tables
+
 - [`render_release_notes()`](https://calcofi.io/calcofi4db/reference/render_release_notes.md)
   : Render a version's RELEASE_NOTES.md: narrative + generated appendix
 
 - [`report_ship_matches()`](https://calcofi.io/calcofi4db/reference/report_ship_matches.md)
   : Report Ship Matching Status for a Dataset
 
+- [`report_taxon_overrides()`](https://calcofi.io/calcofi4db/reference/report_taxon_overrides.md)
+  :
+
+  What each `taxon_override.csv` row matched, applied to and skipped
+
 - [`resolve_cruise_key()`](https://calcofi.io/calcofi4db/reference/resolve_cruise_key.md)
   :
 
   Resolve `cruise_key` on an event table by span, designation, then
   month
+
+- [`resolve_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/resolve_dataset_taxon.md)
+  [`build_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/resolve_dataset_taxon.md)
+  :
+
+  Fill `taxon_key` on the `dataset_taxon` crosswalk (per-dataset
+  vocabulary -\> `taxon`)
+
+- [`resolve_source_accessed()`](https://calcofi.io/calcofi4db/reference/resolve_source_accessed.md)
+  :
+
+  Resolve each dataset's `source_accessed`: the ingest's own stamp, else
+  git
 
 - [`sample_arm_self()`](https://calcofi.io/calcofi4db/reference/sample_arm_self.md)
   :
@@ -874,6 +995,13 @@ check for other functions or datasets not captured by above categories
 
 - [`sbe_split_header()`](https://calcofi.io/calcofi4db/reference/sbe_split_header.md)
   : Recover the column names from a fixed-width Sea-Bird ASCII header
+
+- [`source_accessed_from_git()`](https://calcofi.io/calcofi4db/reference/source_accessed_from_git.md)
+  : When was a dataset's source last read? Measured from git
+
+- [`stamp_source_access()`](https://calcofi.io/calcofi4db/reference/stamp_source_access.md)
+  [`sources_block()`](https://calcofi.io/calcofi4db/reference/stamp_source_access.md)
+  : Record when an ingest read its sources
 
 - [`standardize_species()`](https://calcofi.io/calcofi4db/reference/standardize_species.md)
   : Standardize Species Identifiers Using WoRMS/ITIS/GBIF APIs
@@ -906,3 +1034,18 @@ check for other functions or datasets not captured by above categories
 - [`upsert_measurement_types()`](https://calcofi.io/calcofi4db/reference/upsert_measurement_types.md)
   : Replace a measurement type's definition while keeping its curated
   columns
+
+- [`write_taxon_common()`](https://calcofi.io/calcofi4db/reference/write_taxon_common.md)
+  : Write the vernacular-name registry
+
+- [`zenodo_doi_for_tag()`](https://calcofi.io/calcofi4db/reference/zenodo_doi_for_tag.md)
+  [`zenodo_record_for_tag()`](https://calcofi.io/calcofi4db/reference/zenodo_doi_for_tag.md)
+  : Find the Zenodo record (and DOI) minted for a release tag
+
+- [`zenodo_metadata()`](https://calcofi.io/calcofi4db/reference/zenodo_metadata.md)
+  [`citation_cff()`](https://calcofi.io/calcofi4db/reference/zenodo_metadata.md)
+  [`write_citation_files()`](https://calcofi.io/calcofi4db/reference/zenodo_metadata.md)
+  :
+
+  Metadata for `.zenodo.json` and `CITATION.cff` at the workflows repo
+  root

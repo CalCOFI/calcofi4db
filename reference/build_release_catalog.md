@@ -13,7 +13,8 @@ build_release_catalog(
   tables_df,
   plan,
   layout = "compat",
-  release_date = as.character(Sys.Date())
+  release_date = as.character(Sys.Date()),
+  views = release_views()
 )
 ```
 
@@ -41,6 +42,23 @@ build_release_catalog(
 
   character date.
 
+- views:
+
+  the view registry, see
+  [`release_views()`](https://calcofi.io/calcofi4db/reference/release_views.md);
+  [`list()`](https://rdrr.io/r/base/list.html) for none.
+
 ## Value
 
 A list ready for `jsonlite::write_json(auto_unbox = TRUE)`.
+
+## Details
+
+Since 3.31.0 the catalog also carries a top-level **`views`** map — view
+name → SQL over `{{table}}` tokens — for every entry of `views` whose
+source tables are all in `tables_df`, and the table a view `replaces`
+gains `deprecated: true`, `replaced_by: [...]` and `removed_in` while it
+still ships. A resolver (`calcofi4r::cc_get_db()`,
+`calcofi4py.cc_get_db()`, db-query) creates the views after the tables;
+a deprecated table's objects are read only when the view's sources were
+not loaded.

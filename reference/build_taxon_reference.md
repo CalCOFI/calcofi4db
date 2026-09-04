@@ -1,14 +1,15 @@
 # Build the unified `taxon` reference table
 
 Assembles one authoritative row per distinct `taxon_key` across every
-dataset's local taxa **plus the WoRMS lineage ancestors** (from the
+dataset's local taxa **plus the WoRMS/ITIS lineage ancestors** (from the
 pre-built `taxon` hierarchy table, so `parent_taxon_key` chains resolve
 for descendant expansion). Duplicate taxa across datasets collapse —
 e.g. Appendicularia (AphiaID 146421) in both `zoodb_taxon` and
 `zooscan_taxon` becomes one `worms:146421` row. Names/rank/lineage are
-coalesced with source priority (WoRMS hierarchy \> CalCOFI species /
-seabird-mammal \> per-dataset lineage \> composite crosswalk).
-`rank_order` folds in the old `taxa_rank` lookup.
+coalesced by **source kind**, not by dataset: the flattened
+classification (the authority) first, then the hierarchy, then the
+vocabularies in `dataset_key` order. There is no list of datasets to
+maintain. `rank_order` folds in the old `taxa_rank` lookup.
 
 ## Usage
 
@@ -25,14 +26,13 @@ build_taxon_reference(
 
 - con:
 
-  a DuckDB connection with the per-dataset taxon tables loaded
+  a DuckDB connection with the staged vocabulary loaded
 
 - measurement_taxon:
 
   optional data.frame of the composite-type crosswalk
-  (`metadata/measurement_taxon.csv`) so cufes/phyllosoma/euphausiid
-  taxa, which live in `measurement_type` names not a taxon table, are
-  included
+  (`metadata/measurement_taxon.csv`) so cufes/phyllosoma/crab taxa,
+  which live in `measurement_type` names not a taxon table, are included
 
 - overrides:
 
@@ -47,3 +47,9 @@ build_taxon_reference(
 ## Value
 
 (invisibly) the row count written
+
+## Details
+
+`common_name` in this shard is the dataset's own; the release applies
+the written precedence centrally with
+[`apply_taxon_common()`](https://calcofi.io/calcofi4db/reference/apply_taxon_common.md).

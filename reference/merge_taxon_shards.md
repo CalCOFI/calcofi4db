@@ -3,12 +3,14 @@
 Each ingest emits the taxon rows its own vocabulary reaches. The same
 taxon can appear in several shards (Appendicularia is in both zoodb and
 zooscan), so rows are collapsed on `taxon_key` and each field takes the
-first non-NULL value by source priority — the WoRMS-lineage-bearing
-shard (`swfsc_ichthyo`, which carries the hierarchy) first, then the
-curated seabird/mammal and plankton vocabularies, then everything else.
-This reproduces the coalescing
-[`build_taxon_reference()`](https://calcofi.io/calcofi4db/reference/build_taxon_reference.md)
-did when it saw every source at once.
+first non-NULL value in **dataset directory order**. There is no
+priority list (taxon plan D5): every shard's `scientific_name` / `rank`
+/ classification comes from the same cached authority lineage, so shards
+agree wherever both have a value and the order only settles which shard
+fills a gap. `common_name` is not decided here at all — the release
+applies the written precedence with
+[`apply_taxon_common()`](https://calcofi.io/calcofi4db/reference/apply_taxon_common.md)
+— and `notes` is unioned, never picked.
 
 ## Usage
 
@@ -16,8 +18,6 @@ did when it saw every source at once.
 merge_taxon_shards(
   con,
   root = ".",
-  priority = c("swfsc_ichthyo", "farallon_bird-mammal", "cce-lter_zoodb",
-    "cce-lter_zooscan", "calcofi_phytoplankton"),
   parquet_dir = cc_stage_path("parquet"),
   exclude = release_excluded_datasets(root)
 )
@@ -32,10 +32,6 @@ merge_taxon_shards(
 - root:
 
   workflows repo root
-
-- priority:
-
-  dataset dirs in descending priority
 
 - parquet_dir:
 

@@ -1,5 +1,472 @@
 # Changelog
 
+## calcofi4db 4.0.0
+
+### An ingest re-run never undoes a registry declaration
+
+- **[`upsert_measurement_types()`](https://calcofi.io/calcofi4db/reference/upsert_measurement_types.md)**
+  gains `authoritative = declarable_measurement_fields()`: for
+  `category`, `variable`, `derivation`, `is_canonical`, `nerc_p01` and
+  `units_nerc_p06` the existing registry value wins whenever it is
+  non-NA, even over an explicit value in the ingest’s literal (only
+  \[declare_measurement_fields()\] may set them); a type new to the
+  registry takes the literal’s value. Before this, re-rendering
+  `ingest_cce-lter_euphausiids.qmd` silently blanked `category`,
+  `variable` and `units_nerc_p06` on `euphausiid_abundance` — every
+  re-run ingest would have lost the WS-H2 ids and the bottle `r_*`
+  `is_canonical = FALSE` flip (found 2026-09-04).
+
+### No dataset arms in the package: the ingest stages its vocabulary, or it errors (taxon plan Phase 3b)
+
+- **The seven per-dataset arms in `.taxon_norm_sources()` are deleted**
+  — `species` (ichthyo), `phyto_taxon`, `zoodb_taxon`, `zooscan_taxon`,
+  `euphausiids_taxon`, `mesopelagic_fish_taxon`, `bird_mammal_species`.
+  Every taxon-bearing ingest now declares its own vocabulary with
+  [`append_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/append_dataset_taxon.md)
+  and the package resolves it — the same split calcofi4db 3.0.0 made for
+  the core projection, for the same reason: two copies of a per-dataset
+  shape drift, and each divergence is a silent data error. Adding a
+  dataset touches zero lines of the package.
+- **Consumers / ingest authors:** an ingest that has not migrated now
+  **errors** at
+  [`resolve_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/resolve_dataset_taxon.md)
+  — and at
+  [`ensure_taxon_xref()`](https://calcofi.io/calcofi4db/reference/ensure_taxon_xref.md)
+  /
+  [`ensure_taxon_lineage()`](https://calcofi.io/calcofi4db/reference/ensure_taxon_lineage.md),
+  which read the same vocabulary — instead of resolving against a table
+  shape nobody declared. The message names the working table the
+  notebook left in the connection (“This connection holds
+  `bird_mammal_species` — calcofi4db 4.0.0 no longer reads a per-dataset
+  taxon table; stage its rows instead”) and points at
+  [`append_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/append_dataset_taxon.md).
+  The migrated ingests in `CalCOFI/workflows` are `swfsc_ichthyo`,
+  `farallon_bird-mammal`, `calcofi_phytoplankton`, `cce-lter_zoodb`,
+  `cce-lter_zooscan`, `cce-lter_euphausiids` and `sio_mesopelagic-fish`;
+  the **composite-measurement path is untouched**, so `swfsc_cufes`,
+  `calcofi_phyllosoma` and `cdfw_dungeness-crab` keep resolving through
+  `metadata/measurement_taxon.csv` unchanged.
+- **`.override_match_alias` is gone with the arms.** A
+  `taxon_override.csv` `match_column` is one of `dataset_taxon`’s own
+  `ds_taxa_code` / `ds_scientific_name` / `ds_common_name`, in
+  `.apply_overrides()` and in
+  [`report_taxon_overrides()`](https://calcofi.io/calcofi4db/reference/report_taxon_overrides.md)
+  alike — the transitional alias that let the release recompute the
+  override rule for an unstaged dataset (`taxa` → `ds_common_name`,
+  `species_code` → `ds_taxa_code`) has nothing left to translate. The
+  workflows registry rows moved to the `ds_*` names in the same change.
+- `isTRUE_vec()` is removed — only the farallon arm read the source’s
+  `is_bird` / `is_unidentified` / `include_flag` booleans.
+  [`build_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/resolve_dataset_taxon.md)
+  remains as the deprecated alias of
+  [`resolve_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/resolve_dataset_taxon.md).
+- Tests: every arm fixture is rewritten as a staged vocabulary, so the
+  suite is written the way an ingest is; the coexistence test becomes a
+  named regression that an unmigrated dataset errors and that the
+  message names its table. 1,762 → **1,765** passing, 0 failing.
+
+## calcofi4db 3.33.0
+
+### An override never replaces an id the source supplied (taxon plan Phase 3a; Ben, 2026-09-04)
+
+- **The override rule, stated once and enforced everywhere
+  `taxon_override.csv` is applied.** A registry row matched on a
+  **non-code** column (`ds_common_name`, `ds_scientific_name`; the phyto
+  arm’s `taxa`) applies only to vocabulary rows whose source supplied
+  **no** `worms_id` / `itis_id` (nothing in `ds_source_json`); a row
+  matched on the dataset’s own **code** (`ds_taxa_code`; the arms’
+  `species_code` / `species_id` / `taxon_id`) applies always, and wins
+  over a non-code row on the same vocabulary row whatever order the
+  registry lists them in. Before this, six `taxa`-matched
+  functional-group rows replaced the AphiaID of every phytoplankton
+  species in their group, and v2026.08.25 released **22** `taxon_key`s
+  for **393** phytoplankton codes although the source resolved 294
+  distinct AphiaIDs. The functional group belongs to `taxon_group`; the
+  species keeps its key.
+- **[`resolve_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/resolve_dataset_taxon.md)
+  says what the rule kept** — a per-dataset message
+  (`… 2 applied, 1 skipped (the source supplied an id …)`) and a staged
+  `_taxon_override_report` table — and gains `verbose`.
+- **New `report_taxon_overrides(con, overrides)`** recomputes the same
+  report from `dataset_taxon` alone (one row per override row:
+  `n_matched`, `n_applied`, `n_skipped`, `skipped_codes`,
+  `source_json_known`), so `release_database.qmd` shows it beside
+  [`check_taxon_ids()`](https://calcofi.io/calcofi4db/reference/check_taxon_ids.md).
+  A dataset whose shard predates `ds_source_json` (or whose source
+  supplied no ids at all) reports `n_skipped = NA` with
+  `source_json_known = FALSE` rather than a wrong zero. A dataset that
+  has not staged yet is read through a transitional alias of the arm’s
+  match columns (`taxa` → `ds_common_name`, `species_code` →
+  `ds_taxa_code`), deleted with the arms.
+
+### A group label is never a common name
+
+- **[`apply_taxon_common()`](https://calcofi.io/calcofi4db/reference/apply_taxon_common.md)
+  rank 4 refuses labels that are not names**: any `match_value` of a
+  `dataset_taxon` rule in `group_rules` (new argument; pass
+  `read_taxon_group_rules(here("metadata/taxon_group.csv"))`) and the
+  `ds_common_name` of any dataset-local key. “diatom, centric”, “other”
+  and “undefined (code not in source definitions; Q05)” were being
+  published as the `common_name` of every taxon in their group — 24 taxa
+  on the v2026.08.25 fixture (9 “undefined”, 9 “other”, coccolithophore,
+  silicoflagellate, and zooscan’s four operational classes). The count
+  is returned as a sixth row, `other_excluded_label`. The group’s own
+  name in `taxon_group` is unchanged.
+
+### A bird with no source id keys `itis:` through name → AphiaID → linked TSN
+
+- **`.apply_xref()` branch (c) now takes the TSN WoRMS links to a
+  name-resolved AphiaID**, and
+  [`ensure_taxon_xref()`](https://calcofi.io/calcofi4db/reference/ensure_taxon_xref.md)
+  fetches (and caches) that link for every name-resolved taxon in a
+  third pass. Until now only `worms_id` was filled for a row resolved by
+  name, so a bird carrying no source id could never key `itis:` without
+  an override row supplying the TSN by hand — the Farallon `GUMU` /
+  `MABO` / `NABO` rows added in Phase 2 existed for exactly this hop,
+  which D3 described and nothing implemented. A TSN the row already
+  carries is never replaced.
+
+## calcofi4db 3.32.0
+
+### `declare_measurement_fields()` also sets the NERC vocabulary ids (pre-release plan D-S2)
+
+- **`nerc_p01` and `units_nerc_p06` join the declarable fields.** They
+  are the two ids a Darwin Core / OBIS ENV-DATA eMoF export needs and
+  could not get: `measurementTypeID` (NERC BODC Parameter Usage
+  Vocabulary, P01) and `measurementUnitID` (NERC P06).
+  `publish_ichthyo_to-obis.qmd` wrote
+  `measurementTypeID = NA_character_` on every extended measurement
+  because there was nowhere for the id to live; now there is, and it is
+  the same registry the release publishes.
+- **Both hold the full concept URI, and the collection is checked.**
+  [`nerc_uri_prefixes()`](https://calcofi.io/calcofi4db/reference/nerc_uri_prefixes.md)
+  pins `nerc_p01` to
+  `http://vocab.nerc.ac.uk/collection/P01/current/<CODE>/` and
+  `units_nerc_p06` to the P06 collection; a P06 unit URI pasted into the
+  P01 column — a plausible-looking string that would otherwise reach a
+  portal export intact — is now an error, as is a bare concept code.
+- **Empty means “no concept says exactly this”.** The fill rule is an
+  *exact* vocabulary match: a concept every one of whose stated facets
+  (quantity, matrix, phase, method) the registry or the dataset’s
+  documented protocol actually supplies. A generic concept is an exact
+  match at coarser specificity (`TEMPPR01`, *Temperature of the water
+  body*); one that adds a facet nobody recorded is not. Inventing an id
+  to fill the column is the same mistake as inventing a bound to quiet
+  [`check_measurement_bounds()`](https://calcofi.io/calcofi4db/reference/check_measurement_bounds.md).
+- Unchanged otherwise: the function still touches only the declared
+  columns, only on rows that already exist, refuses an unknown
+  `measurement_type`, needs `overwrite = TRUE` to replace a declared
+  value, and writes with `na = ""`.
+
+### Provider UUIDs are columns, and the cruise key is checked against the cruise (WS-B, Ed Weber’s ask)
+
+- **[`append_sample()`](https://calcofi.io/calcofi4db/reference/append_sample.md)
+  gains a 17th, trailing, optional column: `source_uuid`** (typed
+  `UUID`), same opt-in-without-disturbing-other-arms rule as
+  `data_stage` (15/16/17-column arities; NULL when absent).
+  `.ensure_sample_schema()` adds the column via
+  `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`, so a pre-3.32.0 wrangling
+  DB keeps working.
+- **[`create_cruise_key()`](https://calcofi.io/calcofi4db/reference/create_cruise_key.md)
+  refuses a blank/NULL `ship_nodc`** rather than silently minting
+  `YYYY-MM-` (DuckDB’s `CONCAT()` treats NULL as `''`) — this is exactly
+  how the July 2019 Bold Horizon cruise was released as
+  `cruise_key = "2019-07-"` (an empty NODC segment): the ship’s
+  `ship_nodc` was blank when the key was minted, a later correction
+  patched it, and the key was never re-derived. Also validates every
+  minted key against `^\d{4}-(0[1-9]|1[0-2])-[A-Za-z0-9]{4}$` and
+  [`stop()`](https://rdrr.io/r/base/stop.html)s naming every offending
+  ship, rather than warning.
+  **[`resolve_cruise_key()`](https://calcofi.io/calcofi4db/reference/resolve_cruise_key.md)**’s
+  steps 2 (source) and 3 (month) now require a non-blank `ship_nodc`
+  too, so a blank-NODC ship leaves an event’s `cruise_key` NULL instead
+  of minting the same malformed key downstream.
+- **`R/keys.R` (new)**:
+  [`complete_cruise_reference()`](https://calcofi.io/calcofi4db/reference/complete_cruise_reference.md)
+  adds a `cruise` row (`cruise_key_method = 'derived'`,
+  `cruise_key_datasets`) for every `cruise_key` a dataset designates
+  that the SWFSC ichthyo export itself has no station row for — 152 such
+  cruises were measured at v2026.08.25, carrying 153,306 `sample` rows
+  and 3.8M `obs` rows that no FK could ever have caught, because none
+  was declared.
+  [`check_cruise_key_integrity()`](https://calcofi.io/calcofi4db/reference/check_cruise_key_integrity.md)
+  is the release gate: format, `date_ym`/NODC agreement, the FK to
+  `cruise`, `cruise_uuid` hygiene (unique for `'swfsc'` rows, NULL for
+  `'derived'` ones), each event’s date within its cruise’s span
+  (`tolerance_days`, with named `known_outside_span` exceptions), the
+  ichthyo notebook’s own `cruise_uuid`/`cruise_key` agreement and
+  `source_uuid` coverage (via its manifest), and three ratchets (span
+  overlaps, derived-row count, NULL-`cruise_key` backlog per dataset).
+  [`match_station_occupation()`](https://calcofi.io/calcofi4db/reference/match_station_occupation.md)
+  stamps `sample.station_uuid` + `station_uuid_method` (`self` \|
+  `order_occ` \| `datetime` \| NULL) — the SWFSC station occupation
+  (ichthyo `site`) every event belongs to, computed once per root sample
+  and copied to every row under it, so the crab’s examined subsamples
+  (already parented directly to an ichthyo `site` via
+  `parent_sample_key`) inherit it for free.
+- **`release_database.qmd`’s `{table}_new` merge now dedups on the
+  table’s DECLARED primary key**
+  (`core_relationships(base_tbl)$primary_keys[[base_tbl]]`), not its
+  first column by ordinal position — for `cruise` that ordinal-first
+  column is `cruise_uuid`, NULL on every delta row, so
+  `WHERE cruise_uuid NOT IN (...)` evaluated NULL and no row could ever
+  have inserted. No behaviour change today (every current `_new` table’s
+  first column already is its PK); this is the prerequisite for a future
+  `cruise_new` delta.
+- Tests: `test-append_sample.R` (17-column arity),
+  `test-create_cruise_key.R` (new), `test-resolve_cruise_key.R`
+  (blank-NODC case), `test-keys.R` (new — one fixture per
+  [`check_cruise_key_integrity()`](https://calcofi.io/calcofi4db/reference/check_cruise_key_integrity.md)
+  check/ratchet, and `self`/`order_occ`/`datetime`/NULL station matching
+  with row-count and PK-uniqueness assertions).
+
+## calcofi4db 3.31.0
+
+### `obs_bio` + `obs_env` are the observation store; `obs` is a view the catalog carries (pre-release plan D-S1)
+
+- **[`build_obs_slim()`](https://calcofi.io/calcofi4db/reference/build_obs_slim.md)
+  adds `sample_key`, `measurement_prec` and `hex_id`** to `obs_bio` /
+  `obs_env` (keeping `value`, `root_id`, `hex7`), so each is a strict
+  superset of `obs` under a name mapping (`realm` is the table, `value`
+  is `measurement_value`). The one deliberate difference stays: a bio
+  row with no depth in `obs` carries its sample’s span (the tow) through
+  the pair.
+- **`obs_view_sql(bio, env)`** — the UNION ALL that reconstructs `obs`
+  (18 columns, in **`OBS_VIEW_COLUMNS`** order, original names) from the
+  pair; by default over the tokens `{{obs_bio}}` / `{{obs_env}}`, which
+  **[`release_view_tables()`](https://calcofi.io/calcofi4db/reference/release_view_tables.md)**
+  lists and **`substitute_view_tables(sql, rp)`** resolves to a quoted
+  table name or any reader.
+- **`check_obs_pair_parity(con)`** — per `(realm, dataset_key)`: row
+  count, distinct `obs_id`s and an order-independent
+  `bit_xor(hash(...))` signature of every non-depth column, `obs` vs the
+  view over the pair, plus the depths the pair *filled* (reported) and
+  *changed* (an error). Any mismatch names the group;
+  `release_database.qmd`’s `browser_objects` chunk runs it as a gate.
+- **[`release_views()`](https://calcofi.io/calcofi4db/reference/release_views.md)**
+  — the registry of catalog views (`obs` → SQL, source tables, the table
+  it replaces, `removed_in`), and
+  **`build_release_catalog(views = release_views())`** writes a
+  top-level **`views`** map (`obs` → the token SQL) whenever the pair
+  ships, marking the `obs` table entry `deprecated: true`,
+  `replaced_by: ["obs_bio", "obs_env"]`, `removed_in: "next"` while its
+  objects still ship. Nothing else in the catalog moves;
+  `.catalog_objects()`,
+  [`freeze_plan()`](https://calcofi.io/calcofi4db/reference/freeze_plan.md)
+  and the redirect / verify / thinning scripts ignore the new keys.
+- [`render_release_notes()`](https://calcofi.io/calcofi4db/reference/render_release_notes.md)’s
+  appendix says
+  `deprecated → obs_bio, obs_env (objects removed in next)` for such a
+  table, in both catalog forms.
+
+### `declare_measurement_fields()` also sets `derivation` and `is_canonical` (WS-DG)
+
+- **[`declare_measurement_fields()`](https://calcofi.io/calcofi4db/reference/declare_measurement_fields.md)**
+  now accepts `derivation` and `is_canonical` beside `category` and
+  `variable` — the settable columns come from one internal list
+  ([`declarable_measurement_fields()`](https://calcofi.io/calcofi4db/reference/declarable_measurement_fields.md))
+  instead of two hard-coded vectors, and `is_canonical` round-trips as
+  logical through
+  [`read_measurement_type()`](https://calcofi.io/calcofi4db/reference/read_measurement_type.md).
+  WS-G uses it to record Rasmus Swalethorp’s answer on the bottle’s six
+  `r_*` pre-QC types (interpolated to standard depth,
+  `is_canonical = FALSE`) without a bare `write_csv()`.
+
+## calcofi4db 3.30.0
+
+### Attribution is a contract, checked like links (`R/citation.R`)
+
+Until 2026-09-03 nothing validated a dataset’s citation or license: 8 of
+16 `citation_main` were empty, 3 licenses were the free text
+`"CC BY 4.0"`, and the release cited nothing, itself included.
+
+- **`check_dataset_citation(ingest_yaml, network, cache_dir)`** — one
+  row per (dataset, finding): `missing_citation` · `no_year` ·
+  `no_locator` · `missing_license` · `license_unregistered` ·
+  `license_custom_no_url` · `doi_unresolved` (errors) ·
+  `authority_drift` · `authority_unavailable` (warnings) · `ok`. The
+  structural half always runs; the network half asks the source’s own
+  authority — EDI’s cite service (newest revision by probing it: PASTA’s
+  revision listing answers 403 to public access), an NCEI landing page’s
+  “Cite as”, an ERDDAP `.das`, DataCite (`rightsList` SPDX id + doi.org
+  content negotiation) — and caches every fetch in
+  `metadata/{provider}/{dataset}/citation_authority.json`. Drift is
+  reported with both strings and **never written into the YAML**. A
+  finding is `exempt` while an `open`/`proposed` `questions.csv` row on
+  `related_table = dataset` covers the field;
+  [`assert_dataset_citation()`](https://calcofi.io/calcofi4db/reference/assert_dataset_citation.md)
+  stops on anything else. The resolver parsers
+  ([`parse_edi_cite()`](https://calcofi.io/calcofi4db/reference/parse_edi_cite.md),
+  [`parse_erddap_das()`](https://calcofi.io/calcofi4db/reference/parse_edi_cite.md),
+  [`parse_ncei_landing()`](https://calcofi.io/calcofi4db/reference/parse_edi_cite.md),
+  [`parse_datacite()`](https://calcofi.io/calcofi4db/reference/parse_edi_cite.md),
+  [`parse_doi_bibliography()`](https://calcofi.io/calcofi4db/reference/parse_edi_cite.md))
+  and
+  [`normalize_citation()`](https://calcofi.io/calcofi4db/reference/normalize_citation.md)
+  are exported and pinned on saved responses.
+- **[`read_license_registry()`](https://calcofi.io/calcofi4db/reference/read_license_registry.md)** +
+  [`license_statuses()`](https://calcofi.io/calcofi4db/reference/license_statuses.md)
+  — `metadata/license.csv` (`license, name, url, status, notes`), read
+  strictly like every registry.
+- **[`ingest_yaml_to_dataset_df()`](https://calcofi.io/calcofi4db/reference/ingest_yaml_to_dataset_df.md)**
+  gains `doi`, `license_url`, `acknowledgement`, `contact` (appended;
+  nothing renamed or moved); **`.dataset_entry()`** gains those and
+  `citation_others` as an always-array list, so `metadata.json` carries
+  them.
+- **`source_accessed` is measured**:
+  [`source_accessed_from_git()`](https://calcofi.io/calcofi4db/reference/source_accessed_from_git.md)
+  (the sidecar’s last commit, method `sidecar_commit`),
+  `stamp_source_access(files, urls)` for future ingest runs (`download`
+  / `file_mtime`), written by `build_metadata_json(sources = )` as
+  `sources[]`, and
+  [`resolve_source_accessed()`](https://calcofi.io/calcofi4db/reference/resolve_source_accessed.md)
+  which prefers the stamp over git.
+- **The release cites itself**:
+  `release_citation(version, date, doi, all_versions)` (decided wording,
+  three partners, db-schema URL until the DOI exists; concept DOI
+  `10.5281/zenodo.22281994` for all versions),
+  `add_release_citation(catalog, doi)` for `catalog.json` (`citation`,
+  `concept_doi`, `doi`), a **How to cite** section in every
+  [`render_release_notes()`](https://calcofi.io/calcofi4db/reference/render_release_notes.md)
+  appendix (release + each dataset’s `citation_main` · license),
+  [`zenodo_doi_for_tag()`](https://calcofi.io/calcofi4db/reference/zenodo_doi_for_tag.md)
+  /
+  [`zenodo_record_for_tag()`](https://calcofi.io/calcofi4db/reference/zenodo_doi_for_tag.md)
+  (the record by its GitHub tree identifier, else by version under the
+  concept), and
+  [`publish_release_notes()`](https://calcofi.io/calcofi4db/reference/publish_release_notes.md)
+  now writes a newly minted DOI into the local and published
+  `catalog.json` and rebuilds `versions.json` (records gain `doi`;
+  [`build_versions_json()`](https://calcofi.io/calcofi4db/reference/build_versions_json.md)
+  carries it) — objects untouched.
+  [`publish_release_notes()`](https://calcofi.io/calcofi4db/reference/publish_release_notes.md)
+  also takes `prefix` for a staging run.
+- **[`zenodo_metadata()`](https://calcofi.io/calcofi4db/reference/zenodo_metadata.md)
+  /
+  [`citation_cff()`](https://calcofi.io/calcofi4db/reference/zenodo_metadata.md)
+  /
+  [`write_citation_files()`](https://calcofi.io/calcofi4db/reference/zenodo_metadata.md)**
+  generate `.zenodo.json` (dataset record: the three partners as
+  creators, PIs from `pi_names` as `DataCollector`, curators,
+  `cc-by-4.0`, `isSupplementTo` the GCS release, `isDocumentedBy`
+  db-schema; `version` left to the tag) and `CITATION.cff` (concept
+  DOI).
+- `curl` joins Suggests (the network half of the check).
+
+## calcofi4db 3.29.0
+
+### The ingest stages its taxon vocabulary; the package fills the key from the class (taxon plan D1, D2, D6)
+
+- **`append_dataset_taxon(con, dataset_key, df, ds_prefix = dataset_key)`**
+  stages a dataset’s vocabulary in `dataset_taxon` with `taxon_key`
+  empty. The column contract is explicit — `ds_taxa_code` (unique,
+  non-NA) and `ds_scientific_name` required; `ds_common_name`,
+  `worms_id`, `itis_id`, `gbif_id`, `rank` optional — and a missing
+  required column, an unknown column, a duplicate or NA code, or an id
+  that does not coerce to an integer is a **hard stop at ingest**, not
+  an NA at release. The ids the source supplied land in the new
+  **`ds_source_json`** column (e.g. `{"itis_id":174715}`, NULL when it
+  supplied nothing) — one additive column on the released
+  `dataset_taxon`, so “what did the source claim?” can be audited
+  against `taxon.worms_id` / `itis_id`. Arm-served datasets get it too.
+- **[`resolve_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/resolve_dataset_taxon.md)**
+  (renamed from
+  [`build_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/resolve_dataset_taxon.md),
+  kept as a deprecated alias) fills `taxon_key` **in place** on staged
+  rows — every other column comes back byte-identical — while the seven
+  per-dataset arms still serve datasets that have not staged
+  (coexistence; a staged dataset wins over its arm table).
+- **The Aves rule is derived from the lineage, not declared by a source
+  flag.** `taxon_key_of(worms_id, itis_id, class)`: `itis:<tsn>` exactly
+  when the class is Aves and an accepted TSN resolves; otherwise
+  `worms:<aphia>`; otherwise NA → the dataset-local fallback. `is_bird`
+  is gone from the row template,
+  [`taxon_key_of()`](https://calcofi.io/calcofi4db/reference/taxon_key_of.md),
+  [`ensure_taxon_xref()`](https://calcofi.io/calcofi4db/reference/ensure_taxon_xref.md),
+  `.apply_xref()` and
+  [`ensure_taxon_lineage()`](https://calcofi.io/calcofi4db/reference/ensure_taxon_lineage.md).
+  Consequences: a lone TSN on a non-Aves taxon no longer keys `itis:`
+  (it is a local key
+  [`check_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/check_dataset_taxon.md)
+  refuses); a bird with no accepted TSN keys `worms:` and says so in
+  `taxon.notes`; a composite type in `measurement_taxon.csv` carrying
+  only a TSN keys nothing until the lineage is staged (every row of
+  today’s registry carries an AphiaID, so nothing released changes).
+- **[`ensure_taxon_lineage()`](https://calcofi.io/calcofi4db/reference/ensure_taxon_lineage.md)
+  runs two cached passes**: (a) the classification by AphiaID where
+  present, else by TSN — this yields the class; (b) the ITIS chain for
+  Aves taxa with a TSN. Only the chain of the authority a taxon is keyed
+  on is staged, so a bird’s WoRMS chain (fetched once to learn its
+  class, then cached in `taxon_lineage.csv`) never becomes `worms:`
+  ancestor rows.
+- **[`ensure_taxon_xref()`](https://calcofi.io/calcofi4db/reference/ensure_taxon_xref.md)**
+  chooses its queries from the ids the source supplied: TSN crosswalk
+  for a TSN with no AphiaID, AphiaID backfill for an AphiaID, name
+  fallback for neither. `.apply_xref()` picks its branches from the ids
+  a row arrives with, so a bird that gains its AphiaID in the TSN branch
+  is not then re-keyed by the AphiaID branch.
+- **`check_dataset_taxon(con, dataset_key, allow = character(), halt = TRUE, codes = NULL)`**
+  — the ingest-time gate: every code the observations reference is in
+  the vocabulary (`missing_code`), every row has an authority key or is
+  allow-listed (`unresolved`), every Aves taxon keys `itis:`
+  (`aves_not_itis`). Returns the findings frame;
+  `release_database.qmd`’s
+  [`check_taxon_ids()`](https://calcofi.io/calcofi4db/reference/check_taxon_ids.md)
+  stays as the backstop.
+
+### Groups come from a registry (D4)
+
+- **`build_taxon_group(con, rules)`** reads `metadata/taxon_group.csv`
+  (**[`read_taxon_group_rules()`](https://calcofi.io/calcofi4db/reference/read_taxon_group_rules.md)**,
+  strict): a `class` rule groups every *vocabulary* taxon whose released
+  `class` equals `rule_value` (`calcofi:seabirds` = Aves,
+  `calcofi:marine_mammals` = Mammalia — cross-dataset by construction,
+  never a bare lineage ancestor); a `dataset_taxon` rule matches
+  `(dataset_key, match_column ∈ ds_taxa_code/ds_scientific_name/ds_common_name, match_value)`
+  (the phytoplankton functional groups). A rule naming a column the
+  vocabulary lacks errors; a rule for a dataset absent from the
+  connection is skipped. Needs `taxon` and `dataset_taxon` in the
+  connection. The pre-3.29 positional call
+  `build_taxon_group(con, mt_taxon, tx_over)` warns (deprecated) and
+  falls back to the registry under
+  `here::here("metadata/taxon_group.csv")`.
+- **Consumers:** `calcofi:marine_mammals` loses the two sea turtles
+  (*Chelonia mydas*, *Lepidochelys olivacea*) the farallon arm’s
+  `!is_bird` put there; `calcofi:seabirds` is unchanged (94 = the Aves
+  vocabulary).
+
+### No hard-coded dataset lists; one written common-name precedence (D5)
+
+- Deleted: `.prio` in
+  [`build_taxon_reference()`](https://calcofi.io/calcofi4db/reference/build_taxon_reference.md)
+  (now coalesces by source kind — flattened classification, hierarchy,
+  vocabularies — then `dataset_key`, then `ds_taxon_key`),
+  `.TAXON_ARM_DATASETS` and `.check_overrides_claimed()` (an override
+  row for a dataset absent from the connection is left to that dataset’s
+  ingest;
+  **`check_taxon_registries(con, overrides, group_rules, measurement_taxon)`**
+  is the release-time check that every `dataset_key` a registry names is
+  one `dataset_taxon` ∪ `measurement_taxon` supplies), and
+  `merge_taxon_shards(priority = )` (first non-NULL in dataset directory
+  order; `notes` unioned).
+- **[`apply_taxon_common()`](https://calcofi.io/calcofi4db/reference/apply_taxon_common.md)**
+  is the ranked `COALESCE`: manual choice in `taxon_common.csv`
+  (`source = "manual"`) \> `swfsc_ichthyo`’s own name (`curated =`) \>
+  WoRMS single vernacular \> any other dataset’s `ds_common_name` in
+  `dataset_key` order \> empty. The merged table’s own `common_name` is
+  no longer consulted. Returns the per-rank counts. Two codes of one
+  dataset sharing a key are broken by the code whose
+  `ds_scientific_name` equals `taxon.scientific_name`, then
+  `ds_taxon_key` (so `worms:126175` stays “Rockfishes”, not “Sunset
+  rockfish”).
+- **[`mark_taxon_common_manual()`](https://calcofi.io/calcofi4db/reference/mark_taxon_common_manual.md)**
+  writes the `source = "manual"` tag into the registry once (a filled
+  row whose value is not WoRMS’s single candidate was a human edit);
+  [`ensure_taxon_common()`](https://calcofi.io/calcofi4db/reference/ensure_taxon_common.md)
+  keeps and assigns the tag from then on;
+  **[`write_taxon_common()`](https://calcofi.io/calcofi4db/reference/write_taxon_common.md)**
+  is the one writer (`na = ""`).
+
 ## calcofi4db 3.28.0
 
 ### The boundary layers are described by the release, not hard-coded (explorer plan D23)
@@ -2148,7 +2615,7 @@ cases in `test-taxa.R`. 375 tests, all passing.
   trawl, self-leaf `tow` grain, `bio` realm, `taxon_key` crosswalked
   from the source’s scientific names via a new `mesopelagic_fish_taxon`
   arm in
-  [`build_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/build_dataset_taxon.md))
+  [`build_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/resolve_dataset_taxon.md))
   and `cce-lter_picoplankton-bacteria` (self-leaf `bottle` grain, `env`
   realm — the four flow-cytometry counts are a measurement vocabulary,
   not taxa) now project into `sample` + `obs`, so both reach the frozen
@@ -2156,7 +2623,7 @@ cases in `test-taxa.R`. 375 tests, all passing.
 - **`emit_core_tables()` no longer requires `dataset_taxon` to
   pre-exist.** Every bio arm `LEFT JOIN`s `dataset_taxon`, but that
   crosswalk is built centrally by the release
-  ([`build_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/build_dataset_taxon.md)),
+  ([`build_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/resolve_dataset_taxon.md)),
   so calling `emit_core_tables()` from an ingest raised
   `Catalog Error: Table with name dataset_taxon does not exist` for
   ichthyo / zoodb / zooscan / bird_mammal / euphausiids. An empty stub
@@ -2168,7 +2635,7 @@ cases in `test-taxa.R`. 375 tests, all passing.
   now resolves `taxon_key` through `dataset_taxon` and carries
   `life_stage` on the `obs` headline (as zoodb / zooscan do) instead of
   leaving both NULL.
-  [`build_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/build_dataset_taxon.md)
+  [`build_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/resolve_dataset_taxon.md)
   /
   [`build_taxon_reference()`](https://calcofi.io/calcofi4db/reference/build_taxon_reference.md)
   gained a `euphausiids_taxon` source arm, so the 37 BTEDB species
@@ -2191,7 +2658,7 @@ cases in `test-taxa.R`. 375 tests, all passing.
 
 - **Unified taxon model** (new `R/taxa.R`):
   [`build_taxon_reference()`](https://calcofi.io/calcofi4db/reference/build_taxon_reference.md),
-  [`build_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/build_dataset_taxon.md),
+  [`build_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/resolve_dataset_taxon.md),
   [`build_taxon_group()`](https://calcofi.io/calcofi4db/reference/build_taxon_group.md),
   and
   [`taxon_key_of()`](https://calcofi.io/calcofi4db/reference/taxon_key_of.md)

@@ -9,7 +9,8 @@ binding a freshly-built literal in its place:
 upsert_measurement_types(
   d,
   new_types,
-  preserve = c("valid_min", "valid_max", "valid_depth_min_m", "valid_depth_max_m")
+  preserve = c("valid_min", "valid_max", "valid_depth_min_m", "valid_depth_max_m"),
+  authoritative = declarable_measurement_fields()
 )
 ```
 
@@ -29,6 +30,15 @@ upsert_measurement_types(
   columns to carry forward from the existing row when `new_types` does
   not supply a non-`NA` value. Defaults to the bound columns — the ones
   an ingest never authors and a provider has agreed.
+
+- authoritative:
+
+  registry-owned columns (default
+  [`declarable_measurement_fields()`](https://calcofi.io/calcofi4db/reference/declarable_measurement_fields.md)):
+  the existing registry value wins whenever it is non-NA, even over an
+  explicit value in `new_types`, because only
+  [`declare_measurement_fields()`](https://calcofi.io/calcofi4db/reference/declare_measurement_fields.md)
+  may set them. A type new to the registry takes the literal's value.
 
 ## Value
 
