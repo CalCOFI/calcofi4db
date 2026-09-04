@@ -41,10 +41,9 @@ the release cannot tell which — the ingest's own message can.
 }
 
 \code{match_column} is one of \code{dataset_taxon}'s \code{ds_taxa_code} /
-\code{ds_scientific_name} / \code{ds_common_name}; a dataset that has not staged yet
-(Phase 3b) is read through the arm's alias (\code{taxa} is \code{ds_common_name},
-\code{species_code} is \code{ds_taxa_code}). Anything else errors, as it does at
-ingest. A row that matches nothing is reported with zeros, not dropped —
+\code{ds_scientific_name} / \code{ds_common_name}; anything else errors, as it does at
+ingest (the transitional aliases for the arms' own column names went with the
+arms in 4.0.0). A row that matches nothing is reported with zeros, not dropped —
 \code{\link[=check_taxon_registries]{check_taxon_registries()}} is where a dataset nobody supplies fails.
 }
 \concept{taxonomy}

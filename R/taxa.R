@@ -15,9 +15,11 @@
 # ingest STAGES its vocabulary with append_dataset_taxon() — `taxon_key` empty —
 # and the package fills `taxon_key` from the authorities with
 # resolve_dataset_taxon(). The key rule reads the CLASS from the cached lineage,
-# never a source flag. The seven per-dataset arms in .taxon_norm_sources() still
-# serve datasets that have not staged (coexistence, Phase 1); a staged dataset
-# wins over its arm. Phase 3 deletes the arms.
+# never a source flag. Since 4.0.0 that is the ONLY path: the seven per-dataset
+# arms in .taxon_norm_sources() (`species`, `phyto_taxon`, `zoodb_taxon`,
+# `zooscan_taxon`, `euphausiids_taxon`, `mesopelagic_fish_taxon`,
+# `bird_mammal_species`) are deleted, so an ingest that has not staged errors
+# instead of resolving against a table shape nobody declared.
 #
 # Coarse / composite taxa (cufes "sardine_eggs", phyllosoma stages, euphausiid
 # family, phyto functional groups, seabird/mammal species) are resolved to real
@@ -85,9 +87,6 @@ taxon_key_of <- function(worms_id, itis_id = NA_integer_, class = NA_character_)
   ifelse(is.na(id), NA_character_,
          paste0(ifelse(!is.na(authority) & authority == "ITIS", "itis:", "worms:"), id))
 }
-
-# TRUE only for scalar/logical TRUE, treating NA as FALSE (vectorized)
-isTRUE_vec <- function(x) !is.na(x) & as.logical(x)
 
 # taxa_rank_reference ----------------------------------------------------------
 
@@ -269,8 +268,8 @@ taxa_rank_reference <- function() {
 #   AN OVERRIDE NEVER REPLACES AN ID THE SOURCE SUPPLIED, unless it names the
 #   row by the dataset's own code.
 #
-# A row matched on a non-code column (`ds_common_name`, `ds_scientific_name`;
-# the phyto arm's `taxa`) is a rule for the rows the source could not resolve —
+# A row matched on a non-code column (`ds_common_name`, `ds_scientific_name`)
+# is a rule for the rows the source could not resolve —
 # it applies only where the source supplied no worms_id / itis_id. A row matched
 # on the code (`ds_taxa_code`) is a statement about that one row, and applies
 # always. v2026.08.25 released 22 phytoplankton keys for 393 codes because six
@@ -375,23 +374,10 @@ taxa_rank_reference <- function() {
   rows
 }
 
-# the arms' own match columns, as `dataset_taxon` carries them — so the release,
-# which sees only `dataset_taxon`, can recompute the override rule for a dataset
-# that has not staged yet. TRANSITIONAL: deleted with the arms (Phase 3b); after
-# that a `match_column` is one of the three ds_* columns or an error. Note the
-# mesopelagic arm's code IS its scientific name; a row matched on
-# `scientific_name` is treated as code-matched by the arm and as name-matched
-# here — no such row exists, and the alias goes with the arm.
-.override_match_alias <- c(
-  species_id = "ds_taxa_code", species_code = "ds_taxa_code", taxon_id = "ds_taxa_code",
-  taxa = "ds_common_name", common_name = "ds_common_name",
-  taxon_zoodb = "ds_common_name", taxon_zooscan = "ds_common_name",
-  scientific_name = "ds_scientific_name")
-
 # the datasets whose vocabulary was staged by append_dataset_taxon(): a marker
 # table beside `dataset_taxon`, because after resolve_dataset_taxon() every row
-# in that table looks alike and the arms must not re-read their own output as a
-# staged vocabulary
+# in that table looks alike, and because it carries the `ds_prefix` the
+# vocabulary was staged with (`calcofi` for swfsc_ichthyo's shared species list)
 .staged_datasets <- function(con) {
   empty <- data.frame(dataset_key = character(), ds_prefix = character(),
                       stringsAsFactors = FALSE)
@@ -587,11 +573,16 @@ append_dataset_taxon <- function(con, dataset_key, df, ds_prefix = dataset_key) 
 }
 
 # gather every dataset's local taxa into one normalized frame (resolved ids +
-# taxon_key + ds_taxon_key), from the staged vocabulary first, then whichever
-# per-dataset source tables + registries exist for datasets that did NOT stage.
+# taxon_key + ds_taxon_key) from the STAGED vocabulary (append_dataset_taxon())
+# plus the composite-measurement crosswalk. The seven per-dataset arms that used
+# to reshape `species` / `phyto_taxon` / `{zoodb,zooscan,euphausiids,
+# mesopelagic_fish}_taxon` / `bird_mammal_species` are gone (4.0.0): the
+# projection lives in the notebook that owns the dataset, exactly as the core
+# projection does. An ingest that has not migrated errors below, naming the
+# working table it left in the connection.
 #
-# Every arm consults `overrides` through .apply_overrides(), declaring which of
-# its own columns are matchable.
+# The staged rows consult `overrides` through .apply_overrides(), which sees
+# exactly the three ds_* columns dataset_taxon carries.
 #
 # `xref` is the staged authority cross-reference (see ensure_taxon_xref()). It is
 # applied AFTER the arms and BEFORE the key is minted, because it can change the
@@ -631,140 +622,6 @@ append_dataset_taxon <- function(con, dataset_key, df, ds_prefix = dataset_key) 
         ds_common_name     = d$ds_common_name), code_col = "ds_taxa_code")
     }
   }
-  # an arm whose dataset has staged is skipped: the staged rows are the
-  # vocabulary, the working table is just the notebook's scratch
-  arm_on <- function(ds) {
-    if (ds %in% staged_keys) {
-      message(glue::glue("taxon: '{ds}' is staged; its source table is not read"))
-      FALSE
-    } else TRUE
-  }
-
-  # --- CalCOFI species list (ichthyo + invert): worms/itis/gbif present -------
-  sp <- .read_cols(con, "species",
-    c("species_id", "scientific_name", "common_name", "worms_id", "itis_id", "gbif_id"))
-  # dataset_key = the using dataset (swfsc_ichthyo, incl. folded invert) so obs
-  # joins on (dataset_key, ds_taxa_code); ds_prefix = the known "calcofi" list.
-  if (!is.null(sp) && arm_on("swfsc_ichthyo")) {
-    r <- .as_taxon_rows(data.frame(
-      dataset_key = "swfsc_ichthyo", ds_prefix = "calcofi",
-      ds_taxa_code = sp$species_id, ds_scientific_name = sp$scientific_name,
-      ds_common_name = sp$common_name, worms_id = sp$worms_id, itis_id = sp$itis_id,
-      gbif_id = sp$gbif_id, scientific_name = sp$scientific_name,
-      common_name = sp$common_name, stringsAsFactors = FALSE))
-    arms$species <- .apply_overrides(r, overrides, "swfsc_ichthyo", list(
-      species_id      = sp$species_id,
-      scientific_name = sp$scientific_name,
-      common_name     = sp$common_name), code_col = "species_id")
-  }
-
-  # --- phytoplankton: aphia_id, coarse groups via overrides (match on `taxa`) -
-  ph <- .read_cols(con, "phyto_taxon",
-    c("species_code", "taxa", "aphia_id", "scientific_name_accepted", "rank", "kingdom", "phylum"))
-  if (!is.null(ph) && arm_on("calcofi_phytoplankton")) {
-    r <- .as_taxon_rows(data.frame(
-      dataset_key = "calcofi_phytoplankton", ds_prefix = "calcofi_phytoplankton",
-      ds_taxa_code = ph$species_code, ds_scientific_name = ph$scientific_name_accepted,
-      ds_common_name = ph$taxa, worms_id = ph$aphia_id,
-      scientific_name = ph$scientific_name_accepted, rank = ph$rank,
-      kingdom = ph$kingdom, phylum = ph$phylum,
-      stringsAsFactors = FALSE))
-    # coarse functional groups (NULL aphia_id) resolve via overrides keyed on
-    # `taxa` — a non-code column, so they never touch a row the source resolved
-    arms$phyto <- .apply_overrides(r, overrides, "calcofi_phytoplankton", list(
-      taxa            = ph$taxa,
-      species_code    = ph$species_code,
-      scientific_name = ph$scientific_name_accepted), code_col = "species_code")
-  }
-
-  # --- zoodb / zooscan: aphia_id + denormalized lineage -----------------------
-  for (nm in c("zoodb", "zooscan")) {
-    tbl <- paste0(nm, "_taxon"); ds <- if (nm == "zoodb") "cce-lter_zoodb" else "cce-lter_zooscan"
-    lbl <- paste0("taxon_", nm)
-    z <- .read_cols(con, tbl,
-      c("taxon_id", lbl, "aphia_id", "scientific_name", "rank",
-        "kingdom", "class", "order_taxon", "family"))
-    if (!is.null(z) && arm_on(ds)) {
-      r <- .as_taxon_rows(data.frame(
-        dataset_key = ds, ds_prefix = ds, ds_taxa_code = z$taxon_id,
-        ds_scientific_name = z$scientific_name, ds_common_name = z[[lbl]],
-        worms_id = z$aphia_id, scientific_name = z$scientific_name, rank = z$rank,
-        kingdom = z$kingdom, class = z$class, order_taxon = z$order_taxon,
-        family = z$family, stringsAsFactors = FALSE))
-      mc <- list(taxon_id = z$taxon_id, scientific_name = z$scientific_name)
-      mc[[lbl]] <- z[[lbl]]
-      arms[[nm]] <- .apply_overrides(r, overrides, ds, mc, code_col = "taxon_id")
-    }
-  }
-
-  # --- euphausiids: species-resolved BTEDB export, worms_id from WoRMS --------
-  # the BTEDB export names 37 species across 8 genera in its column headers; the
-  # ingest resolves each to an AphiaID via standardize_species(), so euphausiids
-  # crosswalks like any other per-dataset taxon vocabulary rather than through
-  # measurement_taxon.csv (which only ever covered the old single-Abundance form)
-  eu <- .read_cols(con, "euphausiids_taxon",
-    c("taxon_id", "scientific_name", "genus", "worms_id", "rank"))
-  if (!is.null(eu) && arm_on("cce-lter_euphausiids")) {
-    r <- .as_taxon_rows(data.frame(
-      dataset_key = "cce-lter_euphausiids", ds_prefix = "cce-lter_euphausiids",
-      ds_taxa_code = eu$taxon_id, ds_scientific_name = eu$scientific_name,
-      worms_id = eu$worms_id, scientific_name = eu$scientific_name,
-      rank = eu$rank, stringsAsFactors = FALSE))
-    arms$euphausiids <- .apply_overrides(r, overrides, "cce-lter_euphausiids", list(
-      taxon_id = eu$taxon_id, scientific_name = eu$scientific_name,
-      genus    = eu$genus), code_col = "taxon_id")
-  }
-
-  # --- mesopelagic fish: taxa named by scientific name in the source columns --
-  # ds_taxa_code IS the scientific name here (the source has no local code), so
-  # obs joins dataset_taxon on the name it stores on the measurement row. That is
-  # exactly why the " sp." suffix must NOT be cleaned out of the code: six taxa
-  # arrive as the verbatim spreadsheet header `Bathophilus sp.`, and rewriting
-  # the code would orphan their observations. The lookup name is cleaned instead
-  # (clean_taxon_name(), via the xref name fallback), or an override supplies the id.
-  mf <- .read_cols(con, "mesopelagic_fish_taxon",
-    c("scientific_name", "worms_id", "rank"))
-  if (!is.null(mf) && arm_on("sio_mesopelagic-fish")) {
-    r <- .as_taxon_rows(data.frame(
-      dataset_key = "sio_mesopelagic-fish", ds_prefix = "sio_mesopelagic-fish",
-      ds_taxa_code = mf$scientific_name, ds_scientific_name = mf$scientific_name,
-      worms_id = mf$worms_id, scientific_name = mf$scientific_name,
-      rank = mf$rank, stringsAsFactors = FALSE))
-    # the code IS the name here, so a `scientific_name` match is a code match
-    arms$mesopelagic <- .apply_overrides(r, overrides, "sio_mesopelagic-fish", list(
-      scientific_name = mf$scientific_name), code_col = "scientific_name")
-  }
-
-  # --- seabirds + marine mammals (the unstaged form) --------------------------
-  # The source's is_bird / is_mammal / is_unidentified flags are read ONLY for
-  # the coarse "unidentified" fallbacks the source itself encodes; they never
-  # decide the key authority (that is the class from the lineage, D2). When the
-  # dataset stages (Phase 2), those fallbacks become taxon_override.csv rows and
-  # this arm goes unread.
-  bm <- .read_cols(con, "bird_mammal_species",
-    c("species_code", "common_name", "scientific_name", "itis_id",
-      "is_bird", "is_mammal", "is_unidentified", "include_flag"))
-  if (!is.null(bm) && arm_on("farallon_bird-mammal")) {
-    if (!is.null(bm$include_flag)) bm <- bm[isTRUE_vec(bm$include_flag), , drop = FALSE]
-    r <- .as_taxon_rows(data.frame(
-      dataset_key = "farallon_bird-mammal", ds_prefix = "farallon_bird-mammal",
-      ds_taxa_code = bm$species_code, ds_scientific_name = bm$scientific_name,
-      ds_common_name = bm$common_name, itis_id = bm$itis_id,
-      scientific_name = bm$scientific_name, common_name = bm$common_name,
-      stringsAsFactors = FALSE))
-    # mammals: resolve worms_id from overrides keyed by species_code. Birds go
-    # through the same call — a bird override supplying an id is applied too.
-    r <- .apply_overrides(r, overrides, "farallon_bird-mammal", list(
-      species_code    = bm$species_code,
-      scientific_name = bm$scientific_name,
-      common_name     = bm$common_name), code_col = "species_code")
-    # coarse fallbacks for unidentified: bird -> Aves (itis 174371), mammal -> Mammalia (worms 1837)
-    unid <- isTRUE_vec(bm$is_unidentified)
-    r$itis_id[unid & isTRUE_vec(bm$is_bird)]    <- 174371L
-    r$worms_id[unid & isTRUE_vec(bm$is_mammal)] <- 1837L
-    arms$bird_mammal <- r
-  }
-
   # --- composite measurement types (cufes / phyllosoma / crab) ---------------
   if (!is.null(measurement_taxon) && nrow(measurement_taxon)) {
     mt <- measurement_taxon
@@ -781,8 +638,21 @@ append_dataset_taxon <- function(con, dataset_key, df, ds_prefix = dataset_key) 
       stringsAsFactors = FALSE))
   }
 
-  if (!length(arms)) stop(".taxon_norm_sources(): no taxon vocabulary found — ",
-                          "append_dataset_taxon() first, or load a source table.")
+  if (!length(arms)) {
+    # name what the notebook left behind, so an unmigrated ingest reads as the
+    # migration it is missing rather than as an empty connection. This is a
+    # DIAGNOSTIC, not a resolution list: nothing here decides a key.
+    left <- grep("(_taxon|_species)$|^species$", DBI::dbListTables(con), value = TRUE)
+    left <- setdiff(left, c("dataset_taxon", "measurement_taxon"))
+    stop(".taxon_norm_sources(): no taxon vocabulary is staged. Call ",
+         "append_dataset_taxon(con, dataset_key, df) in the ingest that owns the ",
+         "dataset, before ensure_taxon_xref() / resolve_dataset_taxon(). ",
+         if (length(left)) paste0(
+           "This connection holds ", paste(sprintf("`%s`", left), collapse = ", "),
+           " — calcofi4db 4.0.0 no longer reads a per-dataset taxon table; stage ",
+           "its rows instead.") else "",
+         call. = FALSE)
+  }
   # what each arm's overrides matched / applied / skipped, harvested before
   # bind_rows() drops the attribute; resolve_dataset_taxon() stages it
   ov_rpt <- lapply(arms, attr, "override_report")
@@ -835,10 +705,12 @@ append_dataset_taxon <- function(con, dataset_key, df, ds_prefix = dataset_key) 
 #'
 #' Rows staged by [append_dataset_taxon()] are **filled in place**: every column
 #' but `taxon_key` comes back byte-identical, so a re-run over unchanged inputs
-#' is a no-op. Datasets that have not staged are still read from their source
-#' tables (the seven arms — coexistence during the migration). The key is minted
-#' by [taxon_key_of()] from the resolved ids and the class the staged lineage
-#' supplies, so call [ensure_taxon_xref()] then [ensure_taxon_lineage()] first.
+#' is a no-op. Since 4.0.0 a dataset that has **not** staged is an error naming
+#' the working table the notebook left behind — the seven per-dataset arms are
+#' gone, and the composite-measurement crosswalk (`measurement_taxon`) is the
+#' only other source. The key is minted by [taxon_key_of()] from the resolved
+#' ids and the class the staged lineage supplies, so call [ensure_taxon_xref()]
+#' then [ensure_taxon_lineage()] first.
 #'
 #' **The override rule** (Ben, 2026-09-04): a `taxon_override.csv` row **never
 #' replaces an id the source supplied, unless it names the row by the dataset's
@@ -857,8 +729,7 @@ append_dataset_taxon <- function(con, dataset_key, df, ds_prefix = dataset_key) 
 #' alias: that name described a rebuild from the arms, which is exactly what an
 #' ingest could not stage against.
 #'
-#' @param con a DuckDB connection with the staged vocabulary (and/or the
-#'   per-dataset taxon tables) loaded
+#' @param con a DuckDB connection with the staged vocabulary loaded
 #' @param measurement_taxon optional data.frame of the composite-type crosswalk
 #'   (`metadata/measurement_taxon.csv`) so cufes/phyllosoma/crab taxa,
 #'   which live in `measurement_type` names not a taxon table, are included
@@ -933,10 +804,9 @@ build_dataset_taxon <- function(con, measurement_taxon = NULL, overrides = NULL,
 #'   the release cannot tell which — the ingest's own message can.
 #'
 #' `match_column` is one of `dataset_taxon`'s `ds_taxa_code` /
-#' `ds_scientific_name` / `ds_common_name`; a dataset that has not staged yet
-#' (Phase 3b) is read through the arm's alias (`taxa` is `ds_common_name`,
-#' `species_code` is `ds_taxa_code`). Anything else errors, as it does at
-#' ingest. A row that matches nothing is reported with zeros, not dropped —
+#' `ds_scientific_name` / `ds_common_name`; anything else errors, as it does at
+#' ingest (the transitional aliases for the arms' own column names went with the
+#' arms in 4.0.0). A row that matches nothing is reported with zeros, not dropped —
 #' [check_taxon_registries()] is where a dataset nobody supplies fails.
 #'
 #' @param con a DBI connection holding `dataset_taxon`
@@ -975,11 +845,9 @@ report_taxon_overrides <- function(con, overrides, tbl = "dataset_taxon", verbos
 
   col_of <- function(mc) {
     if (mc %in% ds_cols) return(mc)
-    if (mc %in% names(.override_match_alias)) return(.override_match_alias[[mc]])
     stop(glue::glue(
       "taxon_override.csv: match_column `{mc}` is not a dataset_taxon column ",
-      "({paste(sprintf('`%s`', ds_cols), collapse = ', ')}) nor an arm column this ",
-      "release knows."))
+      "({paste(sprintf('`%s`', ds_cols), collapse = ', ')})."))
   }
   ov <- overrides[!is.na(overrides$dataset_key), , drop = FALSE]
   rpt <- lapply(seq_len(nrow(ov)), function(j) {

@@ -12,8 +12,7 @@ build_taxon_reference(
 )
 }
 \arguments{
-\item{con}{a DuckDB connection with the staged vocabulary (and/or the
-per-dataset taxon tables) loaded}
+\item{con}{a DuckDB connection with the staged vocabulary loaded}
 
 \item{measurement_taxon}{optional data.frame of the composite-type crosswalk
 (\code{metadata/measurement_taxon.csv}) so cufes/phyllosoma/crab taxa,

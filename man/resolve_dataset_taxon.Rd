@@ -21,8 +21,7 @@ build_dataset_taxon(
 )
 }
 \arguments{
-\item{con}{a DuckDB connection with the staged vocabulary (and/or the
-per-dataset taxon tables) loaded}
+\item{con}{a DuckDB connection with the staged vocabulary loaded}
 
 \item{measurement_taxon}{optional data.frame of the composite-type crosswalk
 (\code{metadata/measurement_taxon.csv}) so cufes/phyllosoma/crab taxa,
@@ -49,10 +48,12 @@ Deduped on \code{ds_taxon_key}.
 \details{
 Rows staged by \code{\link[=append_dataset_taxon]{append_dataset_taxon()}} are \strong{filled in place}: every column
 but \code{taxon_key} comes back byte-identical, so a re-run over unchanged inputs
-is a no-op. Datasets that have not staged are still read from their source
-tables (the seven arms — coexistence during the migration). The key is minted
-by \code{\link[=taxon_key_of]{taxon_key_of()}} from the resolved ids and the class the staged lineage
-supplies, so call \code{\link[=ensure_taxon_xref]{ensure_taxon_xref()}} then \code{\link[=ensure_taxon_lineage]{ensure_taxon_lineage()}} first.
+is a no-op. Since 4.0.0 a dataset that has \strong{not} staged is an error naming
+the working table the notebook left behind — the seven per-dataset arms are
+gone, and the composite-measurement crosswalk (\code{measurement_taxon}) is the
+only other source. The key is minted by \code{\link[=taxon_key_of]{taxon_key_of()}} from the resolved
+ids and the class the staged lineage supplies, so call \code{\link[=ensure_taxon_xref]{ensure_taxon_xref()}}
+then \code{\link[=ensure_taxon_lineage]{ensure_taxon_lineage()}} first.
 
 \strong{The override rule} (Ben, 2026-09-04): a \code{taxon_override.csv} row \strong{never
 replaces an id the source supplied, unless it names the row by the dataset's

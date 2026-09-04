@@ -207,16 +207,22 @@ test_that("the staged cross-reference re-keys a deprecated TSN on staged rows", 
   expect_equal(dt$ds_source_json[dt$ds_taxa_code == "SOSH"], '{"itis_id":174553}')    # the claim
 })
 
-test_that("a staged dataset wins over its old arm table, with no duplicate rows (coexistence)", {
+test_that("a per-dataset taxon table is no longer read, and the error names it", {
+  # 4.0.0 deleted the seven arms. A notebook that did not migrate leaves its
+  # working table in the connection and resolves NOTHING -- that must be a hard
+  # stop naming the table, never a silently empty vocabulary.
   con <- new_staged_con(); on.exit(close_duckdb(con))
   DBI::dbExecute(con, "CREATE TABLE bird_mammal_species AS
     SELECT 'GRCO' species_code,'Great Cormorant' common_name,'Phalacrocorax carbo' scientific_name,
-           174715 itis_id, TRUE is_bird, FALSE is_mammal, FALSE is_unidentified, TRUE include_flag
-    UNION ALL SELECT 'ARMONLY','Arm only','Balaenoptera musculus',180528,FALSE,TRUE,FALSE,TRUE")
+           174715 itis_id, TRUE is_bird, FALSE is_mammal, FALSE is_unidentified, TRUE include_flag")
+  expect_error(resolve_dataset_taxon(con), "append_dataset_taxon")
+  expect_error(resolve_dataset_taxon(con), "bird_mammal_species")
+
+  # ...and once it stages, only the staged rows are the vocabulary
   append_dataset_taxon(con, "farallon_bird-mammal", staged_df()[2, ])   # GRCO only
   resolve_dataset_taxon(con)
   dt <- read_dt(con, "farallon_bird-mammal")
-  expect_equal(dt$ds_taxa_code, "GRCO")             # ARMONLY never read
+  expect_equal(dt$ds_taxa_code, "GRCO")
   expect_equal(dt$taxon_key, "itis:174715")
 })
 

@@ -36,13 +36,16 @@ xref_fixture_csv <- function(dir, today = "2026-08-05") {
 new_xref_fixture <- function() {
   testthat::skip_if_not_installed("duckdb")
   con <- get_duckdb_con(":memory:")
-  DBI::dbExecute(con, "CREATE TABLE bird_mammal_species AS
-    SELECT 'GRCO' species_code,'Great Cormorant' common_name,'Phalacrocorax carbo' scientific_name,
-           174715 itis_id, TRUE is_bird, FALSE is_mammal, FALSE is_unidentified, TRUE include_flag
-    UNION ALL SELECT 'BADT','Sooty Shearwater','Puffinus griseus',174553,TRUE,FALSE,FALSE,TRUE
-    UNION ALL SELECT 'BLWH','Blue Whale','Balaenoptera musculus',180528,FALSE,TRUE,FALSE,TRUE")
-  DBI::dbExecute(con, "CREATE TABLE mesopelagic_fish_taxon AS
-    SELECT 'Bathophilus sp.' scientific_name, NULL::INTEGER worms_id, NULL::VARCHAR rank")
+  append_dataset_taxon(con, "farallon_bird-mammal", data.frame(
+    ds_taxa_code       = c("GRCO", "BADT", "BLWH"),
+    ds_scientific_name = c("Phalacrocorax carbo", "Puffinus griseus",
+                           "Balaenoptera musculus"),
+    ds_common_name     = c("Great Cormorant", "Sooty Shearwater", "Blue Whale"),
+    itis_id = c(174715L, 174553L, 180528L), stringsAsFactors = FALSE))
+  # the code IS the verbatim source name here, " sp." suffix and all
+  append_dataset_taxon(con, "sio_mesopelagic-fish", data.frame(
+    ds_taxa_code = "Bathophilus sp.", ds_scientific_name = "Bathophilus sp.",
+    stringsAsFactors = FALSE))
   # the staged classification: the class (not a source flag) decides itis: (D2).
   # BADT is looked up by its ACCEPTED TSN, which is what the cross-reference
   # re-keys it onto before the class is read.
@@ -55,7 +58,7 @@ new_xref_fixture <- function() {
 }
 
 bm_override <- function() data.frame(
-  dataset_key = "farallon_bird-mammal", match_column = "species_code",
+  dataset_key = "farallon_bird-mammal", match_column = "ds_taxa_code",
   match_value = "BLWH", worms_id = 137090L, itis_id = NA_integer_,
   scientific_name = "Balaenoptera musculus", rank = "Species",
   stringsAsFactors = FALSE)

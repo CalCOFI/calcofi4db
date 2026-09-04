@@ -1,3 +1,36 @@
+# calcofi4db 4.0.0
+
+## No dataset arms in the package: the ingest stages its vocabulary, or it errors (taxon plan Phase 3b)
+
+- **The seven per-dataset arms in `.taxon_norm_sources()` are deleted** — `species` (ichthyo),
+  `phyto_taxon`, `zoodb_taxon`, `zooscan_taxon`, `euphausiids_taxon`, `mesopelagic_fish_taxon`,
+  `bird_mammal_species`. Every taxon-bearing ingest now declares its own vocabulary with
+  `append_dataset_taxon()` and the package resolves it — the same split calcofi4db 3.0.0 made for
+  the core projection, for the same reason: two copies of a per-dataset shape drift, and each
+  divergence is a silent data error. Adding a dataset touches zero lines of the package.
+- **Consumers / ingest authors:** an ingest that has not migrated now **errors** at
+  `resolve_dataset_taxon()` — and at `ensure_taxon_xref()` / `ensure_taxon_lineage()`, which read
+  the same vocabulary — instead of resolving against a table shape nobody declared. The message
+  names the working table the notebook left in the connection ("This connection holds
+  `bird_mammal_species` — calcofi4db 4.0.0 no longer reads a per-dataset taxon table; stage its
+  rows instead") and points at `append_dataset_taxon()`. The migrated ingests in
+  `CalCOFI/workflows` are `swfsc_ichthyo`, `farallon_bird-mammal`, `calcofi_phytoplankton`,
+  `cce-lter_zoodb`, `cce-lter_zooscan`, `cce-lter_euphausiids` and `sio_mesopelagic-fish`; the
+  **composite-measurement path is untouched**, so `swfsc_cufes`, `calcofi_phyllosoma` and
+  `cdfw_dungeness-crab` keep resolving through `metadata/measurement_taxon.csv` unchanged.
+- **`.override_match_alias` is gone with the arms.** A `taxon_override.csv` `match_column` is one
+  of `dataset_taxon`'s own `ds_taxa_code` / `ds_scientific_name` / `ds_common_name`, in
+  `.apply_overrides()` and in `report_taxon_overrides()` alike — the transitional alias that let
+  the release recompute the override rule for an unstaged dataset (`taxa` → `ds_common_name`,
+  `species_code` → `ds_taxa_code`) has nothing left to translate. The workflows registry rows moved
+  to the `ds_*` names in the same change.
+- `isTRUE_vec()` is removed — only the farallon arm read the source's `is_bird` /
+  `is_unidentified` / `include_flag` booleans. `build_dataset_taxon()` remains as the deprecated
+  alias of `resolve_dataset_taxon()`.
+- Tests: every arm fixture is rewritten as a staged vocabulary, so the suite is written the way an
+  ingest is; the coexistence test becomes a named regression that an unmigrated dataset errors and
+  that the message names its table. 1,762 → **1,765** passing, 0 failing.
+
 # calcofi4db 3.33.0
 
 ## An override never replaces an id the source supplied (taxon plan Phase 3a; Ben, 2026-09-04)

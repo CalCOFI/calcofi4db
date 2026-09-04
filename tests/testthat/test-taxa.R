@@ -3,18 +3,23 @@
 # in BOTH zoodb and zooscan (dedup), a seabird (itis) + a marine mammal (worms via
 # override), and a coarse phyto functional group (worms via override).
 #
-# The seven per-dataset arms still serve unstaged datasets in 3.29.0
-# (coexistence with the staged path, see test-dataset_taxon.R). The key
-# authority is decided by the CLASS from the staged lineage, so the fixture
+# Every dataset STAGES its vocabulary with append_dataset_taxon() — since 4.0.0
+# that is the only way in, so the fixture is written the way an ingest is. The
+# key authority is decided by the CLASS from the staged lineage, so the fixture
 # carries `_taxon_lineage_flat` for the taxa whose class matters.
 new_taxa_fixture <- function() {
   testthat::skip_if_not_installed("duckdb")
   con <- get_duckdb_con(":memory:")
 
-  DBI::dbExecute(con, "CREATE TABLE species AS
-    SELECT 19::SMALLINT species_id, 'Sardinops sagax' scientific_name, 'Pacific sardine' common_name,
-           217452 worms_id, 161729 itis_id, 999 gbif_id
-    UNION ALL SELECT 31,'Engraulis mordax','Northern anchovy',272286,161828,888")
+  # the shared CalCOFI species list -> ds_prefix "calcofi", used by swfsc_ichthyo
+  append_dataset_taxon(con, "swfsc_ichthyo", data.frame(
+    ds_taxa_code       = c("19", "31"),
+    ds_scientific_name = c("Sardinops sagax", "Engraulis mordax"),
+    ds_common_name     = c("Pacific sardine", "Northern anchovy"),
+    worms_id = c(217452L, 272286L), itis_id = c(161729L, 161828L),
+    gbif_id  = c(999L, 888L), stringsAsFactors = FALSE), ds_prefix = "calcofi")
+
+  # the DwC hierarchy an ichthyo-shaped ingest also loads (build_taxon_hierarchy)
   DBI::dbExecute(con, "CREATE TABLE taxon AS
     SELECT 'WoRMS' authority, 217452 taxonID, 125464 parentNameUsageID,
            'Sardinops sagax' scientificName, 'Species' taxonRank, 'accepted' taxonomicStatus,
@@ -23,23 +28,33 @@ new_taxa_fixture <- function() {
   DBI::dbExecute(con, "CREATE TABLE taxa_rank AS
     SELECT 'Species' taxonRank, 260::SMALLINT rank_order
     UNION ALL SELECT 'Genus',180 UNION ALL SELECT 'Class',80")
+
   # same AphiaID 146421 in both zooplankton datasets -> must collapse to one taxon
-  DBI::dbExecute(con, "CREATE TABLE zoodb_taxon AS
-    SELECT 3 taxon_id,'APPENDICULARIA' taxon_zoodb,146421 aphia_id,'Appendicularia' scientific_name,
-           'Class' rank,'Animalia' kingdom")
-  DBI::dbExecute(con, "CREATE TABLE zooscan_taxon AS
-    SELECT 1 taxon_id,'appendicularia' taxon_zooscan,146421 aphia_id,'Appendicularia' scientific_name,
-           'Class' rank,'Animalia' kingdom")
+  append_dataset_taxon(con, "cce-lter_zoodb", data.frame(
+    ds_taxa_code = "3", ds_scientific_name = "Appendicularia",
+    ds_common_name = "APPENDICULARIA", worms_id = 146421L, rank = "Class",
+    stringsAsFactors = FALSE))
+  append_dataset_taxon(con, "cce-lter_zooscan", data.frame(
+    ds_taxa_code = "1", ds_scientific_name = "Appendicularia",
+    ds_common_name = "appendicularia", worms_id = 146421L, rank = "Class",
+    stringsAsFactors = FALSE))
+
   # a seabird (keys on ITIS) + a marine mammal (keys on WoRMS via override)
-  DBI::dbExecute(con, "CREATE TABLE bird_mammal_species AS
-    SELECT 'GRCO' species_code,'Great Cormorant' common_name,'Phalacrocorax carbo' scientific_name,
-           174715 itis_id, TRUE is_bird, FALSE is_mammal, FALSE is_fish, FALSE is_unidentified, TRUE include_flag
-    UNION ALL SELECT 'BLWH','Blue Whale','Balaenoptera musculus',180528,FALSE,TRUE,FALSE,FALSE,TRUE")
-  # a resolved phyto genus + a coarse functional group (NULL aphia -> override on `taxa`)
-  DBI::dbExecute(con, "CREATE TABLE phyto_taxon AS
-    SELECT '316' species_code,'diatom, centric' taxa,'x' species, NULL aphia_id,
-           NULL scientific_name_accepted, NULL rank, NULL kingdom, NULL phylum
-    UNION ALL SELECT '600','diatom, centric','y',196347,'Actinocyclus','Genus','Chromista','x'")
+  append_dataset_taxon(con, "farallon_bird-mammal", data.frame(
+    ds_taxa_code       = c("GRCO", "BLWH"),
+    ds_scientific_name = c("Phalacrocorax carbo", "Balaenoptera musculus"),
+    ds_common_name     = c("Great Cormorant", "Blue Whale"),
+    itis_id = c(174715L, 180528L), stringsAsFactors = FALSE))
+
+  # a coarse functional group (no source id -> override on ds_common_name) and a
+  # species-resolved code in the SAME group (its own AphiaID must survive)
+  append_dataset_taxon(con, "calcofi_phytoplankton", data.frame(
+    ds_taxa_code       = c("316", "600"),
+    ds_scientific_name = c(NA_character_, "Actinocyclus"),
+    ds_common_name     = c("diatom, centric", "diatom, centric"),
+    worms_id = c(NA_integer_, 196347L), rank = c(NA_character_, "Genus"),
+    stringsAsFactors = FALSE))
+
   # the flattened classification ensure_taxon_lineage() stages: the class is
   # what decides the key authority (taxon plan D2)
   DBI::dbExecute(con, "CREATE TABLE _taxon_lineage_flat AS
@@ -52,7 +67,7 @@ new_taxa_fixture <- function() {
 
 taxa_overrides <- function() data.frame(
   dataset_key    = c("farallon_bird-mammal", "calcofi_phytoplankton"),
-  match_column   = c("species_code", "species_code"),
+  match_column   = c("ds_taxa_code", "ds_taxa_code"),
   match_value    = c("BLWH", "316"),
   worms_id       = c(137090L, 148899L),
   itis_id        = c(NA_integer_, NA_integer_),
@@ -114,12 +129,14 @@ test_that("resolve_dataset_taxon mints prefixed ds_taxon_keys resolving to globa
   expect_equal(key("calcofi_phytoplankton:316")$taxon_key, "worms:148899")
   # composite cufes egg type contributes a taxon crosswalk row too
   expect_true(any(dt$dataset_key == "swfsc_cufes" & dt$taxon_key == "worms:217452"))
-  # arm rows carry the source's claims too, so the released column is uniform
+  # every staged row carries the source's claims, so the column is uniform
   expect_equal(key("calcofi:19")$ds_source_json,
                '{"worms_id":217452,"itis_id":161729,"gbif_id":999}')
   expect_equal(key("farallon_bird-mammal:GRCO")$ds_source_json, '{"itis_id":174715}')
   expect_equal(key("farallon_bird-mammal:BLWH")$ds_source_json, '{"itis_id":180528}')  # pre-override
   expect_true(is.na(key("calcofi_phytoplankton:316")$ds_source_json))
+  expect_equal(key("calcofi_phytoplankton:600")$ds_source_json,
+               '{"worms_id":196347,"rank":"Genus"}')
 })
 
 test_that("build_taxon_reference dedups cross-dataset taxa and keeps the WoRMS lineage", {
@@ -222,6 +239,10 @@ test_that("read_taxon_group_rules validates the registry shape", {
 
 test_that("build_taxon_group requires the two references it groups over", {
   con <- new_taxa_fixture(); on.exit(close_duckdb(con))
+  # the staged vocabulary is not yet the RESOLVED crosswalk, and the DwC
+  # hierarchy in `taxon` is not yet the released reference: both builders must
+  # have run, or a group silently selects nothing
+  DBI::dbExecute(con, 'DROP TABLE "dataset_taxon"')
   expect_error(build_taxon_group(con, rules = taxa_group_rules()), "dataset_taxon")
 })
 
@@ -295,10 +316,10 @@ test_that("prune_taxon_shard errors rather than silently no-op without the refs"
 # row for a PRESENT dataset that names a column the vocabulary lacks errors. The
 # release-time check_taxon_registries() is where a dataset nobody supplies fails.
 
-test_that("an override reaches an arm that was previously never consulted", {
+test_that("an override reaches a dataset whose vocabulary named no id", {
   con <- new_taxa_fixture(); on.exit(close_duckdb(con))
   ov <- rbind(taxa_overrides(), data.frame(
-    dataset_key = "cce-lter_zoodb", match_column = "taxon_id",
+    dataset_key = "cce-lter_zoodb", match_column = "ds_taxa_code",
     match_value = "3", worms_id = 111111L, itis_id = NA_integer_,
     scientific_name = "Appendicularia", rank = "Class", stringsAsFactors = FALSE))
   resolve_dataset_taxon(con, overrides = ov)
@@ -320,7 +341,7 @@ test_that("an override for a dataset absent from THIS connection is left to that
   # every ingest reads the whole registry while loading only its own vocabulary
   con <- new_taxa_fixture(); on.exit(close_duckdb(con))
   ov <- rbind(taxa_overrides(), data.frame(
-    dataset_key = "sio_mesopelagic-fish", match_column = "scientific_name",
+    dataset_key = "sio_mesopelagic-fish", match_column = "ds_scientific_name",
     match_value = "Bathophilus sp.", worms_id = 126203L, itis_id = NA_integer_,
     scientific_name = "Bathophilus", rank = "Genus", stringsAsFactors = FALSE))
   expect_no_error(resolve_dataset_taxon(con, overrides = ov))
@@ -334,8 +355,11 @@ test_that("an override for a dataset absent from THIS connection is left to that
 test_that("check_taxon_ids gates unresolved taxa but allows declared ones", {
   con <- new_taxa_fixture(); on.exit(close_duckdb(con))
   # a non-taxonomic operational class: no id anywhere -> dataset-local key
-  DBI::dbExecute(con, "INSERT INTO zooscan_taxon
-    SELECT 16,'nauplii',NULL,NULL,NULL,NULL")
+  append_dataset_taxon(con, "cce-lter_zooscan", data.frame(
+    ds_taxa_code       = c("1", "16"),
+    ds_scientific_name = c("Appendicularia", NA_character_),
+    ds_common_name     = c("appendicularia", "nauplii"),
+    worms_id = c(146421L, NA_integer_), stringsAsFactors = FALSE))
   resolve_dataset_taxon(con, overrides = taxa_overrides())
   build_taxon_reference(con, overrides = taxa_overrides())
 
@@ -411,14 +435,15 @@ test_that("a connection-local taxa_rank still wins, and never fans out", {
 
 
 
-# the override rule on an ARM (the unstaged phyto_taxon table, until Phase 3b):
-# a `taxa`-matched functional-group row is a non-code override, so it fills the
-# rows with no aphia_id and leaves every species-resolved row alone. This is the
-# v2026.08.25 regression — 22 keys for 393 codes — kept as a named assertion.
+# the override rule: a functional-group row matched on `ds_common_name` (what the
+# phytoplankton source calls the row, "diatom, centric") is a non-code override,
+# so it fills the rows with no AphiaID and leaves every species-resolved row
+# alone. This is the v2026.08.25 regression — 22 keys for 393 codes — kept as a
+# named assertion.
 
-test_that("phytoplankton: a `taxa`-matched group override never replaces a species AphiaID", {
+test_that("phytoplankton: a group override never replaces a species AphiaID", {
   con <- new_taxa_fixture(); on.exit(close_duckdb(con))
-  ov <- data.frame(dataset_key = "calcofi_phytoplankton", match_column = "taxa",
+  ov <- data.frame(dataset_key = "calcofi_phytoplankton", match_column = "ds_common_name",
                    match_value = "diatom, centric", worms_id = 148899L, itis_id = NA_integer_,
                    scientific_name = "Bacillariophyceae", rank = "Class",
                    stringsAsFactors = FALSE)
@@ -427,14 +452,13 @@ test_that("phytoplankton: a `taxa`-matched group override never replaces a speci
     "SELECT * FROM dataset_taxon WHERE dataset_key = 'calcofi_phytoplankton'")
   expect_equal(dt$taxon_key[dt$ds_taxa_code == "600"], "worms:196347")   # Actinocyclus keeps its id
   expect_equal(dt$taxon_key[dt$ds_taxa_code == "316"], "worms:148899")   # the coarse row takes the class
-  # and the arm's own match column is reported through the same alias the
-  # release uses (`taxa` is what dataset_taxon carries as ds_common_name)
+  # and the release recomputes the same report from dataset_taxon alone
   rpt <- report_taxon_overrides(con, ov, verbose = FALSE)
   expect_equal(rpt$n_matched, 2L)
   expect_equal(rpt$n_skipped, 1L)
   expect_equal(rpt$skipped_codes, "600")
-  # a code-matched row on the arm still applies always
-  ov$match_column <- "species_code"; ov$match_value <- "600"
+  # a code-matched row applies always, whatever the source supplied
+  ov$match_column <- "ds_taxa_code"; ov$match_value <- "600"
   resolve_dataset_taxon(con, overrides = ov)
   dt <- DBI::dbGetQuery(con,
     "SELECT * FROM dataset_taxon WHERE dataset_key = 'calcofi_phytoplankton'")

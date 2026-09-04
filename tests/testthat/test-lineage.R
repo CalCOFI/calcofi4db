@@ -57,9 +57,10 @@ test_that("ensure_taxon_lineage stages the hierarchy build_taxon_reference reads
   con <- get_duckdb_con(":memory:")
   on.exit(close_duckdb(con))
 
-  DBI::dbExecute(con, "CREATE TABLE species AS
-    SELECT 19::SMALLINT species_id, 'Sardinops sagax' scientific_name,
-           'Pacific sardine' common_name, 217452 worms_id, 161729 itis_id, NULL gbif_id")
+  append_dataset_taxon(con, "swfsc_ichthyo", data.frame(
+    ds_taxa_code = "19", ds_scientific_name = "Sardinops sagax",
+    ds_common_name = "Pacific sardine", worms_id = 217452L, itis_id = 161729L,
+    stringsAsFactors = FALSE), ds_prefix = "calcofi")
 
   out <- ensure_taxon_lineage(con, NULL, NULL, cache_csv = p, verbose = FALSE)
   expect_gt(out$n_rows, 0L)
@@ -95,10 +96,10 @@ test_that("an ITIS-keyed taxon gets an ITIS parent, not a minted worms: key", {
   # a seabird carrying only a TSN: pass (a) classifies it by that TSN (class
   # Aves), pass (b) keeps the ITIS chain, so the key is itis: and its parent is
   # too — pasting "worms:<parentNameUsageID>" would mint a key resolving to nothing
-  DBI::dbExecute(con, "CREATE TABLE bird_mammal_species AS
-    SELECT 'GRCO' species_code, 'Great Cormorant' common_name,
-           'Phalacrocorax carbo' scientific_name, 174715 itis_id,
-           TRUE is_bird, FALSE is_mammal, FALSE is_unidentified, TRUE include_flag")
+  append_dataset_taxon(con, "farallon_bird-mammal", data.frame(
+    ds_taxa_code = "GRCO", ds_scientific_name = "Phalacrocorax carbo",
+    ds_common_name = "Great Cormorant", itis_id = 174715L,
+    stringsAsFactors = FALSE))
 
   ensure_taxon_lineage(con, NULL, NULL, cache_csv = p, verbose = FALSE)
   build_taxon_reference(con, NULL, NULL)
@@ -178,9 +179,10 @@ test_that("a hierarchy already in the connection is merged, not replaced", {
     SELECT 'WoRMS' authority, 999999 taxonID, NULL::INTEGER parentNameUsageID,
            'Preexisting taxon' scientificName, 'Species' taxonRank,
            'accepted' taxonomicStatus, NULL::VARCHAR scientificNameAuthorship")
-  DBI::dbExecute(con, "CREATE TABLE species AS
-    SELECT 19::SMALLINT species_id, 'Sardinops sagax' scientific_name,
-           'Pacific sardine' common_name, 217452 worms_id, NULL itis_id, NULL gbif_id")
+  append_dataset_taxon(con, "swfsc_ichthyo", data.frame(
+    ds_taxa_code = "19", ds_scientific_name = "Sardinops sagax",
+    ds_common_name = "Pacific sardine", worms_id = 217452L,
+    stringsAsFactors = FALSE), ds_prefix = "calcofi")
 
   ensure_taxon_lineage(con, NULL, NULL, cache_csv = p, verbose = FALSE)
   h <- DBI::dbGetQuery(con, "SELECT taxonID, scientificName FROM taxon")
