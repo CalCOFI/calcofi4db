@@ -1036,6 +1036,9 @@ check for other functions or datasets not captured by above categories
 - [`derive_cruise_key_on_casts()`](https://calcofi.io/calcofi4db/reference/derive_cruise_key_on_casts.md)
   : Derive Cruise Key on Bottle Casts via Ship Matching
 
+- [`derive_registration_id()`](https://calcofi.io/calcofi4db/reference/derive_registration_id.md)
+  : The identifier a portal knows a dataset by, read off its own URL
+
 - [`discover_sample_levels()`](https://calcofi.io/calcofi4db/reference/discover_sample_levels.md)
   :
 
@@ -1137,6 +1140,9 @@ check for other functions or datasets not captured by above categories
 
 - [`erddap_globals()`](https://calcofi.io/calcofi4db/reference/erddap_globals.md)
   : The ERDDAP global attributes of one dataset, from the same record
+
+- [`erddap_grain_description()`](https://calcofi.io/calcofi4db/reference/erddap_grain_description.md)
+  : What one ERDDAP grain means, in a sentence
 
 - [`export_release_parquet()`](https://calcofi.io/calcofi4db/reference/export_release_parquet.md)
   : Deterministic parquet export of one released table

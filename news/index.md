@@ -1,5 +1,87 @@
 # Changelog
 
+## calcofi4db 4.5.0
+
+### Dataset catalog schema 1.1: the facts a dataset page wanted that only the pipeline knows (UI plan 2026-09-05, § D-9, Decision 11)
+
+The dataset pages on calcofi.io rendered five things from hand-typed
+maps in their own generator, each marked `# until the record carries …`.
+A fact with two homes drifts, so they move here — every one read from a
+registry the team already edits, and every one additive, so a 1.0
+consumer keeps resolving.
+
+- **`category.description`** — the one line a category tile shows under
+  its name. It was already a column of `metadata/category.csv` and
+  simply not carried.
+- **`distributions[].grain_description`** — what an ERDDAP grain
+  *means*, from the new
+  **[`erddap_grain_description()`](https://calcofi.io/calcofi4db/reference/erddap_grain_description.md)**.
+  A page that says `length/stage frequency` and nothing else asks the
+  reader to guess;
+  [`check_dataset_catalog()`](https://calcofi.io/calcofi4db/reference/check_dataset_catalog.md)
+  now **blocks** a release whose builder emitted a grain nobody has
+  described.
+- **`objects[].table_description`** and
+  `distributions[].table_description` — the first sentence of what
+  `metadata.json` already says the table *is*, so a parquet row names
+  more than a table and a size. The first sentence is one that ends in a
+  full stop followed by a capital or a backtick: cutting at every full
+  stop turned “built from spp.duckdb via recursive CTEs” into “built
+  from spp.”.
+- **`registrations[].id` and `.title`** — the identifier a portal knows
+  the dataset by (`edi.109.4`, `gov.noaa.nodc:0301029`, an OBIS uuid)
+  and what it calls it. Curated in `metadata/distribution.csv` where a
+  row exists, else read off the URL by the new
+  **[`derive_registration_id()`](https://calcofi.io/calcofi4db/reference/derive_registration_id.md)**
+  — deliberately the same rule as the site’s `_plugins/derive_id.rb`,
+  pinned to the same nine URLs on both sides so the record and the page
+  can never disagree about what OBIS calls a dataset. A URL that names
+  no identifier derives none: a guess is worse than nothing.
+- **`portals[]`** at the top of the record — every portal it can
+  mention, with `name`, `kind`, `url` and the first sentence of
+  `portal.csv`’s notes, so a page that says “EDI” can also say what EDI
+  is. CalCOFI’s own ERDDAP appears under **both** ids it has in the
+  record (`erddap` from `portal.csv` and the registrations,
+  `erddap-calcofi` from
+  [`distribution_portals()`](https://calcofi.io/calcofi4db/reference/distribution_kinds.md)),
+  because a consumer looking either one up must find it; collapsing the
+  two is a registry change with its own consumers and is not done here.
+
+### Coverage measures two more things (`build_coverage()`)
+
+- **`coverage.months`** — observations by calendar month, twelve counts.
+  CalCOFI is a quarterly survey, so *which* quarters a dataset covers is
+  coverage, and it is the one thing a years sparkline cannot show.
+- **`coverage.bbox_robust`** — the 2.5–97.5 percentile of a dataset’s
+  own sampling positions, with `n_positions`. **Not a correction**: a
+  second, measured number beside the asserted `bbox`, so the two can be
+  compared.
+  [`check_dataset_catalog()`](https://calcofi.io/calcofi4db/reference/check_dataset_catalog.md)
+  gains **`bbox_implausible`** (warn) when they differ by more than 5°
+  on any side — which the ichthyoplankton will trip, and is meant to:
+  its record bbox reads 0–54° N × 180–77° W from bad upstream
+  coordinates while its sampling sits in the California Current. The
+  bbox is the provider’s to fix; the record ships both numbers so a
+  consumer can choose.
+
+### Also
+
+- [`check_dataset_catalog()`](https://calcofi.io/calcofi4db/reference/check_dataset_catalog.md)
+  gains **`registration_without_id`** (warn): a registration a page
+  *lists* as published but cannot name is a row a reader cannot act on.
+- The schema is `1.1` and validates the new fields;
+  `datasets.schema.json`’s `schema_version` is `const: "1.1"`, so a 1.0
+  record is not silently accepted.
+- Tests: one synthetic fixture per rule — the fifteen URL shapes in the
+  record for the identifier parser, the four grains, a coverage sidecar
+  carrying `months` and `bbox_robust`, the three new findings red and
+  green, and the two pinned record snapshots updated. `devtools::test()`
+  2,643 pass / 0 fail.
+
+**Consumers:** nothing is removed or renamed, so a reader on 1.0 is
+unaffected. The site deletes its five marked fallbacks when a release
+carrying 1.1 renders.
+
 ## calcofi4db 4.4.0
 
 ### One Darwin Core Archive per biological dataset, from the core (plan 2026-09-05, § D-8, Decisions 10/13/21, WS-E2)

@@ -133,6 +133,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/delete_gcs_prefix.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/derive_cruise_key_on_casts.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/derive_measurement_type_datasets.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/derive_registration_id.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/detect_csv_changes.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/determine_field_types.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/discover_sample_levels.html</loc></url>
@@ -168,6 +169,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/ensure_taxon_lineage.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ensure_taxon_xref.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/erddap_globals.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/erddap_grain_description.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/export_parquet.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/export_release_parquet.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/fetch_erddap_datasets.html</loc></url>

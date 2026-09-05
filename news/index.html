@@ -32,7 +32,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.4.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.5.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -67,6 +67,38 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.5.0" id="calcofi4db-450">calcofi4db 4.5.0<a class="anchor" aria-label="anchor" href="#calcofi4db-450"></a></h2>
+<div class="section level3">
+<h3 id="dataset-catalog-schema-the-facts-a-dataset-page-wanted-that-only-the-pipeline-knows-ui-plan--d-decision-4-5-0">Dataset catalog schema 1.1: the facts a dataset page wanted that only the pipeline knows (UI plan 2026-09-05, § D-9, Decision 11)<a class="anchor" aria-label="anchor" href="#dataset-catalog-schema-the-facts-a-dataset-page-wanted-that-only-the-pipeline-knows-ui-plan--d-decision-4-5-0"></a></h3>
+<p>The dataset pages on calcofi.io rendered five things from hand-typed maps in their own generator, each marked <code># until the record carries …</code>. A fact with two homes drifts, so they move here — every one read from a registry the team already edits, and every one additive, so a 1.0 consumer keeps resolving.</p>
+<ul><li>
+<strong><code>category.description</code></strong> — the one line a category tile shows under its name. It was already a column of <code>metadata/category.csv</code> and simply not carried.</li>
+<li>
+<strong><code>distributions[].grain_description</code></strong> — what an ERDDAP grain <em>means</em>, from the new <strong><code><a href="../reference/erddap_grain_description.html">erddap_grain_description()</a></code></strong>. A page that says <code>length/stage frequency</code> and nothing else asks the reader to guess; <code><a href="../reference/check_dataset_catalog.html">check_dataset_catalog()</a></code> now <strong>blocks</strong> a release whose builder emitted a grain nobody has described.</li>
+<li>
+<strong><code>objects[].table_description</code></strong> and <code>distributions[].table_description</code> — the first sentence of what <code>metadata.json</code> already says the table <em>is</em>, so a parquet row names more than a table and a size. The first sentence is one that ends in a full stop followed by a capital or a backtick: cutting at every full stop turned “built from spp.duckdb via recursive CTEs” into “built from spp.”.</li>
+<li>
+<strong><code>registrations[].id</code> and <code>.title</code></strong> — the identifier a portal knows the dataset by (<code>edi.109.4</code>, <code>gov.noaa.nodc:0301029</code>, an OBIS uuid) and what it calls it. Curated in <code>metadata/distribution.csv</code> where a row exists, else read off the URL by the new <strong><code><a href="../reference/derive_registration_id.html">derive_registration_id()</a></code></strong> — deliberately the same rule as the site’s <code>_plugins/derive_id.rb</code>, pinned to the same nine URLs on both sides so the record and the page can never disagree about what OBIS calls a dataset. A URL that names no identifier derives none: a guess is worse than nothing.</li>
+<li>
+<strong><code>portals[]</code></strong> at the top of the record — every portal it can mention, with <code>name</code>, <code>kind</code>, <code>url</code> and the first sentence of <code>portal.csv</code>’s notes, so a page that says “EDI” can also say what EDI is. CalCOFI’s own ERDDAP appears under <strong>both</strong> ids it has in the record (<code>erddap</code> from <code>portal.csv</code> and the registrations, <code>erddap-calcofi</code> from <code><a href="../reference/distribution_kinds.html">distribution_portals()</a></code>), because a consumer looking either one up must find it; collapsing the two is a registry change with its own consumers and is not done here.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="coverage-measures-two-more-things-build_coverage-4-5-0">Coverage measures two more things (<code>build_coverage()</code>)<a class="anchor" aria-label="anchor" href="#coverage-measures-two-more-things-build_coverage-4-5-0"></a></h3>
+<ul><li>
+<strong><code>coverage.months</code></strong> — observations by calendar month, twelve counts. CalCOFI is a quarterly survey, so <em>which</em> quarters a dataset covers is coverage, and it is the one thing a years sparkline cannot show.</li>
+<li>
+<strong><code>coverage.bbox_robust</code></strong> — the 2.5–97.5 percentile of a dataset’s own sampling positions, with <code>n_positions</code>. <strong>Not a correction</strong>: a second, measured number beside the asserted <code>bbox</code>, so the two can be compared. <code><a href="../reference/check_dataset_catalog.html">check_dataset_catalog()</a></code> gains <strong><code>bbox_implausible</code></strong> (warn) when they differ by more than 5° on any side — which the ichthyoplankton will trip, and is meant to: its record bbox reads 0–54° N × 180–77° W from bad upstream coordinates while its sampling sits in the California Current. The bbox is the provider’s to fix; the record ships both numbers so a consumer can choose.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="also-4-5-0">Also<a class="anchor" aria-label="anchor" href="#also-4-5-0"></a></h3>
+<ul><li>
+<code><a href="../reference/check_dataset_catalog.html">check_dataset_catalog()</a></code> gains <strong><code>registration_without_id</code></strong> (warn): a registration a page <em>lists</em> as published but cannot name is a row a reader cannot act on.</li>
+<li>The schema is <code>1.1</code> and validates the new fields; <code>datasets.schema.json</code>’s <code>schema_version</code> is <code>const: "1.1"</code>, so a 1.0 record is not silently accepted.</li>
+<li>Tests: one synthetic fixture per rule — the fifteen URL shapes in the record for the identifier parser, the four grains, a coverage sidecar carrying <code>months</code> and <code>bbox_robust</code>, the three new findings red and green, and the two pinned record snapshots updated. <code>devtools::test()</code> 2,643 pass / 0 fail.</li>
+</ul><p><strong>Consumers:</strong> nothing is removed or renamed, so a reader on 1.0 is unaffected. The site deletes its five marked fallbacks when a release carrying 1.1 renders.</p>
+</div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.4.0" id="calcofi4db-440">calcofi4db 4.4.0<a class="anchor" aria-label="anchor" href="#calcofi4db-440"></a></h2>
 <div class="section level3">
