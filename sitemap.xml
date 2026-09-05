@@ -27,6 +27,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/assemble_core_table.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assert_dataset_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assert_dataset_citation.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/assert_dwc.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assert_eml.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assert_sitemap.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assert_stac.html</loc></url>
@@ -146,6 +147,18 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/drop_out_of_bounds.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/dt.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/duckdb_to_parquet.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/dwc_absence_rule.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/dwc_archive.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/dwc_check.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/dwc_datasets.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/dwc_emof.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/dwc_event.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/dwc_findings.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/dwc_manifest_status.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/dwc_meta_xml.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/dwc_occurrence.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/dwc_registries.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/dwc_term_map.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/eml_contact_address.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/eml_findings.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/enforce_column_types.html</loc></url>
@@ -273,6 +286,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/read_ingest_yaml.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_input_fingerprint.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_license_registry.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/read_life_stage_registry.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_measurement_type.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_parquet_table.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_portal_registry.html</loc></url>

@@ -518,6 +518,9 @@ check for other functions or datasets not captured by above categories
   Stop on any non-exempt error finding from
   [`check_dataset_citation()`](https://calcofi.io/calcofi4db/reference/check_dataset_citation.md)
 
+- [`assert_dwc()`](https://calcofi.io/calcofi4db/reference/assert_dwc.md)
+  : Stop when a Darwin Core check found an error
+
 - [`assert_eml()`](https://calcofi.io/calcofi4db/reference/assert_eml.md)
   :
 
@@ -784,6 +787,51 @@ check for other functions or datasets not captured by above categories
 - [`distribution_targets()`](https://calcofi.io/calcofi4db/reference/distribution_targets.md)
   : Every external endpoint worth observing: the registry plus the
   holdings' links
+
+- [`dwc_absence_rule()`](https://calcofi.io/calcofi4db/reference/dwc_absence_rule.md)
+  :
+
+  Which `occurrenceStatus` rule a dataset falls under
+
+- [`dwc_archive()`](https://calcofi.io/calcofi4db/reference/dwc_archive.md)
+  : Write a Darwin Core Archive and its manifest
+
+- [`dwc_check()`](https://calcofi.io/calcofi4db/reference/dwc_check.md)
+  : Check an archive's three tables before it is written
+
+- [`dwc_datasets()`](https://calcofi.io/calcofi4db/reference/dwc_datasets.md)
+  : The biological datasets a Darwin Core Archive can be built for
+
+- [`dwc_emof()`](https://calcofi.io/calcofi4db/reference/dwc_emof.md) :
+  Build the ExtendedMeasurementOrFact extension for one dataset
+
+- [`dwc_event()`](https://calcofi.io/calcofi4db/reference/dwc_event.md)
+  : Build the Darwin Core Event core for one dataset
+
+- [`dwc_findings()`](https://calcofi.io/calcofi4db/reference/dwc_findings.md)
+  :
+
+  The findings
+  [`dwc_check()`](https://calcofi.io/calcofi4db/reference/dwc_check.md)
+  can report, with their level
+
+- [`dwc_manifest_status()`](https://calcofi.io/calcofi4db/reference/dwc_manifest_status.md)
+  : Read a Darwin Core Archive manifest and say whether the OBIS copy is
+  current
+
+- [`dwc_meta_xml()`](https://calcofi.io/calcofi4db/reference/dwc_meta_xml.md)
+  :
+
+  Generate `meta.xml` for an Event-core archive
+
+- [`dwc_occurrence()`](https://calcofi.io/calcofi4db/reference/dwc_occurrence.md)
+  : Build the Darwin Core Occurrence extension for one dataset
+
+- [`dwc_registries()`](https://calcofi.io/calcofi4db/reference/dwc_registries.md)
+  : Read the three registries a Darwin Core Archive needs
+
+- [`dwc_term_map()`](https://calcofi.io/calcofi4db/reference/dwc_term_map.md)
+  : The Darwin Core term URI for every column the archive can carry
 
 - [`eml_contact_address()`](https://calcofi.io/calcofi4db/reference/eml_contact_address.md)
   : The CalCOFI role address used as the EML contact of last resort
@@ -1082,6 +1130,11 @@ check for other functions or datasets not captured by above categories
   :
 
   Read `metadata/license.csv`, the registry of dataset licenses
+
+- [`read_life_stage_registry()`](https://calcofi.io/calcofi4db/reference/read_life_stage_registry.md)
+  :
+
+  Read `metadata/life_stage.csv`, the life-stage registry
 
 - [`read_measurement_type()`](https://calcofi.io/calcofi4db/reference/read_measurement_type.md)
   :

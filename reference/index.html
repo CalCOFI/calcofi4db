@@ -32,7 +32,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.3.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.4.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -1360,6 +1360,13 @@
 
         <dt>
 
+          <code><a href="assert_dwc.html">assert_dwc()</a></code>
+
+        </dt>
+        <dd>Stop when a Darwin Core check found an error</dd>
+
+        <dt>
+
           <code><a href="assert_eml.html">assert_eml()</a></code>
 
         </dt>
@@ -1798,6 +1805,90 @@
 
         </dt>
         <dd>Every external endpoint worth observing: the registry plus the holdings' links</dd>
+
+        <dt>
+
+          <code><a href="dwc_absence_rule.html">dwc_absence_rule()</a></code>
+
+        </dt>
+        <dd>Which <code>occurrenceStatus</code> rule a dataset falls under</dd>
+
+        <dt>
+
+          <code><a href="dwc_archive.html">dwc_archive()</a></code>
+
+        </dt>
+        <dd>Write a Darwin Core Archive and its manifest</dd>
+
+        <dt>
+
+          <code><a href="dwc_check.html">dwc_check()</a></code>
+
+        </dt>
+        <dd>Check an archive's three tables before it is written</dd>
+
+        <dt>
+
+          <code><a href="dwc_datasets.html">dwc_datasets()</a></code>
+
+        </dt>
+        <dd>The biological datasets a Darwin Core Archive can be built for</dd>
+
+        <dt>
+
+          <code><a href="dwc_emof.html">dwc_emof()</a></code>
+
+        </dt>
+        <dd>Build the ExtendedMeasurementOrFact extension for one dataset</dd>
+
+        <dt>
+
+          <code><a href="dwc_event.html">dwc_event()</a></code>
+
+        </dt>
+        <dd>Build the Darwin Core Event core for one dataset</dd>
+
+        <dt>
+
+          <code><a href="dwc_findings.html">dwc_findings()</a></code>
+
+        </dt>
+        <dd>The findings <code><a href="../reference/dwc_check.html">dwc_check()</a></code> can report, with their level</dd>
+
+        <dt>
+
+          <code><a href="dwc_manifest_status.html">dwc_manifest_status()</a></code>
+
+        </dt>
+        <dd>Read a Darwin Core Archive manifest and say whether the OBIS copy is current</dd>
+
+        <dt>
+
+          <code><a href="dwc_meta_xml.html">dwc_meta_xml()</a></code>
+
+        </dt>
+        <dd>Generate <code>meta.xml</code> for an Event-core archive</dd>
+
+        <dt>
+
+          <code><a href="dwc_occurrence.html">dwc_occurrence()</a></code>
+
+        </dt>
+        <dd>Build the Darwin Core Occurrence extension for one dataset</dd>
+
+        <dt>
+
+          <code><a href="dwc_registries.html">dwc_registries()</a></code>
+
+        </dt>
+        <dd>Read the three registries a Darwin Core Archive needs</dd>
+
+        <dt>
+
+          <code><a href="dwc_term_map.html">dwc_term_map()</a></code>
+
+        </dt>
+        <dd>The Darwin Core term URI for every column the archive can carry</dd>
 
         <dt>
 
@@ -2302,6 +2393,13 @@
 
         </dt>
         <dd>Read <code>metadata/license.csv</code>, the registry of dataset licenses</dd>
+
+        <dt>
+
+          <code><a href="read_life_stage_registry.html">read_life_stage_registry()</a></code>
+
+        </dt>
+        <dd>Read <code>metadata/life_stage.csv</code>, the life-stage registry</dd>
 
         <dt>
 
