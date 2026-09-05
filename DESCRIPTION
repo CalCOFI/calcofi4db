@@ -1,6 +1,6 @@
 Package: calcofi4db
 Title: CalCOFI Database Tools
-Version: 4.3.0
+Version: 4.4.0
 URL: https://calcofi.io/calcofi4db
 BugReports: https://github.com/calcofi/calcofi4db/issues
 Authors@R: 
@@ -46,6 +46,8 @@ Imports:
 Suggests:
     curl,
     EML,
+    obistools,
+    zip,
     jsonvalidate,
     googleCloudStorageR,
     httr2,
@@ -60,6 +62,8 @@ Suggests:
     worrms,
     xml2,
     taxize
+Remotes:
+    iobis/obistools
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 Config/roxygen2/version: 8.1.0
