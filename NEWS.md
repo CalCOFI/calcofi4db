@@ -1,3 +1,30 @@
+# calcofi4db 4.1.1
+
+## `build_climatology()` is now content-hash deterministic
+
+- Measured 2026-09-05: the release's `climatology` table (768,880 rows, 71 `measurement_type`
+  partitions) re-exported with identical row counts but a different content hash on every run — 60
+  of 71 partitions differed between production v2026.09.04 and its staging twin, and again between
+  two staging runs the same day, while every other release table reproduced exactly. Cause: DuckDB
+  computes `avg()`/`stddev_samp()` by combining per-thread partial sums in parallel, and
+  floating-point addition is not associative, so the combine order — which varies run to run without
+  any change to the input rows — flips the last 1-2 bits of `clim_mean`/`clim_sd`. `clim_n` and
+  `n_cruises` (integer counts) were never affected.
+- **Fix:** `build_climatology()` now rounds `clim_mean`/`clim_sd` to a new `round_digits` argument
+  (default 6 decimal places) after the aggregate is computed, so the result is a pure function of the
+  (order-independent) value rather than of how it was summed. Six decimal places is ~9 orders of
+  magnitude coarser than the observed floating-point noise (relative error up to ~1.8e-16) but far
+  finer than any CalCOFI sensor's resolution (CTD temperature/salinity ship to 3-4 decimal places,
+  nutrients to 2-3), so no scientifically meaningful precision is lost. The climatology's definition
+  (1993-2013 window, ≥ 3 cruises per cell, 10 m depth bins, per dataset x station x month x
+  measurement type) and its columns are unchanged.
+- New regression test `test-climatology.R`: "build_climatology(): clim_mean/clim_sd are stable under
+  DuckDB's parallel avg()/stddev_samp(), so re-exports of unchanged data are byte-identical" — builds
+  the table twice on a 400,000-row synthetic fixture (enough rows per cell to force DuckDB's
+  parallel-aggregation combine path) and asserts identical `.partition_content_hashes()` and
+  identical `clim_mean`/`clim_sd`, and that the rounded values still agree with an independent
+  single-threaded reference aggregate.
+
 # calcofi4db 4.1.0
 
 ## Every dataset has a record: `datasets.json` (the dataset catalog, plan 2026-09-05, WS-R0)
