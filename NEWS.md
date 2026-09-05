@@ -42,7 +42,12 @@
   portal, with a `superseded` or `retired` one excluded — kept in the registry, kept out of
   the sitemap. `write_sitemap_xml()`, `check_sitemap()` / `assert_sitemap()` (https,
   uniqueness, `lastmod` shape, the pages leading, and every URL answering behind
-  `CALCOFI_SKIP_LINK_CHECK`).
+  `CALCOFI_SKIP_LINK_CHECK`). Two rules a real run taught: a **file** is not a page — the
+  ERDDAP ISO 19115 XML, a netCDF and a parquet object are excluded — and `kind` alone does
+  not say whose page a row is, since a calcofi.org record is `kind = page` too, so the
+  `calcofi.io` portal is what identifies ours. `assert_sitemap(allow_dead =)` forgives
+  exactly the named URLs: the 33 calcofi.io dataset pages 404 until the landing repo
+  generates them, and a dead **external** record still fails.
 
 # calcofi4db 4.1.0
 

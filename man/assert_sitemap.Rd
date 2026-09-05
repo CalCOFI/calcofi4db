@@ -4,12 +4,17 @@
 \alias{assert_sitemap}
 \title{Stop when \code{\link[=check_sitemap]{check_sitemap()}} found an error}
 \usage{
-assert_sitemap(d, quiet = FALSE)
+assert_sitemap(d, quiet = FALSE, allow_dead = character())
 }
 \arguments{
 \item{d}{the tibble from \code{\link[=check_sitemap]{check_sitemap()}}}
 
 \item{quiet}{suppress the summary line}
+
+\item{allow_dead}{a regex of \code{loc}s whose \code{url_dead} is known and accepted —
+one use only, and it is temporary: the calcofi.io dataset pages 404 until
+the landing repo generates them (plan Phase 1). Never widen it to hide a
+dead external record; that is the finding the sitemap exists to catch.}
 }
 \value{
 \code{d}, invisibly.

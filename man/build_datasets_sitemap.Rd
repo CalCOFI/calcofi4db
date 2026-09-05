@@ -30,7 +30,8 @@ has a page at the same URL shape, plan § D-11)}
 }
 \value{
 A \link[tibble:tibble]{tibble}: \code{loc}, \code{lastmod}, \code{changefreq}, \code{kind}
-(\code{page} for a calcofi.io dataset page, else the distribution's kind),
+(\code{page} + \code{portal = "calcofi.io"} for a dataset page, else the
+distribution's own kind and portal),
 \code{dataset_key}, \code{portal}, \code{title}. Pages first, in record order, then the
 external records; every \code{loc} unique.
 }

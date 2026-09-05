@@ -45,8 +45,27 @@ test_that("the sitemap is the pages first, then every current/external record", 
   # a parquet object and the ingest notebook are not dataset records
   expect_false(any(grepl("\\.parquet$", d$loc)))
   expect_false(any(grepl("/workflows/", d$loc)))
+  # nor is the ERDDAP ISO 19115 XML: a sitemap lists pages, not files
+  rec <- smap_record()
+  rec$datasets[[1]]$distributions <- c(rec$datasets[[1]]$distributions, list(list(
+    kind = "service", portal = "erddap-calcofi", status = "current", title = "ISO 19115",
+    url = "https://erddap.calcofi.io/erddap/metadata/iso19115/xml/swfsc_ichthyo_iso19115.xml")))
+  expect_false(any(grepl("iso19115", build_datasets_sitemap(rec)$loc)))
   expect_equal(unique(d$changefreq), "weekly")
   expect_equal(unique(d$lastmod[d$kind == "page"]), "2026-09-05")
+})
+
+test_that("a calcofi.org record page is an external record, not one of ours", {
+  rec <- smap_record()
+  rec$datasets[[1]]$distributions <- c(rec$datasets[[1]]$distributions, list(list(
+    kind = "page", portal = "calcofi.org", title = "calcofi.org tile", status = "external",
+    url = "https://calcofi.org/data/marine-ecosystem-data/fish-eggs-larvae/")))
+  d <- build_datasets_sitemap(rec)
+  expect_true("https://calcofi.org/data/marine-ecosystem-data/fish-eggs-larvae/" %in% d$loc)
+  # `kind` alone would call it a page; the portal is what says whose page it is
+  expect_equal(sum(d$kind == "page"), 3)
+  expect_equal(sum(d$kind == "page" & d$portal == "calcofi.io"), 2)
+  expect_equal(nrow(check_sitemap(d, network = FALSE)), 0)
 })
 
 test_that("a superseded or retired distribution is never listed", {
@@ -135,4 +154,12 @@ test_that("check_sitemap() catches http, duplicates, a bad lastmod and dead URLs
   n <- check_sitemap(d, network = TRUE, probe = probe)
   expect_equal(n$finding[n$level == "error"], "url_dead")
   expect_true("url_unreachable" %in% n$finding[n$level == "warn"])
+  expect_error(assert_sitemap(n, quiet = TRUE), "sitemap is invalid")
+
+  # `allow_dead` forgives exactly the named URLs and nothing else: the calcofi.io
+  # dataset pages 404 until the landing repo generates them (measured 2026-09-05)
+  pages_404 <- check_sitemap(d, network = TRUE, probe = function(u) if (grepl("^https://calcofi\\.io/", u)) 404L else 200L)
+  expect_equal(sum(pages_404$finding == "url_dead"), 2)
+  expect_silent(assert_sitemap(pages_404, quiet = TRUE, allow_dead = "^https://calcofi\\.io/datasets/"))
+  expect_error(assert_sitemap(n, quiet = TRUE, allow_dead = "^https://calcofi\\.io/datasets/"), "sitemap is invalid")
 })

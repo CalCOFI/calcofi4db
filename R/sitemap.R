@@ -28,7 +28,8 @@ SITEMAP_KINDS <- c("service", "mirror", "source", "archive", "page")
 #'   has a page at the same URL shape, plan § D-11)
 #' @param changefreq the `changefreq` written for every URL
 #' @return A [tibble][tibble::tibble]: `loc`, `lastmod`, `changefreq`, `kind`
-#'   (`page` for a calcofi.io dataset page, else the distribution's kind),
+#'   (`page` + `portal = "calcofi.io"` for a dataset page, else the
+#'   distribution's own kind and portal),
 #'   `dataset_key`, `portal`, `title`. Pages first, in record order, then the
 #'   external records; every `loc` unique.
 #' @export
@@ -56,6 +57,10 @@ build_datasets_sitemap <- function(record, observed = NULL, edited = NULL,
       url <- .s(d[["url"]])
       if (!nzchar(url) || !.s(d[["kind"]]) %in% SITEMAP_KINDS) next
       if (!.s(d[["status"]]) %in% c("current", "external")) next     # never superseded/retired
+      # a sitemap lists PAGES a crawler can read metadata off; an ISO XML record, a
+      # netCDF or a parquet object is a file, and ODIS/Google want neither
+      if (grepl("\\.(xml|nc|json|csv|parquet|zip|pmtiles|txt)$",
+                tolower(sub("[?#].*$", "", url)))) next
       lastmod <- rdate; note <- NA_character_
       i <- match(paste(key, url), obs_key)
       if (!is.na(i)) {
@@ -133,8 +138,10 @@ check_sitemap <- function(d, network = !nzchar(Sys.getenv("CALCOFI_SKIP_LINK_CHE
   }
   dup <- unique(d$loc[duplicated(d$loc)])
   for (u in dup) add(u, "duplicate_loc")
-  # the pages are a PREFIX of the file: they are the canonical records
-  is_page <- d$kind == "page"
+  # the pages are a PREFIX of the file: they are the canonical records. `kind` alone
+  # does not say so — a calcofi.org record is `kind = page` too — so the calcofi.io
+  # portal is what identifies ours
+  is_page <- d$kind == "page" & d$portal == "calcofi.io"
   if (!any(is_page)) add(NA_character_, "no_pages")
   else if (any(!is_page) && max(which(is_page)) > min(which(!is_page)))
     add(NA_character_, "pages_not_first", "a calcofi.io dataset page follows an external record")
@@ -154,12 +161,23 @@ check_sitemap <- function(d, network = !nzchar(Sys.getenv("CALCOFI_SKIP_LINK_CHE
 #'
 #' @param d the tibble from [check_sitemap()]
 #' @param quiet suppress the summary line
+#' @param allow_dead a regex of `loc`s whose `url_dead` is known and accepted —
+#'   one use only, and it is temporary: the calcofi.io dataset pages 404 until
+#'   the landing repo generates them (plan Phase 1). Never widen it to hide a
+#'   dead external record; that is the finding the sitemap exists to catch.
 #' @return `d`, invisibly.
 #' @export
 #' @concept catalog
-assert_sitemap <- function(d, quiet = FALSE) {
+assert_sitemap <- function(d, quiet = FALSE, allow_dead = character()) {
   bad <- d[d$level == "error", , drop = FALSE]
-  if (!quiet) message(sprintf("sitemap: %d error · %d warn", nrow(bad), sum(d$level == "warn")))
+  n_allow <- 0L
+  if (length(allow_dead) && nrow(bad)) {
+    ok <- bad$finding == "url_dead" & grepl(allow_dead, bad$loc)
+    n_allow <- sum(ok)
+    bad <- bad[!ok, , drop = FALSE]
+  }
+  if (!quiet) message(sprintf("sitemap: %d error · %d warn%s", nrow(bad), sum(d$level == "warn"),
+                              if (n_allow) sprintf(" · %d dead allowed by `allow_dead`", n_allow) else ""))
   if (nrow(bad))
     stop("sitemap is invalid:\n", paste(sprintf("  %s: %s", bad$loc, bad$finding), collapse = "\n"),
          call. = FALSE)
