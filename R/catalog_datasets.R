@@ -571,8 +571,11 @@ dataset_distributions <- function(key, ds, objects, erddap = NULL, netcdf = NULL
     if (!length(rel)) next
     pick <- Filter(function(e) identical(.s(e[["db_release"]]), .s(version)), rel)
     if (!length(pick)) {
+      # no netCDF for this release yet (publish_to-netcdf runs after the release): the newest
+      # published one, by version string — which.max() is numeric-only and gave integer(0) here
+      # (staging v2026.09.05, 2026-09-05)
       vv <- vapply(rel, function(e) .s(e[["version"]]), "")
-      pick <- rel[which.max(vv)]
+      pick <- rel[order(vv, decreasing = TRUE)][1]
     }
     e <- pick[[1]]
     if (!nzchar(.s(e[["canonical_url"]]))) next

@@ -324,6 +324,15 @@ test_that("holdings[] and reference[] come from the sidecars, the catalog, the l
   expect_true(all(startsWith(as.character(gb$objects), "https://storage.googleapis.com/calcofi-db/bathymetry/")))
 })
 
+test_that("a release with no netCDF of its own lists the newest published one, marked with its release", {
+  rec <- fixture_record(version = "v2026.09.05")      # newer than every manifests.json entry
+  nc <- dist_of(rec_of(rec, "swfsc_ichthyo"), "download", "netcdf")
+  expect_length(nc, 1)
+  expect_equal(nc[[1]]$release, "v2026.09.04")
+  expect_match(nc[[1]]$url, "v2026.09.04/swfsc_ichthyo.nc")
+  expect_equal(rec$release$version, "v2026.09.05")
+})
+
 test_that("build_dataset_catalog() works without the optional measured inputs", {
   rec <- build_dataset_catalog(cfx("metadata.json"), cfx("coverage.json"), cfx("catalog.json"), fixture_registries())
   r <- rec_of(rec, "swfsc_ichthyo")
