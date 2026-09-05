@@ -1,3 +1,63 @@
+# calcofi4db 4.4.0
+
+## One Darwin Core Archive per biological dataset, from the core (plan 2026-09-05, § D-8, Decisions 10/13/21, WS-E2)
+
+- **`R/dwc.R`** replaces the hand-built, ichthyo-only exporter with a generic one over the
+  core, so every biological dataset has an OBIS route instead of one:
+  **`dwc_event()`** (Event core from `sample`'s adjacency list — `eventID` = `sample_key`,
+  `parentEventID` = `parent_sample_key` with the row's `cruise` as the root event,
+  `eventDate`, coordinates, `minimum`/`maximumDepthInMeters`, `locationID` = `site_key`,
+  `samplingProtocol` from `gear.csv`, `sampleSizeValue`/`Unit` from the `volume_sampled`
+  effort denominator), **`dwc_occurrence()`** (from `obs_bio` + `taxon`: the WoRMS LSID as
+  `scientificNameID`, `lifeStage` from `life_stage.csv`, the D8 density as
+  `organismQuantity` with the raw tally beside it in `individualCount`),
+  **`dwc_emof()`** (three grains: `sample_measurement` on the event, `obs_attribute` on the
+  occurrence, `obs_env` rows on the dataset's own events), **`dwc_meta_xml()`**,
+  **`dwc_check()` / `assert_dwc()`** and **`dwc_archive()`**.
+- **A controlled-vocabulary id is filled only on an exact registry match.**
+  `measurementTypeID` / `measurementUnitID` come from `measurement_type.csv`'s
+  `nerc_p01` / `units_nerc_p06`, `samplingProtocol` from `gear.csv`, `lifeStage` from
+  `life_stage.csv`; an empty cell ships empty. The ichthyo notebook wrote
+  `measurementTypeID = NA` for every row because there was nowhere for an id to live —
+  the same archive now carries a P01 concept on 241,871 of its 613,576 eMoF rows and
+  a P06 unit on all of them.
+- **`occurrenceStatus` is emitted honestly.** `dwc_absence_rule()` measures which rule a
+  dataset falls under: `zeros_recorded` (it has zero-valued `obs_bio` rows — cufes,
+  phytoplankton, zoodb, zooscan, phyllosoma, dungeness-crab) keeps those as `absent`;
+  `positive_only` (ichthyo, euphausiids, bird-mammal, mesopelagic-fish) has no zero rows
+  at all, so an absence can only be **derived**, from `sample_root` minus the positives,
+  and only where the protocol sorts every sample for the whole vocabulary. That is a claim
+  about a protocol, not about the data, so `dwc_occurrence(absences = "sample_root")` is
+  never the default and `max_absences` refuses to turn a 963-taxon survey into 70 M
+  assertions nobody made. A derived absence sits on the **root** event: the release knows
+  the root was sampled, not which of its nets a missing taxon was looked for in.
+- **`occurrenceID` is stable across releases.** It is an md5 of the natural grain
+  (`sample_key`, `taxon_key`, `life_stage`, `measurement_type`, `depth_bin`, plus an
+  ordinal for the handful of duplicated grains) — never `obs_id`, which is assigned at
+  freeze time and would re-key every occurrence at OBIS each release.
+- **`dwc_meta_xml()` errors on a column with no Darwin Core term** (the old notebook only
+  `message()`d), so a renamed column cannot ship as a field the IPT silently ignores.
+- **`dwc_check()`** runs `obistools::check_eventids()` / `check_extension_eventids()` /
+  `check_fields()` / `check_eventdate()` plus the referential and vocabulary checks the
+  release can make itself, and `assert_dwc()` stops the build on an `error` finding so a
+  broken archive is never written. `check_fields()` is run on the **flattened** occurrence
+  — the occurrence with the date and coordinates it inherits up the event chain — because
+  run on either table alone it reports gaps the archive does not have. `check_eventdate()`
+  parses only non-empty dates: a parent event that leaves its time to its tows is a
+  hierarchy, not a malformed value.
+- **`dwc_archive()`** writes the five files, zips them flat and writes a manifest
+  (`content_hash` — deterministic over the CSV bytes — `version`, `counts`,
+  `ipt_resource`, `obis_dataset_id`, `uploaded_utc`). `uploaded_utc` survives only while
+  the bytes do, so `dwc_manifest_status()` says `built, not uploaded` /
+  `published (vX)` / `stale — data changed in vY` and a dataset page can say when an
+  upload is due. Nothing here talks to a portal: the IPT upload stays a deliberate manual
+  act (Decision 10).
+- **`dwc_datasets()`** measures Decision 21 rather than listing it — a dataset is a
+  candidate when it has `obs_bio` rows and at least one observed taxon carries a WoRMS id,
+  so `cce-lter_picoplankton-bacteria` and `sio_pic-zooplankton` fall out by construction.
+- **`read_life_stage_registry()`** joins `read_gear_registry()` and
+  `read_measurement_type()`; **`dwc_registries()`** reads all three from `metadata/`.
+
 # calcofi4db 4.3.0
 
 ## The catalog's machine surfaces: a static STAC, the weekly observation, the generated sitemap (plan 2026-09-05, WS-M1)

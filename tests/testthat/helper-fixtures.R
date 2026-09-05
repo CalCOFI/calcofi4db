@@ -197,3 +197,126 @@ btl_compat_specs <- function(sample_tbl = "sample") list(
            measurement_type AS condition_type, measurement_value AS condition_value
     FROM sample_measurement
     WHERE dataset_key = 'calcofi_bottle'")
+
+# a tiny synthetic CORE — `sample` / `obs_bio` / `obs_attribute` /
+# `sample_measurement` / `taxon` / `sample_root` / `cruise` — for the Darwin Core
+# exporter (R/dwc.R). Deliberately NOT built through the ingest arms: what these
+# tests pin is the projection FROM the core, so the core is stated directly and a
+# change to an ingest cannot quietly move the expected DwC rows.
+#
+# Shape: one cruise -> one site (root) -> one tow -> two nets.
+#   net 1: taxon A larva 10 individuals, taxon B egg 4
+#   net 2: taxon A larva 6
+# obs_attribute on (net 1, A, larva): two body_length bins (12 mm x3, 15 mm x2) and
+# one stage bin (stage 2 = "preflexion", 4 individuals).
+# sample_measurement on both nets: volume_sampled, std_haul_factor, prop_sorted.
+#
+# `zeros = TRUE` adds a zero-valued row (net 2, taxon B, egg) — a dataset that
+# RECORDS its absences. `zeros = FALSE` is positive-only: net 2 simply has no B row.
+new_core_fixture <- function(zeros = FALSE, dataset_key = "test_ds") {
+  testthat::skip_if_not_installed("duckdb")
+  con <- get_duckdb_con(":memory:")
+  k <- dataset_key
+  DBI::dbExecute(con, glue::glue("CREATE TABLE sample AS
+    SELECT '{k}:site:1'::VARCHAR sample_key, 'site'::VARCHAR sample_type,
+           NULL::VARCHAR parent_sample_key, '{k}:site:1'::VARCHAR root_sample_key,
+           '{k}'::VARCHAR dataset_key, '090.0 060.0'::VARCHAR site_key,
+           '2020-01-NODC'::VARCHAR cruise_key, 32.0::DOUBLE latitude,
+           -120.0::DOUBLE longitude, NULL::TIMESTAMP datetime,
+           NULL::DOUBLE depth_min_m, NULL::DOUBLE depth_max_m, NULL::VARCHAR tow_type
+    UNION ALL SELECT '{k}:tow:1','tow','{k}:site:1','{k}:site:1','{k}','090.0 060.0',
+           '2020-01-NODC',32.0,-120.0,TIMESTAMP '2020-01-02 10:00:00',0.0,210.0,'CB'
+    UNION ALL SELECT '{k}:net:1','net','{k}:tow:1','{k}:site:1','{k}','090.0 060.0',
+           '2020-01-NODC',32.0,-120.0,TIMESTAMP '2020-01-02 10:00:00',0.0,210.0,'CB'
+    UNION ALL SELECT '{k}:net:2','net','{k}:tow:1','{k}:site:1','{k}','090.0 060.0',
+           '2020-01-NODC',32.0,-120.0,TIMESTAMP '2020-01-02 10:00:00',0.0,210.0,'CB'"))
+  DBI::dbExecute(con, "CREATE TABLE cruise AS
+    SELECT '2020-01-NODC'::VARCHAR cruise_key, DATE '2020-01-01' date_min,
+           DATE '2020-01-09' date_max, 'RV Test'::VARCHAR ship_name")
+  DBI::dbExecute(con, glue::glue("CREATE TABLE sample_root AS
+    SELECT 1::INTEGER root_id, '{k}:site:1'::VARCHAR root_sample_key,
+           '{k}'::VARCHAR dataset_key, 'site'::VARCHAR sample_type"))
+  # `rank`, `class` and `family` are SQL keywords, so this table is written rather
+  # than SELECTed into being — the release's own column names, unaliased
+  DBI::dbWriteTable(con, "taxon", data.frame(
+    taxon_key       = c("worms:1", "worms:2"),
+    worms_id        = c(1L, 2L),
+    scientific_name = c("Engraulis mordax", "Sardinops sagax"),
+    rank            = c("Species", "Species"),
+    kingdom         = c("Animalia", "Animalia"),
+    phylum          = c("Chordata", "Chordata"),
+    class           = c("Teleostei", "Teleostei"),
+    order_taxon     = c("Clupeiformes", "Clupeiformes"),
+    family          = c("Engraulidae", "Clupeidae"),
+    common_name     = c("northern anchovy", "Pacific sardine"),
+    stringsAsFactors = FALSE))
+  # `value` is a SQL keyword too
+  obs <- data.frame(
+    obs_id             = 1:3,
+    dataset_key        = k,
+    root_id            = 1L,
+    sample_key         = paste0(k, c(":net:1", ":net:1", ":net:2")),
+    taxon_key          = c("worms:1", "worms:2", "worms:1"),
+    life_stage         = c("larva", "egg", "larva"),
+    measurement_type   = "abundance",
+    units              = "count",
+    value              = c(10, 4, 6),
+    depth_bin          = NA_integer_,
+    density_per_10m2   = c(50, 20, 30),
+    density_per_1000m3 = c(100, 40, 60),
+    stringsAsFactors   = FALSE)
+  if (isTRUE(zeros))
+    obs <- rbind(obs, data.frame(
+      obs_id = 4L, dataset_key = k, root_id = 1L, sample_key = paste0(k, ":net:2"),
+      taxon_key = "worms:2", life_stage = "egg", measurement_type = "abundance",
+      units = "count", value = 0, depth_bin = NA_integer_,
+      density_per_10m2 = 0, density_per_1000m3 = 0, stringsAsFactors = FALSE))
+  DBI::dbWriteTable(con, "obs_bio", obs)
+  DBI::dbWriteTable(con, "obs_attribute", data.frame(
+    dataset_key      = k,
+    sample_key       = paste0(k, ":net:1"),
+    taxon_key        = "worms:1",
+    life_stage       = "larva",
+    measurement_type = c("body_length", "body_length", "stage"),
+    bin_value        = c(12, 15, 2),
+    bin_label        = c(NA, NA, "preflexion"),
+    count            = c(3L, 2L, 4L),
+    measurement_qual = NA_character_,
+    stringsAsFactors = FALSE))
+  DBI::dbExecute(con, glue::glue("CREATE TABLE sample_measurement AS
+    SELECT '{k}:net:1'::VARCHAR sample_key, '{k}'::VARCHAR dataset_key,
+           'volume_sampled'::VARCHAR measurement_type, 100.0::DOUBLE measurement_value,
+           NULL::VARCHAR measurement_qual
+    UNION ALL SELECT '{k}:net:1','{k}','std_haul_factor',5.0,NULL
+    UNION ALL SELECT '{k}:net:1','{k}','prop_sorted',0.5,NULL
+    UNION ALL SELECT '{k}:net:2','{k}','volume_sampled',110.0,NULL
+    UNION ALL SELECT '{k}:net:2','{k}','std_haul_factor',5.0,NULL"))
+  con
+}
+
+# the three registries, as small frames with the real column names. `stage` has NO
+# units on purpose: that is what makes dwc_emof() treat it as a categorical bin.
+core_fixture_registries <- function() list(
+  gear = tibble::tibble(
+    tow_type = "CB", gear_name = "CalCOFI oblique bongo tow",
+    dwc_samplingProtocol = "Oblique tow with a 71-cm bongo net.",
+    nerc_l22 = "http://vocab.nerc.ac.uk/collection/L22/current/NETT0176/",
+    datasets = "test_ds", note = NA_character_),
+  life_stage = tibble::tibble(
+    life_stage        = c("larva", "egg", "furcilia F1", "invert"),
+    dwc_lifeStage     = c("larva", "egg", NA, NA),
+    nerc_s11          = c("http://vocab.nerc.ac.uk/collection/S11/current/S1128/",
+                          "http://vocab.nerc.ac.uk/collection/S11/current/S1122/", NA, NA),
+    life_stage_parent = c(NA, NA, "furcilia", NA),
+    datasets = "test_ds", note = NA_character_),
+  measurement_type = tibble::tibble(
+    measurement_type = c("abundance", "body_length", "stage", "std_haul_factor",
+                         "prop_sorted", "volume_sampled"),
+    units       = c("count", "mm", NA, "dimensionless", "dimensionless", "m3"),
+    nerc_p01    = c(NA, "http://vocab.nerc.ac.uk/collection/P01/current/OBSINDLX/",
+                    NA, NA, NA, NA),
+    units_nerc_p06 = c("http://vocab.nerc.ac.uk/collection/P06/current/UCNT/",
+                       "http://vocab.nerc.ac.uk/collection/P06/current/UXMM/", NA,
+                       "http://vocab.nerc.ac.uk/collection/P06/current/UUUU/",
+                       "http://vocab.nerc.ac.uk/collection/P06/current/UUUU/",
+                       "http://vocab.nerc.ac.uk/collection/P06/current/MCUB/")))
