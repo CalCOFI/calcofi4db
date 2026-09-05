@@ -206,7 +206,7 @@ test_that("dataset_since_versions() walks the versions oldest first and keeps th
 
 test_that("build_dataset_catalog() pins the two fixture records (snapshot)", {
   rec <- fixture_record()
-  expect_equal(rec$schema_version, "1.0")
+  expect_equal(rec$schema_version, "1.1")
   expect_equal(rec$release$version, "v2026.09.04"); expect_equal(rec$release$doi, "10.5281/zenodo.22310858")
   expect_equal(rec$counts, list(datasets = 2L, holdings = 1L, reference = 8L))
   expect_equal(vapply(rec$datasets, `[[`, "", "dataset_key"), c("calcofi_dic", "swfsc_ichthyo"))
@@ -514,4 +514,181 @@ test_that("read_calcofi_meta() merges the sidecar and check_dataset_meta_split()
   writeLines(c("---", "title: x", "calcofi:", "  provider: acme", "  dataset: widgets",
                "  dataset_meta:", "    dataset_name: Widgets", "    license: CC-BY-4.0", "---"), qmd)
   expect_error(read_calcofi_meta(qmd), "different values: license")
+})
+
+# schema 1.1: the facts a dataset page wanted that only the pipeline knows -------------------------
+# (UI plan 2026-09-05 § D-9, Decision 11). Each of these retires a site-side fallback marked
+# `# until the record carries …` in CalCOFI.github.io/_plugins/datasets.rb.
+
+test_that("derive_registration_id() reads a portal's own identifier off its URL", {
+  # the same nine the site's _plugins/derive_id.rb is pinned to, so the record and the page can
+  # never disagree about what a portal calls a dataset — plus every other shape in the record
+  expect_equal(derive_registration_id("https://portal.edirepository.org/nis/mapbrowse?packageid=edi.109.4"), "edi.109.4")
+  expect_equal(derive_registration_id("https://portal.edirepository.org/nis/mapbrowse?scope=knb-lter-cce&identifier=78&revision=3"), "knb-lter-cce.78.3")
+  expect_equal(derive_registration_id("https://portal.edirepository.org/nis/mapbrowse?scope=knb-lter-cce&identifier=313"), "knb-lter-cce.313")
+  expect_equal(derive_registration_id("https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.nodc:0301029"), "gov.noaa.nodc:0301029")
+  expect_equal(derive_registration_id("https://obis.org/dataset/0e223f55-c826-4513-ae9a-b04cbf2e189c"), "0e223f55-c826-4513-ae9a-b04cbf2e189c")
+  expect_equal(derive_registration_id("https://ipt-obis.gbif.us/resource?r=calcofi_ichthyo"), "calcofi_ichthyo")
+  expect_equal(derive_registration_id("https://doi.org/10.5281/zenodo.22281994"), "10.5281/zenodo.22281994")
+  expect_equal(derive_registration_id("https://data.caloos.org/#module-metadata/1a1a7812-48f9-4325-8ad0-e51e67e366ba"), "1a1a7812-48f9-4325-8ad0-e51e67e366ba")
+  expect_equal(derive_registration_id("https://coastwatch.pfeg.noaa.gov/erddap/tabledap/erdCalCOFIlrvcnt.html"), "erdCalCOFIlrvcnt")
+  # the rest of the record's shapes
+  expect_equal(derive_registration_id("https://erddap.calcofi.io/erddap/info/calcofi_ctd-cast/index.html"), "calcofi_ctd-cast")
+  expect_equal(derive_registration_id("https://erddap.calcofi.io/erddap/metadata/iso19115/xml/calcofi_bottle_iso19115.xml"), "calcofi_bottle")
+  expect_equal(derive_registration_id("https://oceaninformatics.ucsd.edu/datazoo/catalogs/ccelter/datasets/254"), "254")
+  expect_equal(derive_registration_id("https://www.ncbi.nlm.nih.gov/bioproject/555783"), "PRJNA555783")
+  # a deeper CalOOS route: the MODULE id is the identifier
+  expect_equal(derive_registration_id("https://data.caloos.org/#module-metadata/81f12914-825b-499c-8aad-33b34ec29c93/2301d387-2347-463"),
+               "81f12914-825b-499c-8aad-33b34ec29c93")
+  # a URL that names no identifier derives NONE — a guess is worse than nothing
+  expect_true(all(is.na(derive_registration_id(c(
+    NA, "", "https://calcofi.org/data/oceanographic-data/bottle-database/",
+    "https://oceaninformatics.ucsd.edu/zoodb/",
+    "https://portal.edirepository.org/nis/home.jsp", "https://data.caloos.org/")))))
+  expect_equal(derive_registration_id("https://portal.edirepository.org/nis/mapbrowse?packageid=knb%2Dlter%2Dcce.78.3"),
+               "knb-lter-cce.78.3")
+})
+
+test_that("erddap_grain_description() describes every grain the builder emits, and no others", {
+  grains <- c("observations", "sampling events", "length/stage frequency", "full resolution (pre-thinning)")
+  d <- erddap_grain_description(grains)
+  expect_false(any(is.na(d)))
+  expect_true(all(nchar(d) > 30))
+  # the four the generic publisher's suffixes produce (.erddap_grain), so the blocking check below
+  # can only fire on a grain nobody has described yet
+  key <- "calcofi_ctd-cast"
+  expect_setequal(vapply(c(key, paste0(key, c("_sample", "_attribute", "_full"))),
+                         function(id) calcofi4db:::.erddap_grain(id, key), ""), grains)
+  expect_true(is.na(erddap_grain_description("something new")))
+})
+
+test_that("the record carries the category description, the grain's meaning and the table's", {
+  rec <- fixture_record()
+  ich <- rec_of(rec, "swfsc_ichthyo")
+  # category.description — already in category.csv, simply not carried until 1.1
+  expect_match(ich$category$description, "Ichthyoplankton")
+  # every live ERDDAP row says what its grain means
+  erd <- Filter(function(d) identical(d$format, "erddap"), ich$distributions)
+  expect_gt(length(erd), 0)
+  expect_true(all(vapply(erd, function(d) nzchar(d$grain_description %||% ""), logical(1))))
+  # a parquet object says what the table IS, in one sentence
+  obs <- Filter(function(o) o$table == "obs", ich$objects)[[1]]
+  expect_match(obs$table_description, "^The occurrence-headline long table")
+  expect_false(grepl("\n", obs$table_description))
+  # the first-sentence rule does not cut at an abbreviation ("built from spp.duckdb via …")
+  tax <- Filter(function(o) o$table == "taxon", ich$objects)
+  if (length(tax)) expect_match(tax[[1]]$table_description, "spp\\.duckdb")
+})
+
+test_that("registrations carry the identifier and title the portal knows, curated first", {
+  rec <- fixture_record()
+  dic <- rec_of(rec, "calcofi_dic")
+  ncei <- reg_of(dic, "ncei")
+  # curated in distribution.csv → its own id and title, not a derived one
+  expect_equal(ncei$id, "gov.noaa.nodc:0301029")
+  expect_match(ncei$title, "NCEI Accession 0301029")
+  # the Zenodo deposit is derived from the DOI the release carries
+  expect_match(reg_of(dic, "zenodo")$id, "^10\\.5281/zenodo\\.")
+  # a registration with no URL has no id — never a guess
+  expect_null(reg_of(dic, "edi")$id)
+})
+
+test_that("portals[] names every portal the record can mention, with what it is", {
+  rec <- fixture_record()
+  expect_true(length(rec$portals) > 0)
+  p <- Filter(function(x) x$portal == "edi", rec$portals)[[1]]
+  expect_equal(p$name, "Environmental Data Initiative")
+  expect_match(p$description, "EML")
+  expect_false(grepl("\n", p$description))
+  # every portal a distribution or registration names must be describable from this block
+  named <- unique(c(
+    unlist(lapply(rec$datasets, function(r) c(
+      vapply(r$distributions, function(d) d$portal %||% NA_character_, ""),
+      vapply(r$registrations, function(g) g$portal %||% NA_character_, "")))),
+    unlist(lapply(rec$holdings, function(r)
+      vapply(r$distributions, function(d) d$portal %||% NA_character_, "")))))
+  named <- named[!is.na(named) & nzchar(named)]
+  # `erddap` is the registration's name for `erddap-calcofi`
+  named <- setdiff(named, "erddap")
+  expect_length(setdiff(named, vapply(rec$portals, `[[`, "", "portal")), 0)
+})
+
+test_that("check_dataset_catalog() reports a published registration with no identifier", {
+  rec <- fixture_record()
+  i <- which(vapply(rec$datasets, function(d) d$dataset_key, "") == "calcofi_dic")
+  j <- which(vapply(rec$datasets[[i]]$registrations, `[[`, "", "portal") == "ncei")
+  rec$datasets[[i]]$registrations[[j]]$id <- NULL
+  d <- check_dataset_catalog(rec, NULL, network = FALSE)
+  hit <- d[d$dataset_key == "calcofi_dic" & d$finding == "registration_without_id", ]
+  expect_equal(nrow(hit), 1L)
+  expect_equal(hit$level, "warn")
+  expect_match(hit$detail, "ncei")
+  # a `planned` registration with no id is not a finding — there is nothing to name yet
+  rec2 <- fixture_record()
+  expect_false("registration_without_id" %in%
+    check_dataset_catalog(rec2, NULL, network = FALSE)$finding)
+})
+
+test_that("check_dataset_catalog() BLOCKS an ERDDAP grain nobody has described", {
+  rec <- fixture_record()
+  i <- which(vapply(rec$datasets, function(d) d$dataset_key, "") == "swfsc_ichthyo")
+  j <- which(vapply(rec$datasets[[i]]$distributions, function(d) identical(d$format, "erddap"), TRUE))[1]
+  rec$datasets[[i]]$distributions[[j]]$grain <- "a grain nobody has described"
+  rec$datasets[[i]]$distributions[[j]]$grain_description <- NULL
+  d <- check_dataset_catalog(rec, NULL, network = FALSE)
+  hit <- d[d$finding == "grain_without_description", ]
+  expect_equal(nrow(hit), 1L)
+  expect_equal(hit$level, "error")          # blocking: the builder should never emit one
+  expect_match(hit$detail, "erddap_grain_description")
+})
+
+test_that("check_dataset_catalog() warns when the asserted bbox is far from the sampled one", {
+  rec <- fixture_record()
+  i <- which(vapply(rec$datasets, function(d) d$dataset_key, "") == "swfsc_ichthyo")
+  # the ichthyoplankton's own numbers: the record bbox reads 0–54° N × 180–77° W from bad upstream
+  # coordinates, while its sampling positions sit in the California Current
+  rec$datasets[[i]]$coverage$bbox <- list(lat_min = 0.0, lat_max = 54.4, lon_min = -179.8, lon_max = -77.2)
+  rec$datasets[[i]]$coverage$bbox_robust <- list(lat_min = 28.9, lat_max = 37.8, lon_min = -126.5, lon_max = -117.3,
+                                                 n_positions = 54197)
+  d <- check_dataset_catalog(rec, NULL, network = FALSE)
+  hit <- d[d$finding == "bbox_implausible", ]
+  expect_equal(nrow(hit), 1L)
+  expect_equal(hit$level, "warn")           # the bbox is the provider's to fix; both numbers ship
+  expect_match(hit$detail, "lat_min|lon_min")
+  # agreement within 5° is not a finding
+  rec$datasets[[i]]$coverage$bbox <- list(lat_min = 28.0, lat_max = 38.5, lon_min = -127.0, lon_max = -117.0)
+  expect_false("bbox_implausible" %in% check_dataset_catalog(rec, NULL, network = FALSE)$finding)
+  # and neither is a record with no measured bbox at all (a release before 4.5.0)
+  rec$datasets[[i]]$coverage$bbox_robust <- NULL
+  expect_false("bbox_implausible" %in% check_dataset_catalog(rec, NULL, network = FALSE)$finding)
+})
+
+test_that("coverage.months and bbox_robust reach the record, and validate", {
+  # a synthetic coverage sidecar carrying what build_coverage() measures from 4.5.0
+  cov <- jsonlite::fromJSON(cfx("coverage.json"), simplifyVector = FALSE)
+  i <- which(vapply(cov$datasets, function(d) d$dataset_key, "") == "swfsc_ichthyo")
+  cov$datasets[[i]]$months <- as.list(c(4L, 0L, 9L, 1L, 0L, 0L, 7L, 0L, 0L, 2L, 0L, 0L))
+  cov$datasets[[i]]$bbox_robust <- list(lat_min = 28.9, lat_max = 37.8, lon_min = -126.5, lon_max = -117.3,
+                                        n_positions = 54197)
+  f <- withr::local_tempfile(fileext = ".json")
+  jsonlite::write_json(cov, f, auto_unbox = TRUE, null = "null", digits = NA)
+  rec <- build_dataset_catalog(
+    cfx("metadata.json"), f, cfx("catalog.json"), fixture_registries(),
+    erddap = fixture_erddap(), netcdf = fixture_netcdf(),
+    spatial_layers = cfx("spatial_layers.json"), bathymetry = cfx("gebco_2025.json"))
+  ich <- rec_of(rec, "swfsc_ichthyo")
+  expect_length(ich$coverage$months, 12L)
+  expect_equal(as.integer(ich$coverage$months), c(4L, 0L, 9L, 1L, 0L, 0L, 7L, 0L, 0L, 2L, 0L, 0L))
+  expect_equal(ich$coverage$bbox_robust$lat_min, 28.9)
+  expect_equal(ich$coverage$bbox_robust$n_positions, 54197)
+  # a dataset the sidecar says nothing about carries neither, and the record still validates
+  expect_null(rec_of(rec, "calcofi_dic")$coverage$months)
+  expect_true(validate_dataset_catalog(rec))
+})
+
+test_that("a 1.0 record is not silently accepted as 1.1", {
+  rec <- fixture_record()
+  expect_equal(rec$schema_version, "1.1")
+  rec$schema_version <- "1.0"
+  expect_error(validate_dataset_catalog(rec), "does not validate|schema")
 })

@@ -356,6 +356,36 @@ build_coverage <- function(con, version) {
                         list(DISTINCT life_stage ORDER BY life_stage) FILTER (WHERE life_stage IS NOT NULL) AS life_stages
                  FROM _cov GROUP BY dataset_key ORDER BY dataset_key")
   datasets$life_stages <- lapply(datasets$life_stages, function(x) I(as.character(unlist(x))))
+  # `months` (4.5.0): observations by calendar month, twelve counts per dataset. CalCOFI is a
+  # quarterly survey, so WHICH quarters a dataset covers is coverage, not decoration — and it is
+  # the one thing a years sparkline cannot show (UI plan § D-9).
+  mo <- q("SELECT dataset_key, month(datetime) AS month, count(*) AS n FROM obs
+           WHERE datetime IS NOT NULL GROUP BY 1, 2 ORDER BY 1, 2")
+  datasets$months <- lapply(datasets$dataset_key, function(k) {
+    m <- integer(12); r <- mo[mo$dataset_key == k, , drop = FALSE]
+    if (nrow(r)) m[r$month] <- as.integer(r$n)
+    I(m)
+  })
+  # `bbox_robust` (4.5.0): the 2.5–97.5 percentile of a dataset's own sampling positions, beside
+  # the asserted `bbox`. The ichthyoplankton's record bbox reads 0–54° N x 180–77° W from bad
+  # upstream coordinates (a provider question, not a rendering problem), and a map framed on that
+  # draws the wrong ocean. A percentile is not a fix — it is a second, measured number the record
+  # carries so the two can be COMPARED, which is what check_dataset_catalog()'s bbox_implausible
+  # finding does.
+  bb <- q("SELECT o.dataset_key,
+                  quantile_cont(s.longitude, 0.025) AS lon_min, quantile_cont(s.longitude, 0.975) AS lon_max,
+                  quantile_cont(s.latitude,  0.025) AS lat_min, quantile_cont(s.latitude,  0.975) AS lat_max,
+                  count(*) AS n
+           FROM obs o JOIN sample s USING (sample_key)
+           WHERE s.longitude IS NOT NULL AND s.latitude IS NOT NULL
+             AND isfinite(s.longitude) AND isfinite(s.latitude)
+           GROUP BY 1 ORDER BY 1")
+  datasets$bbox_robust <- lapply(datasets$dataset_key, function(k) {
+    r <- bb[bb$dataset_key == k, , drop = FALSE]
+    if (!nrow(r)) return(NULL)
+    list(lat_min = r$lat_min[1], lat_max = r$lat_max[1],
+         lon_min = r$lon_min[1], lon_max = r$lon_max[1], n_positions = as.numeric(r$n[1]))
+  })
   station_ds <- q("SELECT grid_key, dataset_key, count(*) AS n_obs, count(DISTINCT root_id) AS n_roots,
                           min(year) AS year_min, max(year) AS year_max
                    FROM _cov WHERE grid_key IS NOT NULL GROUP BY grid_key, dataset_key ORDER BY grid_key, dataset_key")

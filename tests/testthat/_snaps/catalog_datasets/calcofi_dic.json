@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "release": {
     "version": "v2026.09.04",
     "release_date": "2026-09-04",
@@ -30,6 +30,7 @@
       "realm": "env",
       "icon": "cat-carbonate",
       "order": 3,
+      "description": "Dissolved inorganic carbon, alkalinity, pH and pCO2",
       "registered": true
     },
     "color": "#63e6be",
@@ -100,6 +101,8 @@
         "lon_min": -125.0533,
         "lon_max": -117.3054
       },
+      "bbox_robust": null,
+      "months": null,
       "n_obs": 3708,
       "n_roots": 341,
       "n_stations": 6,
@@ -150,6 +153,7 @@
         "shared": false,
         "path": "ducklake/releases/v2026.09.04/parquet/obs/dataset_key=calcofi_dic/data_0.parquet",
         "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/parquet/obs/dataset_key=calcofi_dic/data_0.parquet",
+        "table_description": "The occurrence-headline long table: one scalar measurement per row, environmental (`realm = 'env'`) and biological (`realm = 'bio'`) together.",
         "bytes": 35598,
         "sha256": "6241665d1d0e1c243940f4e8ffba8143026aae12de6c61024b1157f5071529cd",
         "since": "v2026.09.04"
@@ -165,6 +169,7 @@
         "scope": "partition",
         "shared": false,
         "title": "obs (this dataset's rows)",
+        "table_description": "The occurrence-headline long table: one scalar measurement per row, environmental (`realm = 'env'`) and biological (`realm = 'bio'`) together.",
         "bytes": 35598,
         "sha256": "6241665d1d0e1c243940f4e8ffba8143026aae12de6c61024b1157f5071529cd",
         "since": "v2026.09.04",
@@ -177,6 +182,7 @@
         "id": "calcofi_dic",
         "title": "CalCOFI DIC — observations",
         "grain": "observations",
+        "grain_description": "one row per measurement — value, units and quality flag — joined to the sampling event it was taken on",
         "info_url": "https://erddap.calcofi.io/erddap/info/calcofi_dic/index.html",
         "status": "current"
       },
@@ -187,6 +193,7 @@
         "id": "calcofi_dic_sample",
         "title": "CalCOFI DIC — sampling events",
         "grain": "sampling events",
+        "grain_description": "one row per cast, tow or transect: when, where and how it was sampled, with the effort that scales it",
         "info_url": "https://erddap.calcofi.io/erddap/info/calcofi_dic_sample/index.html",
         "status": "current"
       },
@@ -238,6 +245,7 @@
         "portal": "erddap",
         "status": "published",
         "url": "https://erddap.calcofi.io/erddap/info/calcofi_dic/index.html",
+        "id": "calcofi_dic",
         "issues": []
       },
       {
@@ -254,6 +262,8 @@
         "portal": "ncei",
         "status": "published",
         "url": "https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.nodc:0301029",
+        "id": "gov.noaa.nodc:0301029",
+        "title": "Discrete profile DIC, total alkalinity, temperature and salinity for CalCOFI (NCEI Accession 0301029)",
         "issues": []
       },
       {
@@ -265,6 +275,8 @@
         "portal": "zenodo",
         "status": "published",
         "url": "https://doi.org/10.5281/zenodo.22310858",
+        "id": "10.5281/zenodo.22310858",
+        "title": "CalCOFI Integrated Database (the release deposit)",
         "note": "as part of the integrated database release"
       }
     ],
