@@ -38,7 +38,7 @@ departure from. Written once at release time so the products cannot disagree."><
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.0.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -91,6 +91,7 @@ departure from. Written once at release time so the products cannot disagree.</p
 <span>  min_cruises <span class="op">=</span> <span class="fl">3L</span>,</span>
 <span>  depth_bin_m <span class="op">=</span> <span class="fl">10L</span>,</span>
 <span>  depth_max_m <span class="op">=</span> <span class="fl">500L</span>,</span>
+<span>  round_digits <span class="op">=</span> <span class="fl">6L</span>,</span>
 <span>  tbl <span class="op">=</span> <span class="st">"climatology"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -123,6 +124,12 @@ passed in so this package never carries a second copy of it.</p></dd>
 
 <dt id="arg-depth-max-m">depth_max_m<a class="anchor" aria-label="anchor" href="#arg-depth-max-m"></a></dt>
 <dd><p>deepest bin kept (its shallow edge); the release's sections stop at 500 m.</p></dd>
+
+
+<dt id="arg-round-digits">round_digits<a class="anchor" aria-label="anchor" href="#arg-round-digits"></a></dt>
+<dd><p>decimal places <code>clim_mean</code>/<code>clim_sd</code> are rounded to — chosen to be far below
+sensor resolution but well above the parallel-aggregation floating-point noise floor (see
+above), so the table is byte-identical across re-exports of unchanged data.</p></dd>
 
 
 <dt id="arg-tbl">tbl<a class="anchor" aria-label="anchor" href="#arg-tbl"></a></dt>
@@ -161,6 +168,19 @@ ship, so a thin cell is visible rather than silently trusted.</p></li>
 explorer's "temperature" = bottle <code>temperature</code> + CTD <code>temperature_ave</code>) pools rows weighted by
 <code>clim_n</code> — <code>sum(clim_mean * clim_n) / sum(clim_n)</code> is exactly the mean over the pooled
 observations, so the two ways of reading the table cannot disagree either.</p></li>
+<li><p><strong><code>clim_mean</code>/<code>clim_sd</code> are rounded to <code>round_digits</code> (default 6 decimal places).</strong> DuckDB's
+<code>avg()</code>/<code>stddev_samp()</code> are computed by combining per-thread partial sums in parallel, and
+floating-point addition is not associative — the combine order (and so the last 1-2 bits of the
+double) varies run to run with no change to the input rows. Measured on a 200-cell/1.6M-row
+synthetic fixture: <code>clim_n</code> and <code>n_cruises</code> (integer) were identical across repeated builds, but
+<code>clim_mean</code>/<code>clim_sd</code> differed on distinct runs with |relative diff| up to ~1.8e-16 (machine
+epsilon) — this is what turned 60 of 71 real <code>climatology</code> partitions non-reproducible. Six
+decimal places is a fixed point ~1e9 times coarser than that noise floor (safe up to values on
+the order of 1e9, far beyond any CalCOFI variable's range) while being far finer than any
+instrument's resolution (CTD temperature/salinity ship to 3-4 decimal places, bottle nutrients
+to 2-3, oxygen to 2) — so rounding this way discards only reproducibility-breaking noise, never
+scientifically meaningful precision. Applied to the finished aggregate, so it is a pure function
+of the (order-independent) value, not of how it was summed.</p></li>
 </ul><p>Rows without a station (<code>grid_key</code>), a time or a depth, non-finite values, and values the quality
 predicate rejects are left out; nothing is interpolated. A cell that is absent has no baseline —
 a consumer must leave its anomaly blank, never 0.</p>

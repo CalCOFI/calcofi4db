@@ -32,7 +32,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.0.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -74,7 +74,7 @@
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">read_calcofi_meta</span><span class="op">(</span><span class="va">qmd_path</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">read_calcofi_meta</span><span class="op">(</span><span class="va">qmd_path</span>, sidecar_dir <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -84,6 +84,14 @@
 <dl><dt id="arg-qmd-path">qmd_path<a class="anchor" aria-label="anchor" href="#arg-qmd-path"></a></dt>
 <dd><p>Path to one <code>ingest_*.qmd</code> (or any .qmd with a
 <code>calcofi:</code> YAML block).</p></dd>
+
+
+<dt id="arg-sidecar-dir">sidecar_dir<a class="anchor" aria-label="anchor" href="#arg-sidecar-dir"></a></dt>
+<dd><p>The <code>metadata/</code> root holding
+<code>{provider}/{dataset}/dataset_meta.yml</code>, the descriptive half of
+<code>dataset_meta</code> (default: <code>metadata/</code> beside the notebook). When
+the sidecar exists it is merged in by <code><a href="merge_dataset_meta.html">merge_dataset_meta()</a></code> and its path
+is recorded as <code>dataset_meta_sidecar</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">

@@ -1,5 +1,310 @@
 # Changelog
 
+## calcofi4db 4.3.0
+
+### The catalog’s machine surfaces: a static STAC, the weekly observation, the generated sitemap (plan 2026-09-05, WS-M1)
+
+- **`build_stac(record, catalog, spatial_layers, dir, …)`** writes a
+  static **STAC 1.0.0** catalog of a release from `datasets.json` alone
+  — no service is asked anything: a root `catalog.json`, one
+  `collections/{dataset_key}/collection.json` per **public** dataset
+  (extent from the observed bbox and year span, `license`,
+  `providers[]`, `keywords`, `table:tables` and `sci:doi` /
+  `sci:citation`), one Item per release at
+  `collections/{key}/items/{version}.json` whose assets are the
+  dataset’s parquet objects (`application/x-parquet`, `roles: [data]`,
+  with `table:columns` from `metadata.json`, `file:size` and a sha256
+  `file:checksum`), its CF netCDF, the ERDDAP pages and the ISO 19115
+  record; and one `collections/layer_{key}/collection.json` per spatial
+  layer with its PMTiles asset. A `superseded` or `retired` distribution
+  is never published as an asset, and an `internal` dataset gets no
+  collection.
+  [`stac_collection()`](https://calcofi.io/calcofi4db/reference/stac_collection.md)
+  and
+  [`stac_item()`](https://calcofi.io/calcofi4db/reference/stac_item.md)
+  build one document each.
+- **[`check_stac()`](https://calcofi.io/calcofi4db/reference/check_stac.md)
+  /
+  [`assert_stac()`](https://calcofi.io/calcofi4db/reference/assert_stac.md)**
+  validate what was written: `stac-validator` (pip) over every document
+  when it is on `PATH`, plus a structural half that always runs (each
+  document parses, carries `type`/`stac_version`/`id`, a Collection has
+  `license` and `extent`, an Item has `properties.datetime` and assets
+  with an `href` and a `type`, and every `child`/`item` link resolves to
+  a document that was written). Two rules were measured against the
+  validator rather than assumed: **an extension is declared only when
+  the document uses it** (the scientific schema requires one of
+  `sci:doi`/`sci:citation`, so declaring it on a dataset with neither is
+  invalid — 5 of 16 at v2026.09.05), and **a `summaries` value is an
+  array**, never a scalar.
+- **`observe_distributions(registry, portals, fetch)`** asks each portal
+  what it says now, one observer per `portal.csv` `observe_method`:
+  `edi-pasta` (the newest revision through EDI’s cite service — PASTA’s
+  `/package/eml/{scope}/{id}` answers 403 anonymously), `doi`,
+  `obis-api` (the dataset’s `updated`, by id: OBIS’s text search never
+  matches CalCOFI), `ncbi-esummary`, `zenodo-api`, `erddap-das`
+  (`date_modified` / `time_coverage_end`; a 404 means the id is gone),
+  `caloos` / `http`. **Nothing is ever deleted from the registry** —
+  `retired` is an observed status beside the curated one — and **an
+  unanswered request is `unreachable`, never `retired`**, because EDI’s
+  portal rate-limits and NOAA’s ERDDAPs 503 under load.
+  [`distribution_targets()`](https://calcofi.io/calcofi4db/reference/distribution_targets.md)
+  adds the holdings’ source links and DOIs (plan § D-11),
+  [`distribution_changes()`](https://calcofi.io/calcofi4db/reference/distribution_changes.md)
+  reports what moved since the last run, and
+  [`write_distribution_observed()`](https://calcofi.io/calcofi4db/reference/write_distribution_observed.md)
+  /
+  [`read_distribution_observed()`](https://calcofi.io/calcofi4db/reference/read_distribution_observed.md)
+  are `metadata/distribution_observed.json`.
+- **`build_datasets_sitemap(record, observed, edited)`** regenerates
+  `datasets/sitemap.xml` from the record instead of a hand-maintained
+  Google Sheet (plan § D-10): the calcofi.io dataset pages first (public
+  datasets, then public holdings; `lastmod` = the later of the release
+  date and the sidecar’s edit), then every `current` / `external` record
+  at another portal, with a `superseded` or `retired` one excluded —
+  kept in the registry, kept out of the sitemap.
+  [`write_sitemap_xml()`](https://calcofi.io/calcofi4db/reference/write_sitemap_xml.md),
+  [`check_sitemap()`](https://calcofi.io/calcofi4db/reference/check_sitemap.md)
+  /
+  [`assert_sitemap()`](https://calcofi.io/calcofi4db/reference/assert_sitemap.md)
+  (https, uniqueness, `lastmod` shape, the pages leading, and every URL
+  answering behind `CALCOFI_SKIP_LINK_CHECK`). Two rules a real run
+  taught: a **file** is not a page — the ERDDAP ISO 19115 XML, a netCDF
+  and a parquet object are excluded — and `kind` alone does not say
+  whose page a row is, since a calcofi.org record is `kind = page` too,
+  so the `calcofi.io` portal is what identifies ours.
+  `assert_sitemap(allow_dead =)` forgives exactly the named URLs: the 33
+  calcofi.io dataset pages 404 until the landing repo generates them,
+  and a dead **external** record still fails.
+
+## calcofi4db 4.2.0
+
+### One EML 2.2 document per dataset: `build_eml()` and a release gate (plan 2026-09-05 § D-8, Decision 13, WS-E1)
+
+- **`build_eml(record, sidecar, meta, coverage, release, gear)`** turns
+  one `datasets.json` record into an EML 2.2 document —
+  `eml/{dataset_key}.xml` in every release, so the DwC-A’s `eml.xml`,
+  the EDI package, ERDDAP’s globals and the dataset page’s JSON-LD all
+  derive from one document instead of being typed four times.
+  `publish_ichthyo_to-obis.qmd` built the same shape from strings
+  hand-typed inside the notebook — the one place a provider cannot edit
+  and the record cannot see. The mapping: `title`/`shortName` \<-
+  `dataset_name`/`dataset_name_short`; `abstract` \<- `description_md`;
+  `creator` \<- `creators[]`, else `pi_names` with the provider
+  organization, else the provider organization alone; `pubDate` \<- the
+  release date; `keywordSet` \<- the GCMD terms under their thesaurus
+  plus the category and the observed variables; `intellectualRights` +
+  `licensed` \<- `license`/`license_name`/`license_url`
+  (`metadata/license.csv`); `coverage` \<- the measured bbox, the
+  observed year span and `coverage.json`’s `taxa[]` (WoRMS/ITIS
+  `taxonId`); `methods` \<- the sidecar’s `methods_md` /
+  `quality_control_md` / `study_extent` / `sampling_description` with
+  `metadata/gear.csv`’s `dwc_samplingProtocol` sentences for the
+  dataset’s `tow_type`s; `project/funding` \<- `funding`, else
+  `acknowledgement`; `dataTable[]` \<- the record’s tables with an
+  `attributeList` from `metadata.json`’s `columns{}` (label, definition,
+  unit, storage type) and a `physical` block from the content-addressed
+  object (bytes, SHA-256, URL); `alternateIdentifier` \<- the DOI and
+  the dataset page; `additionalMetadata` \<- the release and dataset
+  citations.
+  [`build_eml_catalog()`](https://calcofi.io/calcofi4db/reference/build_eml_catalog.md)
+  does every dataset;
+  [`write_eml_files()`](https://calcofi.io/calcofi4db/reference/write_eml_files.md)
+  writes them.
+- **Nothing is invented.** An absent optional field is omitted; a
+  missing *required* field is a finding. Two fallbacks are derivations
+  from a registry, not values typed here, and each is reported at `warn`
+  so it stays visible: an `organizationName`-only creator from
+  `provider.csv`, and
+  [`eml_contact_address()`](https://calcofi.io/calcofi4db/reference/eml_contact_address.md)
+  — `data@calcofi.io`, the CalCOFI role address (Decision 23) — as the
+  contact of last resort. A unit becomes an EML `standardUnit` only on
+  an exact match; everything else travels as a `customUnit` carrying the
+  release’s own string.
+- **[`check_eml()`](https://calcofi.io/calcofi4db/reference/check_eml.md)
+  /
+  [`check_eml_catalog()`](https://calcofi.io/calcofi4db/reference/check_eml_catalog.md)
+  /
+  [`assert_eml()`](https://calcofi.io/calcofi4db/reference/assert_eml.md)**
+  — a release gate shaped like
+  [`check_dataset_catalog()`](https://calcofi.io/calcofi4db/reference/check_dataset_catalog.md)
+  (`dataset_key, finding, level, detail, exempt, question`). Errors:
+  `invalid_eml`
+  ([`EML::eml_validate()`](https://docs.ropensci.org/emld/reference/eml_validate.html)
+  against EML 2.2’s local XSDs, no network), `no_title`, `no_abstract`,
+  `no_creator`, `no_pub_date`, `no_license`, `no_geographic_coverage`,
+  `no_temporal_coverage`, `no_data_table`. Warnings: `short_abstract`,
+  `creator_from_provider`, `creator_no_organization`,
+  `contact_role_address`, `no_keywords`, `no_methods`,
+  `no_taxonomic_coverage`, `undocumented_attributes`, `custom_units`.
+  `no_creator` and `no_license` are exempt while an open/proposed
+  `questions.csv` row on `related_table = dataset` names the field (or
+  names none) — the citation contract’s rule.
+  [`eml_findings()`](https://calcofi.io/calcofi4db/reference/eml_findings.md)
+  is the registry of levels.
+- **[`read_gear_registry()`](https://calcofi.io/calcofi4db/reference/read_gear_registry.md)
+  /
+  [`dataset_gear()`](https://calcofi.io/calcofi4db/reference/read_gear_registry.md)**
+  read `metadata/gear.csv` and filter it to a dataset.
+- **`erddap_globals(record)`** renders `title`, `summary`,
+  `institution`, `creator_*`, `license`, `keywords`, `infoUrl` (the
+  dataset page) and `id` from the same record, so ERDDAP’s globals and
+  the EML cannot disagree.
+- **`RELEASE_REQUIRED_OBJECTS` gains `eml/`**, so a release cannot be
+  promoted without its EML.
+
+### Catalog record follow-ups from the first page build (WS-P1)
+
+- `coverage.variables[]` are objects — `name`, `units` (from
+  `metadata.json`), `uri` (the NERC P01 concept from
+  `measurement_type.csv`, when declared) and `category` — so JSON-LD’s
+  `variableMeasured` carries `unitText` and `propertyID`;
+  `coverage.taxa[]` names the top 50 taxa by the dataset’s own `n_obs`
+  (`taxon_key`, `scientific_name`, `common_name`, `rank`, `n_obs`) so
+  the catalog’s search can match a taxon (`n_taxa` still counts them
+  all).
+  [`read_catalog_registries()`](https://calcofi.io/calcofi4db/reference/read_catalog_registries.md)
+  reads `measurement_type.csv` for the units/URIs.
+- [`parse_erddap_all_datasets()`](https://calcofi.io/calcofi4db/reference/fetch_erddap_datasets.md)
+  decodes ERDDAP’s `\uXXXX` CSV escapes
+  ([`unescape_unicode()`](https://calcofi.io/calcofi4db/reference/unescape_unicode.md)):
+  37 titles across all 16 datasets reached the record as a literal
+  `\u2014`.
+- `build_dataset_catalog(release_prefix =)`: `release.url` /
+  `catalog_url` follow the prefix the run writes to (a staging record
+  pointed at a production folder that did not exist).
+
+## calcofi4db 4.1.1
+
+### `build_climatology()` is now content-hash deterministic
+
+- Measured 2026-09-05: the release’s `climatology` table (768,880 rows,
+  71 `measurement_type` partitions) re-exported with identical row
+  counts but a different content hash on every run — 60 of 71 partitions
+  differed between production v2026.09.04 and its staging twin, and
+  again between two staging runs the same day, while every other release
+  table reproduced exactly. Cause: DuckDB computes
+  `avg()`/`stddev_samp()` by combining per-thread partial sums in
+  parallel, and floating-point addition is not associative, so the
+  combine order — which varies run to run without any change to the
+  input rows — flips the last 1-2 bits of `clim_mean`/`clim_sd`.
+  `clim_n` and `n_cruises` (integer counts) were never affected.
+- **Fix:**
+  [`build_climatology()`](https://calcofi.io/calcofi4db/reference/build_climatology.md)
+  now rounds `clim_mean`/`clim_sd` to a new `round_digits` argument
+  (default 6 decimal places) after the aggregate is computed, so the
+  result is a pure function of the (order-independent) value rather than
+  of how it was summed. Six decimal places is ~9 orders of magnitude
+  coarser than the observed floating-point noise (relative error up to
+  ~1.8e-16) but far finer than any CalCOFI sensor’s resolution (CTD
+  temperature/salinity ship to 3-4 decimal places, nutrients to 2-3), so
+  no scientifically meaningful precision is lost. The climatology’s
+  definition (1993-2013 window, ≥ 3 cruises per cell, 10 m depth bins,
+  per dataset x station x month x measurement type) and its columns are
+  unchanged.
+- New regression test `test-climatology.R`: “build_climatology():
+  clim_mean/clim_sd are stable under DuckDB’s parallel
+  avg()/stddev_samp(), so re-exports of unchanged data are
+  byte-identical” — builds the table twice on a 400,000-row synthetic
+  fixture (enough rows per cell to force DuckDB’s parallel-aggregation
+  combine path) and asserts identical `.partition_content_hashes()` and
+  identical `clim_mean`/`clim_sd`, and that the rounded values still
+  agree with an independent single-threaded reference aggregate.
+
+## calcofi4db 4.1.0
+
+### Every dataset has a record: `datasets.json` (the dataset catalog, plan 2026-09-05, WS-R0)
+
+- **`build_dataset_catalog(meta, coverage, catalog, registries, …)`**
+  builds one record per `dataset_key` (schema 1.0,
+  `inst/schema/datasets.schema.json`) by joining the release’s own
+  sidecars — the `metadata.json` dataset block, `coverage.json` rolled
+  up (`years[]`, `n_stations`, `n_variables`, `n_taxa`, depth span,
+  `variables[]`, `life_stages[]`, `contributes_to[]`), the
+  content-addressed `catalog.json` objects that belong to the dataset —
+  with the registries (`category`, `provider`, `license`,
+  `dataset_status`, the new `distribution.csv` and `portal.csv`, the
+  descriptive sidecar) and what the live services answer now
+  ([`fetch_erddap_datasets()`](https://calcofi.io/calcofi4db/reference/fetch_erddap_datasets.md),
+  [`fetch_netcdf_manifests()`](https://calcofi.io/calcofi4db/reference/fetch_netcdf_manifests.md),
+  [`dataset_since_versions()`](https://calcofi.io/calcofi4db/reference/dataset_since_versions.md)).
+  `distributions[]` lists every endpoint (parquet, CF netCDF, the ERDDAP
+  ids that exist, the ISO 19115 record, the notebook, the calcofi.org
+  page, the source classified by
+  [`classify_portal()`](https://calcofi.io/calcofi4db/reference/classify_portal.md),
+  the curated mirrors/archives with `status` and `superseded_by`);
+  `registrations[]` says per portal `published | planned | n/a` — ERDDAP
+  and OBIS measured, Zenodo from the release DOI; `holdings[]` are
+  datasets without a release (a sidecar with
+  `status: planned | external | archived`); `reference[]` the
+  cruise/ship/grid/spatial tables, the boundary layers and the GEBCO
+  bathymetry. `null`, never `""`; deterministic; every URL absolute.
+- **[`check_dataset_catalog()`](https://calcofi.io/calcofi4db/reference/check_dataset_catalog.md)
+  /
+  [`assert_dataset_catalog()`](https://calcofi.io/calcofi4db/reference/assert_dataset_catalog.md)**
+  — a release gate like the citation contract: `missing_name`,
+  `unregistered_category`, `unregistered_provider`,
+  `missing_description`, `missing_bbox`, `no_download`, `no_citation`
+  (exempt while an open/proposed `questions.csv` row on the dataset
+  covers `citation_main`), `invalid_visibility`, `unregistered_license`,
+  `url_dead` (404/410/451 by a one-byte ranged GET, behind
+  `CALCOFI_SKIP_LINK_CHECK`) and `url_unreachable` (warn).
+  [`validate_dataset_catalog()`](https://calcofi.io/calcofi4db/reference/validate_dataset_catalog.md)
+  checks a written file against the JSON schema ( when installed).
+  [`write_dataset_catalog()`](https://calcofi.io/calcofi4db/reference/write_dataset_catalog.md)
+  writes `datasets.json` + `datasets/{key}.json`.
+  **`RELEASE_REQUIRED_OBJECTS` gains `datasets.json`**, so a release
+  cannot be promoted without its record.
+- **Registries**:
+  [`read_distribution_registry()`](https://calcofi.io/calcofi4db/reference/read_distribution_registry.md)
+  (`metadata/distribution.csv` — `kind`, `portal`,
+  `status ∈ current | superseded | retired | external | planned`,
+  `superseded_by`, `observed_utc`; an unknown vocabulary value errors),
+  [`read_portal_registry()`](https://calcofi.io/calcofi4db/reference/read_portal_registry.md)
+  (`metadata/portal.csv`, with `harvests_from_us` and `observe_method`),
+  [`read_dataset_status()`](https://calcofi.io/calcofi4db/reference/read_dataset_status.md)
+  (+ `publish_ncei`, `publish_caloos`;
+  [`parse_registration()`](https://calcofi.io/calcofi4db/reference/parse_registration.md)
+  reads a `#38;#39 planned` cell),
+  [`read_dataset_sidecar()`](https://calcofi.io/calcofi4db/reference/read_dataset_sidecar.md)
+  /
+  [`read_dataset_sidecars()`](https://calcofi.io/calcofi4db/reference/read_dataset_sidecars.md)
+  (`visibility` defaults to `public`; a licence outside `license.csv` is
+  refused),
+  [`read_catalog_registries()`](https://calcofi.io/calcofi4db/reference/read_catalog_registries.md)
+  (everything at once; a holding with an unregistered category or
+  provider errors),
+  [`holdings_from_sidecars()`](https://calcofi.io/calcofi4db/reference/holdings_from_sidecars.md)
+  /
+  [`write_holdings_csv()`](https://calcofi.io/calcofi4db/reference/holdings_from_sidecars.md)
+  (`metadata/holdings.csv` is generated, never typed).
+- **The notebook / sidecar split (plan § D-9)**:
+  [`read_calcofi_meta()`](https://calcofi.io/calcofi4db/reference/read_calcofi_meta.md)
+  merges `metadata/{provider}/{dataset}/dataset_meta.yml` into
+  `dataset_meta` through
+  [`merge_dataset_meta()`](https://calcofi.io/calcofi4db/reference/merge_dataset_meta.md),
+  so
+  [`read_ingest_yaml()`](https://calcofi.io/calcofi4db/reference/read_ingest_yaml.md),
+  [`ingest_yaml_to_dataset_df()`](https://calcofi.io/calcofi4db/reference/ingest_yaml_to_dataset_df.md)
+  and every release reader see one block; the descriptive keys
+  ([`dataset_meta_descriptive_keys()`](https://calcofi.io/calcofi4db/reference/dataset_meta_descriptive_keys.md))
+  live in the sidecar, the structural ones
+  ([`dataset_meta_structural_keys()`](https://calcofi.io/calcofi4db/reference/dataset_meta_descriptive_keys.md))
+  stay in the notebook; a key in both with a different value errors, and
+  [`check_dataset_meta_split()`](https://calcofi.io/calcofi4db/reference/check_dataset_meta_split.md)
+  (run by `build_workflows_index.R`) errors on any descriptive key left
+  in a notebook that has a sidecar.
+- **[`build_coverage()`](https://calcofi.io/calcofi4db/reference/build_coverage.md)**
+  `datasets[]` gains `life_stages` per dataset (the dataset’s own
+  `obs.life_stage` values) — a taxon’s pooled `life_stages` in `taxa[]`
+  cannot be split back per dataset without inventing (CUFES would
+  inherit `larva` from the sardine it shares with ichthyo).
+- Tests: `test-catalog_datasets.R` — fixtures under `fixtures/catalog/`
+  are the live `v2026.09.04` sidecars trimmed to two datasets plus one
+  holding, ERDDAP’s `allDatasets.csv` and one netCDF manifest as they
+  answered on 2026-09-05; the `swfsc_ichthyo` and `calcofi_dic` records
+  are pinned as snapshots; one red test per finding; no network.
+
 ## calcofi4db 4.0.3
 
 - **[`freeze_plan()`](https://calcofi.io/calcofi4db/reference/freeze_plan.md)**:

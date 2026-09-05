@@ -506,11 +506,37 @@ check for other functions or datasets not captured by above categories
 - [`assemble_core_table()`](https://calcofi.io/calcofi4db/reference/assemble_core_table.md)
   : Assemble one core table from its per-dataset shards
 
+- [`assert_dataset_catalog()`](https://calcofi.io/calcofi4db/reference/assert_dataset_catalog.md)
+  :
+
+  Stop on any non-exempt error finding from
+  [`check_dataset_catalog()`](https://calcofi.io/calcofi4db/reference/check_dataset_catalog.md)
+
 - [`assert_dataset_citation()`](https://calcofi.io/calcofi4db/reference/assert_dataset_citation.md)
   :
 
   Stop on any non-exempt error finding from
   [`check_dataset_citation()`](https://calcofi.io/calcofi4db/reference/check_dataset_citation.md)
+
+- [`assert_eml()`](https://calcofi.io/calcofi4db/reference/assert_eml.md)
+  :
+
+  Stop on any non-exempt error finding from
+  [`check_eml()`](https://calcofi.io/calcofi4db/reference/check_eml.md)
+
+- [`assert_sitemap()`](https://calcofi.io/calcofi4db/reference/assert_sitemap.md)
+  :
+
+  Stop when
+  [`check_sitemap()`](https://calcofi.io/calcofi4db/reference/check_sitemap.md)
+  found an error
+
+- [`assert_stac()`](https://calcofi.io/calcofi4db/reference/assert_stac.md)
+  :
+
+  Stop when
+  [`check_stac()`](https://calcofi.io/calcofi4db/reference/check_stac.md)
+  found an error
 
 - [`assign_grid_key()`](https://calcofi.io/calcofi4db/reference/assign_grid_key.md)
   : Assign Grid Key via Spatial Join
@@ -526,6 +552,22 @@ check for other functions or datasets not captured by above categories
 - [`build_coverage_stations()`](https://calcofi.io/calcofi4db/reference/build_coverage_stations.md)
   : The per-station coverage card: n obs by dataset x year and by
   dataset x month, for one station
+
+- [`build_dataset_catalog()`](https://calcofi.io/calcofi4db/reference/build_dataset_catalog.md)
+  :
+
+  Build the dataset catalog record — `datasets.json`
+
+- [`build_datasets_sitemap()`](https://calcofi.io/calcofi4db/reference/build_datasets_sitemap.md)
+  :
+
+  Build the rows of `datasets/sitemap.xml` from the record
+
+- [`build_eml()`](https://calcofi.io/calcofi4db/reference/build_eml.md)
+  : Build one dataset's EML 2.2 document from the catalog record
+
+- [`build_eml_catalog()`](https://calcofi.io/calcofi4db/reference/build_eml_catalog.md)
+  : Build an EML document for every dataset in the catalog record
 
 - [`build_grid_reference()`](https://calcofi.io/calcofi4db/reference/build_grid_reference.md)
   :
@@ -554,6 +596,9 @@ check for other functions or datasets not captured by above categories
   The explorer's boundary-layer sidecar: the registry joined with the
   release's `spatial` table
 
+- [`build_stac()`](https://calcofi.io/calcofi4db/reference/build_stac.md)
+  : Build the static STAC catalog of a release
+
 - [`build_taxon_group()`](https://calcofi.io/calcofi4db/reference/build_taxon_group.md)
   :
 
@@ -579,6 +624,13 @@ check for other functions or datasets not captured by above categories
 - [`canonical_path()`](https://calcofi.io/calcofi4db/reference/canonical_path.md)
   : Canonical (content-addressed) object path for a table or partition
 
+- [`catalog_findings()`](https://calcofi.io/calcofi4db/reference/catalog_findings.md)
+  :
+
+  The findings
+  [`check_dataset_catalog()`](https://calcofi.io/calcofi4db/reference/check_dataset_catalog.md)
+  can report, with their level
+
 - [`cc_calcofi_to_lonlat()`](https://calcofi.io/calcofi4db/reference/cc_calcofi_to_lonlat.md)
   : Convert CalCOFI line/station to longitude/latitude
 
@@ -596,15 +648,29 @@ check for other functions or datasets not captured by above categories
 
   Fail (or ratchet) the release on a `cruise_key` that does not hold up
 
+- [`check_dataset_catalog()`](https://calcofi.io/calcofi4db/reference/check_dataset_catalog.md)
+  : Check every record of the dataset catalog
+
 - [`check_dataset_citation()`](https://calcofi.io/calcofi4db/reference/check_dataset_citation.md)
   : Check every dataset's citation, license and DOI, structurally and
   against its authority
+
+- [`check_dataset_meta_split()`](https://calcofi.io/calcofi4db/reference/check_dataset_meta_split.md)
+  :
+
+  Assert that no notebook still carries a descriptive `dataset_meta` key
 
 - [`check_depth_bounds()`](https://calcofi.io/calcofi4db/reference/check_depth_bounds.md)
   : Check depth coordinates against an absolute range
 
 - [`check_depth_vs_seafloor()`](https://calcofi.io/calcofi4db/reference/check_depth_vs_seafloor.md)
   : Find samples deeper than the seafloor at their position
+
+- [`check_eml()`](https://calcofi.io/calcofi4db/reference/check_eml.md)
+  : Check one dataset's EML document
+
+- [`check_eml_catalog()`](https://calcofi.io/calcofi4db/reference/check_eml_catalog.md)
+  : Check every dataset's EML document
 
 - [`check_obs_pair_parity()`](https://calcofi.io/calcofi4db/reference/check_obs_pair_parity.md)
   :
@@ -619,6 +685,12 @@ check for other functions or datasets not captured by above categories
 
   Classify the samples whose `seafloor_depth_m` is NULL, by cause
 
+- [`check_sitemap()`](https://calcofi.io/calcofi4db/reference/check_sitemap.md)
+  : Check a generated sitemap
+
+- [`check_stac()`](https://calcofi.io/calcofi4db/reference/check_stac.md)
+  : Validate a written STAC catalog
+
 - [`citation_findings()`](https://calcofi.io/calcofi4db/reference/citation_findings.md)
   [`citation_error_findings()`](https://calcofi.io/calcofi4db/reference/citation_findings.md)
   :
@@ -626,6 +698,9 @@ check for other functions or datasets not captured by above categories
   The findings
   [`check_dataset_citation()`](https://calcofi.io/calcofi4db/reference/check_dataset_citation.md)
   can report, with their level
+
+- [`classify_portal()`](https://calcofi.io/calcofi4db/reference/classify_portal.md)
+  : Which portal family a URL belongs to
 
 - [`clean_taxon_name()`](https://calcofi.io/calcofi4db/reference/clean_taxon_name.md)
   : Normalize a source taxon name for an authority lookup
@@ -662,6 +737,19 @@ check for other functions or datasets not captured by above categories
 
   Project an uploaded file into the core `obs` / `sample` shape
 
+- [`dataset_distributions()`](https://calcofi.io/calcofi4db/reference/dataset_distributions.md)
+  : Every endpoint of one dataset, measured and curated
+
+- [`dataset_meta_descriptive_keys()`](https://calcofi.io/calcofi4db/reference/dataset_meta_descriptive_keys.md)
+  [`dataset_meta_structural_keys()`](https://calcofi.io/calcofi4db/reference/dataset_meta_descriptive_keys.md)
+  :
+
+  The `dataset_meta` keys that live in the descriptive sidecar, not the
+  notebook
+
+- [`dataset_since_versions()`](https://calcofi.io/calcofi4db/reference/dataset_since_versions.md)
+  : The first release each dataset appeared in
+
 - [`declare_measurement_bounds()`](https://calcofi.io/calcofi4db/reference/declare_measurement_bounds.md)
   :
 
@@ -681,6 +769,31 @@ check for other functions or datasets not captured by above categories
   :
 
   Discover a dataset's sampling hierarchy from the core `sample` table
+
+- [`distribution_changes()`](https://calcofi.io/calcofi4db/reference/distribution_changes.md)
+  : What changed since the last observation
+
+- [`distribution_kinds()`](https://calcofi.io/calcofi4db/reference/distribution_kinds.md)
+  [`distribution_portals()`](https://calcofi.io/calcofi4db/reference/distribution_kinds.md)
+  [`distribution_statuses()`](https://calcofi.io/calcofi4db/reference/distribution_kinds.md)
+  [`registration_statuses()`](https://calcofi.io/calcofi4db/reference/distribution_kinds.md)
+  [`holding_statuses()`](https://calcofi.io/calcofi4db/reference/distribution_kinds.md)
+  [`visibility_values()`](https://calcofi.io/calcofi4db/reference/distribution_kinds.md)
+  : The controlled vocabularies of the dataset catalog registries
+
+- [`distribution_targets()`](https://calcofi.io/calcofi4db/reference/distribution_targets.md)
+  : Every external endpoint worth observing: the registry plus the
+  holdings' links
+
+- [`eml_contact_address()`](https://calcofi.io/calcofi4db/reference/eml_contact_address.md)
+  : The CalCOFI role address used as the EML contact of last resort
+
+- [`eml_findings()`](https://calcofi.io/calcofi4db/reference/eml_findings.md)
+  :
+
+  The findings
+  [`check_eml()`](https://calcofi.io/calcofi4db/reference/check_eml.md)
+  can report, with their level
 
 - [`ensure_interim_ships()`](https://calcofi.io/calcofi4db/reference/ensure_interim_ships.md)
   : Ensure Interim Ship Entries for Unmatched Ships
@@ -706,8 +819,23 @@ check for other functions or datasets not captured by above categories
   Materialize the authority cross-reference `.taxon_norm_sources()`
   reads
 
+- [`erddap_globals()`](https://calcofi.io/calcofi4db/reference/erddap_globals.md)
+  : The ERDDAP global attributes of one dataset, from the same record
+
 - [`export_release_parquet()`](https://calcofi.io/calcofi4db/reference/export_release_parquet.md)
   : Deterministic parquet export of one released table
+
+- [`fetch_erddap_datasets()`](https://calcofi.io/calcofi4db/reference/fetch_erddap_datasets.md)
+  [`parse_erddap_all_datasets()`](https://calcofi.io/calcofi4db/reference/fetch_erddap_datasets.md)
+  :
+
+  What ERDDAP serves now: `allDatasets` as a table
+
+- [`fetch_netcdf_manifests()`](https://calcofi.io/calcofi4db/reference/fetch_netcdf_manifests.md)
+  :
+
+  The netCDF `manifests.json` of every dataset published by
+  `publish_to-netcdf.qmd`
 
 - [`fetch_ship_ices()`](https://calcofi.io/calcofi4db/reference/fetch_ship_ices.md)
   : Fetch Ship Codes from ICES Reference Codes API
@@ -727,6 +855,12 @@ check for other functions or datasets not captured by above categories
 
 - [`h3_parent_sql()`](https://calcofi.io/calcofi4db/reference/h3_parent_sql.md)
   : H3 parent of a cell as plain SQL (no extension)
+
+- [`holdings_from_sidecars()`](https://calcofi.io/calcofi4db/reference/holdings_from_sidecars.md)
+  [`write_holdings_csv()`](https://calcofi.io/calcofi4db/reference/holdings_from_sidecars.md)
+  :
+
+  The `holdings.csv` index, generated from the holding sidecars
 
 - [`license_statuses()`](https://calcofi.io/calcofi4db/reference/license_statuses.md)
   :
@@ -764,6 +898,12 @@ check for other functions or datasets not captured by above categories
   :
 
   CF variable metadata from the `measurement_type` registry
+
+- [`merge_dataset_meta()`](https://calcofi.io/calcofi4db/reference/merge_dataset_meta.md)
+  :
+
+  Merge a notebook's structural `dataset_meta` with its descriptive
+  sidecar
 
 - [`merge_taxon_shards()`](https://calcofi.io/calcofi4db/reference/merge_taxon_shards.md)
   :
@@ -808,6 +948,17 @@ check for other functions or datasets not captured by above categories
 
   SQL that widens long `obs` rows into one column per measurement type
 
+- [`observation_statuses()`](https://calcofi.io/calcofi4db/reference/observation_statuses.md)
+  : The statuses an observation can report
+
+- [`observe_distributions()`](https://calcofi.io/calcofi4db/reference/observe_distributions.md)
+  : Ask every portal what it says about our external copies
+
+- [`observe_methods()`](https://calcofi.io/calcofi4db/reference/observe_methods.md)
+  :
+
+  The observation methods `portal.csv` may declare
+
 - [`observed_coverage()`](https://calcofi.io/calcofi4db/reference/observed_coverage.md)
   : Measure Observed Temporal and Spatial Coverage per Dataset
 
@@ -818,6 +969,11 @@ check for other functions or datasets not captured by above categories
   [`parse_doi_bibliography()`](https://calcofi.io/calcofi4db/reference/parse_edi_cite.md)
   : Parse a resolver's response into the fields the citation cache
   carries
+
+- [`parse_registration()`](https://calcofi.io/calcofi4db/reference/parse_registration.md)
+  :
+
+  Parse one `publish_*` cell of `dataset_status.csv`
 
 - [`plan_dataset_netcdf()`](https://calcofi.io/calcofi4db/reference/plan_dataset_netcdf.md)
   : Plan the netCDF shape for a dataset
@@ -884,8 +1040,43 @@ check for other functions or datasets not captured by above categories
 - [`questions_datatable()`](https://calcofi.io/calcofi4db/reference/questions_datatable.md)
   : Render a question registry as the standard notebook table
 
+- [`read_catalog_registries()`](https://calcofi.io/calcofi4db/reference/read_catalog_registries.md)
+  : Read every registry the dataset catalog joins
+
 - [`read_ctd_upload()`](https://calcofi.io/calcofi4db/reference/read_ctd_upload.md)
   : Read any supported CTD upload
+
+- [`read_dataset_sidecar()`](https://calcofi.io/calcofi4db/reference/read_dataset_sidecar.md)
+  :
+
+  Read one descriptive sidecar,
+  `metadata/{provider}/{dataset}/dataset_meta.yml`
+
+- [`read_dataset_sidecars()`](https://calcofi.io/calcofi4db/reference/read_dataset_sidecars.md)
+  :
+
+  Read every descriptive sidecar under a `metadata/` root
+
+- [`read_dataset_status()`](https://calcofi.io/calcofi4db/reference/read_dataset_status.md)
+  :
+
+  Read `metadata/dataset_status.csv`, the pipeline-stage tracker
+
+- [`read_distribution_observed()`](https://calcofi.io/calcofi4db/reference/read_distribution_observed.md)
+  :
+
+  Read `metadata/distribution_observed.json`
+
+- [`read_distribution_registry()`](https://calcofi.io/calcofi4db/reference/read_distribution_registry.md)
+  :
+
+  Read `metadata/distribution.csv`, the curated endpoints per dataset
+
+- [`read_gear_registry()`](https://calcofi.io/calcofi4db/reference/read_gear_registry.md)
+  [`dataset_gear()`](https://calcofi.io/calcofi4db/reference/read_gear_registry.md)
+  :
+
+  Read `metadata/gear.csv`, the net-gear registry
 
 - [`read_license_registry()`](https://calcofi.io/calcofi4db/reference/read_license_registry.md)
   :
@@ -896,6 +1087,11 @@ check for other functions or datasets not captured by above categories
   :
 
   Read `metadata/measurement_type.csv`, refusing a corrupted registry
+
+- [`read_portal_registry()`](https://calcofi.io/calcofi4db/reference/read_portal_registry.md)
+  :
+
+  Read `metadata/portal.csv`, the portal capability registry
 
 - [`read_questions()`](https://calcofi.io/calcofi4db/reference/read_questions.md)
   :
@@ -996,8 +1192,28 @@ check for other functions or datasets not captured by above categories
 - [`sbe_split_header()`](https://calcofi.io/calcofi4db/reference/sbe_split_header.md)
   : Recover the column names from a fixed-width Sea-Bird ASCII header
 
+- [`sitemap_findings()`](https://calcofi.io/calcofi4db/reference/sitemap_findings.md)
+  :
+
+  The findings
+  [`check_sitemap()`](https://calcofi.io/calcofi4db/reference/check_sitemap.md)
+  can report
+
 - [`source_accessed_from_git()`](https://calcofi.io/calcofi4db/reference/source_accessed_from_git.md)
   : When was a dataset's source last read? Measured from git
+
+- [`stac_collection()`](https://calcofi.io/calcofi4db/reference/stac_collection.md)
+  : A STAC Collection for one dataset record
+
+- [`stac_findings()`](https://calcofi.io/calcofi4db/reference/stac_findings.md)
+  :
+
+  The findings
+  [`check_stac()`](https://calcofi.io/calcofi4db/reference/check_stac.md)
+  can report
+
+- [`stac_item()`](https://calcofi.io/calcofi4db/reference/stac_item.md)
+  : A STAC Item for one dataset at one release
 
 - [`stamp_source_access()`](https://calcofi.io/calcofi4db/reference/stamp_source_access.md)
   [`sources_block()`](https://calcofi.io/calcofi4db/reference/stamp_source_access.md)
@@ -1028,12 +1244,41 @@ check for other functions or datasets not captured by above categories
 - [`thin_plan()`](https://calcofi.io/calcofi4db/reference/thin_plan.md)
   : Archive-thinning plan: which versions lose their parquet
 
+- [`unescape_unicode()`](https://calcofi.io/calcofi4db/reference/unescape_unicode.md)
+  :
+
+  Decode `\\uXXXX` escapes in a character vector (what ERDDAP's CSV
+  emits for non-ASCII)
+
 - [`upload_release_objects()`](https://calcofi.io/calcofi4db/reference/upload_release_objects.md)
   : Execute a freeze plan against GCS
 
 - [`upsert_measurement_types()`](https://calcofi.io/calcofi4db/reference/upsert_measurement_types.md)
   : Replace a measurement type's definition while keeping its curated
   columns
+
+- [`validate_dataset_catalog()`](https://calcofi.io/calcofi4db/reference/validate_dataset_catalog.md)
+  :
+
+  Validate a `datasets.json` against the package's JSON schema
+
+- [`write_dataset_catalog()`](https://calcofi.io/calcofi4db/reference/write_dataset_catalog.md)
+  :
+
+  Write `datasets.json` and one `datasets/{key}.json` per dataset
+
+- [`write_distribution_observed()`](https://calcofi.io/calcofi4db/reference/write_distribution_observed.md)
+  :
+
+  Write `metadata/distribution_observed.json`
+
+- [`write_eml_files()`](https://calcofi.io/calcofi4db/reference/write_eml_files.md)
+  :
+
+  Write `eml/{dataset_key}.xml` for every built document
+
+- [`write_sitemap_xml()`](https://calcofi.io/calcofi4db/reference/write_sitemap_xml.md)
+  : Write a sitemap XML file (sitemaps.org 0.9)
 
 - [`write_taxon_common()`](https://calcofi.io/calcofi4db/reference/write_taxon_common.md)
   : Write the vernacular-name registry

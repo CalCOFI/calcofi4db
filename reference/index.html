@@ -32,7 +32,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.0.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -1346,10 +1346,38 @@
 
         <dt>
 
+          <code><a href="assert_dataset_catalog.html">assert_dataset_catalog()</a></code>
+
+        </dt>
+        <dd>Stop on any non-exempt error finding from <code><a href="../reference/check_dataset_catalog.html">check_dataset_catalog()</a></code></dd>
+
+        <dt>
+
           <code><a href="assert_dataset_citation.html">assert_dataset_citation()</a></code>
 
         </dt>
         <dd>Stop on any non-exempt error finding from <code><a href="../reference/check_dataset_citation.html">check_dataset_citation()</a></code></dd>
+
+        <dt>
+
+          <code><a href="assert_eml.html">assert_eml()</a></code>
+
+        </dt>
+        <dd>Stop on any non-exempt error finding from <code><a href="../reference/check_eml.html">check_eml()</a></code></dd>
+
+        <dt>
+
+          <code><a href="assert_sitemap.html">assert_sitemap()</a></code>
+
+        </dt>
+        <dd>Stop when <code><a href="../reference/check_sitemap.html">check_sitemap()</a></code> found an error</dd>
+
+        <dt>
+
+          <code><a href="assert_stac.html">assert_stac()</a></code>
+
+        </dt>
+        <dd>Stop when <code><a href="../reference/check_stac.html">check_stac()</a></code> found an error</dd>
 
         <dt>
 
@@ -1378,6 +1406,34 @@
 
         </dt>
         <dd>The per-station coverage card: n obs by dataset x year and by dataset x month, for one station</dd>
+
+        <dt>
+
+          <code><a href="build_dataset_catalog.html">build_dataset_catalog()</a></code>
+
+        </dt>
+        <dd>Build the dataset catalog record — <code>datasets.json</code></dd>
+
+        <dt>
+
+          <code><a href="build_datasets_sitemap.html">build_datasets_sitemap()</a></code>
+
+        </dt>
+        <dd>Build the rows of <code>datasets/sitemap.xml</code> from the record</dd>
+
+        <dt>
+
+          <code><a href="build_eml.html">build_eml()</a></code>
+
+        </dt>
+        <dd>Build one dataset's EML 2.2 document from the catalog record</dd>
+
+        <dt>
+
+          <code><a href="build_eml_catalog.html">build_eml_catalog()</a></code>
+
+        </dt>
+        <dd>Build an EML document for every dataset in the catalog record</dd>
 
         <dt>
 
@@ -1423,6 +1479,13 @@
 
         <dt>
 
+          <code><a href="build_stac.html">build_stac()</a></code>
+
+        </dt>
+        <dd>Build the static STAC catalog of a release</dd>
+
+        <dt>
+
           <code><a href="build_taxon_group.html">build_taxon_group()</a></code>
 
         </dt>
@@ -1465,6 +1528,13 @@
 
         <dt>
 
+          <code><a href="catalog_findings.html">catalog_findings()</a></code>
+
+        </dt>
+        <dd>The findings <code><a href="../reference/check_dataset_catalog.html">check_dataset_catalog()</a></code> can report, with their level</dd>
+
+        <dt>
+
           <code><a href="cc_calcofi_to_lonlat.html">cc_calcofi_to_lonlat()</a></code>
 
         </dt>
@@ -1500,10 +1570,24 @@
 
         <dt>
 
+          <code><a href="check_dataset_catalog.html">check_dataset_catalog()</a></code>
+
+        </dt>
+        <dd>Check every record of the dataset catalog</dd>
+
+        <dt>
+
           <code><a href="check_dataset_citation.html">check_dataset_citation()</a></code>
 
         </dt>
         <dd>Check every dataset's citation, license and DOI, structurally and against its authority</dd>
+
+        <dt>
+
+          <code><a href="check_dataset_meta_split.html">check_dataset_meta_split()</a></code>
+
+        </dt>
+        <dd>Assert that no notebook still carries a descriptive <code>dataset_meta</code> key</dd>
 
         <dt>
 
@@ -1518,6 +1602,20 @@
 
         </dt>
         <dd>Find samples deeper than the seafloor at their position</dd>
+
+        <dt>
+
+          <code><a href="check_eml.html">check_eml()</a></code>
+
+        </dt>
+        <dd>Check one dataset's EML document</dd>
+
+        <dt>
+
+          <code><a href="check_eml_catalog.html">check_eml_catalog()</a></code>
+
+        </dt>
+        <dd>Check every dataset's EML document</dd>
 
         <dt>
 
@@ -1542,10 +1640,31 @@
 
         <dt>
 
+          <code><a href="check_sitemap.html">check_sitemap()</a></code>
+
+        </dt>
+        <dd>Check a generated sitemap</dd>
+
+        <dt>
+
+          <code><a href="check_stac.html">check_stac()</a></code>
+
+        </dt>
+        <dd>Validate a written STAC catalog</dd>
+
+        <dt>
+
           <code><a href="citation_findings.html">citation_findings()</a></code> <code><a href="citation_findings.html">citation_error_findings()</a></code>
 
         </dt>
         <dd>The findings <code><a href="../reference/check_dataset_citation.html">check_dataset_citation()</a></code> can report, with their level</dd>
+
+        <dt>
+
+          <code><a href="classify_portal.html">classify_portal()</a></code>
+
+        </dt>
+        <dd>Which portal family a URL belongs to</dd>
 
         <dt>
 
@@ -1612,6 +1731,27 @@
 
         <dt>
 
+          <code><a href="dataset_distributions.html">dataset_distributions()</a></code>
+
+        </dt>
+        <dd>Every endpoint of one dataset, measured and curated</dd>
+
+        <dt>
+
+          <code><a href="dataset_meta_descriptive_keys.html">dataset_meta_descriptive_keys()</a></code> <code><a href="dataset_meta_descriptive_keys.html">dataset_meta_structural_keys()</a></code>
+
+        </dt>
+        <dd>The <code>dataset_meta</code> keys that live in the descriptive sidecar, not the notebook</dd>
+
+        <dt>
+
+          <code><a href="dataset_since_versions.html">dataset_since_versions()</a></code>
+
+        </dt>
+        <dd>The first release each dataset appeared in</dd>
+
+        <dt>
+
           <code><a href="declare_measurement_bounds.html">declare_measurement_bounds()</a></code>
 
         </dt>
@@ -1637,6 +1777,41 @@
 
         </dt>
         <dd>Discover a dataset's sampling hierarchy from the core <code>sample</code> table</dd>
+
+        <dt>
+
+          <code><a href="distribution_changes.html">distribution_changes()</a></code>
+
+        </dt>
+        <dd>What changed since the last observation</dd>
+
+        <dt>
+
+          <code><a href="distribution_kinds.html">distribution_kinds()</a></code> <code><a href="distribution_kinds.html">distribution_portals()</a></code> <code><a href="distribution_kinds.html">distribution_statuses()</a></code> <code><a href="distribution_kinds.html">registration_statuses()</a></code> <code><a href="distribution_kinds.html">holding_statuses()</a></code> <code><a href="distribution_kinds.html">visibility_values()</a></code>
+
+        </dt>
+        <dd>The controlled vocabularies of the dataset catalog registries</dd>
+
+        <dt>
+
+          <code><a href="distribution_targets.html">distribution_targets()</a></code>
+
+        </dt>
+        <dd>Every external endpoint worth observing: the registry plus the holdings' links</dd>
+
+        <dt>
+
+          <code><a href="eml_contact_address.html">eml_contact_address()</a></code>
+
+        </dt>
+        <dd>The CalCOFI role address used as the EML contact of last resort</dd>
+
+        <dt>
+
+          <code><a href="eml_findings.html">eml_findings()</a></code>
+
+        </dt>
+        <dd>The findings <code><a href="../reference/check_eml.html">check_eml()</a></code> can report, with their level</dd>
 
         <dt>
 
@@ -1675,10 +1850,31 @@
 
         <dt>
 
+          <code><a href="erddap_globals.html">erddap_globals()</a></code>
+
+        </dt>
+        <dd>The ERDDAP global attributes of one dataset, from the same record</dd>
+
+        <dt>
+
           <code><a href="export_release_parquet.html">export_release_parquet()</a></code>
 
         </dt>
         <dd>Deterministic parquet export of one released table</dd>
+
+        <dt>
+
+          <code><a href="fetch_erddap_datasets.html">fetch_erddap_datasets()</a></code> <code><a href="fetch_erddap_datasets.html">parse_erddap_all_datasets()</a></code>
+
+        </dt>
+        <dd>What ERDDAP serves now: <code>allDatasets</code> as a table</dd>
+
+        <dt>
+
+          <code><a href="fetch_netcdf_manifests.html">fetch_netcdf_manifests()</a></code>
+
+        </dt>
+        <dd>The netCDF <code>manifests.json</code> of every dataset published by <code>publish_to-netcdf.qmd</code></dd>
 
         <dt>
 
@@ -1721,6 +1917,13 @@
 
         </dt>
         <dd>H3 parent of a cell as plain SQL (no extension)</dd>
+
+        <dt>
+
+          <code><a href="holdings_from_sidecars.html">holdings_from_sidecars()</a></code> <code><a href="holdings_from_sidecars.html">write_holdings_csv()</a></code>
+
+        </dt>
+        <dd>The <code>holdings.csv</code> index, generated from the holding sidecars</dd>
 
         <dt>
 
@@ -1784,6 +1987,13 @@
 
         </dt>
         <dd>CF variable metadata from the <code>measurement_type</code> registry</dd>
+
+        <dt>
+
+          <code><a href="merge_dataset_meta.html">merge_dataset_meta()</a></code>
+
+        </dt>
+        <dd>Merge a notebook's structural <code>dataset_meta</code> with its descriptive sidecar</dd>
 
         <dt>
 
@@ -1864,6 +2074,27 @@
 
         <dt>
 
+          <code><a href="observation_statuses.html">observation_statuses()</a></code>
+
+        </dt>
+        <dd>The statuses an observation can report</dd>
+
+        <dt>
+
+          <code><a href="observe_distributions.html">observe_distributions()</a></code>
+
+        </dt>
+        <dd>Ask every portal what it says about our external copies</dd>
+
+        <dt>
+
+          <code><a href="observe_methods.html">observe_methods()</a></code>
+
+        </dt>
+        <dd>The observation methods <code>portal.csv</code> may declare</dd>
+
+        <dt>
+
           <code><a href="observed_coverage.html">observed_coverage()</a></code>
 
         </dt>
@@ -1875,6 +2106,13 @@
 
         </dt>
         <dd>Parse a resolver's response into the fields the citation cache carries</dd>
+
+        <dt>
+
+          <code><a href="parse_registration.html">parse_registration()</a></code>
+
+        </dt>
+        <dd>Parse one <code>publish_*</code> cell of <code>dataset_status.csv</code></dd>
 
         <dt>
 
@@ -2004,10 +2242,59 @@
 
         <dt>
 
+          <code><a href="read_catalog_registries.html">read_catalog_registries()</a></code>
+
+        </dt>
+        <dd>Read every registry the dataset catalog joins</dd>
+
+        <dt>
+
           <code><a href="read_ctd_upload.html">read_ctd_upload()</a></code>
 
         </dt>
         <dd>Read any supported CTD upload</dd>
+
+        <dt>
+
+          <code><a href="read_dataset_sidecar.html">read_dataset_sidecar()</a></code>
+
+        </dt>
+        <dd>Read one descriptive sidecar, <code>metadata/{provider}/{dataset}/dataset_meta.yml</code></dd>
+
+        <dt>
+
+          <code><a href="read_dataset_sidecars.html">read_dataset_sidecars()</a></code>
+
+        </dt>
+        <dd>Read every descriptive sidecar under a <code>metadata/</code> root</dd>
+
+        <dt>
+
+          <code><a href="read_dataset_status.html">read_dataset_status()</a></code>
+
+        </dt>
+        <dd>Read <code>metadata/dataset_status.csv</code>, the pipeline-stage tracker</dd>
+
+        <dt>
+
+          <code><a href="read_distribution_observed.html">read_distribution_observed()</a></code>
+
+        </dt>
+        <dd>Read <code>metadata/distribution_observed.json</code></dd>
+
+        <dt>
+
+          <code><a href="read_distribution_registry.html">read_distribution_registry()</a></code>
+
+        </dt>
+        <dd>Read <code>metadata/distribution.csv</code>, the curated endpoints per dataset</dd>
+
+        <dt>
+
+          <code><a href="read_gear_registry.html">read_gear_registry()</a></code> <code><a href="read_gear_registry.html">dataset_gear()</a></code>
+
+        </dt>
+        <dd>Read <code>metadata/gear.csv</code>, the net-gear registry</dd>
 
         <dt>
 
@@ -2022,6 +2309,13 @@
 
         </dt>
         <dd>Read <code>metadata/measurement_type.csv</code>, refusing a corrupted registry</dd>
+
+        <dt>
+
+          <code><a href="read_portal_registry.html">read_portal_registry()</a></code>
+
+        </dt>
+        <dd>Read <code>metadata/portal.csv</code>, the portal capability registry</dd>
 
         <dt>
 
@@ -2193,10 +2487,38 @@
 
         <dt>
 
+          <code><a href="sitemap_findings.html">sitemap_findings()</a></code>
+
+        </dt>
+        <dd>The findings <code><a href="../reference/check_sitemap.html">check_sitemap()</a></code> can report</dd>
+
+        <dt>
+
           <code><a href="source_accessed_from_git.html">source_accessed_from_git()</a></code>
 
         </dt>
         <dd>When was a dataset's source last read? Measured from git</dd>
+
+        <dt>
+
+          <code><a href="stac_collection.html">stac_collection()</a></code>
+
+        </dt>
+        <dd>A STAC Collection for one dataset record</dd>
+
+        <dt>
+
+          <code><a href="stac_findings.html">stac_findings()</a></code>
+
+        </dt>
+        <dd>The findings <code><a href="../reference/check_stac.html">check_stac()</a></code> can report</dd>
+
+        <dt>
+
+          <code><a href="stac_item.html">stac_item()</a></code>
+
+        </dt>
+        <dd>A STAC Item for one dataset at one release</dd>
 
         <dt>
 
@@ -2256,6 +2578,13 @@
 
         <dt>
 
+          <code><a href="unescape_unicode.html">unescape_unicode()</a></code>
+
+        </dt>
+        <dd>Decode <code>\\uXXXX</code> escapes in a character vector (what ERDDAP's CSV emits for non-ASCII)</dd>
+
+        <dt>
+
           <code><a href="upload_release_objects.html">upload_release_objects()</a></code>
 
         </dt>
@@ -2267,6 +2596,41 @@
 
         </dt>
         <dd>Replace a measurement type's definition while keeping its curated columns</dd>
+
+        <dt>
+
+          <code><a href="validate_dataset_catalog.html">validate_dataset_catalog()</a></code>
+
+        </dt>
+        <dd>Validate a <code>datasets.json</code> against the package's JSON schema</dd>
+
+        <dt>
+
+          <code><a href="write_dataset_catalog.html">write_dataset_catalog()</a></code>
+
+        </dt>
+        <dd>Write <code>datasets.json</code> and one <code>datasets/{key}.json</code> per dataset</dd>
+
+        <dt>
+
+          <code><a href="write_distribution_observed.html">write_distribution_observed()</a></code>
+
+        </dt>
+        <dd>Write <code>metadata/distribution_observed.json</code></dd>
+
+        <dt>
+
+          <code><a href="write_eml_files.html">write_eml_files()</a></code>
+
+        </dt>
+        <dd>Write <code>eml/{dataset_key}.xml</code> for every built document</dd>
+
+        <dt>
+
+          <code><a href="write_sitemap_xml.html">write_sitemap_xml()</a></code>
+
+        </dt>
+        <dd>Write a sitemap XML file (sitemaps.org 0.9)</dd>
 
         <dt>
 
