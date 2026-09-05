@@ -140,7 +140,7 @@ test_that("read_dataset_sidecar() defaults visibility, validates it, the status 
 test_that("read_catalog_registries() reads everything once and refuses an unregistered holding", {
   reg <- fixture_registries()
   expect_setequal(names(reg), c("category", "provider", "license", "dataset_status", "distribution", "portal",
-                                "sidecars", "questions", "questions_open", "metadata_dir"))
+                                "measurement_type", "sidecars", "questions", "questions_open", "metadata_dir"))
   expect_setequal(names(reg$sidecars), c("swfsc_ichthyo", "calcofi_dic", "cce-lter_hplc-pigments"))
   expect_equal(reg$sidecars$`cce-lter_hplc-pigments`$status, "planned")
   q <- reg$questions("swfsc_ichthyo")
@@ -163,8 +163,15 @@ test_that("read_catalog_registries() reads everything once and refuses an unregi
 
 # measured inputs -----------------------------------------------------------------------------
 
+test_that("unescape_unicode() decodes ERDDAP's \\uXXXX", {
+  expect_equal(unescape_unicode("A \\u2014 B \\u00e9"), "A \u2014 B \u00e9")
+  expect_equal(unescape_unicode(c("plain", NA)), c("plain", NA))
+})
+
 test_that("parse_erddap_all_datasets() / fetch_erddap_datasets() drop the header rows", {
   e <- fixture_erddap()
+  expect_false(any(grepl("\\\\u2014", e$title)))   # 37 titles arrived escaped from ERDDAP's CSV
+  expect_equal(e$title[e$datasetID == "swfsc_ichthyo"], "SWFSC Ichthyoplankton \u2014 observations")
   expect_false("allDatasets" %in% e$datasetID); expect_false(any(!nzchar(e$datasetID)))
   expect_equal(nrow(e), 44)     # 37 current + 7 legacy ids, measured 2026-09-05
   f <- fake_fetch(list("allDatasets.csv" = cfx_text("allDatasets.csv")))
@@ -234,8 +241,11 @@ test_that("the swfsc_ichthyo record joins the sidecars, the registries and the m
   expect_equal(r$coverage$realm, "bio"); expect_equal(r$coverage$year_min, 1951L); expect_equal(r$coverage$year_max, 2023L)
   expect_equal(r$coverage$n_obs, 482250); expect_equal(r$coverage$n_roots, 54197)
   expect_equal(r$coverage$n_stations, 40L)                # the fixture keeps 40 stations, every one sampled by ichthyo
-  expect_equal(r$coverage$n_variables, 1L); expect_equal(as.character(r$coverage$variables), "abundance")
+  expect_equal(r$coverage$n_variables, 1L)
+  expect_equal(r$coverage$variables[[1]][c("name", "units")], list(name = "abundance", units = "count"))
   expect_equal(r$coverage$n_taxa, 6L)
+  expect_length(r$coverage$taxa, 6); expect_false(is.unsorted(rev(vapply(r$coverage$taxa, `[[`, 1, "n_obs"))))
+  expect_match(r$coverage$taxa[[1]]$taxon_key, "^(worms|itis|calcofi_)")
   expect_equal(r$coverage$years$year[1], 2015L); expect_true(all(diff(r$coverage$years$year) == 1))
   expect_equal(r$coverage$bbox$lat_max, 54.385)
   expect_equal(r$coverage$contributes_to, list())         # a bio dataset never contributes through `abundance`
@@ -287,6 +297,9 @@ test_that("the calcofi_dic record: a legacy id, an NCEI archive, env contributio
   expect_equal(r$coverage$realm, "env")
   expect_equal(r$coverage$contributes_to, list(list(category = "Physical Oceanography", variables = I(c("ctdtemp_its90", "salinity_pss78")))))
   expect_equal(r$coverage$n_variables, 4L); expect_equal(r$coverage$depth_max_m, 3500)
+  v <- r$coverage$variables; expect_equal(vapply(v, `[[`, "", "name"), c("alkalinity", "ctdtemp_its90", "dic", "salinity_pss78"))
+  expect_equal(v[[3]]$units, "umol/kg"); expect_equal(v[[2]]$category, "Physical Oceanography")
+  expect_true(is.null(v[[3]]$uri) || grepl("^https?://vocab.nerc.ac.uk/", v[[3]]$uri))
   leg <- dist_of(r, "service", portal = "erddap-calcofi")
   expect_length(leg, 1); expect_equal(leg[[1]]$id, "calcofi_dic_old"); expect_true(leg[[1]]$legacy); expect_true(leg[[1]]$live)
   expect_equal(leg[[1]]$status, "superseded"); expect_equal(leg[[1]]$superseded_by, "calcofi_dic")
@@ -331,6 +344,13 @@ test_that("a release with no netCDF of its own lists the newest published one, m
   expect_equal(nc[[1]]$release, "v2026.09.04")
   expect_match(nc[[1]]$url, "v2026.09.04/swfsc_ichthyo.nc")
   expect_equal(rec$release$version, "v2026.09.05")
+})
+
+test_that("release.url follows the prefix the run writes to", {
+  rec <- fixture_record(release_prefix = "ducklake-staging/releases")
+  expect_equal(rec$release$url, "https://storage.googleapis.com/calcofi-db/ducklake-staging/releases/v2026.09.04/")
+  expect_match(rec$release$catalog_url, "^https://storage.googleapis.com/calcofi-db/ducklake-staging/releases/")
+  expect_equal(fixture_record()$release$url, "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/")
 })
 
 test_that("build_dataset_catalog() works without the optional measured inputs", {

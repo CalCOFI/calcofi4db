@@ -41,6 +41,19 @@
   the EML cannot disagree.
 - **`RELEASE_REQUIRED_OBJECTS` gains `eml/`**, so a release cannot be promoted without its EML.
 
+## Catalog record follow-ups from the first page build (WS-P1)
+
+- `coverage.variables[]` are objects — `name`, `units` (from `metadata.json`), `uri` (the NERC P01
+  concept from `measurement_type.csv`, when declared) and `category` — so JSON-LD's `variableMeasured`
+  carries `unitText` and `propertyID`; `coverage.taxa[]` names the top 50 taxa by the dataset's own
+  `n_obs` (`taxon_key`, `scientific_name`, `common_name`, `rank`, `n_obs`) so the catalog's search can
+  match a taxon (`n_taxa` still counts them all). `read_catalog_registries()` reads
+  `measurement_type.csv` for the units/URIs.
+- `parse_erddap_all_datasets()` decodes ERDDAP's `\uXXXX` CSV escapes (`unescape_unicode()`): 37
+  titles across all 16 datasets reached the record as a literal `\u2014`.
+- `build_dataset_catalog(release_prefix =)`: `release.url` / `catalog_url` follow the prefix the run
+  writes to (a staging record pointed at a production folder that did not exist).
+
 # calcofi4db 4.1.1
 
 ## `build_climatology()` is now content-hash deterministic

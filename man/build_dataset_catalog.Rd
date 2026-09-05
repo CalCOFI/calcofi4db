@@ -16,7 +16,8 @@ build_dataset_catalog(
   source_accessed = NULL,
   spatial_layers = NULL,
   bathymetry = NULL,
-  workflows_base = "https://calcofi.io/workflows/"
+  workflows_base = "https://calcofi.io/workflows/",
+  release_prefix = "ducklake/releases"
 )
 }
 \arguments{
@@ -45,6 +46,9 @@ build_dataset_catalog(
 \item{bathymetry}{the \code{bathymetry/gebco_2025.json} manifest (for \code{reference[]})}
 
 \item{workflows_base}{the URL prefix of the rendered notebooks}
+
+\item{release_prefix}{the bucket-relative releases prefix the run writes to
+(\code{ducklake/releases}, or the staging prefix) — \code{release.url} follows it}
 }
 \value{
 A list ready for \code{\link[=write_dataset_catalog]{write_dataset_catalog()}} / \code{jsonlite::write_json(auto_unbox = TRUE)}.

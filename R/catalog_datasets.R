@@ -379,6 +379,8 @@ read_catalog_registries <- function(metadata_dir) {
   dist <- if (file.exists(f("distribution.csv"))) read_distribution_registry(f("distribution.csv")) else
     tibble::as_tibble(stats::setNames(replicate(length(DISTRIBUTION_COLS), character(), simplify = FALSE), DISTRIBUTION_COLS))
   portal <- if (file.exists(f("portal.csv"))) read_portal_registry(f("portal.csv")) else NULL
+  # the measurement vocabulary: units and the NERC P01 concept URI a variable publishes as
+  measurement_type <- if (file.exists(f("measurement_type.csv"))) read_measurement_type(f("measurement_type.csv")) else NULL
   bad_portal <- setdiff(unique(dist$portal), c(distribution_portals()))
   if (length(bad_portal)) stop("distribution.csv portal(s) not allowed: ", paste(bad_portal, collapse = ", "), call. = FALSE)
   questions <- function(dataset_key) {
@@ -395,7 +397,7 @@ read_catalog_registries <- function(metadata_dir) {
   }
   list(category = category, provider = provider, license = license,
        dataset_status = read_dataset_status(f("dataset_status.csv")),
-       distribution = dist, portal = portal, sidecars = sidecars,
+       distribution = dist, portal = portal, measurement_type = measurement_type, sidecars = sidecars,
        questions = questions, questions_open = questions_open, metadata_dir = metadata_dir)
 }
 
@@ -469,7 +471,24 @@ fetch_erddap_datasets <- function(base = CC_ERDDAP_BASE, fetch = NULL) {
 parse_erddap_all_datasets <- function(x) {
   d <- utils::read.csv(text = x, stringsAsFactors = FALSE, colClasses = "character", na.strings = character())
   d <- d[!is.na(d[["datasetID"]]) & nzchar(d[["datasetID"]]) & d[["datasetID"]] != "allDatasets", , drop = FALSE]
-  tibble::tibble(datasetID = d[["datasetID"]], title = d[["title"]])
+  # ERDDAP's CSV writes non-ASCII as `\uXXXX` (an em dash arrives as the six characters
+  # `\u2014`); decode it here so a title never reaches a page escaped (WS-P1, 2026-09-05)
+  tibble::tibble(datasetID = d[["datasetID"]], title = unescape_unicode(d[["title"]]))
+}
+
+#' Decode `\\uXXXX` escapes in a character vector (what ERDDAP's CSV emits for non-ASCII)
+#' @param x character
+#' @return character of the same length, UTF-8
+#' @export
+#' @concept catalog
+unescape_unicode <- function(x) {
+  x <- as.character(x)
+  na <- is.na(x); x[na] <- ""
+  m <- gregexpr("\\\\u[0-9a-fA-F]{4}", x)
+  regmatches(x, m) <- lapply(regmatches(x, m), function(v)
+    vapply(v, function(e) intToUtf8(strtoi(substr(e, 3, 6), 16L)), "", USE.NAMES = FALSE))
+  x <- enc2utf8(x); x[na] <- NA_character_
+  x
 }
 
 #' The netCDF `manifests.json` of every dataset published by `publish_to-netcdf.qmd`
@@ -651,7 +670,8 @@ dataset_distributions <- function(key, ds, objects, erddap = NULL, netcdf = NULL
 }
 
 # coverage.json rolled up for one dataset
-.coverage_block <- function(key, ds, cov, home_category, realm_hint = NULL) {
+.coverage_block <- function(key, ds, cov, home_category, realm_hint = NULL, meta = NULL, registries = NULL,
+                            max_taxa = 50L) {
   cds  <- Filter(function(d) identical(.s(d[["dataset_key"]]), key), .rows(cov[["datasets"]]))
   cd   <- if (length(cds)) cds[[1]] else list()
   yrs  <- Filter(function(y) identical(.s(y[["dataset_key"]]), key), .rows(cov[["years"]]))
@@ -680,6 +700,31 @@ dataset_distributions <- function(key, ds, objects, erddap = NULL, netcdf = NULL
   }
   taxa <- Filter(function(t) any(vapply(.rows(t[["datasets"]]), function(d) identical(.s(d[["dataset_key"]]), key), logical(1))),
                  .rows(cov[["taxa"]]))
+  # the taxa a page and its search index can NAME: the top `max_taxa` by this dataset's own n_obs
+  # (n_taxa still counts them all) — WS-P1 asked for names, the record carried only the count
+  tx_n <- vapply(taxa, function(t) {
+    d <- Filter(function(d) identical(.s(d[["dataset_key"]]), key), .rows(t[["datasets"]]))
+    if (length(d)) as.numeric(d[[1]][["n_obs"]] %||% 0) else 0 }, 1)
+  ord <- order(-tx_n, vapply(taxa, function(t) .s(t[["taxon_key"]]), ""))
+  ord <- utils::head(ord, max_taxa)
+  taxa_out <- lapply(ord, function(i) list(
+    taxon_key = .s(taxa[[i]][["taxon_key"]]),
+    scientific_name = .chr_or_null(taxa[[i]][["scientific_name"]]),
+    common_name = .chr_or_null(taxa[[i]][["common_name"]]),
+    rank = .chr_or_null(taxa[[i]][["rank"]]),
+    n_obs = tx_n[i]))
+  # variables as objects: name, units (metadata.json measurement_types), the NERC P01 URI and the
+  # category from the registry — what JSON-LD's variableMeasured needs (unitText, propertyID)
+  mt_meta <- if (!is.null(meta)) meta[["measurement_types"]] %||% list() else list()
+  mt_reg  <- if (!is.null(registries)) registries[["measurement_type"]] else NULL
+  var_objs <- lapply(sort(var_names), function(nm) {
+    ri <- if (!is.null(mt_reg)) match(nm, mt_reg[["measurement_type"]]) else NA
+    vc <- Filter(function(v) identical(.s(v[["measurement_type"]]), nm), vars)
+    list(name = nm,
+         units = .chr_or_null(mt_meta[[nm]][["units"]]) %||% (if (!is.na(ri)) .chr_or_null(mt_reg[["units"]][ri]) else NULL),
+         uri = if (!is.na(ri)) .chr_or_null(mt_reg[["nerc_p01"]][ri]) else NULL,
+         category = if (length(vc)) .chr_or_null(vc[[1]][["category"]]) else NULL)
+  })
   life_stages <- if (!is.null(cd[["life_stages"]])) .arr(unlist(cd[["life_stages"]])) else NULL
   bbox <- ds[["coverage_bbox"]]
   bbox <- if (is.null(bbox)) NULL else list(
@@ -697,7 +742,8 @@ dataset_distributions <- function(key, ds, objects, erddap = NULL, netcdf = NULL
     n_variables = length(vars), n_taxa = length(taxa),
     depth_min_m = if (is.finite(dmin)) dmin else NULL,
     depth_max_m = if (is.finite(dmax)) dmax else NULL,
-    variables   = .arr(sort(var_names)),
+    variables   = var_objs,
+    taxa        = taxa_out,
     life_stages = life_stages,
     contributes_to = contributes)
 }
@@ -854,6 +900,8 @@ dataset_distributions <- function(key, ds, objects, erddap = NULL, netcdf = NULL
 #' @param spatial_layers the release `spatial_layers.json` (for `reference[]`)
 #' @param bathymetry the `bathymetry/gebco_2025.json` manifest (for `reference[]`)
 #' @param workflows_base the URL prefix of the rendered notebooks
+#' @param release_prefix the bucket-relative releases prefix the run writes to
+#'   (`ducklake/releases`, or the staging prefix) — `release.url` follows it
 #' @return A list ready for [write_dataset_catalog()] / `jsonlite::write_json(auto_unbox = TRUE)`.
 #' @export
 #' @concept catalog
@@ -861,7 +909,8 @@ dataset_distributions <- function(key, ds, objects, erddap = NULL, netcdf = NULL
 build_dataset_catalog <- function(meta, coverage, catalog, registries, version = NULL,
                                   erddap = NULL, netcdf = NULL, since = NULL, source_accessed = NULL,
                                   spatial_layers = NULL, bathymetry = NULL,
-                                  workflows_base = "https://calcofi.io/workflows/") {
+                                  workflows_base = "https://calcofi.io/workflows/",
+                                  release_prefix = "ducklake/releases") {
   meta <- .read_json(meta); coverage <- .read_json(coverage); catalog <- .read_json(catalog)
   if (!is.null(spatial_layers)) spatial_layers <- .read_json(spatial_layers)
   if (!is.null(bathymetry)) bathymetry <- .read_json(bathymetry)
@@ -901,7 +950,8 @@ build_dataset_catalog <- function(meta, coverage, catalog, registries, version =
         data_source = .chr_or_null(ds[["link_data_source"]]),
         workflow    = wf,
         page        = paste0(CC_DATASET_PAGE_BASE, key, "/")),
-      coverage    = .coverage_block(key, ds, coverage, .s(ds[["category"]]), realm_hint = .chr_or_null(cat_block$realm)),
+      coverage    = .coverage_block(key, ds, coverage, .s(ds[["category"]]), realm_hint = .chr_or_null(cat_block$realm),
+                                    meta = meta, registries = registries),
       tables      = .arr(unlist(ds[["tables"]])),
       objects     = lapply(objects, function(o) o[c("table", "scope", "shared", "path", "url", "bytes", "sha256", "since")]),
       since_version = if (!is.null(since) && !is.na(since[key])) unname(since[key]) else NULL,
@@ -920,8 +970,8 @@ build_dataset_catalog <- function(meta, coverage, catalog, registries, version =
       citation = .chr_or_null(catalog[["citation"]]),
       n_tables = length(.rows(catalog[["tables"]])),
       total_rows = .num_or_null(catalog[["total_rows"]]), total_size = .num_or_null(catalog[["total_size"]]),
-      url = sprintf("%s/%s/", CC_RELEASES_HTTPS, version),
-      catalog_url = sprintf("%s/%s/catalog.json", CC_RELEASES_HTTPS, version),
+      url = sprintf("https://storage.googleapis.com/calcofi-db/%s/%s/", release_prefix, version),
+      catalog_url = sprintf("https://storage.googleapis.com/calcofi-db/%s/%s/catalog.json", release_prefix, version),
       schema_url = sprintf("%s?v=%s", CC_DB_SCHEMA_URL, version)),
     counts = list(datasets = length(records), holdings = length(holdings), reference = length(reference)),
     datasets = records, holdings = holdings, reference = reference)

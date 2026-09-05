@@ -102,7 +102,7 @@
     },
     "coverage": {
       "type": "object",
-      "required": ["temporal", "year_min", "year_max", "years", "spatial", "bbox", "n_obs", "n_roots", "n_stations", "n_variables", "n_taxa", "variables", "contributes_to"],
+      "required": ["temporal", "year_min", "year_max", "years", "spatial", "bbox", "n_obs", "n_roots", "n_stations", "n_variables", "n_taxa", "variables", "taxa", "contributes_to"],
       "properties": {
         "realm":       { "type": ["string", "null"], "enum": ["env", "bio", null] },
         "temporal":    { "$ref": "#/definitions/nullable_string" },
@@ -124,7 +124,23 @@
         "n_taxa":      { "type": "integer" },
         "depth_min_m": { "type": ["number", "null"] },
         "depth_max_m": { "type": ["number", "null"] },
-        "variables":   { "$ref": "#/definitions/string_array" },
+        "variables": {
+          "type": "array",
+          "items": {
+            "type": "object", "required": ["name"],
+            "properties": { "name": { "type": "string" }, "units": { "$ref": "#/definitions/nullable_string" },
+                            "uri": { "$ref": "#/definitions/nullable_string" }, "category": { "$ref": "#/definitions/nullable_string" } }
+          }
+        },
+        "taxa": {
+          "type": "array",
+          "items": {
+            "type": "object", "required": ["taxon_key", "n_obs"],
+            "properties": { "taxon_key": { "type": "string" }, "scientific_name": { "$ref": "#/definitions/nullable_string" },
+                            "common_name": { "$ref": "#/definitions/nullable_string" }, "rank": { "$ref": "#/definitions/nullable_string" },
+                            "n_obs": { "type": "number" } }
+          }
+        },
         "life_stages": { "oneOf": [ { "$ref": "#/definitions/string_array" }, { "type": "null" } ] },
         "contributes_to": {
           "type": "array",

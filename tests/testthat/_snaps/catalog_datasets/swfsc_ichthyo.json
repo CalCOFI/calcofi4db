@@ -130,7 +130,58 @@
       "n_taxa": 6,
       "depth_min_m": null,
       "depth_max_m": null,
-      "variables": ["abundance"],
+      "variables": [
+        {
+          "name": "abundance",
+          "units": "count",
+          "uri": null,
+          "category": "Fish Eggs & Larvae"
+        }
+      ],
+      "taxa": [
+        {
+          "taxon_key": "worms:293496",
+          "scientific_name": "Teleostei",
+          "common_name": "Unidentified Teliost",
+          "rank": "Class",
+          "n_obs": 72797
+        },
+        {
+          "taxon_key": "worms:272286",
+          "scientific_name": "Engraulis mordax",
+          "common_name": "Northern anchovy",
+          "rank": "Species",
+          "n_obs": 42044
+        },
+        {
+          "taxon_key": "worms:272458",
+          "scientific_name": "Merluccius productus",
+          "common_name": "Pacific hake or whiting",
+          "rank": "Species",
+          "n_obs": 14281
+        },
+        {
+          "taxon_key": "worms:217452",
+          "scientific_name": "Sardinops sagax",
+          "common_name": "Pacific sardine (pilchard)",
+          "rank": "Species",
+          "n_obs": 13326
+        },
+        {
+          "taxon_key": "worms:273305",
+          "scientific_name": "Trachurus symmetricus",
+          "common_name": "Jack mackerel",
+          "rank": "Species",
+          "n_obs": 10632
+        },
+        {
+          "taxon_key": "worms:574540",
+          "scientific_name": "Doryteuthis opalescens",
+          "common_name": "Market squid",
+          "rank": "Species",
+          "n_obs": 1080
+        }
+      ],
       "life_stages": null,
       "contributes_to": []
     },
@@ -387,7 +438,7 @@
         "url": "https://erddap.calcofi.io/erddap/tabledap/swfsc_ichthyo_attribute.html",
         "format": "erddap",
         "id": "swfsc_ichthyo_attribute",
-        "title": "SWFSC Ichthyoplankton \\u2014 length/stage frequency",
+        "title": "SWFSC Ichthyoplankton — length/stage frequency",
         "grain": "length/stage frequency",
         "info_url": "https://erddap.calcofi.io/erddap/info/swfsc_ichthyo_attribute/index.html",
         "status": "current"
@@ -397,7 +448,7 @@
         "url": "https://erddap.calcofi.io/erddap/tabledap/swfsc_ichthyo.html",
         "format": "erddap",
         "id": "swfsc_ichthyo",
-        "title": "SWFSC Ichthyoplankton \\u2014 observations",
+        "title": "SWFSC Ichthyoplankton — observations",
         "grain": "observations",
         "info_url": "https://erddap.calcofi.io/erddap/info/swfsc_ichthyo/index.html",
         "status": "current"
@@ -407,7 +458,7 @@
         "url": "https://erddap.calcofi.io/erddap/tabledap/swfsc_ichthyo_sample.html",
         "format": "erddap",
         "id": "swfsc_ichthyo_sample",
-        "title": "SWFSC Ichthyoplankton \\u2014 sampling events",
+        "title": "SWFSC Ichthyoplankton — sampling events",
         "grain": "sampling events",
         "info_url": "https://erddap.calcofi.io/erddap/info/swfsc_ichthyo_sample/index.html",
         "status": "current"

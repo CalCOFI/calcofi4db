@@ -107,7 +107,33 @@
       "n_taxa": 0,
       "depth_min_m": 1,
       "depth_max_m": 3500,
-      "variables": ["alkalinity", "ctdtemp_its90", "dic", "salinity_pss78"],
+      "variables": [
+        {
+          "name": "alkalinity",
+          "units": "umol/kg",
+          "uri": "http://vocab.nerc.ac.uk/collection/P01/current/MDMAP014/",
+          "category": "Carbonate System"
+        },
+        {
+          "name": "ctdtemp_its90",
+          "units": "degC",
+          "uri": "http://vocab.nerc.ac.uk/collection/P01/current/TEMPST01/",
+          "category": "Physical Oceanography"
+        },
+        {
+          "name": "dic",
+          "units": "umol/kg",
+          "uri": "http://vocab.nerc.ac.uk/collection/P01/current/TCO2MSXX/",
+          "category": "Carbonate System"
+        },
+        {
+          "name": "salinity_pss78",
+          "units": "PSS-78",
+          "uri": "http://vocab.nerc.ac.uk/collection/P01/current/PSLTZZ01/",
+          "category": "Physical Oceanography"
+        }
+      ],
+      "taxa": [],
       "life_stages": null,
       "contributes_to": [
         {
@@ -149,7 +175,7 @@
         "url": "https://erddap.calcofi.io/erddap/tabledap/calcofi_dic.html",
         "format": "erddap",
         "id": "calcofi_dic",
-        "title": "CalCOFI DIC \\u2014 observations",
+        "title": "CalCOFI DIC — observations",
         "grain": "observations",
         "info_url": "https://erddap.calcofi.io/erddap/info/calcofi_dic/index.html",
         "status": "current"
@@ -159,7 +185,7 @@
         "url": "https://erddap.calcofi.io/erddap/tabledap/calcofi_dic_sample.html",
         "format": "erddap",
         "id": "calcofi_dic_sample",
-        "title": "CalCOFI DIC \\u2014 sampling events",
+        "title": "CalCOFI DIC — sampling events",
         "grain": "sampling events",
         "info_url": "https://erddap.calcofi.io/erddap/info/calcofi_dic_sample/index.html",
         "status": "current"
