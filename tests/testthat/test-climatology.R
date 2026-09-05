@@ -133,3 +133,55 @@ test_that("climatology has a registered sort key that is a unique total order, s
     "SELECT count(*) AS n FROM read_parquet('{file.path(out, 'climatology')}/*/*.parquet', hive_partitioning = true)"))
   expect_equal(back$n, 3)
 })
+
+# regression (2026-09-05): production v2026.09.04 re-exported `climatology` with identical row
+# counts but a different content hash on 60/71 partitions, and the same happened between two
+# staging runs the same day — every other release table reproduces exactly. Cause: DuckDB computes
+# avg()/stddev_samp() by combining per-thread partial sums, and floating-point addition is not
+# associative, so the combine order (which varies run to run for no data reason) flips the last 1-2
+# bits of the double. `clim_n`/`n_cruises` (integer counts) were never affected — only the two float
+# aggregates. The fix rounds `clim_mean`/`clim_sd` to `round_digits` (6 decimal places) so the noise,
+# which is ~9 orders of magnitude below the rounding grain, is discarded after the (correct, if
+# unstable) aggregate is computed.
+test_that("build_climatology(): clim_mean/clim_sd are stable under DuckDB's parallel avg()/stddev_samp(), so re-exports of unchanged data are byte-identical", {
+  con <- clim_con()
+  # enough distinct rows per cell to force DuckDB's morsel-driven parallel aggregation (8 threads on
+  # this machine) to combine multiple per-thread partial sums per group -- a handful of rows, as in
+  # clim_fixture(), never exercises this path
+  DBI::dbExecute(con, "SET threads TO 8")
+  DBI::dbExecute(con, "
+    CREATE TABLE obs AS
+    SELECT 'env' AS realm,
+           'st' || (i % 40) || '-ln90'                       AS grid_key,
+           'cruise' || (i % 11)                               AS cruise_key,
+           TIMESTAMP '2000-07-01' + (i % 11) * INTERVAL 1 YEAR AS datetime,
+           2.0                                                 AS depth_min_m,
+           'temperature_ave'                                   AS measurement_type,
+           12.3456789 + sin(i * 0.7919) * 3.7182818            AS measurement_value,
+           NULL::VARCHAR                                       AS measurement_qual,
+           'calcofi_ctd-cast'                                  AS dataset_key
+    FROM range(400000) t(i)")
+
+  build_climatology(con, qual_ok_sql = CLIM_QUAL_OK, tbl = "clim_a")
+  build_climatology(con, qual_ok_sql = CLIM_QUAL_OK, tbl = "clim_b")
+
+  ha <- calcofi4db:::.partition_content_hashes(con, "clim_a", "measurement_type")
+  hb <- calcofi4db:::.partition_content_hashes(con, "clim_b", "measurement_type")
+  expect_equal(ha, hb)
+
+  a <- DBI::dbGetQuery(con, "SELECT * FROM clim_a ORDER BY grid_key")
+  b <- DBI::dbGetQuery(con, "SELECT * FROM clim_b ORDER BY grid_key")
+  expect_identical(a$clim_mean, b$clim_mean)
+  expect_identical(a$clim_sd,   b$clim_sd)
+  expect_true(nrow(a) > 0)
+
+  # the rounded value is still the right one: a single-threaded, independently expressed aggregate
+  # over the same rows agrees with build_climatology()'s (parallel, rounded) result to the rounding
+  # grain -- rounding discarded only the parallel-combine noise, not correctness
+  DBI::dbExecute(con, "SET threads TO 1")
+  ref <- DBI::dbGetQuery(con, "
+    SELECT grid_key, round(avg(measurement_value), 6) AS clim_mean, round(stddev_samp(measurement_value), 6) AS clim_sd
+    FROM obs GROUP BY grid_key ORDER BY grid_key")
+  expect_equal(a$clim_mean, ref$clim_mean)
+  expect_equal(a$clim_sd,   ref$clim_sd)
+})

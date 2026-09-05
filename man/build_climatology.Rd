@@ -12,6 +12,7 @@ build_climatology(
   min_cruises = 3L,
   depth_bin_m = 10L,
   depth_max_m = 500L,
+  round_digits = 6L,
   tbl = "climatology"
 )
 }
@@ -29,6 +30,10 @@ passed in so this package never carries a second copy of it.}
 \item{depth_bin_m}{bin width in metres (floor bins, labelled by the shallow edge).}
 
 \item{depth_max_m}{deepest bin kept (its shallow edge); the release's sections stop at 500 m.}
+
+\item{round_digits}{decimal places \code{clim_mean}/\code{clim_sd} are rounded to — chosen to be far below
+sensor resolution but well above the parallel-aggregation floating-point noise floor (see
+above), so the table is byte-identical across re-exports of unchanged data.}
 
 \item{tbl}{output table (default \code{climatology}).}
 }
@@ -70,6 +75,19 @@ ship, so a thin cell is visible rather than silently trusted.
 explorer's "temperature" = bottle \code{temperature} + CTD \code{temperature_ave}) pools rows weighted by
 \code{clim_n} — \code{sum(clim_mean * clim_n) / sum(clim_n)} is exactly the mean over the pooled
 observations, so the two ways of reading the table cannot disagree either.
+\item \strong{\code{clim_mean}/\code{clim_sd} are rounded to \code{round_digits} (default 6 decimal places).} DuckDB's
+\code{avg()}/\code{stddev_samp()} are computed by combining per-thread partial sums in parallel, and
+floating-point addition is not associative — the combine order (and so the last 1-2 bits of the
+double) varies run to run with no change to the input rows. Measured on a 200-cell/1.6M-row
+synthetic fixture: \code{clim_n} and \code{n_cruises} (integer) were identical across repeated builds, but
+\code{clim_mean}/\code{clim_sd} differed on distinct runs with |relative diff| up to ~1.8e-16 (machine
+epsilon) — this is what turned 60 of 71 real \code{climatology} partitions non-reproducible. Six
+decimal places is a fixed point ~1e9 times coarser than that noise floor (safe up to values on
+the order of 1e9, far beyond any CalCOFI variable's range) while being far finer than any
+instrument's resolution (CTD temperature/salinity ship to 3-4 decimal places, bottle nutrients
+to 2-3, oxygen to 2) — so rounding this way discards only reproducibility-breaking noise, never
+scientifically meaningful precision. Applied to the finished aggregate, so it is a pure function
+of the (order-independent) value, not of how it was summed.
 }
 
 Rows without a station (\code{grid_key}), a time or a depth, non-finite values, and values the quality

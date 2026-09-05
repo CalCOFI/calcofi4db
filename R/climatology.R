@@ -42,6 +42,19 @@
 #'   explorer's "temperature" = bottle `temperature` + CTD `temperature_ave`) pools rows weighted by
 #'   `clim_n` — `sum(clim_mean * clim_n) / sum(clim_n)` is exactly the mean over the pooled
 #'   observations, so the two ways of reading the table cannot disagree either.
+#' - **`clim_mean`/`clim_sd` are rounded to `round_digits` (default 6 decimal places).** DuckDB's
+#'   `avg()`/`stddev_samp()` are computed by combining per-thread partial sums in parallel, and
+#'   floating-point addition is not associative — the combine order (and so the last 1-2 bits of the
+#'   double) varies run to run with no change to the input rows. Measured on a 200-cell/1.6M-row
+#'   synthetic fixture: `clim_n` and `n_cruises` (integer) were identical across repeated builds, but
+#'   `clim_mean`/`clim_sd` differed on distinct runs with |relative diff| up to ~1.8e-16 (machine
+#'   epsilon) — this is what turned 60 of 71 real `climatology` partitions non-reproducible. Six
+#'   decimal places is a fixed point ~1e9 times coarser than that noise floor (safe up to values on
+#'   the order of 1e9, far beyond any CalCOFI variable's range) while being far finer than any
+#'   instrument's resolution (CTD temperature/salinity ship to 3-4 decimal places, bottle nutrients
+#'   to 2-3, oxygen to 2) — so rounding this way discards only reproducibility-breaking noise, never
+#'   scientifically meaningful precision. Applied to the finished aggregate, so it is a pure function
+#'   of the (order-independent) value, not of how it was summed.
 #'
 #' Rows without a station (`grid_key`), a time or a depth, non-finite values, and values the quality
 #' predicate rejects are left out; nothing is interpolated. A cell that is absent has no baseline —
@@ -55,6 +68,9 @@
 #' @param min_cruises a cell needs this many distinct cruises to be a baseline at all.
 #' @param depth_bin_m bin width in metres (floor bins, labelled by the shallow edge).
 #' @param depth_max_m deepest bin kept (its shallow edge); the release's sections stop at 500 m.
+#' @param round_digits decimal places `clim_mean`/`clim_sd` are rounded to — chosen to be far below
+#'   sensor resolution but well above the parallel-aggregation floating-point noise floor (see
+#'   above), so the table is byte-identical across re-exports of unchanged data.
 #' @param tbl output table (default `climatology`).
 #' @return Invisibly, the row count.
 #' @examples
@@ -67,21 +83,24 @@
 #' @importFrom DBI dbExecute dbGetQuery
 #' @importFrom glue glue
 build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, min_cruises = 3L,
-                              depth_bin_m = 10L, depth_max_m = 500L, tbl = "climatology") {
+                              depth_bin_m = 10L, depth_max_m = 500L, round_digits = 6L,
+                              tbl = "climatology") {
   stopifnot(is.character(qual_ok_sql), length(qual_ok_sql) == 1, nzchar(qual_ok_sql),
             is.numeric(yr_min), is.numeric(yr_max), length(yr_min) == 1, length(yr_max) == 1,
             yr_min <= yr_max, is.numeric(min_cruises), min_cruises >= 1,
-            is.numeric(depth_bin_m), depth_bin_m > 0, is.numeric(depth_max_m), depth_max_m >= 0)
+            is.numeric(depth_bin_m), depth_bin_m > 0, is.numeric(depth_max_m), depth_max_m >= 0,
+            is.numeric(round_digits), length(round_digits) == 1, round_digits >= 0)
   yr_min <- as.integer(yr_min); yr_max <- as.integer(yr_max)
-  min_cruises <- as.integer(min_cruises); depth_bin_m <- as.integer(depth_bin_m)
+  min_cruises  <- as.integer(min_cruises); depth_bin_m <- as.integer(depth_bin_m)
+  round_digits <- as.integer(round_digits)
   dbExecute(con, glue("
     CREATE OR REPLACE TABLE {tbl} AS
     SELECT o.dataset_key, o.grid_key,
            month(o.datetime)::TINYINT                                  AS month,
            (floor(o.depth_min_m / {depth_bin_m}) * {depth_bin_m})::INTEGER AS depth_bin,
            o.measurement_type,
-           avg(o.measurement_value)                                    AS clim_mean,
-           stddev_samp(o.measurement_value)                            AS clim_sd,
+           round(avg(o.measurement_value), {round_digits})             AS clim_mean,
+           round(stddev_samp(o.measurement_value), {round_digits})     AS clim_sd,
            count(*)::INTEGER                                           AS clim_n,
            count(DISTINCT o.cruise_key)::INTEGER                       AS n_cruises,
            {yr_min}::SMALLINT                                          AS clim_yr_min,
