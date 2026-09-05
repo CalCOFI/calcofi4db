@@ -1245,8 +1245,11 @@ read_promoted_release <- function(bucket = "calcofi-db", prefix = "ducklake/rele
 #'
 #' @keywords internal
 # datasets.json (4.1.0): the dataset catalog record every product reads — a release without
-# it would leave calcofi.io/datasets pointing at the previous release's records
-RELEASE_REQUIRED_OBJECTS <- c("catalog.json", "metadata.json", "relationships.json", "datasets.json")
+# it would leave calcofi.io/datasets pointing at the previous release's records.
+# eml/ (4.2.0): one EML 2.2 document per dataset, the metadata the DwC-A, the EDI package,
+# ERDDAP's globals and the page's JSON-LD all derive from. A trailing "/" names a prefix.
+RELEASE_REQUIRED_OBJECTS <- c("catalog.json", "metadata.json", "relationships.json",
+                              "datasets.json", "eml/")
 
 #' Assert a frozen release is structurally complete
 #'
