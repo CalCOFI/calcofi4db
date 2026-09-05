@@ -116,8 +116,11 @@ test_that("an item is one release: bbox polygon, a datetime that is present, and
   expect_equal(unlist(a$roles), "data")
   expect_true(a$`file:size` > 0)
   expect_match(a$`file:checksum`, "^1220[0-9a-f]{64}$")
-  # the trimmed fixture metadata.json carries no `columns`, so this asset has none
-  expect_null(a$`table:columns`)
+  # the fixture metadata.json carries obs.* columns (added for the EML attributeList tests), so
+  # the obs partition asset carries them as table:columns
+  tc <- a$`table:columns`
+  expect_true(is.list(tc) && length(tc) > 0)
+  expect_true("obs_id" %in% vapply(tc, function(cl) cl$name, ""))
 })
 
 test_that("table:columns reach a parquet asset from metadata.json, per table", {
