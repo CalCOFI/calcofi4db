@@ -1,0 +1,743 @@
+{
+ "schema_version": "1.2",
+ "release_version": "v2026.09.04",
+ "release_date": "2026-09-04",
+ "datasets": {
+  "swfsc_ichthyo": {
+   "provider": "swfsc",
+   "dataset": "ichthyo",
+   "dataset_name": "SWFSC Ichthyoplankton",
+   "dataset_name_short": "Ichthyoplankton",
+   "category": "Fish Eggs & Larvae",
+   "color": "#ffa94d",
+   "description": "Ichthyoplankton (fish eggs and larvae) collected by bongo and manta net tows on CalCOFI cruises, processed by SWFSC.\n",
+   "citation_main": "NOAA Fisheries SWFSC. CalCOFI Ichthyoplankton Database.",
+   "citation_others": null,
+   "link_calcofi_org": "https://calcofi.org/data/marine-ecosystem-data/fish-eggs-larvae/",
+   "link_data_source": null,
+   "coverage_temporal": null,
+   "coverage_spatial": null,
+   "license": null,
+   "pi_names": null,
+   "doi": null,
+   "license_url": null,
+   "acknowledgement": null,
+   "contact": null,
+   "tables": [
+    "sample",
+    "obs",
+    "obs_attribute",
+    "sample_measurement",
+    "taxon",
+    "dataset_taxon",
+    "cruise",
+    "ship",
+    "lookup",
+    "grid"
+   ],
+   "workflow_url": "https://calcofi.io/workflows/ingest_swfsc_ichthyo.html",
+   "coverage_temporal_observed": "1951-01 to 2023-01",
+   "coverage_spatial_observed": "0.0–54.4°N, 179.8–77.2°W",
+   "coverage_bbox": {
+    "lat_min": 0.0017,
+    "lat_max": 54.385,
+    "lon_min": -179.8217,
+    "lon_max": -77.2283
+   }
+  },
+  "calcofi_dic": {
+   "provider": "calcofi",
+   "dataset": "dic",
+   "dataset_name": "CalCOFI DIC",
+   "dataset_name_short": "Carbonate Chemistry / DIC",
+   "category": "Carbonate System",
+   "color": "#63e6be",
+   "description": "Discrete profile dissolved inorganic carbon (DIC) and total alkalinity (TA) from CalCOFI Niskin bottle samples, quality-controlled using WOCE flagging.\n",
+   "citation_main": "Keeling, C.D.; Lueker, T.J.; Emanuele, G.; Dickson, A.G.; Martz, T.R.; Wolfe, W.H.; Mau, A. (2025). Discrete profile dissolved inorganic carbon, total alkalinity, water temperature and salinity measurements for CalCOFI (NCEI Accession 0301029). NOAA NCEI. https://doi.org/10.25921/3w9f-jd72",
+   "citation_others": null,
+   "link_calcofi_org": "https://calcofi.org/data/oceanographic-data/dic/",
+   "link_data_source": "https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.nodc:0301029",
+   "coverage_temporal": null,
+   "coverage_spatial": null,
+   "license": "CC-BY-4.0",
+   "pi_names": "Todd Martz; Aaron Mau",
+   "doi": "10.25921/3w9f-jd72",
+   "license_url": null,
+   "acknowledgement": null,
+   "contact": null,
+   "tables": [
+    "sample",
+    "obs",
+    "measurement_type"
+   ],
+   "workflow_url": "https://calcofi.io/workflows/ingest_calcofi_dic.html",
+   "coverage_temporal_observed": "1983-03 to 2021-07",
+   "coverage_spatial_observed": "28.1–37.0°N, 125.1–117.3°W",
+   "coverage_bbox": {
+    "lat_min": 28.1401,
+    "lat_max": 37.0425,
+    "lon_min": -125.0533,
+    "lon_max": -117.3054
+   }
+  }
+ },
+ "tables": {
+  "sample": {
+   "name_long": "Sample",
+   "description_md": "One row per physical sampling event at its native grain (site, tow, net, cast, bottle, underway, transect, region pool). An adjacency list: `parent_sample_key` points at the containing event and `root_sample_key` at the top of the chain, so counting distinct events at any level is a single `GROUP BY`.",
+   "provider": "swfsc",
+   "dataset": "ichthyo",
+   "workflow": "https://calcofi.io/workflows/ingest_swfsc_ichthyo.html"
+  },
+  "obs": {
+   "name_long": "Observation",
+   "description_md": "The occurrence-headline long table: one scalar measurement per row, environmental (`realm = 'env'`) and biological (`realm = 'bio'`) together. Biological taxon is the global `taxon_key`; sub-occurrence detail (length/stage bins, behavior) lives in `obs_attribute`, and event-level effort in `sample_measurement`.",
+   "provider": "swfsc",
+   "dataset": "ichthyo",
+   "workflow": "https://calcofi.io/workflows/ingest_swfsc_ichthyo.html"
+  },
+  "sample_measurement": {
+   "name_long": "Sample Measurement",
+   "description_md": "Event-level (effort) measurements: quantities that describe the sampling event itself rather than anything observed in it — net volume filtered, standard haul factor, proportion sorted, bottle cast conditions. Kept apart from `obs` so effort is never mistaken for an observation.",
+   "provider": "swfsc",
+   "dataset": "ichthyo",
+   "workflow": "https://calcofi.io/workflows/ingest_swfsc_ichthyo.html"
+  },
+  "measurement_type": {
+   "name_long": "Measurement Type",
+   "description_md": "",
+   "provider": "swfsc",
+   "dataset": "cufes",
+   "workflow": "https://calcofi.io/workflows/ingest_swfsc_cufes.html"
+  },
+  "obs_attribute": {
+   "name_long": "Observation Attribute",
+   "description_md": "Sub-occurrence attribution: the breakdown *within* an `obs` headline row. Covers numeric frequency distributions (length bins, stage numbers) and categorical breakdowns (seabird behavior). Counts here sum to the headline where the source is internally consistent.",
+   "provider": "swfsc",
+   "dataset": "ichthyo",
+   "workflow": "https://calcofi.io/workflows/ingest_swfsc_ichthyo.html"
+  },
+  "taxon": {
+   "name_long": "Taxon",
+   "description_md": "Taxonomic hierarchy for species via WoRMS and ITIS authorities (built from spp.duckdb via recursive CTEs)",
+   "provider": "swfsc",
+   "dataset": "ichthyo",
+   "workflow": "https://calcofi.io/workflows/ingest_swfsc_ichthyo.html"
+  },
+  "dataset_taxon": {
+   "name_long": "Dataset Taxon",
+   "description_md": "Crosswalk from each dataset's own taxon vocabulary to the global `taxon_key`. `obs` resolves its taxon by joining this on (`dataset_key`, `ds_taxa_code`), so a dataset can keep its local codes without leaking them into the shared model.",
+   "provider": "swfsc",
+   "dataset": "ichthyo",
+   "workflow": "https://calcofi.io/workflows/ingest_swfsc_ichthyo.html"
+  },
+  "grid": {
+   "name_long": "Grid",
+   "description_md": "CalCOFI survey grid polygons with standard and historical station patterns",
+   "provider": "swfsc",
+   "dataset": "ichthyo",
+   "workflow": "https://calcofi.io/workflows/ingest_swfsc_ichthyo.html"
+  },
+  "cruise": {
+   "name_long": "Cruise",
+   "description_md": "unique by ship and year-month",
+   "provider": "swfsc",
+   "dataset": "ichthyo",
+   "workflow": "https://calcofi.io/workflows/ingest_swfsc_ichthyo.html"
+  },
+  "ship": {
+   "name_long": "Ship",
+   "description_md": "unique ship with many cruises",
+   "provider": "swfsc",
+   "dataset": "ichthyo",
+   "workflow": "https://calcofi.io/workflows/ingest_swfsc_ichthyo.html"
+  },
+  "lookup": {
+   "name_long": "Lookup",
+   "description_md": "Unified vocabulary lookup table for egg stages, larva stages, and tow types",
+   "provider": "swfsc",
+   "dataset": "ichthyo",
+   "workflow": "https://calcofi.io/workflows/ingest_swfsc_ichthyo.html"
+  },
+  "spatial": {
+   "name_long": "Spatial Layers",
+   "description_md": "Geometries for ancillary spatial layers (CA jurisdictions NOAA boundaries marine protected areas etc.) keyed by spatial_key. Sourced from metadata/spatial_layers.csv. Companion to spatial_attribute.",
+   "provider": "calcofi",
+   "dataset": "spatial"
+  },
+  "spatial_attribute": {
+   "name_long": "Spatial Layer Attributes",
+   "description_md": "Non-geometry attributes for features in spatial in long entity-attribute-value form (spatial_key layer fld and one typed val_* column). Allows attribute schemas to differ across layers without column proliferation.",
+   "provider": "calcofi",
+   "dataset": "spatial"
+  }
+ },
+ "columns": {},
+ "measurement_types": {
+  "abundance": {
+   "description": "Specimen count per net tow (headline occurrence; standardize via std_haul_factor)",
+   "units": "count",
+   "is_canonical": true,
+   "valid_min": 0,
+   "datasets": [
+    "calcofi_phyllosoma",
+    "cdfw_dungeness-crab",
+    "sio_mesopelagic-fish",
+    "swfsc_cufes",
+    "swfsc_ichthyo"
+   ]
+  },
+  "alkalinity": {
+   "description": "Total alkalinity",
+   "units": "umol/kg",
+   "is_canonical": true,
+   "valid_min": 0,
+   "valid_max": 5000,
+   "datasets": [
+    "calcofi_dic"
+   ]
+  },
+  "ctdtemp_its90": {
+   "description": "CTD temperature (ITS-90 scale)",
+   "units": "degC",
+   "is_canonical": true,
+   "valid_min": -2,
+   "valid_max": 40,
+   "datasets": [
+    "calcofi_dic"
+   ]
+  },
+  "dic": {
+   "description": "Dissolved inorganic carbon",
+   "units": "umol/kg",
+   "is_canonical": true,
+   "valid_min": 0,
+   "valid_max": 5000,
+   "datasets": [
+    "calcofi_dic"
+   ]
+  },
+  "salinity_pss78": {
+   "description": "Practical salinity (PSS-78)",
+   "units": "PSS-78",
+   "is_canonical": true,
+   "valid_min": 0,
+   "valid_max": 45,
+   "datasets": [
+    "calcofi_dic"
+   ]
+  }
+ },
+ "contributions": {
+  "sample": {
+   "total_rows": 1469155,
+   "over_attributed": false,
+   "by_dataset": [
+    {
+     "provider_dataset": "calcofi_bottle",
+     "rows": 931015,
+     "pct": 63.4,
+     "workflow": "https://calcofi.io/workflows/ingest_calcofi_bottle.html"
+    },
+    {
+     "provider_dataset": "swfsc_ichthyo",
+     "rows": 213122,
+     "pct": 14.5,
+     "workflow": "https://calcofi.io/workflows/ingest_swfsc_ichthyo.html"
+    },
+    {
+     "provider_dataset": "sio_pic-zooplankton",
+     "rows": 82343,
+     "pct": 5.6,
+     "workflow": "https://calcofi.io/workflows/ingest_sio_pic-zooplankton.html"
+    },
+    {
+     "provider_dataset": "calcofi_mets",
+     "rows": 77795,
+     "pct": 5.3,
+     "workflow": "https://calcofi.io/workflows/ingest_calcofi_mets.html"
+    },
+    {
+     "provider_dataset": "farallon_bird-mammal",
+     "rows": 64421,
+     "pct": 4.4,
+     "workflow": "https://calcofi.io/workflows/ingest_farallon_bird-mammal.html"
+    },
+    {
+     "provider_dataset": "swfsc_cufes",
+     "rows": 49572,
+     "pct": 3.4,
+     "workflow": "https://calcofi.io/workflows/ingest_swfsc_cufes.html"
+    },
+    {
+     "provider_dataset": "calcofi_ctd-cast",
+     "rows": 19242,
+     "pct": 1.3,
+     "workflow": "https://calcofi.io/workflows/ingest_calcofi_ctd-cast.html"
+    },
+    {
+     "provider_dataset": "cce-lter_picoplankton-bacteria",
+     "rows": 16017,
+     "pct": 1.1,
+     "workflow": "https://calcofi.io/workflows/ingest_cce-lter_picoplankton-bacteria.html"
+    },
+    {
+     "provider_dataset": "cce-lter_euphausiids",
+     "rows": 7482,
+     "pct": 0.5,
+     "workflow": "https://calcofi.io/workflows/ingest_cce-lter_euphausiids.html"
+    },
+    {
+     "provider_dataset": "calcofi_dic",
+     "rows": 3261,
+     "pct": 0.2,
+     "workflow": "https://calcofi.io/workflows/ingest_calcofi_dic.html"
+    },
+    {
+     "provider_dataset": "calcofi_phyllosoma",
+     "rows": 1859,
+     "pct": 0.1,
+     "workflow": "https://calcofi.io/workflows/ingest_calcofi_phyllosoma.html"
+    },
+    {
+     "provider_dataset": "cce-lter_zooscan",
+     "rows": 1483,
+     "pct": 0.1,
+     "workflow": "https://calcofi.io/workflows/ingest_cce-lter_zooscan.html"
+    },
+    {
+     "provider_dataset": "cdfw_dungeness-crab",
+     "rows": 526,
+     "pct": 0,
+     "workflow": "https://calcofi.io/workflows/ingest_cdfw_dungeness-crab.html"
+    },
+    {
+     "provider_dataset": "cce-lter_zoodb",
+     "rows": 506,
+     "pct": 0,
+     "workflow": "https://calcofi.io/workflows/ingest_cce-lter_zoodb.html"
+    },
+    {
+     "provider_dataset": "calcofi_phytoplankton",
+     "rows": 409,
+     "pct": 0,
+     "workflow": "https://calcofi.io/workflows/ingest_calcofi_phytoplankton.html"
+    },
+    {
+     "provider_dataset": "sio_mesopelagic-fish",
+     "rows": 102,
+     "pct": 0,
+     "workflow": "https://calcofi.io/workflows/ingest_sio_mesopelagic-fish.html"
+    }
+   ]
+  },
+  "obs": {
+   "total_rows": 26265248,
+   "over_attributed": false,
+   "by_dataset": [
+    {
+     "provider_dataset": "calcofi_ctd-cast",
+     "rows": 13295014,
+     "pct": 50.6,
+     "workflow": "https://calcofi.io/workflows/ingest_calcofi_ctd-cast.html"
+    },
+    {
+     "provider_dataset": "calcofi_bottle",
+     "rows": 11135600,
+     "pct": 42.4,
+     "workflow": "https://calcofi.io/workflows/ingest_calcofi_bottle.html"
+    },
+    {
+     "provider_dataset": "calcofi_mets",
+     "rows": 511459,
+     "pct": 1.9,
+     "workflow": "https://calcofi.io/workflows/ingest_calcofi_mets.html"
+    },
+    {
+     "provider_dataset": "swfsc_ichthyo",
+     "rows": 482250,
+     "pct": 1.8,
+     "workflow": "https://calcofi.io/workflows/ingest_swfsc_ichthyo.html"
+    },
+    {
+     "provider_dataset": "swfsc_cufes",
+     "rows": 284097,
+     "pct": 1.1,
+     "workflow": "https://calcofi.io/workflows/ingest_swfsc_cufes.html"
+    },
+    {
+     "provider_dataset": "calcofi_phytoplankton",
+     "rows": 159804,
+     "pct": 0.6,
+     "workflow": "https://calcofi.io/workflows/ingest_calcofi_phytoplankton.html"
+    },
+    {
+     "provider_dataset": "cce-lter_zooscan",
+     "rows": 126692,
+     "pct": 0.5,
+     "workflow": "https://calcofi.io/workflows/ingest_cce-lter_zooscan.html"
+    },
+    {
+     "provider_dataset": "cce-lter_euphausiids",
+     "rows": 100505,
+     "pct": 0.4,
+     "workflow": "https://calcofi.io/workflows/ingest_cce-lter_euphausiids.html"
+    },
+    {
+     "provider_dataset": "farallon_bird-mammal",
+     "rows": 69661,
+     "pct": 0.3,
+     "workflow": "https://calcofi.io/workflows/ingest_farallon_bird-mammal.html"
+    },
+    {
+     "provider_dataset": "cce-lter_picoplankton-bacteria",
+     "rows": 60802,
+     "pct": 0.2,
+     "workflow": "https://calcofi.io/workflows/ingest_cce-lter_picoplankton-bacteria.html"
+    },
+    {
+     "provider_dataset": "cce-lter_zoodb",
+     "rows": 30948,
+     "pct": 0.1,
+     "workflow": "https://calcofi.io/workflows/ingest_cce-lter_zoodb.html"
+    },
+    {
+     "provider_dataset": "calcofi_dic",
+     "rows": 3708,
+     "pct": 0,
+     "workflow": "https://calcofi.io/workflows/ingest_calcofi_dic.html"
+    },
+    {
+     "provider_dataset": "calcofi_phyllosoma",
+     "rows": 1859,
+     "pct": 0,
+     "workflow": "https://calcofi.io/workflows/ingest_calcofi_phyllosoma.html"
+    },
+    {
+     "provider_dataset": "cdfw_dungeness-crab",
+     "rows": 1456,
+     "pct": 0,
+     "workflow": "https://calcofi.io/workflows/ingest_cdfw_dungeness-crab.html"
+    },
+    {
+     "provider_dataset": "sio_mesopelagic-fish",
+     "rows": 1393,
+     "pct": 0,
+     "workflow": "https://calcofi.io/workflows/ingest_sio_mesopelagic-fish.html"
+    }
+   ]
+  },
+  "sample_measurement": {
+   "total_rows": 589603,
+   "over_attributed": false,
+   "by_dataset": [
+    {
+     "provider_dataset": "swfsc_ichthyo",
+     "rows": 320110,
+     "pct": 54.3,
+     "workflow": "https://calcofi.io/workflows/ingest_swfsc_ichthyo.html"
+    },
+    {
+     "provider_dataset": "calcofi_bottle",
+     "rows": 268876,
+     "pct": 45.6,
+     "workflow": "https://calcofi.io/workflows/ingest_calcofi_bottle.html"
+    },
+    {
+     "provider_dataset": "cdfw_dungeness-crab",
+     "rows": 617,
+     "pct": 0.1,
+     "workflow": "https://calcofi.io/workflows/ingest_cdfw_dungeness-crab.html"
+    }
+   ]
+  },
+  "measurement_type": {
+   "total_rows": 200,
+   "over_attributed": true,
+   "by_dataset": [
+    {
+     "provider_dataset": "calcofi_bottle",
+     "rows": 200,
+     "pct": 100,
+     "workflow": "https://calcofi.io/workflows/ingest_calcofi_bottle.html"
+    },
+    {
+     "provider_dataset": "calcofi_ctd-cast",
+     "rows": 200,
+     "pct": 100,
+     "workflow": "https://calcofi.io/workflows/ingest_calcofi_ctd-cast.html"
+    },
+    {
+     "provider_dataset": "calcofi_dic",
+     "rows": 200,
+     "pct": 100,
+     "workflow": "https://calcofi.io/workflows/ingest_calcofi_dic.html"
+    },
+    {
+     "provider_dataset": "calcofi_mets",
+     "rows": 200,
+     "pct": 100,
+     "workflow": "https://calcofi.io/workflows/ingest_calcofi_mets.html"
+    },
+    {
+     "provider_dataset": "calcofi_phyllosoma",
+     "rows": 200,
+     "pct": 100,
+     "workflow": "https://calcofi.io/workflows/ingest_calcofi_phyllosoma.html"
+    },
+    {
+     "provider_dataset": "calcofi_phytoplankton",
+     "rows": 200,
+     "pct": 100,
+     "workflow": "https://calcofi.io/workflows/ingest_calcofi_phytoplankton.html"
+    },
+    {
+     "provider_dataset": "cce-lter_euphausiids",
+     "rows": 200,
+     "pct": 100,
+     "workflow": "https://calcofi.io/workflows/ingest_cce-lter_euphausiids.html"
+    },
+    {
+     "provider_dataset": "cce-lter_picoplankton-bacteria",
+     "rows": 200,
+     "pct": 100,
+     "workflow": "https://calcofi.io/workflows/ingest_cce-lter_picoplankton-bacteria.html"
+    },
+    {
+     "provider_dataset": "cce-lter_zoodb",
+     "rows": 200,
+     "pct": 100,
+     "workflow": "https://calcofi.io/workflows/ingest_cce-lter_zoodb.html"
+    },
+    {
+     "provider_dataset": "cce-lter_zooscan",
+     "rows": 200,
+     "pct": 100,
+     "workflow": "https://calcofi.io/workflows/ingest_cce-lter_zooscan.html"
+    },
+    {
+     "provider_dataset": "sio_mesopelagic-fish",
+     "rows": 200,
+     "pct": 100,
+     "workflow": "https://calcofi.io/workflows/ingest_sio_mesopelagic-fish.html"
+    },
+    {
+     "provider_dataset": "swfsc_cufes",
+     "rows": 200,
+     "pct": 100,
+     "workflow": "https://calcofi.io/workflows/ingest_swfsc_cufes.html"
+    }
+   ]
+  },
+  "obs_attribute": {
+   "total_rows": 458184,
+   "over_attributed": false,
+   "by_dataset": [
+    {
+     "provider_dataset": "swfsc_ichthyo",
+     "rows": 369978,
+     "pct": 80.7,
+     "workflow": "https://calcofi.io/workflows/ingest_swfsc_ichthyo.html"
+    },
+    {
+     "provider_dataset": "farallon_bird-mammal",
+     "rows": 87813,
+     "pct": 19.2,
+     "workflow": "https://calcofi.io/workflows/ingest_farallon_bird-mammal.html"
+    },
+    {
+     "provider_dataset": "calcofi_phyllosoma",
+     "rows": 369,
+     "pct": 0.1,
+     "workflow": "https://calcofi.io/workflows/ingest_calcofi_phyllosoma.html"
+    },
+    {
+     "provider_dataset": "cdfw_dungeness-crab",
+     "rows": 24,
+     "pct": 0,
+     "workflow": "https://calcofi.io/workflows/ingest_cdfw_dungeness-crab.html"
+    }
+   ]
+  },
+  "taxon": {
+   "total_rows": 2614,
+   "over_attributed": true,
+   "by_dataset": [
+    {
+     "provider_dataset": "calcofi_phyllosoma",
+     "rows": 13,
+     "pct": 0.5,
+     "workflow": "https://calcofi.io/workflows/ingest_calcofi_phyllosoma.html"
+    },
+    {
+     "provider_dataset": "calcofi_phytoplankton",
+     "rows": 542,
+     "pct": 20.7,
+     "workflow": "https://calcofi.io/workflows/ingest_calcofi_phytoplankton.html"
+    },
+    {
+     "provider_dataset": "cce-lter_euphausiids",
+     "rows": 54,
+     "pct": 2.1,
+     "workflow": "https://calcofi.io/workflows/ingest_cce-lter_euphausiids.html"
+    },
+    {
+     "provider_dataset": "cce-lter_zoodb",
+     "rows": 75,
+     "pct": 2.9,
+     "workflow": "https://calcofi.io/workflows/ingest_cce-lter_zoodb.html"
+    },
+    {
+     "provider_dataset": "cce-lter_zooscan",
+     "rows": 42,
+     "pct": 1.6,
+     "workflow": "https://calcofi.io/workflows/ingest_cce-lter_zooscan.html"
+    },
+    {
+     "provider_dataset": "cdfw_dungeness-crab",
+     "rows": 17,
+     "pct": 0.7,
+     "workflow": "https://calcofi.io/workflows/ingest_cdfw_dungeness-crab.html"
+    },
+    {
+     "provider_dataset": "farallon_bird-mammal",
+     "rows": 266,
+     "pct": 10.2,
+     "workflow": "https://calcofi.io/workflows/ingest_farallon_bird-mammal.html"
+    },
+    {
+     "provider_dataset": "sio_mesopelagic-fish",
+     "rows": 206,
+     "pct": 7.9,
+     "workflow": "https://calcofi.io/workflows/ingest_sio_mesopelagic-fish.html"
+    },
+    {
+     "provider_dataset": "swfsc_cufes",
+     "rows": 33,
+     "pct": 1.3,
+     "workflow": "https://calcofi.io/workflows/ingest_swfsc_cufes.html"
+    },
+    {
+     "provider_dataset": "swfsc_ichthyo",
+     "rows": 1686,
+     "pct": 64.5,
+     "workflow": "https://calcofi.io/workflows/ingest_swfsc_ichthyo.html"
+    }
+   ]
+  },
+  "dataset_taxon": {
+   "total_rows": 1917,
+   "over_attributed": false,
+   "by_dataset": [
+    {
+     "provider_dataset": "calcofi_phyllosoma",
+     "rows": 1,
+     "pct": 0.1,
+     "workflow": "https://calcofi.io/workflows/ingest_calcofi_phyllosoma.html"
+    },
+    {
+     "provider_dataset": "calcofi_phytoplankton",
+     "rows": 393,
+     "pct": 20.5,
+     "workflow": "https://calcofi.io/workflows/ingest_calcofi_phytoplankton.html"
+    },
+    {
+     "provider_dataset": "cce-lter_euphausiids",
+     "rows": 37,
+     "pct": 1.9,
+     "workflow": "https://calcofi.io/workflows/ingest_cce-lter_euphausiids.html"
+    },
+    {
+     "provider_dataset": "cce-lter_zoodb",
+     "rows": 33,
+     "pct": 1.7,
+     "workflow": "https://calcofi.io/workflows/ingest_cce-lter_zoodb.html"
+    },
+    {
+     "provider_dataset": "cce-lter_zooscan",
+     "rows": 23,
+     "pct": 1.2,
+     "workflow": "https://calcofi.io/workflows/ingest_cce-lter_zooscan.html"
+    },
+    {
+     "provider_dataset": "cdfw_dungeness-crab",
+     "rows": 3,
+     "pct": 0.2,
+     "workflow": "https://calcofi.io/workflows/ingest_cdfw_dungeness-crab.html"
+    },
+    {
+     "provider_dataset": "farallon_bird-mammal",
+     "rows": 164,
+     "pct": 8.6,
+     "workflow": "https://calcofi.io/workflows/ingest_farallon_bird-mammal.html"
+    },
+    {
+     "provider_dataset": "sio_mesopelagic-fish",
+     "rows": 90,
+     "pct": 4.7,
+     "workflow": "https://calcofi.io/workflows/ingest_sio_mesopelagic-fish.html"
+    },
+    {
+     "provider_dataset": "swfsc_cufes",
+     "rows": 6,
+     "pct": 0.3,
+     "workflow": "https://calcofi.io/workflows/ingest_swfsc_cufes.html"
+    },
+    {
+     "provider_dataset": "swfsc_ichthyo",
+     "rows": 1167,
+     "pct": 60.9,
+     "workflow": "https://calcofi.io/workflows/ingest_swfsc_ichthyo.html"
+    }
+   ]
+  },
+  "cruise": {
+   "total_rows": 842,
+   "over_attributed": false,
+   "by_dataset": [
+    {
+     "provider_dataset": "swfsc_ichthyo",
+     "rows": 691,
+     "pct": 82.1,
+     "workflow": "https://calcofi.io/workflows/ingest_swfsc_ichthyo.html"
+    }
+   ]
+  },
+  "ship": {
+   "total_rows": 49,
+   "over_attributed": false,
+   "by_dataset": [
+    {
+     "provider_dataset": "swfsc_ichthyo",
+     "rows": 48,
+     "pct": 98,
+     "workflow": "https://calcofi.io/workflows/ingest_swfsc_ichthyo.html"
+    }
+   ]
+  },
+  "lookup": {
+   "total_rows": 26,
+   "over_attributed": false,
+   "by_dataset": [
+    {
+     "provider_dataset": "swfsc_ichthyo",
+     "rows": 26,
+     "pct": 100,
+     "workflow": "https://calcofi.io/workflows/ingest_swfsc_ichthyo.html"
+    }
+   ]
+  },
+  "grid": {
+   "total_rows": 218,
+   "over_attributed": false,
+   "by_dataset": [
+    {
+     "provider_dataset": "swfsc_ichthyo",
+     "rows": 218,
+     "pct": 100,
+     "workflow": "https://calcofi.io/workflows/ingest_swfsc_ichthyo.html"
+    }
+   ]
+  }
+ }
+}

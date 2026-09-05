@@ -1,0 +1,41 @@
+{
+ "dataset": "swfsc_ichthyo",
+ "releases": [
+  {
+   "dataset": "swfsc_ichthyo",
+   "version": "v2026.09.04",
+   "db_release": "v2026.09.04",
+   "generated_utc": "2026-09-04T19:20:59Z",
+   "sha256": "1f9ab1b0a92b485c96b510e5998ed84cdcd78dc0b1f5a87c1ca47c192c25a7c4",
+   "bytes": 225262134,
+   "identical_to": null,
+   "canonical_url": "https://storage.calcofi.io/calcofi-files-public/netcdf/swfsc_ichthyo/v2026.09.04/swfsc_ichthyo.nc",
+   "source_tables": [
+    "sample",
+    "obs",
+    "obs_attribute",
+    "sample_measurement",
+    "taxon"
+   ],
+   "cf_scope": "CF-1.10 where CF applies (coordinates, units, standard names, time). The site -> tow -> net -> occurrence hierarchy uses netCDF-4 groups with explicit parent_index links; CF defines no feature type for this nesting."
+  },
+  {
+   "dataset": "swfsc_ichthyo",
+   "version": "v2026.08.04",
+   "db_release": "v2026.08.04",
+   "generated_utc": "2026-08-04T13:51:43Z",
+   "sha256": "f59df60065338424ebead36ea5bd5cb11c636bce78ffbf2fde6d0d6601a2d013",
+   "bytes": 220393766,
+   "identical_to": {},
+   "canonical_url": "https://storage.calcofi.io/calcofi-files-public/netcdf/swfsc_ichthyo/v2026.08.04/swfsc_ichthyo.nc",
+   "source_tables": [
+    "sample",
+    "obs",
+    "obs_attribute",
+    "sample_measurement",
+    "taxon"
+   ],
+   "cf_scope": "CF-1.10 where CF applies (coordinates, units, standard names, time). The site -> tow -> net -> occurrence hierarchy uses netCDF-4 groups with explicit parent_index links; CF defines no feature type for this nesting."
+  }
+ ]
+}

@@ -1244,7 +1244,9 @@ read_promoted_release <- function(bucket = "calcofi-db", prefix = "ducklake/rele
 #' Objects a frozen release must contain before it can be promoted
 #'
 #' @keywords internal
-RELEASE_REQUIRED_OBJECTS <- c("catalog.json", "metadata.json", "relationships.json")
+# datasets.json (4.1.0): the dataset catalog record every product reads — a release without
+# it would leave calcofi.io/datasets pointing at the previous release's records
+RELEASE_REQUIRED_OBJECTS <- c("catalog.json", "metadata.json", "relationships.json", "datasets.json")
 
 #' Assert a frozen release is structurally complete
 #'

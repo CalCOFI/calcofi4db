@@ -1,0 +1,10 @@
+provider,provider_short,provider_name,url,status,notes
+calcofi,CalCOFI,California Cooperative Oceanic Fisheries Investigations,https://calcofi.org,active,"The CalCOFI program itself. Use for program data even when hosted elsewhere (NCEI/EDI/ERDDAP) — the portal goes in link_data_source."
+swfsc,NOAA SWFSC,NOAA Southwest Fisheries Science Center,https://www.fisheries.noaa.gov/about/southwest-fisheries-science-center,active,
+sio,SIO,"Scripps Institution of Oceanography, UC San Diego",https://scripps.ucsd.edu,active,"Use for SIO-curated datasets. The collection or lab is the DATASET, not the org — e.g. sio_pic-zooplankton for the Pelagic Invertebrate Collection."
+cce-lter,CCE-LTER,California Current Ecosystem Long Term Ecological Research,https://ccelter.ucsd.edu,active,
+cdfw,CDFW,California Department of Fish and Wildlife,https://wildlife.ca.gov,active,"Formerly CDFG. Commissions work that other institutions perform; provider is still cdfw where CDFW holds the data."
+farallon,Farallon Institute,Farallon Institute,https://www.faralloninstitute.org,active,"William Sydeman, PI and senior scientist."
+sccoos,SCCOOS,Southern California Coastal Ocean Observing System,https://sccoos.org,active,"Declared in the conventions; no ingest yet."
+pic,SIO PIC,"Pelagic Invertebrate Collection, Scripps Institution of Oceanography",https://scripps.ucsd.edu/collections/pelagic-invertebrates,deprecated,"WRONG LEVEL — PIC is a collection, not an organization. Pending rename to provider sio, dataset pic-zooplankton."
+ucsd_sio,SIO,"Scripps Institution of Oceanography, UC San Diego",https://scripps.ucsd.edu,deprecated,"Redundant prefix. Pending rename to provider sio."

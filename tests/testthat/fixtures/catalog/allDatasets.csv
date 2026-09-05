@@ -1,0 +1,47 @@
+datasetID,title
+,
+allDatasets,* The List of All Active Datasets in this ERDDAP *
+farallon_bird-mammal_attribute,"CalCOFI Bird & Mammal Census \u2014 length/stage frequency"
+farallon_bird-mammal,"CalCOFI Bird & Mammal Census \u2014 observations"
+farallon_bird-mammal_sample,"CalCOFI Bird & Mammal Census \u2014 sampling events"
+calcofi_bottle,"CalCOFI Bottle Database \u2014 observations"
+calcofi_bottle_sample,"CalCOFI Bottle Database \u2014 sampling events"
+calcofi_casts,CalCOFI Casts
+calcofi_ctd-cast_full,"CalCOFI CTD Cast Files \u2014 full resolution (pre-thinning)"
+calcofi_ctd-cast,"CalCOFI CTD Cast Files \u2014 observations"
+calcofi_ctd-cast_sample,"CalCOFI CTD Cast Files \u2014 sampling events"
+calcofi_ctd_measurement,CalCOFI CTD Measurements (full)
+calcofi_ctd_thin,CalCOFI CTD Profiles (thinned)
+calcofi_dic_old,"CalCOFI DIC Samples (legacy, pre-core)"
+calcofi_dic,"CalCOFI DIC \u2014 observations"
+calcofi_dic_sample,"CalCOFI DIC \u2014 sampling events"
+calcofi_euphausiids,CalCOFI Euphausiid Tows
+calcofi_phyllosoma_attribute,"CalCOFI Lobster Phyllosoma \u2014 length/stage frequency"
+calcofi_phyllosoma,"CalCOFI Lobster Phyllosoma \u2014 observations"
+calcofi_phyllosoma_sample,"CalCOFI Lobster Phyllosoma \u2014 sampling events"
+calcofi_mets_full,"CalCOFI METS (Underway TSG/Meteorology) \u2014 full resolution (pre-thinning)"
+calcofi_mets,"CalCOFI METS (Underway TSG/Meteorology) \u2014 observations"
+calcofi_mets_sample,"CalCOFI METS (Underway TSG/Meteorology) \u2014 sampling events"
+calcofi_phytoplankton_old,"CalCOFI Phytoplankton (Venrick) (legacy, pre-core)"
+calcofi_phytoplankton,"CalCOFI Phytoplankton (Venrick) \u2014 observations"
+calcofi_phytoplankton_sample,"CalCOFI Phytoplankton (Venrick) \u2014 sampling events"
+swfsc_cufes,"CalCOFI Underway CUFES Fish Eggs \u2014 observations"
+swfsc_cufes_sample,"CalCOFI Underway CUFES Fish Eggs \u2014 sampling events"
+calcofi_zooplankton,CalCOFI Zooplankton Tows
+cce-lter_euphausiids,"CCE-LTER Euphausiid Abundance \u2014 observations"
+cce-lter_euphausiids_sample,"CCE-LTER Euphausiid Abundance \u2014 sampling events"
+cdfw_dungeness-crab_attribute,"CDFW Dungeness Crab Megalopae \u2014 length/stage frequency"
+cdfw_dungeness-crab,"CDFW Dungeness Crab Megalopae \u2014 observations"
+cdfw_dungeness-crab_sample,"CDFW Dungeness Crab Megalopae \u2014 sampling events"
+cce-lter_picoplankton-bacteria,"Picoplankton and Bacteria Abundance (CalCOFI Cruise) \u2014 observations"
+cce-lter_picoplankton-bacteria_sample,"Picoplankton and Bacteria Abundance (CalCOFI Cruise) \u2014 sampling events"
+sio_pic-zooplankton_sample,"SIO PIC Zooplankton Net Tows \u2014 sampling events"
+swfsc_ichthyo_attribute,"SWFSC Ichthyoplankton \u2014 length/stage frequency"
+swfsc_ichthyo,"SWFSC Ichthyoplankton \u2014 observations"
+swfsc_ichthyo_sample,"SWFSC Ichthyoplankton \u2014 sampling events"
+sio_mesopelagic-fish,"UCSD SIO Mesopelagic Fish \u2014 observations"
+sio_mesopelagic-fish_sample,"UCSD SIO Mesopelagic Fish \u2014 sampling events"
+cce-lter_zoodb,"ZooDB Holoplankton Community \u2014 observations"
+cce-lter_zoodb_sample,"ZooDB Holoplankton Community \u2014 sampling events"
+cce-lter_zooscan,"ZooScan PRPOOS Zooplankton \u2014 observations"
+cce-lter_zooscan_sample,"ZooScan PRPOOS Zooplankton \u2014 sampling events"

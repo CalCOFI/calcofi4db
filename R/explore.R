@@ -347,9 +347,15 @@ build_coverage <- function(con, version) {
            o.depth_min_m, o.depth_max_m, {tx_col}, {ls_col}, r.root_id
     FROM obs o LEFT JOIN sample s USING (sample_key)
     LEFT JOIN sample_root r ON r.root_sample_key = COALESCE(s.root_sample_key, s.sample_key)"))
+  # `life_stages` per dataset (4.1.0, the dataset catalog record): the distinct
+  # obs.life_stage values the dataset itself carries — a taxon's life_stages in
+  # taxa[] are pooled across the datasets that share it, so a per-dataset list
+  # cannot be derived from them without inventing (CUFES would inherit `larva`)
   datasets <- q("SELECT dataset_key, any_value(realm) AS realm, count(*) AS n_obs, count(DISTINCT root_id) AS n_roots,
-                        min(year) AS year_min, max(year) AS year_max
+                        min(year) AS year_min, max(year) AS year_max,
+                        list(DISTINCT life_stage ORDER BY life_stage) FILTER (WHERE life_stage IS NOT NULL) AS life_stages
                  FROM _cov GROUP BY dataset_key ORDER BY dataset_key")
+  datasets$life_stages <- lapply(datasets$life_stages, function(x) I(as.character(unlist(x))))
   station_ds <- q("SELECT grid_key, dataset_key, count(*) AS n_obs, count(DISTINCT root_id) AS n_roots,
                           min(year) AS year_min, max(year) AS year_max
                    FROM _cov WHERE grid_key IS NOT NULL GROUP BY grid_key, dataset_key ORDER BY grid_key, dataset_key")

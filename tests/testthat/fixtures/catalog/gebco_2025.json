@@ -1,0 +1,837 @@
+{
+ "built": "2026-08-31T16:06:04+00:00",
+ "source": {
+  "file": "gebco_2025_sub_ice_n90.0_s0.0_w-180.0_e-90.0.tif",
+  "sha256": "5cdb69107933daeae38f33e75306afa370fb02804ef53127ac41b2087ae6551a",
+  "bytes": 933255948,
+  "grid": "GEBCO 2025 sub-ice topo/bathy, 15 arc-second, Int16 m, lon -180→-90 × lat 0→90",
+  "citation": "GEBCO Compilation Group (2025) GEBCO 2025 Grid (doi:10.5285/37c52e96-24ea-67ce-e063-7086abc05f29)",
+  "licence": "GEBCO grids are placed in the public domain and may be used free of charge (GEBCO terms of use).",
+  "url": "https://www.gebco.net/data-products/gridded-bathymetry-data"
+ },
+ "gdal": "3.11.5",
+ "tippecanoe": "tippecanoe v2.79.0",
+ "gcs_prefix": "gs://calcofi-db/bathymetry/",
+ "tile_size": 512,
+ "core_bbox": [
+  -140.0,
+  15.0,
+  -105.0,
+  56.0
+ ],
+ "far_bbox": [
+  -180.0,
+  0.0,
+  -90.0,
+  60.0
+ ],
+ "core_zooms": [
+  0,
+  8
+ ],
+ "far_zooms": [
+  0,
+  5
+ ],
+ "land": "clamped to 0 m before resampling; cells outside the source encode +1 m",
+ "contours": {
+  "path": "/Users/bbest/_big/calcofi/bathymetry/gebco_2025_calcofi_contours.pmtiles",
+  "bytes": 43325965,
+  "levels_m": [
+   50,
+   100,
+   200,
+   300,
+   400,
+   500,
+   750,
+   1000,
+   1500,
+   2000,
+   2500,
+   3000,
+   3500,
+   4000,
+   4500
+  ],
+  "far_levels_min_m": 500,
+  "level_attribute": {
+   "0": "50 m",
+   "1": "100–750 m",
+   "2": "500-multiples",
+   "3": "1000-multiples"
+  },
+  "minzoom_by_level": {
+   "3": 0,
+   "2": 5,
+   "1": 7,
+   "0": 9
+  },
+  "zooms": [
+   0,
+   10
+  ],
+  "upsampled_2x": false
+ },
+ "crop": {
+  "path": "/Users/bbest/_big/calcofi/bathymetry/gebco_2025_calcofi.tif",
+  "bytes": 129428722,
+  "bbox": [
+   -165.0,
+   15.0,
+   -100.0,
+   56.0
+  ],
+  "size_px": [
+   15600,
+   9840
+  ],
+  "dtype": "Int16",
+  "nodata": -32768,
+  "units": "m, positive down, land 0",
+  "layout": "COG (DEFLATE, predictor 2, 512-px blocks, average overviews)",
+  "checks": [
+   {
+    "lon": -150.0,
+    "lat": 30.0,
+    "crop_depth_m": 6311.0,
+    "source_depth_m": 6311.0,
+    "match": true
+   },
+   {
+    "lon": -128.0,
+    "lat": 54.0,
+    "crop_depth_m": 0.0,
+    "source_depth_m": 0.0,
+    "match": true
+   },
+   {
+    "lon": -119.7,
+    "lat": 33.9,
+    "crop_depth_m": 983.0,
+    "source_depth_m": 983.0,
+    "match": true
+   }
+  ]
+ },
+ "terrain_mask": {
+  "dem": "dem_clamped_mask.tif",
+  "land_mask": true,
+  "mapbox": {
+   "encoding": {
+    "encoding": "mapbox",
+    "step_m": 0.1
+   },
+   "tiles": 1430,
+   "png_bytes_total": 293478395,
+   "decode_check": [
+    {
+     "z": 8,
+     "x": 32,
+     "y": 79,
+     "max_roundtrip_err_m": 0.051,
+     "centre_lonlat": [
+      -134.2969,
+      56.17
+     ],
+     "tile_centre_m": -86.7,
+     "source_nearest_m": -85.0
+    },
+    {
+     "z": 8,
+     "x": 45,
+     "y": 86,
+     "max_roundtrip_err_m": 0.0,
+     "centre_lonlat": [
+      -116.0156,
+      50.2893
+     ],
+     "tile_centre_m": 1.0,
+     "source_nearest_m": 1.0
+    },
+    {
+     "z": 8,
+     "x": 31,
+     "y": 91,
+     "max_roundtrip_err_m": 0.051,
+     "centre_lonlat": [
+      -135.7031,
+      45.5833
+     ],
+     "tile_centre_m": -4153.2,
+     "source_nearest_m": -4154.0
+    },
+    {
+     "z": 8,
+     "x": 39,
+     "y": 101,
+     "max_roundtrip_err_m": 0.051,
+     "centre_lonlat": [
+      -124.4531,
+      34.8859
+     ],
+     "tile_centre_m": -4321.8,
+     "source_nearest_m": -4322.0
+    },
+    {
+     "z": 8,
+     "x": 49,
+     "y": 101,
+     "max_roundtrip_err_m": 0.0,
+     "centre_lonlat": [
+      -110.3906,
+      34.8859
+     ],
+     "tile_centre_m": 1.0,
+     "source_nearest_m": 1.0
+    },
+    {
+     "z": 8,
+     "x": 52,
+     "y": 101,
+     "max_roundtrip_err_m": 0.0,
+     "centre_lonlat": [
+      -106.1719,
+      34.8859
+     ],
+     "tile_centre_m": 1.0,
+     "source_nearest_m": 1.0
+    },
+    {
+     "z": 8,
+     "x": 44,
+     "y": 102,
+     "max_roundtrip_err_m": 0.051,
+     "centre_lonlat": [
+      -117.4219,
+      33.7243
+     ],
+     "tile_centre_m": 1.0,
+     "source_nearest_m": 1.0
+    },
+    {
+     "z": 8,
+     "x": 52,
+     "y": 104,
+     "max_roundtrip_err_m": 0.0,
+     "centre_lonlat": [
+      -106.1719,
+      31.3536
+     ],
+     "tile_centre_m": 1.0,
+     "source_nearest_m": 1.0
+    },
+    {
+     "z": 8,
+     "x": 40,
+     "y": 105,
+     "max_roundtrip_err_m": 0.051,
+     "centre_lonlat": [
+      -123.0469,
+      30.1451
+     ],
+     "tile_centre_m": -4480.2,
+     "source_nearest_m": -4466.0
+    },
+    {
+     "z": 8,
+     "x": 49,
+     "y": 111,
+     "max_roundtrip_err_m": 0.051,
+     "centre_lonlat": [
+      -110.3906,
+      22.5937
+     ],
+     "tile_centre_m": -2693.4,
+     "source_nearest_m": -2692.0
+    }
+   ],
+   "sparse": {
+    "bytes": 292750329,
+    "addressed_tiles": 1430,
+    "show": "pmtiles spec version: 3\ntile type: png\nbounds: (long: -180.000000, lat: 0.000000) (long: -90.000000, lat: 60.000000)\nmin zoom: 0\nmax zoom: 8\ncenter: (long: -135.000000, lat: 30.000000)\ncenter zoom: 5\naddressed tiles count: 1430\ntile entries count: 990\ntile contents count: 939\nclustered: true\ninternal compression: gzip\ntile compression: none\ndescription GEBCO 2025 sub-ice sea floor as terrain-RGB (mapbox encoding, 512px tiles, land clamped to 0, OSM land mask +1 m)\nformat png\nmaxzoom 8\nminzoom 0\nname gebco_2025_calcofi_terrain_mask\ntype baselayer\nversion 1\nattribution GEBCO Compilation Group (2025) GEBCO 2025 Grid (doi:10.5285/37c52e96-24ea-67ce-e063-7086abc05f29)"
+   },
+   "core": {
+    "bytes": 279367231,
+    "addressed_tiles": 1394,
+    "show": "pmtiles spec version: 3\ntile type: png\nbounds: (long: -140.000000, lat: 15.000000) (long: -105.000000, lat: 56.000000)\nmin zoom: 0\nmax zoom: 8\ncenter: (long: -122.500000, lat: 35.500000)\ncenter zoom: 5\naddressed tiles count: 1394\ntile entries count: 957\ntile contents count: 906\nclustered: true\ninternal compression: gzip\ntile compression: none\nname gebco_2025_calcofi_terrain_mask_core\ntype baselayer\nversion 1\nattribution GEBCO Compilation Group (2025) GEBCO 2025 Grid (doi:10.5285/37c52e96-24ea-67ce-e063-7086abc05f29)\ndescription GEBCO 2025 sub-ice sea floor as terrain-RGB (mapbox encoding, 512px tiles, land clamped to 0, OSM land mask +1 m)\nformat png\nmaxzoom 8\nminzoom 0"
+   },
+   "far": {
+    "bytes": 24657941,
+    "addressed_tiles": 79,
+    "show": "pmtiles spec version: 3\ntile type: png\nbounds: (long: -180.000000, lat: 0.000000) (long: -90.000000, lat: 60.000000)\nmin zoom: 0\nmax zoom: 5\ncenter: (long: -135.000000, lat: 30.000000)\ncenter zoom: 5\naddressed tiles count: 79\ntile entries count: 74\ntile contents count: 71\nclustered: true\ninternal compression: gzip\ntile compression: none\nminzoom 0\nname gebco_2025_calcofi_terrain_mask_far\ntype baselayer\nversion 1\nattribution GEBCO Compilation Group (2025) GEBCO 2025 Grid (doi:10.5285/37c52e96-24ea-67ce-e063-7086abc05f29)\ndescription GEBCO 2025 sub-ice sea floor as terrain-RGB (mapbox encoding, 512px tiles, land clamped to 0, OSM land mask +1 m)\nformat png\nmaxzoom 5"
+   }
+  },
+  "_grid": {
+   "0": {
+    "tier": "far",
+    "tiles": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "resampling": "average",
+    "m_per_px": 78271.52
+   },
+   "1": {
+    "tier": "far",
+    "tiles": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "resampling": "average",
+    "m_per_px": 39135.76
+   },
+   "2": {
+    "tier": "far",
+    "tiles": [
+     0,
+     1,
+     0,
+     1
+    ],
+    "resampling": "average",
+    "m_per_px": 19567.88
+   },
+   "3": {
+    "tier": "far",
+    "tiles": [
+     0,
+     2,
+     1,
+     3
+    ],
+    "resampling": "average",
+    "m_per_px": 9783.94
+   },
+   "4": {
+    "tier": "far",
+    "tiles": [
+     0,
+     4,
+     3,
+     7
+    ],
+    "resampling": "average",
+    "m_per_px": 4891.97
+   },
+   "5": {
+    "tier": "far",
+    "tiles": [
+     0,
+     9,
+     7,
+     15
+    ],
+    "resampling": "average",
+    "m_per_px": 2445.98
+   },
+   "6": {
+    "tier": "core",
+    "tiles": [
+     7,
+     19,
+     13,
+     29
+    ],
+    "resampling": "average",
+    "m_per_px": 1222.99
+   },
+   "7": {
+    "tier": "core",
+    "tiles": [
+     14,
+     39,
+     26,
+     58
+    ],
+    "resampling": "average",
+    "m_per_px": 611.5
+   },
+   "8": {
+    "tier": "core",
+    "tiles": [
+     28,
+     79,
+     53,
+     117
+    ],
+    "resampling": "bilinear",
+    "m_per_px": 305.75
+   }
+  }
+ },
+ "terrain": {
+  "dem": "dem_clamped.tif",
+  "land_mask": false,
+  "mapbox": {
+   "encoding": {
+    "encoding": "mapbox",
+    "step_m": 0.1
+   },
+   "tiles": 1430,
+   "png_bytes_total": 293657625,
+   "decode_check": [
+    {
+     "z": 8,
+     "x": 32,
+     "y": 79,
+     "max_roundtrip_err_m": 0.051,
+     "centre_lonlat": [
+      -134.2969,
+      56.17
+     ],
+     "tile_centre_m": -86.7,
+     "source_nearest_m": -85.0
+    },
+    {
+     "z": 8,
+     "x": 45,
+     "y": 86,
+     "max_roundtrip_err_m": 0.0,
+     "centre_lonlat": [
+      -116.0156,
+      50.2893
+     ],
+     "tile_centre_m": 0.0,
+     "source_nearest_m": 0.0
+    },
+    {
+     "z": 8,
+     "x": 31,
+     "y": 91,
+     "max_roundtrip_err_m": 0.051,
+     "centre_lonlat": [
+      -135.7031,
+      45.5833
+     ],
+     "tile_centre_m": -4153.2,
+     "source_nearest_m": -4154.0
+    },
+    {
+     "z": 8,
+     "x": 39,
+     "y": 101,
+     "max_roundtrip_err_m": 0.051,
+     "centre_lonlat": [
+      -124.4531,
+      34.8859
+     ],
+     "tile_centre_m": -4321.8,
+     "source_nearest_m": -4322.0
+    },
+    {
+     "z": 8,
+     "x": 49,
+     "y": 101,
+     "max_roundtrip_err_m": 0.0,
+     "centre_lonlat": [
+      -110.3906,
+      34.8859
+     ],
+     "tile_centre_m": 0.0,
+     "source_nearest_m": 0.0
+    },
+    {
+     "z": 8,
+     "x": 52,
+     "y": 101,
+     "max_roundtrip_err_m": 0.0,
+     "centre_lonlat": [
+      -106.1719,
+      34.8859
+     ],
+     "tile_centre_m": 0.0,
+     "source_nearest_m": 0.0
+    },
+    {
+     "z": 8,
+     "x": 44,
+     "y": 102,
+     "max_roundtrip_err_m": 0.051,
+     "centre_lonlat": [
+      -117.4219,
+      33.7243
+     ],
+     "tile_centre_m": 0.0,
+     "source_nearest_m": 0.0
+    },
+    {
+     "z": 8,
+     "x": 52,
+     "y": 104,
+     "max_roundtrip_err_m": 0.0,
+     "centre_lonlat": [
+      -106.1719,
+      31.3536
+     ],
+     "tile_centre_m": 0.0,
+     "source_nearest_m": 0.0
+    },
+    {
+     "z": 8,
+     "x": 40,
+     "y": 105,
+     "max_roundtrip_err_m": 0.051,
+     "centre_lonlat": [
+      -123.0469,
+      30.1451
+     ],
+     "tile_centre_m": -4480.2,
+     "source_nearest_m": -4466.0
+    },
+    {
+     "z": 8,
+     "x": 49,
+     "y": 111,
+     "max_roundtrip_err_m": 0.051,
+     "centre_lonlat": [
+      -110.3906,
+      22.5937
+     ],
+     "tile_centre_m": -2693.4,
+     "source_nearest_m": -2692.0
+    }
+   ],
+   "sparse": {
+    "bytes": 292954933,
+    "addressed_tiles": 1430,
+    "show": "pmtiles spec version: 3\ntile type: png\nbounds: (long: -180.000000, lat: 0.000000) (long: -90.000000, lat: 60.000000)\nmin zoom: 0\nmax zoom: 8\ncenter: (long: -135.000000, lat: 30.000000)\ncenter zoom: 5\naddressed tiles count: 1430\ntile entries count: 1010\ntile contents count: 956\nclustered: true\ninternal compression: gzip\ntile compression: none\nmaxzoom 8\nminzoom 0\nname gebco_2025_calcofi_terrain\ntype baselayer\nversion 1\nattribution GEBCO Compilation Group (2025) GEBCO 2025 Grid (doi:10.5285/37c52e96-24ea-67ce-e063-7086abc05f29)\ndescription GEBCO 2025 sub-ice sea floor as terrain-RGB (mapbox encoding, 512px tiles, land clamped to 0)\nformat png"
+   },
+   "core": {
+    "bytes": 279565964,
+    "addressed_tiles": 1394,
+    "show": "pmtiles spec version: 3\ntile type: png\nbounds: (long: -140.000000, lat: 15.000000) (long: -105.000000, lat: 56.000000)\nmin zoom: 0\nmax zoom: 8\ncenter: (long: -122.500000, lat: 35.500000)\ncenter zoom: 5\naddressed tiles count: 1394\ntile entries count: 974\ntile contents count: 921\nclustered: true\ninternal compression: gzip\ntile compression: none\nname gebco_2025_calcofi_terrain_core\ntype baselayer\nversion 1\nattribution GEBCO Compilation Group (2025) GEBCO 2025 Grid (doi:10.5285/37c52e96-24ea-67ce-e063-7086abc05f29)\ndescription GEBCO 2025 sub-ice sea floor as terrain-RGB (mapbox encoding, 512px tiles, land clamped to 0)\nformat png\nmaxzoom 8\nminzoom 0"
+   },
+   "far": {
+    "bytes": 24678871,
+    "addressed_tiles": 79,
+    "show": "pmtiles spec version: 3\ntile type: png\nbounds: (long: -180.000000, lat: 0.000000) (long: -90.000000, lat: 60.000000)\nmin zoom: 0\nmax zoom: 5\ncenter: (long: -135.000000, lat: 30.000000)\ncenter zoom: 5\naddressed tiles count: 79\ntile entries count: 78\ntile contents count: 75\nclustered: true\ninternal compression: gzip\ntile compression: none\ndescription GEBCO 2025 sub-ice sea floor as terrain-RGB (mapbox encoding, 512px tiles, land clamped to 0)\nformat png\nmaxzoom 5\nminzoom 0\nname gebco_2025_calcofi_terrain_far\ntype baselayer\nversion 1\nattribution GEBCO Compilation Group (2025) GEBCO 2025 Grid (doi:10.5285/37c52e96-24ea-67ce-e063-7086abc05f29)"
+   }
+  },
+  "custom": {
+   "encoding": {
+    "encoding": "custom",
+    "redFactor": 65536,
+    "greenFactor": 256,
+    "blueFactor": 1,
+    "baseShift": 10000,
+    "step_m": 1.0
+   },
+   "tiles": 1430,
+   "png_bytes_total": 160341385,
+   "decode_check": [
+    {
+     "z": 8,
+     "x": 32,
+     "y": 79,
+     "max_roundtrip_err_m": 0.5,
+     "centre_lonlat": [
+      -134.2969,
+      56.17
+     ],
+     "tile_centre_m": -87.0,
+     "source_nearest_m": -85.0
+    },
+    {
+     "z": 8,
+     "x": 45,
+     "y": 86,
+     "max_roundtrip_err_m": 0.0,
+     "centre_lonlat": [
+      -116.0156,
+      50.2893
+     ],
+     "tile_centre_m": 0.0,
+     "source_nearest_m": 0.0
+    },
+    {
+     "z": 8,
+     "x": 31,
+     "y": 91,
+     "max_roundtrip_err_m": 0.5,
+     "centre_lonlat": [
+      -135.7031,
+      45.5833
+     ],
+     "tile_centre_m": -4153.0,
+     "source_nearest_m": -4154.0
+    },
+    {
+     "z": 8,
+     "x": 39,
+     "y": 101,
+     "max_roundtrip_err_m": 0.5,
+     "centre_lonlat": [
+      -124.4531,
+      34.8859
+     ],
+     "tile_centre_m": -4322.0,
+     "source_nearest_m": -4322.0
+    },
+    {
+     "z": 8,
+     "x": 49,
+     "y": 101,
+     "max_roundtrip_err_m": 0.0,
+     "centre_lonlat": [
+      -110.3906,
+      34.8859
+     ],
+     "tile_centre_m": 0.0,
+     "source_nearest_m": 0.0
+    },
+    {
+     "z": 8,
+     "x": 52,
+     "y": 101,
+     "max_roundtrip_err_m": 0.0,
+     "centre_lonlat": [
+      -106.1719,
+      34.8859
+     ],
+     "tile_centre_m": 0.0,
+     "source_nearest_m": 0.0
+    },
+    {
+     "z": 8,
+     "x": 44,
+     "y": 102,
+     "max_roundtrip_err_m": 0.5,
+     "centre_lonlat": [
+      -117.4219,
+      33.7243
+     ],
+     "tile_centre_m": 0.0,
+     "source_nearest_m": 0.0
+    },
+    {
+     "z": 8,
+     "x": 52,
+     "y": 104,
+     "max_roundtrip_err_m": 0.0,
+     "centre_lonlat": [
+      -106.1719,
+      31.3536
+     ],
+     "tile_centre_m": 0.0,
+     "source_nearest_m": 0.0
+    },
+    {
+     "z": 8,
+     "x": 40,
+     "y": 105,
+     "max_roundtrip_err_m": 0.5,
+     "centre_lonlat": [
+      -123.0469,
+      30.1451
+     ],
+     "tile_centre_m": -4480.0,
+     "source_nearest_m": -4466.0
+    },
+    {
+     "z": 8,
+     "x": 49,
+     "y": 111,
+     "max_roundtrip_err_m": 0.5,
+     "centre_lonlat": [
+      -110.3906,
+      22.5937
+     ],
+     "tile_centre_m": -2693.0,
+     "source_nearest_m": -2692.0
+    }
+   ],
+   "sparse": {
+    "bytes": 159638171,
+    "addressed_tiles": 1430,
+    "show": "pmtiles spec version: 3\ntile type: png\nbounds: (long: -180.000000, lat: 0.000000) (long: -90.000000, lat: 60.000000)\nmin zoom: 0\nmax zoom: 8\ncenter: (long: -135.000000, lat: 30.000000)\ncenter zoom: 5\naddressed tiles count: 1430\ntile entries count: 1010\ntile contents count: 956\nclustered: true\ninternal compression: gzip\ntile compression: none\ndescription GEBCO 2025 sub-ice sea floor as terrain-RGB (custom encoding, 512px tiles, land clamped to 0)\nformat png\nmaxzoom 8\nminzoom 0\nname gebco_2025_calcofi_terrain_custom\ntype baselayer\nversion 1\nattribution GEBCO Compilation Group (2025) GEBCO 2025 Grid (doi:10.5285/37c52e96-24ea-67ce-e063-7086abc05f29)"
+   },
+   "core": {
+    "bytes": 150228697,
+    "addressed_tiles": 1394,
+    "show": "pmtiles spec version: 3\ntile type: png\nbounds: (long: -140.000000, lat: 15.000000) (long: -105.000000, lat: 56.000000)\nmin zoom: 0\nmax zoom: 8\ncenter: (long: -122.500000, lat: 35.500000)\ncenter zoom: 5\naddressed tiles count: 1394\ntile entries count: 974\ntile contents count: 921\nclustered: true\ninternal compression: gzip\ntile compression: none\nformat png\nmaxzoom 8\nminzoom 0\nname gebco_2025_calcofi_terrain_custom_core\ntype baselayer\nversion 1\nattribution GEBCO Compilation Group (2025) GEBCO 2025 Grid (doi:10.5285/37c52e96-24ea-67ce-e063-7086abc05f29)\ndescription GEBCO 2025 sub-ice sea floor as terrain-RGB (custom encoding, 512px tiles, land clamped to 0)"
+   },
+   "far": {
+    "bytes": 17643665,
+    "addressed_tiles": 79,
+    "show": "pmtiles spec version: 3\ntile type: png\nbounds: (long: -180.000000, lat: 0.000000) (long: -90.000000, lat: 60.000000)\nmin zoom: 0\nmax zoom: 5\ncenter: (long: -135.000000, lat: 30.000000)\ncenter zoom: 5\naddressed tiles count: 79\ntile entries count: 78\ntile contents count: 75\nclustered: true\ninternal compression: gzip\ntile compression: none\ndescription GEBCO 2025 sub-ice sea floor as terrain-RGB (custom encoding, 512px tiles, land clamped to 0)\nformat png\nmaxzoom 5\nminzoom 0\nname gebco_2025_calcofi_terrain_custom_far\ntype baselayer\nversion 1\nattribution GEBCO Compilation Group (2025) GEBCO 2025 Grid (doi:10.5285/37c52e96-24ea-67ce-e063-7086abc05f29)"
+   }
+  },
+  "_grid": {
+   "0": {
+    "tier": "far",
+    "tiles": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "resampling": "average",
+    "m_per_px": 78271.52
+   },
+   "1": {
+    "tier": "far",
+    "tiles": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "resampling": "average",
+    "m_per_px": 39135.76
+   },
+   "2": {
+    "tier": "far",
+    "tiles": [
+     0,
+     1,
+     0,
+     1
+    ],
+    "resampling": "average",
+    "m_per_px": 19567.88
+   },
+   "3": {
+    "tier": "far",
+    "tiles": [
+     0,
+     2,
+     1,
+     3
+    ],
+    "resampling": "average",
+    "m_per_px": 9783.94
+   },
+   "4": {
+    "tier": "far",
+    "tiles": [
+     0,
+     4,
+     3,
+     7
+    ],
+    "resampling": "average",
+    "m_per_px": 4891.97
+   },
+   "5": {
+    "tier": "far",
+    "tiles": [
+     0,
+     9,
+     7,
+     15
+    ],
+    "resampling": "average",
+    "m_per_px": 2445.98
+   },
+   "6": {
+    "tier": "core",
+    "tiles": [
+     7,
+     19,
+     13,
+     29
+    ],
+    "resampling": "average",
+    "m_per_px": 1222.99
+   },
+   "7": {
+    "tier": "core",
+    "tiles": [
+     14,
+     39,
+     26,
+     58
+    ],
+    "resampling": "average",
+    "m_per_px": 611.5
+   },
+   "8": {
+    "tier": "core",
+    "tiles": [
+     28,
+     79,
+     53,
+     117
+    ],
+    "resampling": "bilinear",
+    "m_per_px": 305.75
+   }
+  }
+ },
+ "ship": {
+  "layout": "two archives (a sparse one leaves MapLibre waiting forever on missing children)",
+  "raster_dem_source": {
+   "encoding": "custom",
+   "redFactor": 65536,
+   "greenFactor": 256,
+   "blueFactor": 1,
+   "baseShift": 10000,
+   "tileSize": 512
+  },
+  "core": {
+   "file": "gebco_2025_calcofi_terrain.pmtiles",
+   "bbox": [
+    -140.0,
+    15.0,
+    -105.0,
+    56.0
+   ],
+   "zooms": [
+    0,
+    8
+   ],
+   "tiles": 1394
+  },
+  "far": {
+   "file": "gebco_2025_calcofi_terrain_far.pmtiles",
+   "bbox": [
+    -180.0,
+    0.0,
+    -90.0,
+    60.0
+   ],
+   "zooms": [
+    0,
+    5
+   ],
+   "tiles": 79
+  },
+  "objects": [
+   {
+    "name": "gebco_2025_calcofi_terrain.pmtiles",
+    "kind": "terrain-RGB DEM, core z0-8 @512px, custom 1 m encoding",
+    "bytes": 150228697,
+    "sha256": "4db131c18cd4fac347ae1a9f44e86a3181895cabde856f38b2a4a52f401f424e"
+   },
+   {
+    "name": "gebco_2025_calcofi_terrain_far.pmtiles",
+    "kind": "terrain-RGB DEM, far tier z0-5 @512px, custom 1 m encoding",
+    "bytes": 17643665,
+    "sha256": "c20b25faa256d31331bb438ca3c023d761550ea47fcdcd1012fe96b5371675df"
+   },
+   {
+    "name": "gebco_2025_calcofi_contours.pmtiles",
+    "kind": "isobath lines z0-10 (ele, level; doubles)",
+    "bytes": 43325965,
+    "sha256": "2607f4c390da615e5a5696bca926f4ada75b7a982eec0675389c4134956d145d"
+   },
+   {
+    "name": "gebco_2025_calcofi.tif",
+    "kind": "the consumers' crop: Int16 positive-down depth, land 0, COG",
+    "bytes": 129428722,
+    "sha256": "d15762c0cf12102a2cd332048f0084a838f4a24120a19009b35ed65a9a7408b3"
+   },
+   {
+    "name": "gebco_2025_sub_ice_n90_w180_e90_cog.tif",
+    "kind": "the whole source tile as a streamable COG (raw ELEVATION)",
+    "bytes": 439044684,
+    "sha256": "ecbf8ec3eeb5a7b7632bb665d3fb4ae4010bbdcf551892d041c0f014ed37a943"
+   }
+  ]
+ }
+}

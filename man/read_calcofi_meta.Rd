@@ -4,11 +4,17 @@
 \alias{read_calcofi_meta}
 \title{Read the calcofi YAML block from a single workflow file}
 \usage{
-read_calcofi_meta(qmd_path)
+read_calcofi_meta(qmd_path, sidecar_dir = NULL)
 }
 \arguments{
 \item{qmd_path}{Path to one \code{ingest_*.qmd} (or any .qmd with a
 \code{calcofi:} YAML block).}
+
+\item{sidecar_dir}{The \code{metadata/} root holding
+\code{{provider}/{dataset}/dataset_meta.yml}, the descriptive half of
+\code{dataset_meta} (default: \code{metadata/} beside the notebook). When
+the sidecar exists it is merged in by \code{\link[=merge_dataset_meta]{merge_dataset_meta()}} and its path
+is recorded as \code{dataset_meta_sidecar}.}
 }
 \value{
 The parsed \code{calcofi} block as a list, augmented with

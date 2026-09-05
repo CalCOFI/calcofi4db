@@ -1,0 +1,96 @@
+{
+ "version": "v2026.09.04",
+ "pmtiles_base": "https://storage.googleapis.com/calcofi-files-public/_spatial/",
+ "built": "2026-08-24",
+ "layers": [
+  {
+   "id": "noaa_maritime_ts",
+   "group": "Maritime Zones",
+   "name": "12NM Territorial Sea",
+   "source": "noaa_maritime_boundaries",
+   "geom": "line",
+   "filter": [
+    "==",
+    [
+     "get",
+     "ts"
+    ],
+    1
+   ],
+   "line_color": "#42a5f5",
+   "fill_color": null,
+   "line_width": 1,
+   "fill_opacity": 0,
+   "default_visible": false,
+   "name_field": "region",
+   "description": "US 12 nautical mile territorial sea limit",
+   "attribution": "NOAA Office of Coast Survey",
+   "n_features": 110,
+   "bbox": [
+    -180,
+    -14.7608,
+    180,
+    71.589
+   ],
+   "names": [
+    "Alaska",
+    "American Samoa",
+    "Atlantic Coast and Gulf of Mexico",
+    "Commonwealth of the Northern Mariana Islands and Territory of Guam",
+    "Hawaiian Islands",
+    "Howland Island, Baker Island and Jarvis Island",
+    "Johnston Atoll",
+    "Pacific Coast",
+    "Palmyra Atoll and Kingman Reef",
+    "Puerto Rico and U.S. Virgin Islands",
+    "US-Canada",
+    "Wake Island"
+   ],
+   "n_memberships": 0
+  },
+  {
+   "id": "noaa_maritime_cz",
+   "group": "Maritime Zones",
+   "name": "24NM Contiguous Zone",
+   "source": "noaa_maritime_boundaries",
+   "geom": "line",
+   "filter": [
+    "==",
+    [
+     "get",
+     "cz"
+    ],
+    1
+   ],
+   "line_color": "#1e88e5",
+   "fill_color": null,
+   "line_width": 1.5,
+   "fill_opacity": 0,
+   "default_visible": false,
+   "name_field": "region",
+   "description": "US 24 nautical mile contiguous zone",
+   "attribution": "NOAA Office of Coast Survey",
+   "n_features": 77,
+   "bbox": [
+    -180,
+    -14.9617,
+    180,
+    71.7881
+   ],
+   "names": [
+    "Alaska",
+    "American Samoa",
+    "Atlantic Coast and Gulf of Mexico",
+    "Commonwealth of the Northern Mariana Islands and Territory of Guam",
+    "Hawaiian Islands",
+    "Howland Island, Baker Island and Jarvis Island",
+    "Johnston Atoll",
+    "Pacific Coast",
+    "Palmyra Atoll and Kingman Reef",
+    "Puerto Rico and U.S. Virgin Islands",
+    "Wake Island"
+   ],
+   "n_memberships": 0
+  }
+ ]
+}

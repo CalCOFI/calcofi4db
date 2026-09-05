@@ -1,0 +1,604 @@
+{
+  "schema_version": "1.0",
+  "release": {
+    "version": "v2026.09.04",
+    "release_date": "2026-09-04",
+    "doi": "10.5281/zenodo.22310858",
+    "concept_doi": "10.5281/zenodo.22281994",
+    "citation": "CalCOFI (2026). CalCOFI Integrated Database, release v2026.09.04 [Data set]. Scripps Institution of Oceanography, NOAA Fisheries, and California Department of Fish and Wildlife. https://doi.org/10.5281/zenodo.22310858",
+    "n_tables": 14,
+    "total_rows": 348657010,
+    "total_size": 2465639413,
+    "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/",
+    "catalog_url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/catalog.json",
+    "schema_url": "https://calcofi.io/db-schema/?v=v2026.09.04"
+  },
+  "dataset": {
+    "dataset_key": "swfsc_ichthyo",
+    "provider": {
+      "key": "swfsc",
+      "short": "NOAA SWFSC",
+      "name": "NOAA Southwest Fisheries Science Center",
+      "url": "https://www.fisheries.noaa.gov/about/southwest-fisheries-science-center",
+      "registered": true
+    },
+    "dataset": "ichthyo",
+    "dataset_name": "SWFSC Ichthyoplankton",
+    "dataset_name_short": "Ichthyoplankton",
+    "category": {
+      "name": "Fish Eggs & Larvae",
+      "realm": "bio",
+      "icon": "cat-ichthyo",
+      "order": 10,
+      "registered": true
+    },
+    "color": "#ffa94d",
+    "visibility": "public",
+    "description_md": "Ichthyoplankton (fish eggs and larvae) collected by bongo and manta net tows on CalCOFI cruises, processed by SWFSC.\n",
+    "keywords": ["EARTH SCIENCE > BIOLOGICAL CLASSIFICATION > ANIMALS/VERTEBRATES > FISH", "EARTH SCIENCE > OCEANS > MARINE BIOLOGY > FISH LARVAE"],
+    "attribution": {
+      "citation_main": "NOAA Fisheries SWFSC. CalCOFI Ichthyoplankton Database.",
+      "citation_others": [],
+      "doi": null,
+      "license": null,
+      "license_name": null,
+      "license_url": null,
+      "acknowledgement": null,
+      "contact": "data@calcofi.io",
+      "pi_names": [],
+      "creators": [
+        {
+          "name": "Ed Weber",
+          "organization": "NOAA Southwest Fisheries Science Center",
+          "orcid": null,
+          "email": null,
+          "role": "creator"
+        }
+      ],
+      "funding": null,
+      "source_accessed": "2026-08-25"
+    },
+    "links": {
+      "calcofi_org": "https://calcofi.org/data/marine-ecosystem-data/fish-eggs-larvae/",
+      "data_source": null,
+      "workflow": "https://calcofi.io/workflows/ingest_swfsc_ichthyo.html",
+      "page": "https://calcofi.io/datasets/swfsc_ichthyo/"
+    },
+    "coverage": {
+      "realm": "bio",
+      "temporal": "1951-01 to 2023-01",
+      "year_min": 1951,
+      "year_max": 2023,
+      "years": [
+        {
+          "year": 2015,
+          "n_obs": 5818,
+          "n_roots": 436
+        },
+        {
+          "year": 2016,
+          "n_obs": 4971,
+          "n_roots": 389
+        },
+        {
+          "year": 2017,
+          "n_obs": 3413,
+          "n_roots": 374
+        },
+        {
+          "year": 2018,
+          "n_obs": 2015,
+          "n_roots": 146
+        },
+        {
+          "year": 2019,
+          "n_obs": 1966,
+          "n_roots": 164
+        },
+        {
+          "year": 2020,
+          "n_obs": 830,
+          "n_roots": 102
+        },
+        {
+          "year": 2021,
+          "n_obs": 1321,
+          "n_roots": 121
+        },
+        {
+          "year": 2022,
+          "n_obs": 1551,
+          "n_roots": 106
+        },
+        {
+          "year": 2023,
+          "n_obs": 804,
+          "n_roots": 72
+        }
+      ],
+      "spatial": "0.0–54.4°N, 179.8–77.2°W",
+      "bbox": {
+        "lat_min": 0.0017,
+        "lat_max": 54.385,
+        "lon_min": -179.8217,
+        "lon_max": -77.2283
+      },
+      "n_obs": 482250,
+      "n_roots": 54197,
+      "n_stations": 40,
+      "n_variables": 1,
+      "n_taxa": 6,
+      "depth_min_m": null,
+      "depth_max_m": null,
+      "variables": ["abundance"],
+      "life_stages": null,
+      "contributes_to": []
+    },
+    "tables": ["sample", "obs", "obs_attribute", "sample_measurement", "taxon", "dataset_taxon", "cruise", "ship", "lookup", "grid"],
+    "objects": [
+      {
+        "table": "obs",
+        "scope": "partition",
+        "shared": false,
+        "path": "ducklake/releases/v2026.09.04/parquet/obs/dataset_key=swfsc_ichthyo/data_0.parquet",
+        "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/parquet/obs/dataset_key=swfsc_ichthyo/data_0.parquet",
+        "bytes": 4028220,
+        "sha256": "e94032ec2d7b290dbed7509fb7ed90b4b2d83544262b47cc391cc15fc1acfbdd",
+        "since": "v2026.09.04"
+      },
+      {
+        "table": "sample",
+        "scope": "table",
+        "shared": true,
+        "path": "ducklake/releases/v2026.09.04/parquet/sample.parquet",
+        "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/parquet/sample.parquet",
+        "bytes": 25947132,
+        "sha256": "679c7b933da2bee77c9d099b6dcfc94c618e363a4cc423a1c374dcd63a85f285",
+        "since": "v2026.09.04"
+      },
+      {
+        "table": "obs_attribute",
+        "scope": "table",
+        "shared": true,
+        "path": "ducklake/releases/v2026.09.04/parquet/obs_attribute.parquet",
+        "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/parquet/obs_attribute.parquet",
+        "bytes": 1849619,
+        "sha256": "db65be59c116553572c28110d13b695438b1d59f12fdad0c6c66e1939709a16a",
+        "since": "v2026.09.04"
+      },
+      {
+        "table": "sample_measurement",
+        "scope": "table",
+        "shared": true,
+        "path": "ducklake/releases/v2026.09.04/parquet/sample_measurement.parquet",
+        "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/parquet/sample_measurement.parquet",
+        "bytes": 2017797,
+        "sha256": "6b4182c1b153a838891eed1844b351a9e3e643ac7b90a6a912ba5c43aaf70901",
+        "since": "v2026.08.25"
+      },
+      {
+        "table": "taxon",
+        "scope": "table",
+        "shared": true,
+        "path": "ducklake/releases/v2026.09.04/parquet/taxon.parquet",
+        "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/parquet/taxon.parquet",
+        "bytes": 87832,
+        "sha256": "3376d90f88aa285f8d9e83e874e47f9a3342fbb1ea4b4835dd3a86acdf434b00",
+        "since": "v2026.09.04"
+      },
+      {
+        "table": "dataset_taxon",
+        "scope": "table",
+        "shared": true,
+        "path": "ducklake/releases/v2026.09.04/parquet/dataset_taxon.parquet",
+        "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/parquet/dataset_taxon.parquet",
+        "bytes": 57947,
+        "sha256": "1cfc4c0b4dd1ac05e4e630c2dca5c972bf648b76376dcbed0999ccc7f6ab4f50",
+        "since": "v2026.09.04"
+      },
+      {
+        "table": "cruise",
+        "scope": "table",
+        "shared": false,
+        "path": "ducklake/releases/v2026.09.04/parquet/cruise.parquet",
+        "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/parquet/cruise.parquet",
+        "bytes": 19615,
+        "sha256": "8118ed2008c97c72bb67ad137aac0682a5d926a94ad45bcc33da23bc2fd797d4",
+        "since": "v2026.09.04"
+      },
+      {
+        "table": "ship",
+        "scope": "table",
+        "shared": false,
+        "path": "ducklake/releases/v2026.09.04/parquet/ship.parquet",
+        "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/parquet/ship.parquet",
+        "bytes": 1238,
+        "sha256": "6c320d5032a33e3d54295957e09d607ad19f39379e1cb6567de0da9e91dd65da",
+        "since": "v2026.08.25"
+      },
+      {
+        "table": "lookup",
+        "scope": "table",
+        "shared": false,
+        "path": "ducklake/releases/v2026.09.04/parquet/lookup.parquet",
+        "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/parquet/lookup.parquet",
+        "bytes": 1597,
+        "sha256": "21f96f3971d403fdac5c50d5e5e4fba9cd1ba2d3c0bee6ee3637091b3e9b8fda",
+        "since": "v2026.08.25"
+      },
+      {
+        "table": "grid",
+        "scope": "table",
+        "shared": false,
+        "path": "ducklake/releases/v2026.09.04/parquet/grid.parquet",
+        "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/parquet/grid.parquet",
+        "bytes": 102994,
+        "sha256": "5a1617386223025e515602d4dda5da92d1aebca41ef33b13ab882e2e1fc53493",
+        "since": "v2026.08.25"
+      }
+    ],
+    "since_version": "v2026.05.19",
+    "distributions": [
+      {
+        "kind": "download",
+        "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/parquet/obs/dataset_key=swfsc_ichthyo/data_0.parquet",
+        "format": "parquet",
+        "table": "obs",
+        "scope": "partition",
+        "shared": false,
+        "title": "obs (this dataset's rows)",
+        "bytes": 4028220,
+        "sha256": "e94032ec2d7b290dbed7509fb7ed90b4b2d83544262b47cc391cc15fc1acfbdd",
+        "since": "v2026.09.04",
+        "status": "current"
+      },
+      {
+        "kind": "download",
+        "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/parquet/sample.parquet",
+        "format": "parquet",
+        "table": "sample",
+        "scope": "table",
+        "shared": true,
+        "title": "sample (whole table)",
+        "bytes": 25947132,
+        "sha256": "679c7b933da2bee77c9d099b6dcfc94c618e363a4cc423a1c374dcd63a85f285",
+        "since": "v2026.09.04",
+        "status": "current"
+      },
+      {
+        "kind": "download",
+        "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/parquet/obs_attribute.parquet",
+        "format": "parquet",
+        "table": "obs_attribute",
+        "scope": "table",
+        "shared": true,
+        "title": "obs_attribute (whole table)",
+        "bytes": 1849619,
+        "sha256": "db65be59c116553572c28110d13b695438b1d59f12fdad0c6c66e1939709a16a",
+        "since": "v2026.09.04",
+        "status": "current"
+      },
+      {
+        "kind": "download",
+        "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/parquet/sample_measurement.parquet",
+        "format": "parquet",
+        "table": "sample_measurement",
+        "scope": "table",
+        "shared": true,
+        "title": "sample_measurement (whole table)",
+        "bytes": 2017797,
+        "sha256": "6b4182c1b153a838891eed1844b351a9e3e643ac7b90a6a912ba5c43aaf70901",
+        "since": "v2026.08.25",
+        "status": "current"
+      },
+      {
+        "kind": "download",
+        "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/parquet/taxon.parquet",
+        "format": "parquet",
+        "table": "taxon",
+        "scope": "table",
+        "shared": true,
+        "title": "taxon (whole table)",
+        "bytes": 87832,
+        "sha256": "3376d90f88aa285f8d9e83e874e47f9a3342fbb1ea4b4835dd3a86acdf434b00",
+        "since": "v2026.09.04",
+        "status": "current"
+      },
+      {
+        "kind": "download",
+        "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/parquet/dataset_taxon.parquet",
+        "format": "parquet",
+        "table": "dataset_taxon",
+        "scope": "table",
+        "shared": true,
+        "title": "dataset_taxon (whole table)",
+        "bytes": 57947,
+        "sha256": "1cfc4c0b4dd1ac05e4e630c2dca5c972bf648b76376dcbed0999ccc7f6ab4f50",
+        "since": "v2026.09.04",
+        "status": "current"
+      },
+      {
+        "kind": "download",
+        "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/parquet/cruise.parquet",
+        "format": "parquet",
+        "table": "cruise",
+        "scope": "table",
+        "shared": false,
+        "title": "cruise (whole table)",
+        "bytes": 19615,
+        "sha256": "8118ed2008c97c72bb67ad137aac0682a5d926a94ad45bcc33da23bc2fd797d4",
+        "since": "v2026.09.04",
+        "status": "current"
+      },
+      {
+        "kind": "download",
+        "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/parquet/ship.parquet",
+        "format": "parquet",
+        "table": "ship",
+        "scope": "table",
+        "shared": false,
+        "title": "ship (whole table)",
+        "bytes": 1238,
+        "sha256": "6c320d5032a33e3d54295957e09d607ad19f39379e1cb6567de0da9e91dd65da",
+        "since": "v2026.08.25",
+        "status": "current"
+      },
+      {
+        "kind": "download",
+        "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/parquet/lookup.parquet",
+        "format": "parquet",
+        "table": "lookup",
+        "scope": "table",
+        "shared": false,
+        "title": "lookup (whole table)",
+        "bytes": 1597,
+        "sha256": "21f96f3971d403fdac5c50d5e5e4fba9cd1ba2d3c0bee6ee3637091b3e9b8fda",
+        "since": "v2026.08.25",
+        "status": "current"
+      },
+      {
+        "kind": "download",
+        "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/parquet/grid.parquet",
+        "format": "parquet",
+        "table": "grid",
+        "scope": "table",
+        "shared": false,
+        "title": "grid (whole table)",
+        "bytes": 102994,
+        "sha256": "5a1617386223025e515602d4dda5da92d1aebca41ef33b13ab882e2e1fc53493",
+        "since": "v2026.08.25",
+        "status": "current"
+      },
+      {
+        "kind": "download",
+        "url": "https://storage.calcofi.io/calcofi-files-public/netcdf/swfsc_ichthyo/v2026.09.04/swfsc_ichthyo.nc",
+        "format": "netcdf",
+        "id": "swfsc_ichthyo",
+        "title": "CF netCDF",
+        "bytes": 225262134,
+        "sha256": "1f9ab1b0a92b485c96b510e5998ed84cdcd78dc0b1f5a87c1ca47c192c25a7c4",
+        "cf_scope": "CF-1.10 where CF applies (coordinates, units, standard names, time). The site -> tow -> net -> occurrence hierarchy uses netCDF-4 groups with explicit parent_index links; CF defines no feature type for this nesting.",
+        "release": "v2026.09.04",
+        "generated_utc": "2026-09-04T19:20:59Z",
+        "status": "current"
+      },
+      {
+        "kind": "service",
+        "url": "https://erddap.calcofi.io/erddap/tabledap/swfsc_ichthyo_attribute.html",
+        "format": "erddap",
+        "id": "swfsc_ichthyo_attribute",
+        "title": "SWFSC Ichthyoplankton \\u2014 length/stage frequency",
+        "grain": "length/stage frequency",
+        "info_url": "https://erddap.calcofi.io/erddap/info/swfsc_ichthyo_attribute/index.html",
+        "status": "current"
+      },
+      {
+        "kind": "service",
+        "url": "https://erddap.calcofi.io/erddap/tabledap/swfsc_ichthyo.html",
+        "format": "erddap",
+        "id": "swfsc_ichthyo",
+        "title": "SWFSC Ichthyoplankton \\u2014 observations",
+        "grain": "observations",
+        "info_url": "https://erddap.calcofi.io/erddap/info/swfsc_ichthyo/index.html",
+        "status": "current"
+      },
+      {
+        "kind": "service",
+        "url": "https://erddap.calcofi.io/erddap/tabledap/swfsc_ichthyo_sample.html",
+        "format": "erddap",
+        "id": "swfsc_ichthyo_sample",
+        "title": "SWFSC Ichthyoplankton \\u2014 sampling events",
+        "grain": "sampling events",
+        "info_url": "https://erddap.calcofi.io/erddap/info/swfsc_ichthyo_sample/index.html",
+        "status": "current"
+      },
+      {
+        "kind": "service",
+        "url": "https://erddap.calcofi.io/erddap/metadata/iso19115/xml/swfsc_ichthyo_iso19115.xml",
+        "format": "iso19115",
+        "id": "swfsc_ichthyo",
+        "title": "ISO 19115-3 metadata (ERDDAP)",
+        "status": "current"
+      },
+      {
+        "kind": "notebook",
+        "url": "https://calcofi.io/workflows/ingest_swfsc_ichthyo.html",
+        "format": "html",
+        "title": "ingest notebook",
+        "status": "current"
+      },
+      {
+        "kind": "page",
+        "url": "https://calcofi.org/data/marine-ecosystem-data/fish-eggs-larvae/",
+        "portal": "calcofi.org",
+        "title": "calcofi.org data page",
+        "status": "external"
+      },
+      {
+        "kind": "archive",
+        "url": "https://obis.org/dataset/0e223f55-c826-4513-ae9a-b04cbf2e189c",
+        "portal": "obis",
+        "id": "0e223f55-c826-4513-ae9a-b04cbf2e189c",
+        "title": "CalCOFI Fish Larvae & Egg Tows",
+        "status": "current",
+        "observed_utc": "2026-09-05T00:00:00Z",
+        "notes": "published 2026-03-27 through the OBIS-USA IPT from publish_ichthyo_to-obis.qmd (DwC-A: 77,188 events · 463,655 occurrences · 610,816 eMoF); featured by OBIS 2026-04-15. The OBIS text search does not match 'CalCOFI' — address it by this id, never by search."
+      },
+      {
+        "kind": "archive",
+        "url": "https://ipt-obis.gbif.us/resource?r=calcofi_ichthyo",
+        "portal": "ipt",
+        "id": "calcofi_ichthyo",
+        "title": "CalCOFI Fish Larvae & Egg Tows (OBIS-USA IPT resource)",
+        "status": "current",
+        "observed_utc": "2026-09-05T00:00:00Z",
+        "notes": "the IPT resource behind the OBIS dataset; Ben holds the login; upload is manual, gated on a content change (plan D-8)"
+      },
+      {
+        "kind": "mirror",
+        "url": "https://coastwatch.pfeg.noaa.gov/erddap/tabledap/erdCalCOFIlrvcnt.html",
+        "portal": "erddap-noaa",
+        "id": "erdCalCOFIlrvcnt",
+        "title": "CalCOFI NOAA Fish Larvae Counts",
+        "status": "external",
+        "observed_utc": "2026-09-05T00:00:00Z",
+        "notes": "NOAA CoastWatch ERDDAP; the same SWFSC ichthyoplankton rows served by NOAA (CalOOS module source)"
+      },
+      {
+        "kind": "mirror",
+        "url": "https://coastwatch.pfeg.noaa.gov/erddap/tabledap/erdCalCOFIlrvsiz.html",
+        "portal": "erddap-noaa",
+        "id": "erdCalCOFIlrvsiz",
+        "title": "CalCOFI NOAA Fish Larvae Sizes",
+        "status": "external",
+        "observed_utc": "2026-09-05T00:00:00Z"
+      },
+      {
+        "kind": "mirror",
+        "url": "https://coastwatch.pfeg.noaa.gov/erddap/tabledap/erdCalCOFIlrvstg.html",
+        "portal": "erddap-noaa",
+        "id": "erdCalCOFIlrvstg",
+        "title": "CalCOFI NOAA Fish Larvae Stages",
+        "status": "external",
+        "observed_utc": "2026-09-05T00:00:00Z"
+      },
+      {
+        "kind": "mirror",
+        "url": "https://coastwatch.pfeg.noaa.gov/erddap/tabledap/erdCalCOFIeggcnt.html",
+        "portal": "erddap-noaa",
+        "id": "erdCalCOFIeggcnt",
+        "title": "CalCOFI NOAA Fish Egg Counts",
+        "status": "external",
+        "observed_utc": "2026-09-05T00:00:00Z"
+      },
+      {
+        "kind": "mirror",
+        "url": "https://coastwatch.pfeg.noaa.gov/erddap/tabledap/erdCalCOFIeggstg.html",
+        "portal": "erddap-noaa",
+        "id": "erdCalCOFIeggstg",
+        "title": "CalCOFI NOAA Fish Egg Stages",
+        "status": "external",
+        "observed_utc": "2026-09-05T00:00:00Z"
+      },
+      {
+        "kind": "mirror",
+        "url": "https://coastwatch.pfeg.noaa.gov/erddap/tabledap/erdCalCOFIinvcnt.html",
+        "portal": "erddap-noaa",
+        "id": "erdCalCOFIinvcnt",
+        "title": "CalCOFI NOAA Invertebrate Counts (cephalopods)",
+        "status": "external",
+        "observed_utc": "2026-09-05T00:00:00Z",
+        "notes": "swfsc/invert is folded into swfsc_ichthyo (dataset_status.csv)"
+      },
+      {
+        "kind": "mirror",
+        "url": "https://coastwatch.pfeg.noaa.gov/erddap/tabledap/erdCalCOFIinvsiz.html",
+        "portal": "erddap-noaa",
+        "id": "erdCalCOFIinvsiz",
+        "title": "CalCOFI NOAA Invertebrate Sizes (cephalopods)",
+        "status": "external",
+        "observed_utc": "2026-09-05T00:00:00Z"
+      },
+      {
+        "kind": "mirror",
+        "url": "https://coastwatch.pfeg.noaa.gov/erddap/tabledap/erdCalCOFItows.html",
+        "portal": "erddap-noaa",
+        "id": "erdCalCOFItows",
+        "title": "CalCOFI NOAA Ichthyoplankton Tows",
+        "status": "external",
+        "observed_utc": "2026-09-05T00:00:00Z",
+        "notes": "the tow (effort) table the count tables join to"
+      },
+      {
+        "kind": "mirror",
+        "url": "https://portal.edirepository.org/nis/mapbrowse?packageid=edi.109.4",
+        "portal": "edi",
+        "id": "edi.109.4",
+        "title": "CALCOFI fish larvae at 66 standard stations, 1966 - ongoing",
+        "status": "external",
+        "observed_utc": "2026-09-05T00:00:00Z",
+        "notes": "SCB MBON's derived package (Thompson, Miller, Kui 2022; doi:10.6073/pasta/23c5576732e5ec3956fe5e86954f4a2b) — a subset of the same source, not the ingest's source; published by MBON, never republished by CalCOFI"
+      }
+    ],
+    "registrations": [
+      {
+        "portal": "erddap",
+        "status": "published",
+        "url": "https://erddap.calcofi.io/erddap/info/swfsc_ichthyo/index.html",
+        "issues": []
+      },
+      {
+        "portal": "obis",
+        "status": "published",
+        "url": "https://obis.org/dataset/0e223f55-c826-4513-ae9a-b04cbf2e189c",
+        "issues": []
+      },
+      {
+        "portal": "edi",
+        "status": "n/a",
+        "issues": []
+      },
+      {
+        "portal": "ncei",
+        "status": "n/a",
+        "issues": []
+      },
+      {
+        "portal": "caloos",
+        "status": "planned",
+        "issues": []
+      },
+      {
+        "portal": "zenodo",
+        "status": "published",
+        "url": "https://doi.org/10.5281/zenodo.22310858",
+        "note": "as part of the integrated database release"
+      }
+    ],
+    "status": {
+      "stage": "published",
+      "priority": "must-complete",
+      "gh_issue": null,
+      "blockers": null,
+      "updated": "2026-09-04",
+      "questions_open": 14,
+      "questions_dataset": [
+        {
+          "label": "Q10",
+          "field": "citation_main",
+          "status": "proposed"
+        },
+        {
+          "label": "Q11",
+          "field": "license",
+          "status": "proposed"
+        },
+        {
+          "label": "Q12",
+          "field": "pi_names",
+          "status": "proposed"
+        }
+      ]
+    }
+  }
+}

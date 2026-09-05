@@ -1,0 +1,843 @@
+{
+ "version": "v2026.09.04",
+ "datasets": [
+  {
+   "dataset_key": "calcofi_dic",
+   "realm": "env",
+   "n_obs": 3708,
+   "n_roots": 341,
+   "year_min": 1983,
+   "year_max": 2021
+  },
+  {
+   "dataset_key": "swfsc_ichthyo",
+   "realm": "bio",
+   "n_obs": 482250,
+   "n_roots": 54197,
+   "year_min": 1951,
+   "year_max": 2023
+  }
+ ],
+ "stations": [
+  {
+   "grid_key": "st-20-ln140_hist",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 18,
+     "n_roots": 1,
+     "year_min": 1999,
+     "year_max": 1999
+    }
+   ]
+  },
+  {
+   "grid_key": "st-20-ln150_hist",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 58,
+     "n_roots": 2,
+     "year_min": 1998,
+     "year_max": 2003
+    }
+   ]
+  },
+  {
+   "grid_key": "st-20-ln160_hist",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 172,
+     "n_roots": 17,
+     "year_min": 1972,
+     "year_max": 2006
+    }
+   ]
+  },
+  {
+   "grid_key": "st0-ln10_hist",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 344,
+     "n_roots": 64,
+     "year_min": 1972,
+     "year_max": 2016
+    }
+   ]
+  },
+  {
+   "grid_key": "st0-ln130_hist",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 76,
+     "n_roots": 2,
+     "year_min": 1998,
+     "year_max": 2003
+    }
+   ]
+  },
+  {
+   "grid_key": "st0-ln140_hist",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 26,
+     "n_roots": 2,
+     "year_min": 1998,
+     "year_max": 2000
+    }
+   ]
+  },
+  {
+   "grid_key": "st0-ln150_hist",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 74,
+     "n_roots": 3,
+     "year_min": 1998,
+     "year_max": 2003
+    }
+   ]
+  },
+  {
+   "grid_key": "st0-ln160_hist",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 244,
+     "n_roots": 36,
+     "year_min": 1951,
+     "year_max": 2000
+    }
+   ]
+  },
+  {
+   "grid_key": "st0-ln20_hist",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 244,
+     "n_roots": 48,
+     "year_min": 2003,
+     "year_max": 2016
+    }
+   ]
+  },
+  {
+   "grid_key": "st0-ln30_hist",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 10,
+     "n_roots": 2,
+     "year_min": 2008,
+     "year_max": 2008
+    }
+   ]
+  },
+  {
+   "grid_key": "st100-ln100_hist",
+   "datasets": [
+    {
+     "dataset_key": "calcofi_dic",
+     "n_obs": 83,
+     "n_roots": 17,
+     "year_min": 1984,
+     "year_max": 1984
+    },
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 2274,
+     "n_roots": 200,
+     "year_min": 1951,
+     "year_max": 2009
+    }
+   ]
+  },
+  {
+   "grid_key": "st100-ln110_hist",
+   "datasets": [
+    {
+     "dataset_key": "calcofi_dic",
+     "n_obs": 38,
+     "n_roots": 6,
+     "year_min": 1984,
+     "year_max": 1984
+    },
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 861,
+     "n_roots": 92,
+     "year_min": 1951,
+     "year_max": 1998
+    }
+   ]
+  },
+  {
+   "grid_key": "st100-ln120_hist",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 867,
+     "n_roots": 98,
+     "year_min": 1951,
+     "year_max": 2003
+    }
+   ]
+  },
+  {
+   "grid_key": "st100-ln130_hist",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 260,
+     "n_roots": 25,
+     "year_min": 1951,
+     "year_max": 2006
+    }
+   ]
+  },
+  {
+   "grid_key": "st100-ln140_hist",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 98,
+     "n_roots": 10,
+     "year_min": 1954,
+     "year_max": 2006
+    }
+   ]
+  },
+  {
+   "grid_key": "st100-ln150_hist",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 76,
+     "n_roots": 8,
+     "year_min": 1951,
+     "year_max": 1990
+    }
+   ]
+  },
+  {
+   "grid_key": "st100-ln20_hist",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 24,
+     "n_roots": 3,
+     "year_min": 1972,
+     "year_max": 1972
+    }
+   ]
+  },
+  {
+   "grid_key": "st100-ln30_hist",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 22,
+     "n_roots": 4,
+     "year_min": 2001,
+     "year_max": 2005
+    }
+   ]
+  },
+  {
+   "grid_key": "st100-ln40_hist",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 72,
+     "n_roots": 12,
+     "year_min": 1951,
+     "year_max": 2005
+    }
+   ]
+  },
+  {
+   "grid_key": "st100-ln50_hist",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 225,
+     "n_roots": 37,
+     "year_min": 1951,
+     "year_max": 2006
+    }
+   ]
+  },
+  {
+   "grid_key": "st100-ln60",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 298,
+     "n_roots": 49,
+     "year_min": 1951,
+     "year_max": 2005
+    }
+   ]
+  },
+  {
+   "grid_key": "st100-ln63.3",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 111,
+     "n_roots": 14,
+     "year_min": 1958,
+     "year_max": 2005
+    }
+   ]
+  },
+  {
+   "grid_key": "st100-ln66.7",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 146,
+     "n_roots": 20,
+     "year_min": 1958,
+     "year_max": 2012
+    }
+   ]
+  },
+  {
+   "grid_key": "st100-ln70",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 405,
+     "n_roots": 47,
+     "year_min": 1951,
+     "year_max": 2005
+    }
+   ]
+  },
+  {
+   "grid_key": "st100-ln73.3",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 211,
+     "n_roots": 22,
+     "year_min": 1968,
+     "year_max": 2012
+    }
+   ]
+  },
+  {
+   "grid_key": "st100-ln76.7",
+   "datasets": [
+    {
+     "dataset_key": "calcofi_dic",
+     "n_obs": 5,
+     "n_roots": 3,
+     "year_min": 2017,
+     "year_max": 2020
+    },
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 1485,
+     "n_roots": 126,
+     "year_min": 1968,
+     "year_max": 2022
+    }
+   ]
+  },
+  {
+   "grid_key": "st100-ln80",
+   "datasets": [
+    {
+     "dataset_key": "calcofi_dic",
+     "n_obs": 152,
+     "n_roots": 8,
+     "year_min": 2016,
+     "year_max": 2020
+    },
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 2085,
+     "n_roots": 180,
+     "year_min": 1951,
+     "year_max": 2023
+    }
+   ]
+  },
+  {
+   "grid_key": "st100-ln83.3",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 1903,
+     "n_roots": 143,
+     "year_min": 1960,
+     "year_max": 2023
+    }
+   ]
+  },
+  {
+   "grid_key": "st100-ln86.7",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 1980,
+     "n_roots": 143,
+     "year_min": 1960,
+     "year_max": 2023
+    }
+   ]
+  },
+  {
+   "grid_key": "st100-ln90",
+   "datasets": [
+    {
+     "dataset_key": "calcofi_dic",
+     "n_obs": 33,
+     "n_roots": 6,
+     "year_min": 1984,
+     "year_max": 1984
+    },
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 2935,
+     "n_roots": 226,
+     "year_min": 1951,
+     "year_max": 2023
+    }
+   ]
+  },
+  {
+   "grid_key": "st100-ln93.3",
+   "datasets": [
+    {
+     "dataset_key": "calcofi_dic",
+     "n_obs": 29,
+     "n_roots": 6,
+     "year_min": 1984,
+     "year_max": 1984
+    },
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 2665,
+     "n_roots": 189,
+     "year_min": 1955,
+     "year_max": 2023
+    }
+   ]
+  },
+  {
+   "grid_key": "st110-ln60_hist",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 319,
+     "n_roots": 47,
+     "year_min": 1951,
+     "year_max": 2005
+    }
+   ]
+  },
+  {
+   "grid_key": "st110-ln70_hist",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 344,
+     "n_roots": 36,
+     "year_min": 1951,
+     "year_max": 2012
+    }
+   ]
+  },
+  {
+   "grid_key": "st110-ln80_hist",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 706,
+     "n_roots": 68,
+     "year_min": 1951,
+     "year_max": 2012
+    }
+   ]
+  },
+  {
+   "grid_key": "st110-ln83.3",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 1579,
+     "n_roots": 121,
+     "year_min": 1963,
+     "year_max": 2023
+    }
+   ]
+  },
+  {
+   "grid_key": "st110-ln86.7",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 1674,
+     "n_roots": 118,
+     "year_min": 1963,
+     "year_max": 2023
+    }
+   ]
+  },
+  {
+   "grid_key": "st110-ln90",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 2162,
+     "n_roots": 157,
+     "year_min": 1951,
+     "year_max": 2023
+    }
+   ]
+  },
+  {
+   "grid_key": "st110-ln93.3",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 2130,
+     "n_roots": 143,
+     "year_min": 1959,
+     "year_max": 2023
+    }
+   ]
+  },
+  {
+   "grid_key": "st120-ln100_hist",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 292,
+     "n_roots": 26,
+     "year_min": 1951,
+     "year_max": 1975
+    }
+   ]
+  },
+  {
+   "grid_key": "st120-ln110_hist",
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 265,
+     "n_roots": 23,
+     "year_min": 1951,
+     "year_max": 2006
+    }
+   ]
+  }
+ ],
+ "years": [
+  {
+   "dataset_key": "calcofi_dic",
+   "year": 2016,
+   "n_obs": 615,
+   "n_roots": 27
+  },
+  {
+   "dataset_key": "calcofi_dic",
+   "year": 2017,
+   "n_obs": 486,
+   "n_roots": 23
+  },
+  {
+   "dataset_key": "calcofi_dic",
+   "year": 2018,
+   "n_obs": 203,
+   "n_roots": 19
+  },
+  {
+   "dataset_key": "calcofi_dic",
+   "year": 2019,
+   "n_obs": 116,
+   "n_roots": 17
+  },
+  {
+   "dataset_key": "calcofi_dic",
+   "year": 2020,
+   "n_obs": 256,
+   "n_roots": 35
+  },
+  {
+   "dataset_key": "calcofi_dic",
+   "year": 2021,
+   "n_obs": 58,
+   "n_roots": 10
+  },
+  {
+   "dataset_key": "swfsc_ichthyo",
+   "year": 2015,
+   "n_obs": 5818,
+   "n_roots": 436
+  },
+  {
+   "dataset_key": "swfsc_ichthyo",
+   "year": 2016,
+   "n_obs": 4971,
+   "n_roots": 389
+  },
+  {
+   "dataset_key": "swfsc_ichthyo",
+   "year": 2017,
+   "n_obs": 3413,
+   "n_roots": 374
+  },
+  {
+   "dataset_key": "swfsc_ichthyo",
+   "year": 2018,
+   "n_obs": 2015,
+   "n_roots": 146
+  },
+  {
+   "dataset_key": "swfsc_ichthyo",
+   "year": 2019,
+   "n_obs": 1966,
+   "n_roots": 164
+  },
+  {
+   "dataset_key": "swfsc_ichthyo",
+   "year": 2020,
+   "n_obs": 830,
+   "n_roots": 102
+  },
+  {
+   "dataset_key": "swfsc_ichthyo",
+   "year": 2021,
+   "n_obs": 1321,
+   "n_roots": 121
+  },
+  {
+   "dataset_key": "swfsc_ichthyo",
+   "year": 2022,
+   "n_obs": 1551,
+   "n_roots": 106
+  },
+  {
+   "dataset_key": "swfsc_ichthyo",
+   "year": 2023,
+   "n_obs": 804,
+   "n_roots": 72
+  }
+ ],
+ "variables": [
+  {
+   "dataset_key": "calcofi_dic",
+   "realm": "env",
+   "measurement_type": "alkalinity",
+   "n_obs": 937,
+   "n_roots": 289,
+   "year_min": 1984,
+   "year_max": 2021,
+   "depth_min_m": 1,
+   "depth_max_m": 3500,
+   "category": "Carbonate System"
+  },
+  {
+   "dataset_key": "calcofi_dic",
+   "realm": "env",
+   "measurement_type": "ctdtemp_its90",
+   "n_obs": 835,
+   "n_roots": 314,
+   "year_min": 1983,
+   "year_max": 2021,
+   "depth_min_m": 1,
+   "depth_max_m": 3500,
+   "category": "Physical Oceanography"
+  },
+  {
+   "dataset_key": "calcofi_dic",
+   "realm": "env",
+   "measurement_type": "dic",
+   "n_obs": 1028,
+   "n_roots": 335,
+   "year_min": 1983,
+   "year_max": 2021,
+   "depth_min_m": 1,
+   "depth_max_m": 3500,
+   "category": "Carbonate System"
+  },
+  {
+   "dataset_key": "calcofi_dic",
+   "realm": "env",
+   "measurement_type": "salinity_pss78",
+   "n_obs": 908,
+   "n_roots": 294,
+   "year_min": 1983,
+   "year_max": 2021,
+   "depth_min_m": 1,
+   "depth_max_m": 3500,
+   "category": "Physical Oceanography"
+  },
+  {
+   "dataset_key": "swfsc_ichthyo",
+   "realm": "bio",
+   "measurement_type": "abundance",
+   "n_obs": 482250,
+   "n_roots": 54197,
+   "year_min": 1951,
+   "year_max": 2023,
+   "category": "Fish Eggs & Larvae"
+  }
+ ],
+ "taxa": [
+  {
+   "taxon_key": "worms:293496",
+   "scientific_name": "Teleostei",
+   "common_name": "Unidentified Teliost",
+   "rank": "Class",
+   "class": "Teleostei",
+   "n_obs": 122369,
+   "n_roots": 99258,
+   "year_min": 1951,
+   "year_max": 2023,
+   "life_stages": [
+    "egg",
+    "larva"
+   ],
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 72797,
+     "n_roots": 49686,
+     "year_min": 1951,
+     "year_max": 2023
+    }
+   ]
+  },
+  {
+   "taxon_key": "worms:272286",
+   "scientific_name": "Engraulis mordax",
+   "common_name": "Northern anchovy",
+   "rank": "Species",
+   "class": "Teleostei",
+   "n_obs": 91616,
+   "n_roots": 75054,
+   "year_min": 1951,
+   "year_max": 2023,
+   "life_stages": [
+    "egg",
+    "larva"
+   ],
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 42044,
+     "n_roots": 25482,
+     "year_min": 1951,
+     "year_max": 2023
+    }
+   ]
+  },
+  {
+   "taxon_key": "worms:217452",
+   "scientific_name": "Sardinops sagax",
+   "common_name": "Pacific sardine (pilchard)",
+   "rank": "Species",
+   "class": "Teleostei",
+   "n_obs": 62898,
+   "n_roots": 57769,
+   "year_min": 1951,
+   "year_max": 2022,
+   "life_stages": [
+    "egg",
+    "larva"
+   ],
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 13326,
+     "n_roots": 8197,
+     "year_min": 1951,
+     "year_max": 2022
+    }
+   ]
+  },
+  {
+   "taxon_key": "worms:272458",
+   "scientific_name": "Merluccius productus",
+   "common_name": "Pacific hake or whiting",
+   "rank": "Species",
+   "class": "Teleostei",
+   "n_obs": 61552,
+   "n_roots": 59276,
+   "year_min": 1951,
+   "year_max": 2023,
+   "life_stages": [
+    "egg",
+    "larva"
+   ],
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 14281,
+     "n_roots": 12005,
+     "year_min": 1951,
+     "year_max": 2023
+    }
+   ]
+  },
+  {
+   "taxon_key": "worms:273305",
+   "scientific_name": "Trachurus symmetricus",
+   "common_name": "Jack mackerel",
+   "rank": "Species",
+   "class": "Teleostei",
+   "n_obs": 56470,
+   "n_roots": 54673,
+   "year_min": 1951,
+   "year_max": 2023,
+   "life_stages": [
+    "egg",
+    "larva"
+   ],
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 10632,
+     "n_roots": 8835,
+     "year_min": 1951,
+     "year_max": 2023
+    }
+   ]
+  },
+  {
+   "taxon_key": "worms:574540",
+   "scientific_name": "Doryteuthis opalescens",
+   "common_name": "Market squid",
+   "rank": "Species",
+   "class": "Cephalopoda",
+   "n_obs": 43352,
+   "n_roots": 43193,
+   "year_min": 1980,
+   "year_max": 2023,
+   "life_stages": [
+    "egg",
+    "invert"
+   ],
+   "datasets": [
+    {
+     "dataset_key": "swfsc_ichthyo",
+     "n_obs": 1080,
+     "n_roots": 921,
+     "year_min": 1980,
+     "year_max": 2023
+    }
+   ]
+  }
+ ]
+}

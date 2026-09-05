@@ -2425,6 +2425,11 @@ release_excluded_datasets <- function(workflow_dir,
 #'
 #' @param qmd_path Path to one \code{ingest_*.qmd} (or any .qmd with a
 #'   \code{calcofi:} YAML block).
+#' @param sidecar_dir The \code{metadata/} root holding
+#'   \code{{provider}/{dataset}/dataset_meta.yml}, the descriptive half of
+#'   \code{dataset_meta} (default: \code{metadata/} beside the notebook). When
+#'   the sidecar exists it is merged in by [merge_dataset_meta()] and its path
+#'   is recorded as \code{dataset_meta_sidecar}.
 #'
 #' @return The parsed \code{calcofi} block as a list, augmented with
 #'   \code{provider_dataset} and \code{qmd}, or \code{NULL} if absent. Use this
@@ -2432,15 +2437,98 @@ release_excluded_datasets <- function(workflow_dir,
 #'   \code{tables_owned} from the authoritative YAML rather than hard-coding.
 #' @export
 #' @concept wrangle
-read_calcofi_meta <- function(qmd_path) {
+read_calcofi_meta <- function(qmd_path, sidecar_dir = NULL) {
   stopifnot(file.exists(qmd_path))
   cc <- .read_yaml_front_matter(qmd_path)$calcofi
   if (is.null(cc)) return(NULL)
   if (!is.null(cc$provider) && !is.null(cc$dataset)) {
     cc$provider_dataset <- paste0(cc$provider, "_", cc$dataset)
+    # the descriptive half lives in metadata/{provider}/{dataset}/dataset_meta.yml
+    # (plan 2026-09-05 § D-9); merge it so every reader of `dataset_meta` sees one
+    # block, exactly as before the split
+    if (is.null(sidecar_dir)) sidecar_dir <- file.path(dirname(qmd_path), "metadata")
+    sc_path <- file.path(sidecar_dir, cc$provider, cc$dataset, "dataset_meta.yml")
+    if (file.exists(sc_path)) {
+      merged <- merge_dataset_meta(cc$dataset_meta, read_dataset_sidecar(sc_path),
+                                   notebook = basename(qmd_path), sidecar_path = sc_path)
+      cc$dataset_meta <- merged
+      cc$dataset_meta_sidecar <- sc_path
+    }
   }
   cc$qmd <- qmd_path
   cc
+}
+
+#' Merge a notebook's structural `dataset_meta` with its descriptive sidecar
+#'
+#' The notebook keeps the structural keys ([dataset_meta_structural_keys()]),
+#' the sidecar the descriptive ones ([dataset_meta_descriptive_keys()]); the
+#' merge is their union. A descriptive key found in the notebook with a value
+#' that differs from the sidecar's is an error (two truths); an identical value
+#' is tolerated (and `strict = TRUE`, which `build_workflows_index.R` uses,
+#' errors on any descriptive key left in the notebook at all). Keys the sidecar
+#' carries that are not `dataset_meta` fields (`provider`, `dataset`, `path`,
+#' `status`, `visibility`, `creators`, …) come along, so a downstream reader can
+#' see them.
+#'
+#' @param notebook_meta the `calcofi.dataset_meta` list from the notebook YAML
+#' @param sidecar the list from [read_dataset_sidecar()]
+#' @param notebook,sidecar_path names used in error messages
+#' @param strict error on any descriptive key still present in the notebook
+#' @return The merged list.
+#' @export
+#' @concept catalog
+merge_dataset_meta <- function(notebook_meta, sidecar, notebook = "notebook", sidecar_path = "sidecar",
+                               strict = FALSE) {
+  nb <- notebook_meta %||% list()
+  sc <- sidecar %||% list()
+  sc$path <- NULL; sc$provider <- NULL; sc$dataset <- NULL
+  desc_in_nb <- intersect(names(nb), dataset_meta_descriptive_keys())
+  if (length(desc_in_nb)) {
+    same <- vapply(desc_in_nb, function(k) is.null(sc[[k]]) || identical(unname(nb[[k]]), unname(sc[[k]])), logical(1))
+    if (any(!same))
+      stop("dataset_meta key(s) declared in both ", notebook, " and ", sidecar_path, " with different values: ",
+           paste(desc_in_nb[!same], collapse = ", "),
+           "\n  A descriptive key has one home, the sidecar; delete it from the notebook YAML.", call. = FALSE)
+    if (isTRUE(strict))
+      stop("descriptive dataset_meta key(s) still in ", notebook, ": ", paste(desc_in_nb, collapse = ", "),
+           "\n  They belong in ", sidecar_path, " (plan 2026-09-05 § D-9); run scripts/migrate_dataset_meta.R.",
+           call. = FALSE)
+  }
+  out <- nb
+  for (k in names(sc)) out[[k]] <- sc[[k]]
+  out
+}
+
+#' Assert that no notebook still carries a descriptive `dataset_meta` key
+#'
+#' What `scripts/build_workflows_index.R` runs after the sidecar migration: for
+#' every `ingest_*.qmd` whose dataset has a sidecar, the notebook's own YAML must
+#' hold structural keys only.
+#'
+#' @inheritParams read_ingest_yaml
+#' @param sidecar_dir the `metadata/` root (default `{workflow_dir}/metadata`)
+#' @return Invisibly, a tibble `notebook, dataset_key, has_sidecar, descriptive_in_notebook`.
+#' @export
+#' @concept catalog
+check_dataset_meta_split <- function(workflow_dir, pattern = "^ingest_.*\\.qmd$", sidecar_dir = NULL) {
+  if (is.null(sidecar_dir)) sidecar_dir <- file.path(workflow_dir, "metadata")
+  qmds <- list.files(workflow_dir, pattern = pattern, full.names = TRUE)
+  rows <- list()
+  for (qmd in qmds) {
+    cc <- .read_yaml_front_matter(qmd)$calcofi
+    if (is.null(cc) || is.null(cc$provider) || is.null(cc$dataset)) next
+    sc_path <- file.path(sidecar_dir, cc$provider, cc$dataset, "dataset_meta.yml")
+    desc <- intersect(names(cc$dataset_meta %||% list()), dataset_meta_descriptive_keys())
+    if (file.exists(sc_path))
+      merge_dataset_meta(cc$dataset_meta, read_dataset_sidecar(sc_path), notebook = basename(qmd),
+                         sidecar_path = sc_path, strict = TRUE)
+    rows[[length(rows) + 1]] <- tibble::tibble(
+      notebook = basename(qmd), dataset_key = paste0(cc$provider, "_", cc$dataset),
+      has_sidecar = file.exists(sc_path), descriptive_in_notebook = paste(desc, collapse = ";"))
+  }
+  invisible(if (length(rows)) do.call(rbind, rows) else tibble::tibble(
+    notebook = character(), dataset_key = character(), has_sidecar = logical(), descriptive_in_notebook = character()))
 }
 
 #' Build the dataset registry table from ingest YAML blocks

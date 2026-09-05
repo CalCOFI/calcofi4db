@@ -1,0 +1,255 @@
+{
+  "schema_version": "1.0",
+  "release": {
+    "version": "v2026.09.04",
+    "release_date": "2026-09-04",
+    "doi": "10.5281/zenodo.22310858",
+    "concept_doi": "10.5281/zenodo.22281994",
+    "citation": "CalCOFI (2026). CalCOFI Integrated Database, release v2026.09.04 [Data set]. Scripps Institution of Oceanography, NOAA Fisheries, and California Department of Fish and Wildlife. https://doi.org/10.5281/zenodo.22310858",
+    "n_tables": 14,
+    "total_rows": 348657010,
+    "total_size": 2465639413,
+    "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/",
+    "catalog_url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/catalog.json",
+    "schema_url": "https://calcofi.io/db-schema/?v=v2026.09.04"
+  },
+  "dataset": {
+    "dataset_key": "calcofi_dic",
+    "provider": {
+      "key": "calcofi",
+      "short": "CalCOFI",
+      "name": "California Cooperative Oceanic Fisheries Investigations",
+      "url": "https://calcofi.org",
+      "registered": true
+    },
+    "dataset": "dic",
+    "dataset_name": "CalCOFI DIC",
+    "dataset_name_short": "Carbonate Chemistry / DIC",
+    "category": {
+      "name": "Carbonate System",
+      "realm": "env",
+      "icon": "cat-carbonate",
+      "order": 3,
+      "registered": true
+    },
+    "color": "#63e6be",
+    "visibility": "internal",
+    "description_md": "Discrete profile dissolved inorganic carbon (DIC) and total alkalinity (TA) from CalCOFI Niskin bottle samples, quality-controlled using WOCE flagging.\n",
+    "keywords": [],
+    "attribution": {
+      "citation_main": "Keeling, C.D.; Lueker, T.J.; Emanuele, G.; Dickson, A.G.; Martz, T.R.; Wolfe, W.H.; Mau, A. (2025). Discrete profile dissolved inorganic carbon, total alkalinity, water temperature and salinity measurements for CalCOFI (NCEI Accession 0301029). NOAA NCEI. https://doi.org/10.25921/3w9f-jd72",
+      "citation_others": [],
+      "doi": "10.25921/3w9f-jd72",
+      "license": "CC-BY-4.0",
+      "license_name": "Creative Commons Attribution 4.0 International",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "acknowledgement": null,
+      "contact": null,
+      "pi_names": ["Todd Martz", "Aaron Mau"],
+      "creators": [],
+      "funding": null,
+      "source_accessed": "2026-08-25"
+    },
+    "links": {
+      "calcofi_org": "https://calcofi.org/data/oceanographic-data/dic/",
+      "data_source": "https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.nodc:0301029",
+      "workflow": "https://calcofi.io/workflows/ingest_calcofi_dic.html",
+      "page": "https://calcofi.io/datasets/calcofi_dic/"
+    },
+    "coverage": {
+      "realm": "env",
+      "temporal": "1983-03 to 2021-07",
+      "year_min": 1983,
+      "year_max": 2021,
+      "years": [
+        {
+          "year": 2016,
+          "n_obs": 615,
+          "n_roots": 27
+        },
+        {
+          "year": 2017,
+          "n_obs": 486,
+          "n_roots": 23
+        },
+        {
+          "year": 2018,
+          "n_obs": 203,
+          "n_roots": 19
+        },
+        {
+          "year": 2019,
+          "n_obs": 116,
+          "n_roots": 17
+        },
+        {
+          "year": 2020,
+          "n_obs": 256,
+          "n_roots": 35
+        },
+        {
+          "year": 2021,
+          "n_obs": 58,
+          "n_roots": 10
+        }
+      ],
+      "spatial": "28.1–37.0°N, 125.1–117.3°W",
+      "bbox": {
+        "lat_min": 28.1401,
+        "lat_max": 37.0425,
+        "lon_min": -125.0533,
+        "lon_max": -117.3054
+      },
+      "n_obs": 3708,
+      "n_roots": 341,
+      "n_stations": 6,
+      "n_variables": 4,
+      "n_taxa": 0,
+      "depth_min_m": 1,
+      "depth_max_m": 3500,
+      "variables": ["alkalinity", "ctdtemp_its90", "dic", "salinity_pss78"],
+      "life_stages": null,
+      "contributes_to": [
+        {
+          "category": "Physical Oceanography",
+          "variables": ["ctdtemp_its90", "salinity_pss78"]
+        }
+      ]
+    },
+    "tables": ["sample", "obs", "measurement_type"],
+    "objects": [
+      {
+        "table": "obs",
+        "scope": "partition",
+        "shared": false,
+        "path": "ducklake/releases/v2026.09.04/parquet/obs/dataset_key=calcofi_dic/data_0.parquet",
+        "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/parquet/obs/dataset_key=calcofi_dic/data_0.parquet",
+        "bytes": 35598,
+        "sha256": "6241665d1d0e1c243940f4e8ffba8143026aae12de6c61024b1157f5071529cd",
+        "since": "v2026.09.04"
+      }
+    ],
+    "since_version": "v2026.05.19",
+    "distributions": [
+      {
+        "kind": "download",
+        "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/parquet/obs/dataset_key=calcofi_dic/data_0.parquet",
+        "format": "parquet",
+        "table": "obs",
+        "scope": "partition",
+        "shared": false,
+        "title": "obs (this dataset's rows)",
+        "bytes": 35598,
+        "sha256": "6241665d1d0e1c243940f4e8ffba8143026aae12de6c61024b1157f5071529cd",
+        "since": "v2026.09.04",
+        "status": "current"
+      },
+      {
+        "kind": "service",
+        "url": "https://erddap.calcofi.io/erddap/tabledap/calcofi_dic.html",
+        "format": "erddap",
+        "id": "calcofi_dic",
+        "title": "CalCOFI DIC \\u2014 observations",
+        "grain": "observations",
+        "info_url": "https://erddap.calcofi.io/erddap/info/calcofi_dic/index.html",
+        "status": "current"
+      },
+      {
+        "kind": "service",
+        "url": "https://erddap.calcofi.io/erddap/tabledap/calcofi_dic_sample.html",
+        "format": "erddap",
+        "id": "calcofi_dic_sample",
+        "title": "CalCOFI DIC \\u2014 sampling events",
+        "grain": "sampling events",
+        "info_url": "https://erddap.calcofi.io/erddap/info/calcofi_dic_sample/index.html",
+        "status": "current"
+      },
+      {
+        "kind": "service",
+        "url": "https://erddap.calcofi.io/erddap/metadata/iso19115/xml/calcofi_dic_iso19115.xml",
+        "format": "iso19115",
+        "id": "calcofi_dic",
+        "title": "ISO 19115-3 metadata (ERDDAP)",
+        "status": "current"
+      },
+      {
+        "kind": "notebook",
+        "url": "https://calcofi.io/workflows/ingest_calcofi_dic.html",
+        "format": "html",
+        "title": "ingest notebook",
+        "status": "current"
+      },
+      {
+        "kind": "page",
+        "url": "https://calcofi.org/data/oceanographic-data/dic/",
+        "portal": "calcofi.org",
+        "title": "calcofi.org data page",
+        "status": "external"
+      },
+      {
+        "kind": "source",
+        "url": "https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.nodc:0301029",
+        "portal": "ncei",
+        "title": "source",
+        "status": "external"
+      },
+      {
+        "kind": "service",
+        "url": "https://erddap.calcofi.io/erddap/tabledap/calcofi_dic_old.html",
+        "portal": "erddap-calcofi",
+        "id": "calcofi_dic_old",
+        "title": "CalCOFI DIC Samples (legacy, pre-core)",
+        "status": "superseded",
+        "superseded_by": "calcofi_dic",
+        "observed_utc": "2026-09-05T00:00:00Z",
+        "notes": "legacy pre-core id still served; sunset scheduled by WS-M2",
+        "legacy": true,
+        "live": true
+      }
+    ],
+    "registrations": [
+      {
+        "portal": "erddap",
+        "status": "published",
+        "url": "https://erddap.calcofi.io/erddap/info/calcofi_dic/index.html",
+        "issues": []
+      },
+      {
+        "portal": "obis",
+        "status": "n/a",
+        "issues": []
+      },
+      {
+        "portal": "edi",
+        "status": "n/a",
+        "issues": []
+      },
+      {
+        "portal": "ncei",
+        "status": "published",
+        "url": "https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.nodc:0301029",
+        "issues": []
+      },
+      {
+        "portal": "caloos",
+        "status": "planned",
+        "issues": []
+      },
+      {
+        "portal": "zenodo",
+        "status": "published",
+        "url": "https://doi.org/10.5281/zenodo.22310858",
+        "note": "as part of the integrated database release"
+      }
+    ],
+    "status": {
+      "stage": "validated",
+      "priority": "must-complete",
+      "gh_issue": "https://github.com/CalCOFI/workflows/issues/25",
+      "blockers": "spatial match only 24.7% (#47)",
+      "updated": "2026-06-07",
+      "questions_open": 7,
+      "questions_dataset": []
+    }
+  }
+}

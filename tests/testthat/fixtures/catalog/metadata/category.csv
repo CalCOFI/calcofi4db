@@ -1,0 +1,13 @@
+category,order,realm,icon,description
+Physical Oceanography,1,env,cat-physical,"Temperature, salinity, density, oxygen, pressure and dynamic height from bottles and CTD casts"
+Nutrients & Chemistry,2,env,cat-nutrients,"Nitrate, nitrite, phosphate, silicate and ammonium from bottle samples"
+Carbonate System,3,env,cat-carbonate,"Dissolved inorganic carbon, alkalinity, pH and pCO2"
+Productivity & Pigments,4,env,cat-productivity,"Chlorophyll a, phaeopigments, primary production (C14) and light (PAR)"
+Meteorology & Sea State,5,env,cat-meteorology,"Wind, air temperature, pressure, cloud, visibility, sea state and water colour from the underway METS and ship observations"
+Phytoplankton,6,bio,cat-phytoplankton,"Phytoplankton counts by taxon or functional group"
+Picoplankton & Bacteria,7,bio,cat-picoplankton,"Picoplankton and bacterioplankton abundances by flow cytometry"
+Zooplankton,8,bio,cat-zooplankton,"Net-tow zooplankton: displacement volume, imaged and identified taxa, decapod larvae"
+Euphausiids (Krill),9,bio,cat-krill,"Euphausiid species and stages from bongo tows"
+Fish Eggs & Larvae,10,bio,cat-ichthyo,"Ichthyoplankton — fish eggs and larvae from oblique and vertical tows and the continuous underway egg sampler"
+Mesopelagic Fish,11,bio,cat-fish,"Midwater trawl catches of mesopelagic fishes"
+Seabirds & Marine Mammals,12,bio,cat-birds-mammals,"Strip-transect counts of seabirds and marine mammals along the cruise track"

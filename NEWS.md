@@ -1,3 +1,54 @@
+# calcofi4db 4.1.0
+
+## Every dataset has a record: `datasets.json` (the dataset catalog, plan 2026-09-05, WS-R0)
+
+- **`build_dataset_catalog(meta, coverage, catalog, registries, …)`** builds one record per
+  `dataset_key` (schema 1.0, `inst/schema/datasets.schema.json`) by joining the release's own
+  sidecars — the `metadata.json` dataset block, `coverage.json` rolled up (`years[]`, `n_stations`,
+  `n_variables`, `n_taxa`, depth span, `variables[]`, `life_stages[]`, `contributes_to[]`), the
+  content-addressed `catalog.json` objects that belong to the dataset — with the registries
+  (`category`, `provider`, `license`, `dataset_status`, the new `distribution.csv` and `portal.csv`,
+  the descriptive sidecar) and what the live services answer now (`fetch_erddap_datasets()`,
+  `fetch_netcdf_manifests()`, `dataset_since_versions()`). `distributions[]` lists every endpoint
+  (parquet, CF netCDF, the ERDDAP ids that exist, the ISO 19115 record, the notebook, the calcofi.org
+  page, the source classified by `classify_portal()`, the curated mirrors/archives with `status` and
+  `superseded_by`); `registrations[]` says per portal `published | planned | n/a` — ERDDAP and OBIS
+  measured, Zenodo from the release DOI; `holdings[]` are datasets without a release (a sidecar with
+  `status: planned | external | archived`); `reference[]` the cruise/ship/grid/spatial tables, the
+  boundary layers and the GEBCO bathymetry. `null`, never `""`; deterministic; every URL absolute.
+- **`check_dataset_catalog()` / `assert_dataset_catalog()`** — a release gate like the citation
+  contract: `missing_name`, `unregistered_category`, `unregistered_provider`, `missing_description`,
+  `missing_bbox`, `no_download`, `no_citation` (exempt while an open/proposed `questions.csv` row on
+  the dataset covers `citation_main`), `invalid_visibility`, `unregistered_license`, `url_dead`
+  (404/410/451 by a one-byte ranged GET, behind `CALCOFI_SKIP_LINK_CHECK`) and `url_unreachable`
+  (warn). `validate_dataset_catalog()` checks a written file against the JSON schema
+  (\pkg{jsonvalidate} when installed). `write_dataset_catalog()` writes `datasets.json` +
+  `datasets/{key}.json`. **`RELEASE_REQUIRED_OBJECTS` gains `datasets.json`**, so a release cannot be
+  promoted without its record.
+- **Registries**: `read_distribution_registry()` (`metadata/distribution.csv` — `kind`, `portal`,
+  `status ∈ current | superseded | retired | external | planned`, `superseded_by`, `observed_utc`;
+  an unknown vocabulary value errors), `read_portal_registry()` (`metadata/portal.csv`, with
+  `harvests_from_us` and `observe_method`), `read_dataset_status()` (+ `publish_ncei`,
+  `publish_caloos`; `parse_registration()` reads a `#38;#39 planned` cell), `read_dataset_sidecar()` /
+  `read_dataset_sidecars()` (`visibility` defaults to `public`; a licence outside `license.csv` is
+  refused), `read_catalog_registries()` (everything at once; a holding with an unregistered category
+  or provider errors), `holdings_from_sidecars()` / `write_holdings_csv()` (`metadata/holdings.csv`
+  is generated, never typed).
+- **The notebook / sidecar split (plan § D-9)**: `read_calcofi_meta()` merges
+  `metadata/{provider}/{dataset}/dataset_meta.yml` into `dataset_meta` through
+  `merge_dataset_meta()`, so `read_ingest_yaml()`, `ingest_yaml_to_dataset_df()` and every release
+  reader see one block; the descriptive keys (`dataset_meta_descriptive_keys()`) live in the sidecar,
+  the structural ones (`dataset_meta_structural_keys()`) stay in the notebook; a key in both with a
+  different value errors, and `check_dataset_meta_split()` (run by `build_workflows_index.R`) errors on
+  any descriptive key left in a notebook that has a sidecar.
+- **`build_coverage()`** `datasets[]` gains `life_stages` per dataset (the dataset's own
+  `obs.life_stage` values) — a taxon's pooled `life_stages` in `taxa[]` cannot be split back per
+  dataset without inventing (CUFES would inherit `larva` from the sardine it shares with ichthyo).
+- Tests: `test-catalog_datasets.R` — fixtures under `fixtures/catalog/` are the live `v2026.09.04`
+  sidecars trimmed to two datasets plus one holding, ERDDAP's `allDatasets.csv` and one netCDF
+  manifest as they answered on 2026-09-05; the `swfsc_ichthyo` and `calcofi_dic` records are pinned
+  as snapshots; one red test per finding; no network.
+
 # calcofi4db 4.0.3
 
 - **`freeze_plan()`**: a `copy`/`exists` object now carries the *previous release's* `bytes` and

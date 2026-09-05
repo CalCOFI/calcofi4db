@@ -36,7 +36,7 @@ setup_gcloud <- function(present = character(), env = parent.frame()) {
 
 calls <- function(log) if (file.exists(log)) readLines(log) else character()
 
-ALL_PRESENT <- "catalog.json|metadata.json|relationships.json"
+ALL_PRESENT <- "catalog.json|metadata.json|relationships.json|datasets.json"   # datasets.json required since 4.1.0
 
 test_that("check_release_complete() fails when a required sidecar is absent", {
   setup_gcloud(present = "parquet")   # the 2026-08-14 shape: parquet up, JSON not

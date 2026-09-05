@@ -1,0 +1,286 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://calcofi.io/schema/datasets.schema.json",
+  "title": "CalCOFI dataset catalog record (datasets.json, schema 1.0)",
+  "description": "One generated record per dataset_key, written beside catalog.json at release by calcofi4db::build_dataset_catalog(). Plan 2026-09-05 'CalCOFI.io as a dataset catalog', Appendix A. Every URL is absolute; null, never an empty string; a field the release cannot supply is null, never invented.",
+  "type": "object",
+  "required": ["schema_version", "release", "counts", "datasets", "holdings", "reference"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "release": {
+      "type": "object",
+      "required": ["version", "url", "catalog_url"],
+      "properties": {
+        "version":      { "type": "string", "pattern": "^v20[0-9]{2}\\.[0-9]{2}(\\.[0-9]{2})?$" },
+        "release_date": { "type": ["string", "null"] },
+        "doi":          { "type": ["string", "null"] },
+        "concept_doi":  { "type": ["string", "null"] },
+        "citation":     { "type": ["string", "null"] },
+        "n_tables":     { "type": "integer" },
+        "total_rows":   { "type": ["number", "null"] },
+        "total_size":   { "type": ["number", "null"] },
+        "url":          { "$ref": "#/definitions/url" },
+        "catalog_url":  { "$ref": "#/definitions/url" },
+        "schema_url":   { "$ref": "#/definitions/url" }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "required": ["datasets", "holdings", "reference"],
+      "properties": {
+        "datasets":  { "type": "integer", "minimum": 0 },
+        "holdings":  { "type": "integer", "minimum": 0 },
+        "reference": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "datasets":  { "type": "array", "items": { "$ref": "#/definitions/dataset" } },
+    "holdings":  { "type": "array", "items": { "$ref": "#/definitions/holding" } },
+    "reference": { "type": "array", "items": { "$ref": "#/definitions/reference" } }
+  },
+  "definitions": {
+    "url": { "type": "string", "pattern": "^https?://" },
+    "nullable_string": { "type": ["string", "null"] },
+    "string_array": { "type": "array", "items": { "type": "string" } },
+    "dataset_key": { "type": "string", "pattern": "^[a-z0-9.-]+_[a-z0-9.-]+$" },
+    "provider": {
+      "type": "object",
+      "required": ["key", "registered"],
+      "properties": {
+        "key":        { "type": "string" },
+        "short":      { "$ref": "#/definitions/nullable_string" },
+        "name":       { "$ref": "#/definitions/nullable_string" },
+        "url":        { "$ref": "#/definitions/nullable_string" },
+        "registered": { "type": "boolean" }
+      }
+    },
+    "category": {
+      "type": "object",
+      "required": ["name", "registered"],
+      "properties": {
+        "name":       { "$ref": "#/definitions/nullable_string" },
+        "realm":      { "type": ["string", "null"], "enum": ["env", "bio", "ref", null] },
+        "icon":       { "$ref": "#/definitions/nullable_string" },
+        "order":      { "type": ["integer", "null"] },
+        "registered": { "type": "boolean" }
+      }
+    },
+    "creator": {
+      "type": "object",
+      "properties": {
+        "name":         { "$ref": "#/definitions/nullable_string" },
+        "organization": { "$ref": "#/definitions/nullable_string" },
+        "orcid":        { "$ref": "#/definitions/nullable_string" },
+        "email":        { "$ref": "#/definitions/nullable_string" },
+        "role":         { "$ref": "#/definitions/nullable_string" }
+      }
+    },
+    "attribution": {
+      "type": "object",
+      "required": ["citation_main", "citation_others", "doi", "license", "license_url", "acknowledgement", "contact", "pi_names", "creators"],
+      "properties": {
+        "citation_main":   { "$ref": "#/definitions/nullable_string" },
+        "citation_others": { "$ref": "#/definitions/string_array" },
+        "doi":             { "type": ["string", "null"], "pattern": "^10\\.[0-9]{4,9}/\\S+$" },
+        "license":         { "$ref": "#/definitions/nullable_string" },
+        "license_name":    { "$ref": "#/definitions/nullable_string" },
+        "license_url":     { "$ref": "#/definitions/nullable_string" },
+        "acknowledgement": { "$ref": "#/definitions/nullable_string" },
+        "contact":         { "$ref": "#/definitions/nullable_string" },
+        "pi_names":        { "$ref": "#/definitions/string_array" },
+        "creators":        { "type": "array", "items": { "$ref": "#/definitions/creator" } },
+        "funding":         { "$ref": "#/definitions/nullable_string" },
+        "source_accessed": { "$ref": "#/definitions/nullable_string" }
+      }
+    },
+    "bbox": {
+      "type": ["object", "null"],
+      "required": ["lat_min", "lat_max", "lon_min", "lon_max"],
+      "properties": {
+        "lat_min": { "type": ["number", "null"] }, "lat_max": { "type": ["number", "null"] },
+        "lon_min": { "type": ["number", "null"] }, "lon_max": { "type": ["number", "null"] }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "required": ["temporal", "year_min", "year_max", "years", "spatial", "bbox", "n_obs", "n_roots", "n_stations", "n_variables", "n_taxa", "variables", "contributes_to"],
+      "properties": {
+        "realm":       { "type": ["string", "null"], "enum": ["env", "bio", null] },
+        "temporal":    { "$ref": "#/definitions/nullable_string" },
+        "year_min":    { "type": ["integer", "null"] },
+        "year_max":    { "type": ["integer", "null"] },
+        "years": {
+          "type": "array",
+          "items": {
+            "type": "object", "required": ["year", "n_obs", "n_roots"],
+            "properties": { "year": { "type": "integer" }, "n_obs": { "type": "number" }, "n_roots": { "type": "number" } }
+          }
+        },
+        "spatial":     { "$ref": "#/definitions/nullable_string" },
+        "bbox":        { "$ref": "#/definitions/bbox" },
+        "n_obs":       { "type": ["number", "null"] },
+        "n_roots":     { "type": ["number", "null"] },
+        "n_stations":  { "type": "integer" },
+        "n_variables": { "type": "integer" },
+        "n_taxa":      { "type": "integer" },
+        "depth_min_m": { "type": ["number", "null"] },
+        "depth_max_m": { "type": ["number", "null"] },
+        "variables":   { "$ref": "#/definitions/string_array" },
+        "life_stages": { "oneOf": [ { "$ref": "#/definitions/string_array" }, { "type": "null" } ] },
+        "contributes_to": {
+          "type": "array",
+          "items": {
+            "type": "object", "required": ["category", "variables"],
+            "properties": { "category": { "type": "string" }, "variables": { "$ref": "#/definitions/string_array" } }
+          }
+        }
+      }
+    },
+    "object": {
+      "type": "object",
+      "required": ["table", "scope", "shared", "path", "url"],
+      "properties": {
+        "table":  { "type": "string" },
+        "scope":  { "type": "string", "enum": ["partition", "table"] },
+        "shared": { "type": "boolean" },
+        "path":   { "type": "string" },
+        "url":    { "$ref": "#/definitions/url" },
+        "bytes":  { "type": ["number", "null"] },
+        "sha256": { "$ref": "#/definitions/nullable_string" },
+        "since":  { "$ref": "#/definitions/nullable_string" }
+      }
+    },
+    "distribution": {
+      "type": "object",
+      "required": ["kind", "url"],
+      "properties": {
+        "kind":   { "type": "string", "enum": ["download", "service", "mirror", "source", "archive", "page", "notebook"] },
+        "url":    { "$ref": "#/definitions/url" },
+        "format": { "type": "string" },
+        "portal": { "type": "string", "enum": ["erddap-calcofi", "erddap-noaa", "edi", "ncei", "obis", "ipt", "caloos", "datazoo", "ucsd-library", "zenodo", "ncbi", "calcofi.org", "gcs", "other"] },
+        "status": { "type": "string", "enum": ["current", "superseded", "retired", "external", "planned"] },
+        "id":     { "type": "string" },
+        "title":  { "type": ["string", "null"] },
+        "bytes":  { "type": ["number", "null"] },
+        "sha256": { "type": ["string", "null"] },
+        "legacy": { "type": "boolean" },
+        "live":   { "type": "boolean" }
+      }
+    },
+    "registration": {
+      "type": "object",
+      "required": ["portal", "status"],
+      "properties": {
+        "portal": { "type": "string", "enum": ["erddap", "obis", "edi", "ncei", "caloos", "zenodo"] },
+        "status": { "type": "string", "enum": ["published", "planned", "n/a"] },
+        "url":    { "$ref": "#/definitions/url" },
+        "issue":  { "$ref": "#/definitions/url" },
+        "issues": { "$ref": "#/definitions/string_array" },
+        "note":   { "type": "string" }
+      }
+    },
+    "status": {
+      "type": "object",
+      "required": ["stage", "priority", "gh_issue", "blockers", "updated", "questions_open", "questions_dataset"],
+      "properties": {
+        "stage":          { "$ref": "#/definitions/nullable_string" },
+        "priority":       { "$ref": "#/definitions/nullable_string" },
+        "gh_issue":       { "$ref": "#/definitions/nullable_string" },
+        "blockers":       { "$ref": "#/definitions/nullable_string" },
+        "updated":        { "$ref": "#/definitions/nullable_string" },
+        "questions_open": { "type": ["integer", "null"] },
+        "questions_dataset": {
+          "type": "array",
+          "items": {
+            "type": "object", "required": ["label", "status"],
+            "properties": { "label": { "type": "string" }, "field": { "$ref": "#/definitions/nullable_string" }, "status": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "dataset": {
+      "type": "object",
+      "required": ["dataset_key", "provider", "dataset", "dataset_name", "dataset_name_short", "category", "color", "visibility",
+                   "description_md", "keywords", "attribution", "links", "coverage", "tables", "objects", "since_version",
+                   "distributions", "registrations", "status"],
+      "properties": {
+        "dataset_key":        { "$ref": "#/definitions/dataset_key" },
+        "provider":           { "$ref": "#/definitions/provider" },
+        "dataset":            { "type": "string" },
+        "dataset_name":       { "$ref": "#/definitions/nullable_string" },
+        "dataset_name_short": { "$ref": "#/definitions/nullable_string" },
+        "category":           { "$ref": "#/definitions/category" },
+        "color":              { "$ref": "#/definitions/nullable_string" },
+        "visibility":         { "type": "string", "enum": ["public", "internal"] },
+        "description_md":     { "$ref": "#/definitions/nullable_string" },
+        "keywords":           { "$ref": "#/definitions/string_array" },
+        "attribution":        { "$ref": "#/definitions/attribution" },
+        "links": {
+          "type": "object",
+          "required": ["calcofi_org", "data_source", "workflow", "page"],
+          "properties": {
+            "calcofi_org": { "$ref": "#/definitions/nullable_string" },
+            "data_source": { "$ref": "#/definitions/nullable_string" },
+            "workflow":    { "$ref": "#/definitions/url" },
+            "page":        { "$ref": "#/definitions/url" }
+          }
+        },
+        "coverage":      { "$ref": "#/definitions/coverage" },
+        "tables":        { "$ref": "#/definitions/string_array" },
+        "objects":       { "type": "array", "items": { "$ref": "#/definitions/object" } },
+        "since_version": { "$ref": "#/definitions/nullable_string" },
+        "distributions": { "type": "array", "items": { "$ref": "#/definitions/distribution" } },
+        "registrations": { "type": "array", "items": { "$ref": "#/definitions/registration" } },
+        "status":        { "$ref": "#/definitions/status" }
+      }
+    },
+    "holding": {
+      "type": "object",
+      "required": ["dataset_key", "provider", "dataset", "dataset_name", "category", "visibility", "description_md", "keywords",
+                   "attribution", "links", "distributions", "status"],
+      "properties": {
+        "dataset_key":    { "$ref": "#/definitions/dataset_key" },
+        "provider":       { "$ref": "#/definitions/provider" },
+        "dataset":        { "type": "string" },
+        "dataset_name":   { "$ref": "#/definitions/nullable_string" },
+        "category":       { "$ref": "#/definitions/category" },
+        "visibility":     { "type": "string", "enum": ["public", "internal"] },
+        "description_md": { "$ref": "#/definitions/nullable_string" },
+        "keywords":       { "$ref": "#/definitions/string_array" },
+        "attribution":    { "$ref": "#/definitions/attribution" },
+        "links": {
+          "type": "object",
+          "required": ["calcofi_org", "data_source", "page"],
+          "properties": {
+            "calcofi_org": { "$ref": "#/definitions/nullable_string" },
+            "data_source": { "$ref": "#/definitions/nullable_string" },
+            "page":        { "$ref": "#/definitions/url" }
+          }
+        },
+        "distributions": { "type": "array", "items": { "$ref": "#/definitions/distribution" } },
+        "status": {
+          "type": "object",
+          "required": ["stage"],
+          "properties": {
+            "stage":           { "type": "string", "enum": ["planned", "external", "archived"] },
+            "priority":        { "$ref": "#/definitions/nullable_string" },
+            "owner":           { "$ref": "#/definitions/nullable_string" },
+            "next_step":       { "$ref": "#/definitions/nullable_string" },
+            "module":          { "$ref": "#/definitions/nullable_string" },
+            "priority_caloos": { "$ref": "#/definitions/nullable_string" },
+            "gh_issue":        { "$ref": "#/definitions/nullable_string" }
+          }
+        }
+      }
+    },
+    "reference": {
+      "type": "object",
+      "required": ["key", "kind", "name"],
+      "properties": {
+        "key":  { "type": "string" },
+        "kind": { "type": "string", "enum": ["table", "layer", "raster"] },
+        "name": { "type": "string" },
+        "url":  { "$ref": "#/definitions/nullable_string" }
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+# fixture: a holding — a dataset without a release (plan D-11)
+provider: cce-lter
+dataset: hplc-pigments
+dataset_name: HPLC pigments from CCE-LTER process cruises
+dataset_name_short: HPLC pigments
+category: "Productivity & Pigments"
+status: planned
+priority: nice-to-have
+owner: Ben
+next_step: ask Goericke whether the CalCOFI-cruise subset is separable
+gh_issue: 34
+module: CalCOFI Productivity & Pigments
+# source: https://cite.edirepository.org/cite/knb-lter-cce.72.1?style=ESIP, checked 2026-09-05
+citation_main: "Goericke, R. and California Current Ecosystem LTER. 2013. High Performance Liquid Chromatography (HPLC) pigment analysis from rosette bottle samples at various depths from CCE LTER process cruises in the California Current System, 2006 - ongoing ver 1. Environmental Data Initiative. https://doi.org/10.6073/pasta/5ab16c6d3a9805a174691104aed3bca8"
+doi: 10.6073/pasta/5ab16c6d3a9805a174691104aed3bca8
+link_data_source: https://portal.edirepository.org/nis/mapbrowse?scope=knb-lter-cce&identifier=72
+creators:
+  - name: Ralf Goericke
+    organization: Scripps Institution of Oceanography
+    email: rgoericke@ucsd.edu

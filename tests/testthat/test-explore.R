@@ -212,6 +212,12 @@ test_that("build_coverage() carries taxa[] and the registry's category / variabl
   expect_equal(tx$n_obs, 2L); expect_equal(tx$year_min, 2019L); expect_equal(tx$year_max, 2019L)
   expect_equal(unlist(tx$life_stages), c("egg", "larva"))
   expect_equal(tx$datasets$dataset_key, c("swfsc_cufes", "swfsc_ichthyo")); expect_equal(tx$datasets$n_obs, c(1L, 1L))
+  # datasets[] carries the dataset's OWN life stages (4.1.0): a taxon's pooled list would hand CUFES `larva`
+  ls <- stats::setNames(cv$datasets$life_stages, cv$datasets$dataset_key)
+  expect_equal(length(ls$calcofi_bottle), 0)
+  expect_equal(sort(c(as.character(ls$swfsc_cufes), as.character(ls$swfsc_ichthyo))), c("egg", "larva"))
+  expect_true(all(lengths(ls[c("swfsc_cufes", "swfsc_ichthyo")]) == 1))
+  expect_true(grepl('"life_stages":\\["(egg|larva)"\\]', jsonlite::toJSON(cv$datasets, auto_unbox = TRUE, digits = NA)))
   # deterministic, and it serializes (life_stages as an array, datasets as rows)
   j1 <- jsonlite::toJSON(cv, auto_unbox = TRUE, digits = NA); j2 <- jsonlite::toJSON(build_coverage(con, "v2026.09.01"), auto_unbox = TRUE, digits = NA)
   expect_identical(j1, j2); expect_true(grepl('"life_stages":\\["egg","larva"\\]', j1))

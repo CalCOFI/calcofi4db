@@ -1,0 +1,3 @@
+provider,dataset,gh_issue,priority,stage,explore,metadata,ingest,validate,publish_obis,publish_erddap,publish_edi,publish_ncei,publish_caloos,blockers,updated
+swfsc,ichthyo,,must-complete,published,done,done,done,done,done,done,n/a,n/a,planned,,2026-09-04
+calcofi,dic,#25,must-complete,validated,done,done,done,done,n/a,done,n/a,done,planned,spatial match only 24.7% (#47),2026-06-07

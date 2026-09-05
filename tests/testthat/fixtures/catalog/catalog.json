@@ -1,0 +1,282 @@
+{
+ "version": "v2026.09.04",
+ "release_date": "2026-09-04",
+ "layout": "compat",
+ "writer": {
+  "compression": "zstd",
+  "row_group_size": 122880,
+  "parquet_version": "V1"
+ },
+ "total_rows": 348657010,
+ "total_size": 2465639413,
+ "views": {
+  "obs": "SELECT obs_id, 'bio' AS realm, dataset_key, sample_key, grid_key, cruise_key,\n       latitude, longitude, datetime, depth_min_m, depth_max_m,\n       taxon_key, life_stage, measurement_type, value AS measurement_value,\n       measurement_qual, measurement_prec, hex_id\nFROM {{obs_bio}}\nUNION ALL\nSELECT obs_id, 'env' AS realm, dataset_key, sample_key, grid_key, cruise_key,\n       latitude, longitude, datetime, depth_min_m, depth_max_m,\n       taxon_key, life_stage, measurement_type, value AS measurement_value,\n       measurement_qual, measurement_prec, hex_id\nFROM {{obs_env}}"
+ },
+ "concept_doi": "10.5281/zenodo.22281994",
+ "citation": "CalCOFI (2026). CalCOFI Integrated Database, release v2026.09.04 [Data set]. Scripps Institution of Oceanography, NOAA Fisheries, and California Department of Fish and Wildlife. https://doi.org/10.5281/zenodo.22310858",
+ "doi": "10.5281/zenodo.22310858",
+ "tables": [
+  {
+   "name": "measurement_type",
+   "rows": 200,
+   "partitioned": false,
+   "supplemental": false,
+   "content_hash": "43134b000012a2ce69281979e0e82d5c",
+   "bytes": 12004,
+   "objects": [
+    {
+     "path": "ducklake/releases/v2026.09.04/parquet/measurement_type.parquet",
+     "bytes": 12004,
+     "sha256": "a5c62f4ab5f34c1f7aec1c5b37e5181bc4e5ffbc0d42afe3b51af8ec107b0ab0",
+     "content_hash": "43134b000012a2ce69281979e0e82d5c",
+     "since": "v2026.09.04"
+    }
+   ]
+  },
+  {
+   "name": "dataset",
+   "rows": 16,
+   "partitioned": false,
+   "supplemental": false,
+   "content_hash": "d18c60f0b1e7e6bc2be8d4d99dc86cbb",
+   "bytes": 14656,
+   "objects": [
+    {
+     "path": "ducklake/releases/v2026.09.04/parquet/dataset.parquet",
+     "bytes": 14656,
+     "sha256": "e557824a526b01b369fddf651c2545f29edc1860f8cc06ba906617de60138461",
+     "content_hash": "d18c60f0b1e7e6bc2be8d4d99dc86cbb",
+     "since": "v2026.09.04"
+    }
+   ]
+  },
+  {
+   "name": "spatial_attribute",
+   "rows": 148461,
+   "partitioned": false,
+   "supplemental": false,
+   "content_hash": "de289d0541a58cef3a298ec40b531a78",
+   "bytes": 537977,
+   "objects": [
+    {
+     "path": "ducklake/releases/v2026.09.04/parquet/spatial_attribute.parquet",
+     "bytes": 537977,
+     "sha256": "42369f624e023f41fbc3775a09bb2ea19c4f1ce59a90e858b2ec6f826f715f94",
+     "content_hash": "de289d0541a58cef3a298ec40b531a78",
+     "since": "v2026.08.25"
+    }
+   ]
+  },
+  {
+   "name": "spatial",
+   "rows": 13206,
+   "partitioned": false,
+   "supplemental": false,
+   "content_hash": "6c4aa2f1085f4d2707050d2683dfe70d",
+   "bytes": 47781969,
+   "objects": [
+    {
+     "path": "ducklake/releases/v2026.09.04/parquet/spatial.parquet",
+     "bytes": 47781969,
+     "sha256": "f6778921ab598e029a22f87cc3dc009b5b01f1e1bcf8bfd05826855136348fa0",
+     "content_hash": "6c4aa2f1085f4d2707050d2683dfe70d",
+     "since": "v2026.08.25"
+    }
+   ]
+  },
+  {
+   "name": "grid",
+   "rows": 218,
+   "partitioned": false,
+   "supplemental": false,
+   "content_hash": "2b546ac2ee0a112afbf96bd5c3708ff1",
+   "bytes": 102994,
+   "objects": [
+    {
+     "path": "ducklake/releases/v2026.09.04/parquet/grid.parquet",
+     "bytes": 102994,
+     "sha256": "5a1617386223025e515602d4dda5da92d1aebca41ef33b13ab882e2e1fc53493",
+     "content_hash": "2b546ac2ee0a112afbf96bd5c3708ff1",
+     "since": "v2026.08.25"
+    }
+   ]
+  },
+  {
+   "name": "cruise",
+   "rows": 842,
+   "partitioned": false,
+   "supplemental": false,
+   "content_hash": "829f8b61e2af101e53a0c48426f1abf5",
+   "bytes": 19615,
+   "objects": [
+    {
+     "path": "ducklake/releases/v2026.09.04/parquet/cruise.parquet",
+     "bytes": 19615,
+     "sha256": "8118ed2008c97c72bb67ad137aac0682a5d926a94ad45bcc33da23bc2fd797d4",
+     "content_hash": "829f8b61e2af101e53a0c48426f1abf5",
+     "since": "v2026.09.04"
+    }
+   ]
+  },
+  {
+   "name": "ship",
+   "rows": 49,
+   "partitioned": false,
+   "supplemental": false,
+   "content_hash": "9a88861433301d3665cb140dc2bd5f26",
+   "bytes": 1238,
+   "objects": [
+    {
+     "path": "ducklake/releases/v2026.09.04/parquet/ship.parquet",
+     "bytes": 1238,
+     "sha256": "6c320d5032a33e3d54295957e09d607ad19f39379e1cb6567de0da9e91dd65da",
+     "content_hash": "9a88861433301d3665cb140dc2bd5f26",
+     "since": "v2026.08.25"
+    }
+   ]
+  },
+  {
+   "name": "lookup",
+   "rows": 26,
+   "partitioned": false,
+   "supplemental": false,
+   "content_hash": "4638ecc002bce556505656366602d689",
+   "bytes": 1597,
+   "objects": [
+    {
+     "path": "ducklake/releases/v2026.09.04/parquet/lookup.parquet",
+     "bytes": 1597,
+     "sha256": "21f96f3971d403fdac5c50d5e5e4fba9cd1ba2d3c0bee6ee3637091b3e9b8fda",
+     "content_hash": "4638ecc002bce556505656366602d689",
+     "since": "v2026.08.25"
+    }
+   ]
+  },
+  {
+   "name": "sample",
+   "rows": 1469155,
+   "partitioned": false,
+   "supplemental": false,
+   "content_hash": "20f8bca6631580d382ef064c5a9411fd",
+   "bytes": 25947132,
+   "objects": [
+    {
+     "path": "ducklake/releases/v2026.09.04/parquet/sample.parquet",
+     "bytes": 25947132,
+     "sha256": "679c7b933da2bee77c9d099b6dcfc94c618e363a4cc423a1c374dcd63a85f285",
+     "content_hash": "20f8bca6631580d382ef064c5a9411fd",
+     "since": "v2026.09.04"
+    }
+   ]
+  },
+  {
+   "name": "obs",
+   "rows": 26265248,
+   "partitioned": true,
+   "supplemental": false,
+   "content_hash": "c77dd3260367043a773082e2fe6228cd",
+   "bytes": 400502585,
+   "objects": [
+    {
+     "path": "ducklake/releases/v2026.09.04/parquet/obs/dataset_key=calcofi_dic/data_0.parquet",
+     "bytes": 35598,
+     "sha256": "6241665d1d0e1c243940f4e8ffba8143026aae12de6c61024b1157f5071529cd",
+     "content_hash": "377bd1ac5bc1f34e30c2fac84be6ce00",
+     "since": "v2026.09.04",
+     "partition_by": "dataset_key",
+     "partition_value": "calcofi_dic"
+    },
+    {
+     "path": "ducklake/releases/v2026.09.04/parquet/obs/dataset_key=swfsc_ichthyo/data_0.parquet",
+     "bytes": 4028220,
+     "sha256": "e94032ec2d7b290dbed7509fb7ed90b4b2d83544262b47cc391cc15fc1acfbdd",
+     "content_hash": "1ad4cc8b42078b1b3c5c6f181ab07481",
+     "since": "v2026.09.04",
+     "partition_by": "dataset_key",
+     "partition_value": "swfsc_ichthyo"
+    },
+    {
+     "path": "ducklake/releases/v2026.09.04/parquet/obs.parquet",
+     "bytes": 200180089,
+     "sha256": "f7ce4f8d977a29d7f952abce2dda4b823bc89270f7e666475015ac34aa32b20d",
+     "content_hash": "48f1aa7e210b815ba1fd8f8d2486af14",
+     "since": "v2026.09.04"
+    }
+   ],
+   "deprecated": true,
+   "replaced_by": [
+    "obs_bio",
+    "obs_env"
+   ],
+   "removed_in": "next"
+  },
+  {
+   "name": "obs_attribute",
+   "rows": 458184,
+   "partitioned": false,
+   "supplemental": false,
+   "content_hash": "df2caf362cc9829013c29c0ce64b91bb",
+   "bytes": 1849619,
+   "objects": [
+    {
+     "path": "ducklake/releases/v2026.09.04/parquet/obs_attribute.parquet",
+     "bytes": 1849619,
+     "sha256": "db65be59c116553572c28110d13b695438b1d59f12fdad0c6c66e1939709a16a",
+     "content_hash": "df2caf362cc9829013c29c0ce64b91bb",
+     "since": "v2026.09.04"
+    }
+   ]
+  },
+  {
+   "name": "sample_measurement",
+   "rows": 589603,
+   "partitioned": false,
+   "supplemental": false,
+   "content_hash": "3ca15d80943300a06e48d2900944f43a",
+   "bytes": 2017797,
+   "objects": [
+    {
+     "path": "ducklake/releases/v2026.09.04/parquet/sample_measurement.parquet",
+     "bytes": 2017797,
+     "sha256": "6b4182c1b153a838891eed1844b351a9e3e643ac7b90a6a912ba5c43aaf70901",
+     "content_hash": "3ca15d80943300a06e48d2900944f43a",
+     "since": "v2026.08.25"
+    }
+   ]
+  },
+  {
+   "name": "taxon",
+   "rows": 2614,
+   "partitioned": false,
+   "supplemental": false,
+   "content_hash": "c8da59613c63d2ffde17aa345c2857c3",
+   "bytes": 87832,
+   "objects": [
+    {
+     "path": "ducklake/releases/v2026.09.04/parquet/taxon.parquet",
+     "bytes": 87832,
+     "sha256": "3376d90f88aa285f8d9e83e874e47f9a3342fbb1ea4b4835dd3a86acdf434b00",
+     "content_hash": "c8da59613c63d2ffde17aa345c2857c3",
+     "since": "v2026.09.04"
+    }
+   ]
+  },
+  {
+   "name": "dataset_taxon",
+   "rows": 1917,
+   "partitioned": false,
+   "supplemental": false,
+   "content_hash": "3a26fcfe5701d1301faeb8f8ea9e7993",
+   "bytes": 57947,
+   "objects": [
+    {
+     "path": "ducklake/releases/v2026.09.04/parquet/dataset_taxon.parquet",
+     "bytes": 57947,
+     "sha256": "1cfc4c0b4dd1ac05e4e630c2dca5c972bf648b76376dcbed0999ccc7f6ab4f50",
+     "content_hash": "3a26fcfe5701d1301faeb8f8ea9e7993",
+     "since": "v2026.09.04"
+    }
+   ]
+  }
+ ]
+}

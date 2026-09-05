@@ -1,0 +1,10 @@
+# fixture: the descriptive sidecar of swfsc_ichthyo (trimmed)
+visibility: public
+keywords_gcmd:
+  - "EARTH SCIENCE > BIOLOGICAL CLASSIFICATION > ANIMALS/VERTEBRATES > FISH"
+  - "EARTH SCIENCE > OCEANS > MARINE BIOLOGY > FISH LARVAE"
+creators:
+  - name: Ed Weber
+    organization: NOAA Southwest Fisheries Science Center
+    role: creator
+contact: data@calcofi.io
