@@ -18,7 +18,7 @@
 # by small helpers with an injectable `fetch`, so the tests run on fixtures.
 
 #' @keywords internal
-CC_DATASETS_SCHEMA_VERSION <- "1.0"
+CC_DATASETS_SCHEMA_VERSION <- "1.1"
 
 #' @keywords internal
 CC_DATASET_PAGE_BASE <- "https://calcofi.io/datasets/"
@@ -128,6 +128,19 @@ dataset_meta_structural_keys <- function() c(
   !(is.na(x) || (is.character(x) && !nzchar(trimws(x))))
 }
 .or_null <- function(x) if (.has_value(x)) x[[1]] else NULL
+# derive_registration_id() answers NA for "this URL names nothing"; the record says NULL
+.na_null <- function(x) if (length(x) && !is.na(x[1]) && nzchar(x[1])) x[1] else NULL
+# The first sentence of a description — what a one-line row on a page can hold. A sentence boundary
+# is a full stop followed by whitespace and a CAPITAL: cutting at every full stop turned
+# "built from spp. and the taxon table" into "built from spp." (measured on the taxon table's
+# description, 2026-09-05).
+.first_sentence <- function(x) {
+  x <- gsub("[\r\n]+", " ", .s(x))
+  if (!nzchar(x)) return(NULL)
+  # …or a backtick: these descriptions open sentences with a column name (`obs` resolves its …)
+  m <- regexpr("[.!?][[:space:]]+[A-Z`]", x)
+  if (m > 0) trimws(substr(x, 1, m)) else trimws(x)
+}
 .chr_or_null <- function(x) if (.has_value(x)) as.character(x[[1]]) else NULL
 .num_or_null <- function(x) if (.has_value(x)) as.numeric(x[[1]]) else NULL
 .int_or_null <- function(x) if (.has_value(x)) as.integer(x[[1]]) else NULL
@@ -438,6 +451,8 @@ classify_portal <- function(url) {
 }
 
 # ERDDAP id -> grain, from the suffix the generic publisher uses
+# .erddap_grain() says WHICH grain; erddap_grain_description() (R/catalog_ids.R) says what that
+# grain means, so a reader who has never met the word "grain" is not left to guess (§ D-9).
 .erddap_grain <- function(id, key) {
   suffix <- if (startsWith(id, key)) substring(id, nchar(key) + 1) else id
   grains <- c("_sample" = "sampling events", "_attribute" = "length/stage frequency",
@@ -581,7 +596,9 @@ dataset_distributions <- function(key, ds, objects, erddap = NULL, netcdf = NULL
   # parquet objects ----
   for (o in objects)
     add(.dist_row("download", o[["url"]], format = "parquet", table = o[["table"]], scope = o[["scope"]],
-                  shared = o[["shared"]], title = o[["title"]], bytes = o[["bytes"]], sha256 = o[["sha256"]],
+                  shared = o[["shared"]], title = o[["title"]],
+                  table_description = o[["table_description"]],
+                  bytes = o[["bytes"]], sha256 = o[["sha256"]],
                   since = o[["since"]], status = "current"))
   # CF netCDF: the entry for this release, else the newest ----
   for (nm in names(netcdf)) {
@@ -613,8 +630,10 @@ dataset_distributions <- function(key, ds, objects, erddap = NULL, netcdf = NULL
     hit <- ids == key | ids %in% paste0(key, c("_sample", "_attribute", "_full"))
     for (i in which(hit)) {
       id <- ids[i]
+      grain <- .erddap_grain(id, key)
       add(.dist_row("service", sprintf("%s/tabledap/%s.html", CC_ERDDAP_BASE, id), format = "erddap",
-                    id = id, title = .chr_or_null(erddap$title[i]), grain = .erddap_grain(id, key),
+                    id = id, title = .chr_or_null(erddap$title[i]), grain = grain,
+                    grain_description = .chr_or_null(erddap_grain_description(grain)),
                     info_url = sprintf("%s/info/%s/index.html", CC_ERDDAP_BASE, id), status = "current"))
       erddap_ids <- c(erddap_ids, id)
     }
@@ -640,7 +659,10 @@ dataset_distributions <- function(key, ds, objects, erddap = NULL, netcdf = NULL
       u  <- .s(cr[["url"]])
       if (nzchar(u) && u %in% have_urls) next
       legacy <- identical(cr[["portal"]], "erddap-calcofi")
-      r <- .dist_row(cr[["kind"]], .chr_or_null(cr[["url"]]), portal = .chr_or_null(cr[["portal"]]), id = .chr_or_null(cr[["id"]]),
+      # a curated row with no `id` gets one from its own URL — the same rule the site's
+      # _plugins/derive_id.rb used as a fallback, so the two cannot disagree (§ D-9)
+      cid <- .chr_or_null(cr[["id"]]) %||% .chr_or_null(.na_null(derive_registration_id(u)))
+      r <- .dist_row(cr[["kind"]], .chr_or_null(cr[["url"]]), portal = .chr_or_null(cr[["portal"]]), id = cid,
                      title = .chr_or_null(cr[["title"]]), status = .chr_or_null(cr[["status"]]) %||% "external",
                      superseded_by = .chr_or_null(cr[["superseded_by"]]),
                      observed_utc = .chr_or_null(cr[["observed_utc"]]), notes = .chr_or_null(cr[["notes"]]))
@@ -664,9 +686,14 @@ dataset_distributions <- function(key, ds, objects, erddap = NULL, netcdf = NULL
 }
 .category_block <- function(name, category) {
   i <- match(name, category$category)
-  if (is.na(i)) return(list(name = .chr_or_null(name), realm = NULL, icon = NULL, order = NULL, registered = FALSE))
+  if (is.na(i)) return(list(name = .chr_or_null(name), realm = NULL, icon = NULL, order = NULL,
+                            description = NULL, registered = FALSE))
+  # `description` (schema 1.1): the one line a category tile shows under its name. It was already
+  # in category.csv and simply not carried; a category's description is a fact, so the site never
+  # typed one and drew nothing until this shipped (UI plan § D-9).
   list(name = name, realm = .chr_or_null(category$realm[i]), icon = .chr_or_null(category$icon[i]),
-       order = .int_or_null(category$order[i]), registered = TRUE)
+       order = .int_or_null(category$order[i]),
+       description = .chr_or_null(category$description[i]), registered = TRUE)
 }
 
 # coverage.json rolled up for one dataset
@@ -730,6 +757,16 @@ dataset_distributions <- function(key, ds, objects, erddap = NULL, netcdf = NULL
   bbox <- if (is.null(bbox)) NULL else list(
     lat_min = .num_or_null(bbox$lat_min), lat_max = .num_or_null(bbox$lat_max),
     lon_min = .num_or_null(bbox$lon_min), lon_max = .num_or_null(bbox$lon_max))
+  # months + bbox_robust (4.5.0): measured by build_coverage(), carried through here
+  months <- if (!is.null(cd[["months"]])) as.integer(unlist(cd[["months"]])) else NULL
+  if (!is.null(months) && length(months) != 12L) months <- NULL
+  bbox_robust <- cd[["bbox_robust"]]
+  bbox_robust <- if (is.null(bbox_robust) || !length(bbox_robust)) NULL else {
+    b <- if (is.data.frame(bbox_robust)) as.list(bbox_robust[1, ]) else as.list(bbox_robust)
+    list(lat_min = .num_or_null(b$lat_min), lat_max = .num_or_null(b$lat_max),
+         lon_min = .num_or_null(b$lon_min), lon_max = .num_or_null(b$lon_max),
+         n_positions = .num_or_null(b$n_positions))
+  }
   list(
     realm       = realm,
     temporal    = .chr_or_null(ds[["coverage_temporal_observed"]]) %||% .chr_or_null(ds[["coverage_temporal"]]),
@@ -737,6 +774,8 @@ dataset_distributions <- function(key, ds, objects, erddap = NULL, netcdf = NULL
     years       = years,
     spatial     = .chr_or_null(ds[["coverage_spatial_observed"]]) %||% .chr_or_null(ds[["coverage_spatial"]]),
     bbox        = bbox,
+    bbox_robust = bbox_robust,
+    months      = if (is.null(months)) NULL else I(months),
     n_obs       = .num_or_null(cd[["n_obs"]]), n_roots = .num_or_null(cd[["n_roots"]]),
     n_stations  = as.integer(n_stations),
     n_variables = length(vars), n_taxa = length(taxa),
@@ -770,10 +809,16 @@ dataset_distributions <- function(key, ds, objects, erddap = NULL, netcdf = NULL
     o <- .rows(tab_of[[part$table[i]]]$objects)
     any(vapply(o, function(x) identical(.s(x[["partition_by"]]), "dataset_key") && identical(.s(x[["partition_value"]]), key), logical(1)))
   }, logical(1)), , drop = FALSE]
+  # `table_description` (schema 1.1, § D-9): the one line metadata.json already carries about what
+  # the table IS. A parquet row on a dataset page named a table and a size and nothing else, which
+  # asked a reader to know the release schema by heart.
+  # the first sentence: enough to say what the table is, in a row that is one line
+  tdesc <- function(t) .first_sentence(meta_tables[[t]][["description_md"]])
   mk <- function(o, scope, shared) list(
     table = o[["table"]], scope = scope, shared = shared, path = o[["path"]],
     url = paste0(CC_STORAGE_HTTPS, "/", o[["path"]]),
     title = if (scope == "partition") sprintf("%s (this dataset's rows)", o[["table"]]) else sprintf("%s (whole table)", o[["table"]]),
+    table_description = tdesc(o[["table"]]),
     bytes = if (is.na(o[["bytes"]])) NULL else o[["bytes"]], sha256 = if (is.na(o[["sha256"]])) NULL else o[["sha256"]],
     since = if (is.na(o[["since"]])) NULL else o[["since"]])
   for (i in seq_len(nrow(part))) out[[length(out) + 1]] <- mk(as.list(part[i, ]), "partition", FALSE)
@@ -789,32 +834,49 @@ dataset_distributions <- function(key, ds, objects, erddap = NULL, netcdf = NULL
 }
 
 .registrations <- function(key, st, curated, erddap_published, release_doi, concept_doi) {
-  cur_url <- function(portal, kinds = c("archive", "mirror", "service")) {
+  # the curated row behind a registration, so its id and title travel with it
+  cur_row <- function(portal, kinds = c("archive", "mirror", "service")) {
     if (is.null(curated) || !nrow(curated)) return(NULL)
     h <- curated[curated$portal == portal & curated$kind %in% kinds & curated$status %in% c("current", "external"), , drop = FALSE]
-    if (!nrow(h)) NULL else h[["url"]][1]
+    if (!nrow(h)) NULL else h[1, , drop = FALSE]
   }
-  reg <- function(portal, col, url = NULL, note = NULL, force_status = NULL) {
+  cur_url <- function(portal, kinds = c("archive", "mirror", "service")) {
+    h <- cur_row(portal, kinds)
+    if (is.null(h)) NULL else h[["url"]][1]
+  }
+  # `id` and `title` (schema 1.1, § D-9): the identifier a portal knows this dataset by, and what
+  # it calls it. Curated in distribution.csv where a row exists; otherwise read off the URL by the
+  # rule the site used as a fallback (derive_registration_id) — which is why that rule now lives
+  # here, with the same nine cases pinned on both sides.
+  reg <- function(portal, col, url = NULL, note = NULL, force_status = NULL, row = NULL) {
     p <- parse_registration(if (is.null(st)) NA else st[[col]])
     status <- force_status %||% p[["status"]]
     r <- list(portal = portal, status = status, url = url,
+              id = if (!is.null(row)) .chr_or_null(row[["id"]][1]) %||% .na_null(derive_registration_id(url))
+                   else .na_null(derive_registration_id(url)),
+              title = if (!is.null(row)) .chr_or_null(row[["title"]][1]) else NULL,
               issue = if (length(p[["issues"]])) p[["issues"]][1] else NULL,
               issues = .arr(p[["issues"]]), note = note)
     r[!vapply(r, is.null, logical(1))]
   }
-  obis_url <- cur_url("obis")
+  obis <- cur_row("obis"); edi <- cur_row("edi", "archive")
+  ncei <- cur_row("ncei", "archive"); caloos <- cur_row("caloos", c("mirror", "service"))
+  zen_url <- if (nzchar(.s(release_doi))) paste0("https://doi.org/", release_doi) else
+    if (nzchar(.s(concept_doi))) paste0("https://doi.org/", concept_doi) else NULL
   list(
     reg("erddap", "publish_erddap",
         url = if (erddap_published) sprintf("%s/info/%s/index.html", CC_ERDDAP_BASE, key) else NULL,
         force_status = if (erddap_published) "published" else NULL),
-    reg("obis", "publish_obis", url = obis_url, force_status = if (!is.null(obis_url)) "published" else NULL),
-    reg("edi",  "publish_edi",  url = cur_url("edi", "archive")),
-    reg("ncei", "publish_ncei", url = cur_url("ncei", "archive")),
-    reg("caloos", "publish_caloos", url = cur_url("caloos", c("mirror", "service"))),
+    reg("obis", "publish_obis", url = if (is.null(obis)) NULL else obis[["url"]][1], row = obis,
+        force_status = if (!is.null(obis)) "published" else NULL),
+    reg("edi",  "publish_edi",  url = cur_url("edi", "archive"), row = edi),
+    reg("ncei", "publish_ncei", url = cur_url("ncei", "archive"), row = ncei),
+    reg("caloos", "publish_caloos", url = cur_url("caloos", c("mirror", "service")), row = caloos),
     list(portal = "zenodo",
          status = if (nzchar(.s(release_doi)) || nzchar(.s(concept_doi))) "published" else "planned",
-         url = if (nzchar(.s(release_doi))) paste0("https://doi.org/", release_doi) else
-           if (nzchar(.s(concept_doi))) paste0("https://doi.org/", concept_doi) else NULL,
+         url = zen_url,
+         id = .na_null(derive_registration_id(zen_url)),
+         title = if (is.null(zen_url)) NULL else "CalCOFI Integrated Database (the release deposit)",
          note = "as part of the integrated database release") |> (\(r) r[!vapply(r, is.null, logical(1))])())
 }
 
@@ -953,7 +1015,8 @@ build_dataset_catalog <- function(meta, coverage, catalog, registries, version =
       coverage    = .coverage_block(key, ds, coverage, .s(ds[["category"]]), realm_hint = .chr_or_null(cat_block$realm),
                                     meta = meta, registries = registries),
       tables      = .arr(unlist(ds[["tables"]])),
-      objects     = lapply(objects, function(o) o[c("table", "scope", "shared", "path", "url", "bytes", "sha256", "since")]),
+      objects     = lapply(objects, function(o) o[c("table", "scope", "shared", "path", "url",
+                                                    "table_description", "bytes", "sha256", "since")]),
       since_version = if (!is.null(since) && !is.na(since[key])) unname(since[key]) else NULL,
       distributions = dists,
       registrations = .registrations(key, st, cur, erddap_published, catalog[["doi"]], catalog[["concept_doi"]]),
@@ -964,6 +1027,7 @@ build_dataset_catalog <- function(meta, coverage, catalog, registries, version =
   reference <- .reference_records(meta, catalog, spatial_layers, bathymetry)
   list(
     schema_version = CC_DATASETS_SCHEMA_VERSION,
+    portals = .portals_block(registries),
     release = list(
       version = version, release_date = .chr_or_null(catalog[["release_date"]]),
       doi = .chr_or_null(catalog[["doi"]]), concept_doi = .chr_or_null(catalog[["concept_doi"]]),
@@ -975,6 +1039,34 @@ build_dataset_catalog <- function(meta, coverage, catalog, registries, version =
       schema_url = sprintf("%s?v=%s", CC_DB_SCHEMA_URL, version)),
     counts = list(datasets = length(records), holdings = length(holdings), reference = length(reference)),
     datasets = records, holdings = holdings, reference = reference)
+}
+
+# portals[] (schema 1.1, § D-9): every portal the record can name, with what it IS. A dataset page
+# says "EDI" or "CalOOS" and a reader who has not met them needs a sentence; the site carried a
+# hand-typed map of names and one-liners, which is a second place for a fact. `portal.csv` already
+# had both — `name` and `notes` — so this is a carry-through, not new knowledge.
+.portals_block <- function(registries) {
+  pr <- registries[["portal"]]
+  if (is.null(pr) || !nrow(pr)) return(NULL)
+  # CalCOFI's own ERDDAP has two ids in the record and always has: portal.csv registers it as
+  # `erddap` (and registrations[] use that), while distribution_portals() and classify_portal()
+  # call it `erddap-calcofi`. A consumer looking either up must find it, so the block carries both
+  # rather than leaving half the rows unnameable. Collapsing the two ids is a registry change with
+  # its own consumers (observe_distributions, distribution.csv) — noted in RELEASES.md, not done
+  # here on the way past.
+  if ("erddap" %in% pr[["portal"]] && !"erddap-calcofi" %in% pr[["portal"]]) {
+    alias <- pr[pr[["portal"]] == "erddap", , drop = FALSE][1, , drop = FALSE]
+    alias[["portal"]] <- "erddap-calcofi"
+    pr <- rbind(pr, alias)
+  }
+  lapply(seq_len(nrow(pr)), function(i) {
+    # the first sentence of `notes`: enough to say what the portal is, in a title=
+    d <- .first_sentence(pr[["notes"]][i])
+    x <- list(portal = pr[["portal"]][i], name = .chr_or_null(pr[["name"]][i]),
+              kind = .chr_or_null(pr[["kind"]][i]), url = .chr_or_null(pr[["url"]][i]),
+              description = d)
+    x[!vapply(x, is.null, logical(1))]
+  })
 }
 
 # holdings: the sidecars with a holding status
@@ -1149,7 +1241,11 @@ catalog_findings <- function() c(
   url_dead              = "error",   # 404 / 410 / 451
   url_unreachable       = "warn",    # 5xx, timeout, DNS
   invalid_visibility    = "error",   # not public | internal
-  unregistered_license  = "error")   # license id not in metadata/license.csv
+  unregistered_license  = "error",   # license id not in metadata/license.csv
+  # 4.5.0 (schema 1.1) ----
+  registration_without_id = "warn",  # a `published` registration with no identifier
+  grain_without_description = "error", # an ERDDAP grain the builder could not describe
+  bbox_implausible      = "warn")    # coverage.bbox and bbox_robust disagree by > 5 deg
 
 #' Check every record of the dataset catalog
 #'
@@ -1233,6 +1329,41 @@ check_dataset_catalog <- function(record, registries = NULL, network = TRUE, pro
     lic <- .s(r[["attribution"]]$license)
     if (nzchar(lic) && !is.null(lics) && !lic %in% lics)
       found[[length(found) + 1]] <- row(key, "unregistered_license", sprintf("license `%s` is not an active id in metadata/license.csv", lic))
+    # ── schema 1.1 ─────────────────────────────────────────────────────────
+    # A registration a page LISTS but cannot name: "OBIS · published" with no identifier is a row a
+    # reader cannot act on. A warning, not an error — some portals genuinely have no id until the
+    # deposit lands.
+    for (g in .rows(r[["registrations"]])) {
+      if (!identical(.s(g[["status"]]), "published")) next
+      if (nzchar(.s(g[["id"]]))) next
+      found[[length(found) + 1]] <- row(key, "registration_without_id",
+        sprintf("registration `%s` is published with no identifier", .s(g[["portal"]])), .s(g[["url"]]))
+    }
+    # An ERDDAP grain with no sentence is a page that says "length/stage frequency" and leaves the
+    # reader to guess. BLOCKING: the builder should never emit one — a new grain means a new entry
+    # in erddap_grain_description(), and the release is where that is noticed.
+    for (d in .rows(r[["distributions"]])) {
+      if (!identical(.s(d[["format"]]), "erddap") || identical(.s(d[["status"]]), "superseded")) next
+      if (nzchar(.s(d[["grain_description"]]))) next
+      found[[length(found) + 1]] <- row(key, "grain_without_description",
+        sprintf("ERDDAP `%s` has grain `%s` with no description — add it to erddap_grain_description()",
+                .s(d[["id"]]), .s(d[["grain"]])), .s(d[["url"]]))
+    }
+    # The asserted bbox against the measured one. This is the ichthyoplankton's finding and it is
+    # meant to fire: its record bbox reads 0-54 deg N x 180-77 deg W from bad upstream coordinates,
+    # while the 2.5-97.5 percentile of its own sampling positions sits in the California Current.
+    # A warning: the bbox is the provider's to fix, and the record carries both numbers so a
+    # consumer can choose.
+    rb <- r[["coverage"]]$bbox_robust
+    if (!is.null(bb) && !is.null(rb)) {
+      num <- function(x) { v <- .num_or_null(x); if (is.null(v)) NA_real_ else v }
+      d4 <- vapply(c("lat_min", "lat_max", "lon_min", "lon_max"),
+                   function(k) abs(num(bb[[k]]) - num(rb[[k]])), 1)
+      if (any(!is.na(d4) & d4 > 5))
+        found[[length(found) + 1]] <- row(key, "bbox_implausible",
+          sprintf("coverage.bbox and bbox_robust differ by %.1f deg (%s) — the asserted extent is far outside the sampled one",
+                  max(d4, na.rm = TRUE), paste(names(d4)[!is.na(d4) & d4 > 5], collapse = ", ")))
+    }
     found <- c(found, check_urls(key, r[["distributions"]]))
     if (!length(found)) found[[1]] <- row(key, "ok", if (isTRUE(network)) "structural checks pass; every listed URL answers" else
       "structural checks pass; URLs not probed (network = FALSE)")
