@@ -1,6 +1,6 @@
 Package: calcofi4db
 Title: CalCOFI Database Tools
-Version: 4.1.0
+Version: 4.3.0
 URL: https://calcofi.io/calcofi4db
 BugReports: https://github.com/calcofi/calcofi4db/issues
 Authors@R: 
@@ -57,6 +57,7 @@ Suggests:
     units,
     withr,
     worrms,
+    xml2,
     taxize
 VignetteBuilder: knitr
 Config/testthat/edition: 3
