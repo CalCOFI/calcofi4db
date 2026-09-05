@@ -1,3 +1,46 @@
+# calcofi4db 4.2.0
+
+## One EML 2.2 document per dataset: `build_eml()` and a release gate (plan 2026-09-05 § D-8, Decision 13, WS-E1)
+
+- **`build_eml(record, sidecar, meta, coverage, release, gear)`** turns one `datasets.json` record
+  into an EML 2.2 document — `eml/{dataset_key}.xml` in every release, so the DwC-A's `eml.xml`, the
+  EDI package, ERDDAP's globals and the dataset page's JSON-LD all derive from one document instead
+  of being typed four times. `publish_ichthyo_to-obis.qmd` built the same shape from strings
+  hand-typed inside the notebook — the one place a provider cannot edit and the record cannot see.
+  The mapping: `title`/`shortName` <- `dataset_name`/`dataset_name_short`; `abstract` <-
+  `description_md`; `creator` <- `creators[]`, else `pi_names` with the provider organization, else
+  the provider organization alone; `pubDate` <- the release date; `keywordSet` <- the GCMD terms
+  under their thesaurus plus the category and the observed variables; `intellectualRights` +
+  `licensed` <- `license`/`license_name`/`license_url` (`metadata/license.csv`); `coverage` <-
+  the measured bbox, the observed year span and `coverage.json`'s `taxa[]` (WoRMS/ITIS `taxonId`);
+  `methods` <- the sidecar's `methods_md` / `quality_control_md` / `study_extent` /
+  `sampling_description` with `metadata/gear.csv`'s `dwc_samplingProtocol` sentences for the
+  dataset's `tow_type`s; `project/funding` <- `funding`, else `acknowledgement`; `dataTable[]` <-
+  the record's tables with an `attributeList` from `metadata.json`'s `columns{}` (label, definition,
+  unit, storage type) and a `physical` block from the content-addressed object (bytes, SHA-256,
+  URL); `alternateIdentifier` <- the DOI and the dataset page; `additionalMetadata` <- the release
+  and dataset citations. `build_eml_catalog()` does every dataset; `write_eml_files()` writes them.
+- **Nothing is invented.** An absent optional field is omitted; a missing *required* field is a
+  finding. Two fallbacks are derivations from a registry, not values typed here, and each is
+  reported at `warn` so it stays visible: an `organizationName`-only creator from `provider.csv`,
+  and `eml_contact_address()` — `data@calcofi.io`, the CalCOFI role address (Decision 23) — as the
+  contact of last resort. A unit becomes an EML `standardUnit` only on an exact match; everything
+  else travels as a `customUnit` carrying the release's own string.
+- **`check_eml()` / `check_eml_catalog()` / `assert_eml()`** — a release gate shaped like
+  `check_dataset_catalog()` (`dataset_key, finding, level, detail, exempt, question`). Errors:
+  `invalid_eml` (`EML::eml_validate()` against EML 2.2's local XSDs, no network), `no_title`,
+  `no_abstract`, `no_creator`, `no_pub_date`, `no_license`, `no_geographic_coverage`,
+  `no_temporal_coverage`, `no_data_table`. Warnings: `short_abstract`, `creator_from_provider`,
+  `creator_no_organization`, `contact_role_address`, `no_keywords`, `no_methods`,
+  `no_taxonomic_coverage`, `undocumented_attributes`, `custom_units`. `no_creator` and `no_license`
+  are exempt while an open/proposed `questions.csv` row on `related_table = dataset` names the field
+  (or names none) — the citation contract's rule. `eml_findings()` is the registry of levels.
+- **`read_gear_registry()` / `dataset_gear()`** read `metadata/gear.csv` and filter it to a dataset.
+- **`erddap_globals(record)`** renders `title`, `summary`, `institution`, `creator_*`, `license`,
+  `keywords`, `infoUrl` (the dataset page) and `id` from the same record, so ERDDAP's globals and
+  the EML cannot disagree.
+- **`RELEASE_REQUIRED_OBJECTS` gains `eml/`**, so a release cannot be promoted without its EML.
+
 # calcofi4db 4.1.0
 
 ## Every dataset has a record: `datasets.json` (the dataset catalog, plan 2026-09-05, WS-R0)
