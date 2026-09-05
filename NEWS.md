@@ -1,3 +1,54 @@
+# calcofi4db 4.3.0
+
+## The catalog's machine surfaces: a static STAC, the weekly observation, the generated sitemap (plan 2026-09-05, WS-M1)
+
+- **`build_stac(record, catalog, spatial_layers, dir, …)`** writes a static **STAC 1.0.0**
+  catalog of a release from `datasets.json` alone — no service is asked anything: a root
+  `catalog.json`, one `collections/{dataset_key}/collection.json` per **public** dataset
+  (extent from the observed bbox and year span, `license`, `providers[]`, `keywords`,
+  `table:tables` and `sci:doi` / `sci:citation`), one Item per release at
+  `collections/{key}/items/{version}.json` whose assets are the dataset's parquet objects
+  (`application/x-parquet`, `roles: [data]`, with `table:columns` from `metadata.json`,
+  `file:size` and a sha256 `file:checksum`), its CF netCDF, the ERDDAP pages and the ISO
+  19115 record; and one `collections/layer_{key}/collection.json` per spatial layer with
+  its PMTiles asset. A `superseded` or `retired` distribution is never published as an
+  asset, and an `internal` dataset gets no collection. `stac_collection()` and
+  `stac_item()` build one document each.
+- **`check_stac()` / `assert_stac()`** validate what was written: `stac-validator` (pip)
+  over every document when it is on `PATH`, plus a structural half that always runs
+  (each document parses, carries `type`/`stac_version`/`id`, a Collection has `license`
+  and `extent`, an Item has `properties.datetime` and assets with an `href` and a `type`,
+  and every `child`/`item` link resolves to a document that was written). Two rules were
+  measured against the validator rather than assumed: **an extension is declared only when
+  the document uses it** (the scientific schema requires one of `sci:doi`/`sci:citation`,
+  so declaring it on a dataset with neither is invalid — 5 of 16 at v2026.09.05), and **a
+  `summaries` value is an array**, never a scalar.
+- **`observe_distributions(registry, portals, fetch)`** asks each portal what it says now,
+  one observer per `portal.csv` `observe_method`: `edi-pasta` (the newest revision through
+  EDI's cite service — PASTA's `/package/eml/{scope}/{id}` answers 403 anonymously),
+  `doi`, `obis-api` (the dataset's `updated`, by id: OBIS's text search never matches
+  CalCOFI), `ncbi-esummary`, `zenodo-api`, `erddap-das` (`date_modified` /
+  `time_coverage_end`; a 404 means the id is gone), `caloos` / `http`. **Nothing is ever
+  deleted from the registry** — `retired` is an observed status beside the curated one —
+  and **an unanswered request is `unreachable`, never `retired`**, because EDI's portal
+  rate-limits and NOAA's ERDDAPs 503 under load. `distribution_targets()` adds the
+  holdings' source links and DOIs (plan § D-11), `distribution_changes()` reports what
+  moved since the last run, and `write_distribution_observed()` /
+  `read_distribution_observed()` are `metadata/distribution_observed.json`.
+- **`build_datasets_sitemap(record, observed, edited)`** regenerates `datasets/sitemap.xml`
+  from the record instead of a hand-maintained Google Sheet (plan § D-10): the calcofi.io
+  dataset pages first (public datasets, then public holdings; `lastmod` = the later of the
+  release date and the sidecar's edit), then every `current` / `external` record at another
+  portal, with a `superseded` or `retired` one excluded — kept in the registry, kept out of
+  the sitemap. `write_sitemap_xml()`, `check_sitemap()` / `assert_sitemap()` (https,
+  uniqueness, `lastmod` shape, the pages leading, and every URL answering behind
+  `CALCOFI_SKIP_LINK_CHECK`). Two rules a real run taught: a **file** is not a page — the
+  ERDDAP ISO 19115 XML, a netCDF and a parquet object are excluded — and `kind` alone does
+  not say whose page a row is, since a calcofi.org record is `kind = page` too, so the
+  `calcofi.io` portal is what identifies ours. `assert_sitemap(allow_dead =)` forgives
+  exactly the named URLs: the 33 calcofi.io dataset pages 404 until the landing repo
+  generates them, and a dead **external** record still fails.
+
 # calcofi4db 4.2.0
 
 ## One EML 2.2 document per dataset: `build_eml()` and a release gate (plan 2026-09-05 § D-8, Decision 13, WS-E1)
