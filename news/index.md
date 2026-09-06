@@ -1,5 +1,17 @@
 # Changelog
 
+## calcofi4db 4.6.2
+
+### A Darwin Core Archive is a function of its rows
+
+- [`dwc_archive()`](https://calcofi.io/calcofi4db/reference/dwc_archive.md)
+  stamps every member with the release date the version names (else a
+  fixed epoch) before zipping, so two builds of identical rows give a
+  byte-identical zip — a zip entry carries its file’s mtime, and the old
+  archive changed bytes on every build while `content_hash` said nothing
+  had. The manifest’s `generated_utc` is kept when `content_hash` is
+  unchanged, so a manifest changes only when its content does.
+
 ## calcofi4db 4.6.1
 
 ### An upload is a hash comparison first

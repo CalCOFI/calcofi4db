@@ -32,7 +32,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.6.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.6.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -67,6 +67,14 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.6.2" id="calcofi4db-462">calcofi4db 4.6.2<a class="anchor" aria-label="anchor" href="#calcofi4db-462"></a></h2>
+<div class="section level3">
+<h3 id="a-darwin-core-archive-is-a-function-of-its-rows-4-6-2">A Darwin Core Archive is a function of its rows<a class="anchor" aria-label="anchor" href="#a-darwin-core-archive-is-a-function-of-its-rows-4-6-2"></a></h3>
+<ul><li>
+<code><a href="../reference/dwc_archive.html">dwc_archive()</a></code> stamps every member with the release date the version names (else a fixed epoch) before zipping, so two builds of identical rows give a byte-identical zip — a zip entry carries its file’s mtime, and the old archive changed bytes on every build while <code>content_hash</code> said nothing had. The manifest’s <code>generated_utc</code> is kept when <code>content_hash</code> is unchanged, so a manifest changes only when its content does.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.6.1" id="calcofi4db-461">calcofi4db 4.6.1<a class="anchor" aria-label="anchor" href="#calcofi4db-461"></a></h2>
 <div class="section level3">
