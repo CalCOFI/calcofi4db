@@ -1,5 +1,33 @@
 # Changelog
 
+## calcofi4db 4.6.0
+
+### The record carries the STAC collection, and CalCOFI’s ERDDAP has one id
+
+- [`dataset_distributions()`](https://calcofi.io/calcofi4db/reference/dataset_distributions.md)
+  gains `stac_base` and every public dataset’s `distributions[]` now
+  opens with a `format: stac` row —
+  `{stac_base}/collections/{dataset_key}/collection.json`, the
+  collection
+  [`build_stac()`](https://calcofi.io/calcofi4db/reference/build_stac.md)
+  writes at the release’s STAC root.
+  [`build_dataset_catalog()`](https://calcofi.io/calcofi4db/reference/build_dataset_catalog.md)
+  derives `stac_base` from `release_prefix` exactly as
+  `release_database.qmd` does (`stac-staging/` for a staging prefix), so
+  the site’s `stac_collection_url` fallback can go. Holdings get no row:
+  they have no collection.
+- **`erddap-calcofi` is gone; the id is `erddap`.**
+  [`distribution_portals()`](https://calcofi.io/calcofi4db/reference/distribution_kinds.md),
+  [`classify_portal()`](https://calcofi.io/calcofi4db/reference/classify_portal.md)
+  and `metadata/distribution.csv` now name CalCOFI’s own ERDDAP the way
+  `portal.csv` and the `registrations[]` always did, so `portals[]` no
+  longer ships the same portal twice and
+  [`observe_distributions()`](https://calcofi.io/calcofi4db/reference/observe_distributions.md)
+  needs no alias.
+  [`read_distribution_registry()`](https://calcofi.io/calcofi4db/reference/read_distribution_registry.md)
+  rejects the old value (a controlled vocabulary, not an alias). The
+  legacy-id rule (`legacy: true` + `live`) keys on the new id.
+
 ## calcofi4db 4.5.0
 
 ### Dataset catalog schema 1.1: the facts a dataset page wanted that only the pipeline knows (UI plan 2026-09-05, § D-9, Decision 11)

@@ -21,7 +21,8 @@ dataset_distributions(
   netcdf = NULL,
   curated = NULL,
   version = NULL,
-  workflow_url = NULL
+  workflow_url = NULL,
+  stac_base = NULL
 )
 ```
 
@@ -62,6 +63,11 @@ dataset_distributions(
 - workflow_url:
 
   the ingest notebook URL
+
+- stac_base:
+
+  the STAC root the release writes (`https://…/calcofi-db/stac`); NULL
+  (a holding, or a run with no STAC) adds no row
 
 ## Value
 

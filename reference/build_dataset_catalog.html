@@ -34,7 +34,7 @@ release sidecars, the registries and the measured endpoints:"><!-- calcofi.io br
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.5.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -90,7 +90,9 @@ release sidecars, the registries and the measured endpoints:</p>
 <span>  spatial_layers <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  bathymetry <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  workflows_base <span class="op">=</span> <span class="st">"https://calcofi.io/workflows/"</span>,</span>
-<span>  release_prefix <span class="op">=</span> <span class="st">"ducklake/releases"</span></span>
+<span>  release_prefix <span class="op">=</span> <span class="st">"ducklake/releases"</span>,</span>
+<span>  stac_base <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"https://storage.googleapis.com/calcofi-db/%s"</span>, <span class="kw">if</span></span>
+<span>    <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">grepl</a></span><span class="op">(</span><span class="st">"staging"</span>, <span class="va">release_prefix</span><span class="op">)</span><span class="op">)</span> <span class="st">"stac-staging"</span> <span class="kw">else</span> <span class="st">"stac"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -149,7 +151,12 @@ release sidecars, the registries and the measured endpoints:</p>
 
 
 <dt id="arg-release-prefix">release_prefix<a class="anchor" aria-label="anchor" href="#arg-release-prefix"></a></dt>
-<dd><p>the bucket-relative releases prefix the run writes to
+<dd><p>the bucket-relative releases prefix the run writes to</p></dd>
+
+
+<dt id="arg-stac-base">stac_base<a class="anchor" aria-label="anchor" href="#arg-stac-base"></a></dt>
+<dd><p>the STAC root this release writes (<code>release_database.qmd</code> derives it from
+the prefix the same way); every public dataset gets a <code>format: stac</code> distribution under it
 (<code>ducklake/releases</code>, or the staging prefix) — <code>release.url</code> follows it</p></dd>
 
 </dl></div>

@@ -2,7 +2,9 @@
 
 Host-based: `edi` (edirepository.org, pasta.lternet.edu), `ncei`,
 `erddap-noaa` (coastwatch / oceanview / upwell `pfeg.noaa.gov` ERDDAPs),
-`erddap-calcofi`, `datazoo` and the other oceaninformatics.ucsd.edu
+`erddap` (erddap.calcofi.io — the one id CalCOFI's own ERDDAP has
+anywhere in the record since 4.6.0; `erddap-calcofi` was the registry's
+old name for it), `datazoo` and the other oceaninformatics.ucsd.edu
 portals (ZooDB, ZooScan), `ucsd-library`, `obis`, `ipt`, `caloos`,
 `zenodo`, `ncbi`, `calcofi.org`, `gcs` (storage.googleapis.com /
 storage.calcofi.io), else `other`. `NA` for an empty input.

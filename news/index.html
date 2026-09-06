@@ -32,7 +32,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.5.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -67,6 +67,16 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.6.0" id="calcofi4db-460">calcofi4db 4.6.0<a class="anchor" aria-label="anchor" href="#calcofi4db-460"></a></h2>
+<div class="section level3">
+<h3 id="the-record-carries-the-stac-collection-and-calcofis-erddap-has-one-id-4-6-0">The record carries the STAC collection, and CalCOFI’s ERDDAP has one id<a class="anchor" aria-label="anchor" href="#the-record-carries-the-stac-collection-and-calcofis-erddap-has-one-id-4-6-0"></a></h3>
+<ul><li>
+<code><a href="../reference/dataset_distributions.html">dataset_distributions()</a></code> gains <code>stac_base</code> and every public dataset’s <code>distributions[]</code> now opens with a <code>format: stac</code> row — <code>{stac_base}/collections/{dataset_key}/collection.json</code>, the collection <code><a href="../reference/build_stac.html">build_stac()</a></code> writes at the release’s STAC root. <code><a href="../reference/build_dataset_catalog.html">build_dataset_catalog()</a></code> derives <code>stac_base</code> from <code>release_prefix</code> exactly as <code>release_database.qmd</code> does (<code>stac-staging/</code> for a staging prefix), so the site’s <code>stac_collection_url</code> fallback can go. Holdings get no row: they have no collection.</li>
+<li>
+<strong><code>erddap-calcofi</code> is gone; the id is <code>erddap</code>.</strong> <code><a href="../reference/distribution_kinds.html">distribution_portals()</a></code>, <code><a href="../reference/classify_portal.html">classify_portal()</a></code> and <code>metadata/distribution.csv</code> now name CalCOFI’s own ERDDAP the way <code>portal.csv</code> and the <code>registrations[]</code> always did, so <code>portals[]</code> no longer ships the same portal twice and <code><a href="../reference/observe_distributions.html">observe_distributions()</a></code> needs no alias. <code><a href="../reference/read_distribution_registry.html">read_distribution_registry()</a></code> rejects the old value (a controlled vocabulary, not an alias). The legacy-id rule (<code>legacy: true</code> + <code>live</code>) keys on the new id.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.5.0" id="calcofi4db-450">calcofi4db 4.5.0<a class="anchor" aria-label="anchor" href="#calcofi4db-450"></a></h2>
 <div class="section level3">

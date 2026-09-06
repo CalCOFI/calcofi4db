@@ -46,7 +46,7 @@ of those, listed with legacy: true and whether it is still live."><!-- calcofi.i
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.5.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -103,7 +103,8 @@ of those, listed with <code>legacy: true</code> and whether it is still <code>li
 <span>  netcdf <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  curated <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  version <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  workflow_url <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  workflow_url <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  stac_base <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -141,6 +142,11 @@ of those, listed with <code>legacy: true</code> and whether it is still <code>li
 
 <dt id="arg-workflow-url">workflow_url<a class="anchor" aria-label="anchor" href="#arg-workflow-url"></a></dt>
 <dd><p>the ingest notebook URL</p></dd>
+
+
+<dt id="arg-stac-base">stac_base<a class="anchor" aria-label="anchor" href="#arg-stac-base"></a></dt>
+<dd><p>the STAC root the release writes (<code>https://…/calcofi-db/stac</code>);
+NULL (a holding, or a run with no STAC) adds no row</p></dd>
 
 </dl></div>
     <div class="section level2">
