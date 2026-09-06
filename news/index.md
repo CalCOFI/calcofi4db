@@ -1,5 +1,18 @@
 # Changelog
 
+## calcofi4db 4.6.1
+
+### An upload is a hash comparison first
+
+- [`put_gcs_file()`](https://calcofi.io/calcofi4db/reference/put_gcs_file.md)
+  gains `skip_unchanged = TRUE`: the object’s MD5
+  ([`gcs_object_md5()`](https://calcofi.io/calcofi4db/reference/gcs_object_md5.md),
+  one metadata read) is compared with the local file’s
+  ([`local_md5_base64()`](https://calcofi.io/calcofi4db/reference/gcs_object_md5.md))
+  and an identical object is not re-uploaded. A publisher re-run over a
+  frozen release now costs a comparison, not a multi-GB transfer;
+  `skip_unchanged = FALSE` restores the old always-upload.
+
 ## calcofi4db 4.6.0
 
 ### The record carries the STAC collection, and CalCOFI’s ERDDAP has one id

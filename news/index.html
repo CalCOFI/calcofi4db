@@ -32,7 +32,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.6.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.6.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -67,6 +67,14 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.6.1" id="calcofi4db-461">calcofi4db 4.6.1<a class="anchor" aria-label="anchor" href="#calcofi4db-461"></a></h2>
+<div class="section level3">
+<h3 id="an-upload-is-a-hash-comparison-first-4-6-1">An upload is a hash comparison first<a class="anchor" aria-label="anchor" href="#an-upload-is-a-hash-comparison-first-4-6-1"></a></h3>
+<ul><li>
+<code><a href="../reference/put_gcs_file.html">put_gcs_file()</a></code> gains <code>skip_unchanged = TRUE</code>: the object’s MD5 (<code><a href="../reference/gcs_object_md5.html">gcs_object_md5()</a></code>, one metadata read) is compared with the local file’s (<code><a href="../reference/gcs_object_md5.html">local_md5_base64()</a></code>) and an identical object is not re-uploaded. A publisher re-run over a frozen release now costs a comparison, not a multi-GB transfer; <code>skip_unchanged = FALSE</code> restores the old always-upload.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.6.0" id="calcofi4db-460">calcofi4db 4.6.0<a class="anchor" aria-label="anchor" href="#calcofi4db-460"></a></h2>
 <div class="section level3">

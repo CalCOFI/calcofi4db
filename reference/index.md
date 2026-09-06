@@ -25,6 +25,11 @@ functions for Google Cloud Storage operations
 - [`delete_gcs_prefix()`](https://calcofi.io/calcofi4db/reference/delete_gcs_prefix.md)
   : Delete all objects under a GCS prefix
 
+- [`gcs_object_md5()`](https://calcofi.io/calcofi4db/reference/gcs_object_md5.md)
+  [`local_md5_base64()`](https://calcofi.io/calcofi4db/reference/gcs_object_md5.md)
+  : The MD5 of a GCS object, as GCS reports it (base64), or NA when it
+  does not exist
+
 - [`get_calcofi_file()`](https://calcofi.io/calcofi4db/reference/get_calcofi_file.md)
   : Get a CalCOFI file from the immutable archive
 
