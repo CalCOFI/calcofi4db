@@ -38,3 +38,30 @@ test_that("re_escape() output actually anchors to the literal filename", {
   expect_false(grepl(pat, "my-manifest.json"))
   expect_false(grepl(pat, "manifest.json.bak"))
 })
+
+
+# 4.6.1: an upload is a hash comparison first ---------------------------------------------
+
+test_that("local_md5_base64() is the base64 MD5 GCS reports", {
+  f <- withr::local_tempfile(fileext = ".txt"); writeLines("calcofi", f)
+  expect_equal(local_md5_base64(f), jsonlite::base64_enc(digest::digest(f, algo = "md5", file = TRUE, raw = TRUE)))
+  expect_match(local_md5_base64(f), "^[A-Za-z0-9+/]+=*$")
+})
+
+test_that("put_gcs_file() skips an object whose MD5 matches, uploads otherwise", {
+  f <- withr::local_tempfile(fileext = ".txt"); writeLines("calcofi", f)
+  uploads <- character()
+  local_mocked_bindings(
+    gcs_object_md5 = function(uri) local_md5_base64(f),
+    gcloud_upload  = function(local_path, bucket, gcs_path) { uploads <<- c(uploads, gcs_path); invisible(NULL) })
+  expect_message(put_gcs_file(f, "gs://b/x/y.txt"), "unchanged")
+  expect_length(uploads, 0)
+  local_mocked_bindings(gcs_object_md5 = function(uri) NA_character_)
+  put_gcs_file(f, "gs://b/x/y.txt")
+  expect_equal(uploads, "x/y.txt")
+  local_mocked_bindings(gcs_object_md5 = function(uri) "different==")
+  put_gcs_file(f, "gs://b/x/z.txt")
+  expect_equal(uploads, c("x/y.txt", "x/z.txt"))
+  put_gcs_file(f, "gs://b/x/w.txt", skip_unchanged = FALSE)
+  expect_equal(length(uploads), 3)
+})

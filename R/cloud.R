@@ -107,8 +107,13 @@ get_gcs_file <- function(
 #' @param gcs_path Full GCS path (gs://bucket/path) or relative path
 #' @param bucket GCS bucket name (used if gcs_path is relative)
 #' @param content_type MIME content type (default: auto-detect)
+#' @param skip_unchanged If TRUE (the default), an object that already exists at
+#'   `gcs_path` with the same MD5 as the local file is not uploaded again — the
+#'   check is a metadata read ([gcs_object_md5()]), the upload is the bytes. A
+#'   publisher re-run over a frozen release must cost a hash comparison, not a
+#'   multi-GB transfer (2026-09-06).
 #'
-#' @return GCS URI of the uploaded file
+#' @return GCS URI of the uploaded (or already-identical) file
 #' @export
 #' @concept cloud
 #'
@@ -120,8 +125,9 @@ get_gcs_file <- function(
 put_gcs_file <- function(
     local_path,
     gcs_path,
-    bucket       = NULL,
-    content_type = NULL) {
+    bucket         = NULL,
+    content_type   = NULL,
+    skip_unchanged = TRUE) {
 
   stopifnot(file.exists(local_path))
 
@@ -133,6 +139,14 @@ put_gcs_file <- function(
   }
 
   stopifnot(!is.null(bucket))
+
+  if (isTRUE(skip_unchanged)) {
+    remote <- gcs_object_md5(glue::glue("gs://{bucket}/{gcs_path}"))
+    if (!is.na(remote) && identical(remote, local_md5_base64(local_path))) {
+      message(glue::glue("unchanged, not re-uploaded: gs://{bucket}/{gcs_path}"))
+      return(invisible(glue::glue("gs://{bucket}/{gcs_path}")))
+    }
+  }
 
   # try googleCloudStorageR first, fall back to gcloud
   tryCatch({
@@ -1138,6 +1152,38 @@ gcloud_upload <- function(local_path, bucket, gcs_path) {
   result  <- system(cmd, intern = TRUE)
 
   invisible(gcs_uri)
+}
+
+#' The MD5 of a GCS object, as GCS reports it (base64), or NA when it does not exist
+#'
+#' One metadata read through `gcloud storage objects describe`; the value is what
+#' `local_md5_base64()` produces for the same bytes, so the pair says whether an
+#' upload would change anything. A composite object carries no md5Hash and reads
+#' as NA, which means "upload" — the safe side.
+#'
+#' @param gcs_uri a `gs://bucket/path`
+#' @return a base64 MD5 string, or `NA_character_`
+#' @export
+#' @concept cloud
+gcs_object_md5 <- function(gcs_uri) {
+  gcloud <- tryCatch(find_gcloud(), error = function(e) NULL)
+  if (is.null(gcloud)) return(NA_character_)
+  out <- suppressWarnings(system2(gcloud, c("storage", "objects", "describe", shQuote(gcs_uri),
+                                            "--format=value(md5Hash)"),
+                                  stdout = TRUE, stderr = FALSE))
+  st <- attr(out, "status")
+  if (!is.null(st) && st != 0) return(NA_character_)
+  v <- trimws(out[nzchar(trimws(out))])
+  if (!length(v)) NA_character_ else v[1]
+}
+
+#' @rdname gcs_object_md5
+#' @param path a local file
+#' @return `local_md5_base64()`: the file's MD5 in the base64 form GCS uses.
+#' @export
+local_md5_base64 <- function(path) {
+  raw <- digest::digest(path, algo = "md5", file = TRUE, raw = TRUE)
+  jsonlite::base64_enc(raw)
 }
 
 #' List files using gcloud CLI

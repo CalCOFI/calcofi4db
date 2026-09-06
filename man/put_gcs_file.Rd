@@ -4,7 +4,13 @@
 \alias{put_gcs_file}
 \title{Upload a file to Google Cloud Storage}
 \usage{
-put_gcs_file(local_path, gcs_path, bucket = NULL, content_type = NULL)
+put_gcs_file(
+  local_path,
+  gcs_path,
+  bucket = NULL,
+  content_type = NULL,
+  skip_unchanged = TRUE
+)
 }
 \arguments{
 \item{local_path}{Path to the local file}
@@ -14,9 +20,15 @@ put_gcs_file(local_path, gcs_path, bucket = NULL, content_type = NULL)
 \item{bucket}{GCS bucket name (used if gcs_path is relative)}
 
 \item{content_type}{MIME content type (default: auto-detect)}
+
+\item{skip_unchanged}{If TRUE (the default), an object that already exists at
+\code{gcs_path} with the same MD5 as the local file is not uploaded again — the
+check is a metadata read (\code{\link[=gcs_object_md5]{gcs_object_md5()}}), the upload is the bytes. A
+publisher re-run over a frozen release must cost a hash comparison, not a
+multi-GB transfer (2026-09-06).}
 }
 \value{
-GCS URI of the uploaded file
+GCS URI of the uploaded (or already-identical) file
 }
 \description{
 Uploads a local file to GCS.
