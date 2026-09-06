@@ -12,7 +12,8 @@ dataset_distributions(
   netcdf = NULL,
   curated = NULL,
   version = NULL,
-  workflow_url = NULL
+  workflow_url = NULL,
+  stac_base = NULL
 )
 }
 \arguments{
@@ -31,6 +32,9 @@ dataset_distributions(
 \item{version}{the release version (selects the netCDF entry)}
 
 \item{workflow_url}{the ingest notebook URL}
+
+\item{stac_base}{the STAC root the release writes (\verb{https://…/calcofi-db/stac});
+NULL (a holding, or a run with no STAC) adds no row}
 }
 \value{
 A list of rows, each a named list (\code{kind}, \code{url}, …).

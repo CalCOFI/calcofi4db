@@ -12,11 +12,11 @@ smap_record <- function(...) utils::modifyList(list(
          distributions = list(
            list(kind = "download", url = "https://storage.googleapis.com/calcofi-db/x.parquet", status = "current"),
            list(kind = "service",  url = "https://erddap.calcofi.io/erddap/tabledap/swfsc_ichthyo.html",
-                status = "current", portal = "erddap-calcofi", title = "ERDDAP"),
+                status = "current", portal = "erddap", title = "ERDDAP"),
            list(kind = "archive",  url = "https://obis.org/dataset/0e223f55", status = "current",
                 portal = "obis", title = "OBIS"),
            list(kind = "service",  url = "https://erddap.calcofi.io/erddap/tabledap/calcofi_casts.html",
-                status = "superseded", portal = "erddap-calcofi", title = "legacy id"),
+                status = "superseded", portal = "erddap", title = "legacy id"),
            list(kind = "mirror",   url = "https://coastwatch.pfeg.noaa.gov/erddap/tabledap/erdCalCOFItows.html",
                 status = "retired", portal = "erddap-noaa", title = "retired mirror"),
            list(kind = "notebook", url = "https://calcofi.io/workflows/ingest_swfsc_ichthyo.html", status = "current"))),
@@ -48,7 +48,7 @@ test_that("the sitemap is the pages first, then every current/external record", 
   # nor is the ERDDAP ISO 19115 XML: a sitemap lists pages, not files
   rec <- smap_record()
   rec$datasets[[1]]$distributions <- c(rec$datasets[[1]]$distributions, list(list(
-    kind = "service", portal = "erddap-calcofi", status = "current", title = "ISO 19115",
+    kind = "service", portal = "erddap", status = "current", title = "ISO 19115",
     url = "https://erddap.calcofi.io/erddap/metadata/iso19115/xml/swfsc_ichthyo_iso19115.xml")))
   expect_false(any(grepl("iso19115", build_datasets_sitemap(rec)$loc)))
   expect_equal(unique(d$changefreq), "weekly")

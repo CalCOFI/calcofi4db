@@ -41,7 +41,7 @@ fake_fetch <- function(map, status_default = 404L) {
 
 test_that("the registry vocabularies are what the plan says", {
   expect_setequal(distribution_kinds(), c("download", "service", "mirror", "source", "archive", "page", "notebook"))
-  expect_true(all(c("erddap-calcofi", "erddap-noaa", "edi", "ncei", "obis", "ipt", "caloos", "datazoo",
+  expect_true(all(c("erddap", "erddap-noaa", "edi", "ncei", "obis", "ipt", "caloos", "datazoo",
                     "ucsd-library", "zenodo", "ncbi", "calcofi.org", "other") %in% distribution_portals()))
   expect_equal(distribution_statuses(), c("current", "superseded", "retired", "external", "planned"))
   expect_equal(registration_statuses(), c("published", "planned", "n/a"))
@@ -71,7 +71,7 @@ test_that("classify_portal() sorts URLs by host family", {
     "https://calcofi.org/data/marine-ecosystem-data/zooplankton/",
     "https://storage.googleapis.com/calcofi-db/x.parquet",
     "", NA)),
-    c("edi", "ncei", "erddap-noaa", "erddap-noaa", "erddap-calcofi", "datazoo", "ucsd-library", "obis", "ipt",
+    c("edi", "ncei", "erddap-noaa", "erddap-noaa", "erddap", "datazoo", "ucsd-library", "obis", "ipt",
       "caloos", "other", "zenodo", "ncbi", "calcofi.org", "gcs", NA, NA))
 })
 
@@ -300,7 +300,7 @@ test_that("the calcofi_dic record: a legacy id, an NCEI archive, env contributio
   v <- r$coverage$variables; expect_equal(vapply(v, `[[`, "", "name"), c("alkalinity", "ctdtemp_its90", "dic", "salinity_pss78"))
   expect_equal(v[[3]]$units, "umol/kg"); expect_equal(v[[2]]$category, "Physical Oceanography")
   expect_true(is.null(v[[3]]$uri) || grepl("^https?://vocab.nerc.ac.uk/", v[[3]]$uri))
-  leg <- dist_of(r, "service", portal = "erddap-calcofi")
+  leg <- dist_of(r, "service", portal = "erddap")
   expect_length(leg, 1); expect_equal(leg[[1]]$id, "calcofi_dic_old"); expect_true(leg[[1]]$legacy); expect_true(leg[[1]]$live)
   expect_equal(leg[[1]]$status, "superseded"); expect_equal(leg[[1]]$superseded_by, "calcofi_dic")
   # the NCEI landing page is the source (link_data_source) — listed once, as the source
@@ -608,8 +608,6 @@ test_that("portals[] names every portal the record can mention, with what it is"
     unlist(lapply(rec$holdings, function(r)
       vapply(r$distributions, function(d) d$portal %||% NA_character_, "")))))
   named <- named[!is.na(named) & nzchar(named)]
-  # `erddap` is the registration's name for `erddap-calcofi`
-  named <- setdiff(named, "erddap")
   expect_length(setdiff(named, vapply(rec$portals, `[[`, "", "portal")), 0)
 })
 
@@ -691,4 +689,38 @@ test_that("a 1.0 record is not silently accepted as 1.1", {
   expect_equal(rec$schema_version, "1.1")
   rec$schema_version <- "1.0"
   expect_error(validate_dataset_catalog(rec), "does not validate|schema")
+})
+
+# 4.6.0: the STAC collection is a distribution, and CalCOFI's ERDDAP has one id ---------------
+
+test_that("every public dataset opens with its STAC collection; a holding has none", {
+  rec <- fixture_record()
+  for (d in rec$datasets) {
+    st <- dist_of(d, "service", "stac")
+    expect_length(st, 1)
+    expect_equal(st[[1]]$url, sprintf("https://storage.googleapis.com/calcofi-db/stac/collections/%s/collection.json", d$dataset_key))
+    expect_equal(st[[1]]$id, d$dataset_key); expect_equal(st[[1]]$status, "current")
+    expect_equal(d$distributions[[1]]$format, "stac")          # first, so a reader meets the record's own address first
+  }
+  for (h in rec$holdings) expect_length(dist_of(h, "service", "stac"), 0)
+  # a staging prefix writes the staging root, exactly as release_database.qmd derives it
+  stg <- fixture_record(release_prefix = "ducklake-staging/releases")
+  expect_match(dist_of(stg$datasets[[1]], "service", "stac")[[1]]$url, "^https://storage.googleapis.com/calcofi-db/stac-staging/collections/")
+  # no STAC root, no row
+  expect_length(dataset_distributions("x_y", list(), list(), stac_base = NULL), 0)
+})
+
+test_that("CalCOFI's own ERDDAP is `erddap` everywhere in the record, and the old id is rejected", {
+  rec <- fixture_record()
+  ids <- unlist(lapply(c(rec$datasets, rec$holdings), function(r) c(
+    vapply(r$distributions, function(d) d$portal %||% NA_character_, ""),
+    vapply(r$registrations %||% list(), function(g) g$portal %||% NA_character_, ""))))
+  expect_false("erddap-calcofi" %in% ids)
+  expect_equal(sum(vapply(rec$portals, `[[`, "", "portal") == "erddap"), 1L)   # once, not twice
+  expect_equal(classify_portal("https://erddap.calcofi.io/erddap/tabledap/x.html"), "erddap")
+  f <- withr::local_tempfile(fileext = ".csv")
+  d <- read_distribution_registry(cfx("metadata/distribution.csv"))
+  d$portal[d$portal == "erddap"][1] <- "erddap-calcofi"
+  utils::write.csv(d, f, row.names = FALSE, na = "")
+  expect_error(read_distribution_registry(f), "erddap-calcofi")
 })

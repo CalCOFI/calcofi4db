@@ -198,9 +198,9 @@ test_that("the observed file round-trips and reports what moved", {
 })
 
 test_that("a `retired` observation never removes the registry row", {
-  reg <- reg_row(portal = "erddap-calcofi", id = "calcofi_dic_old", status = "superseded",
+  reg <- reg_row(portal = "erddap", id = "calcofi_dic_old", status = "superseded",
                  url = "https://erddap.calcofi.io/erddap/tabledap/calcofi_dic_old.html")
-  p <- tibble::tibble(portal = "erddap-calcofi", observe_method = "erddap-das")
+  p <- tibble::tibble(portal = "erddap", observe_method = "erddap-das")
   o <- observe_distributions(reg, p, fetch = obs_fetch(list(), status_default = 404L), quiet = TRUE)
   expect_equal(o$status, "retired")
   expect_equal(nrow(o), 1)                                 # observed, not deleted

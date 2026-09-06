@@ -162,6 +162,14 @@
     "since_version": "v2026.05.19",
     "distributions": [
       {
+        "kind": "service",
+        "url": "https://storage.googleapis.com/calcofi-db/stac/collections/calcofi_dic/collection.json",
+        "format": "stac",
+        "id": "calcofi_dic",
+        "title": "STAC collection",
+        "status": "current"
+      },
+      {
         "kind": "download",
         "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/parquet/obs/dataset_key=calcofi_dic/data_0.parquet",
         "format": "parquet",
@@ -229,7 +237,7 @@
       {
         "kind": "service",
         "url": "https://erddap.calcofi.io/erddap/tabledap/calcofi_dic_old.html",
-        "portal": "erddap-calcofi",
+        "portal": "erddap",
         "id": "calcofi_dic_old",
         "title": "CalCOFI DIC Samples (legacy, pre-core)",
         "status": "superseded",

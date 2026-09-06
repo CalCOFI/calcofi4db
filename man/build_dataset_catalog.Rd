@@ -17,7 +17,9 @@ build_dataset_catalog(
   spatial_layers = NULL,
   bathymetry = NULL,
   workflows_base = "https://calcofi.io/workflows/",
-  release_prefix = "ducklake/releases"
+  release_prefix = "ducklake/releases",
+  stac_base = sprintf("https://storage.googleapis.com/calcofi-db/\%s", if
+    (grepl("staging", release_prefix)) "stac-staging" else "stac")
 )
 }
 \arguments{
@@ -47,7 +49,10 @@ build_dataset_catalog(
 
 \item{workflows_base}{the URL prefix of the rendered notebooks}
 
-\item{release_prefix}{the bucket-relative releases prefix the run writes to
+\item{release_prefix}{the bucket-relative releases prefix the run writes to}
+
+\item{stac_base}{the STAC root this release writes (\code{release_database.qmd} derives it from
+the prefix the same way); every public dataset gets a \code{format: stac} distribution under it
 (\code{ducklake/releases}, or the staging prefix) — \code{release.url} follows it}
 }
 \value{

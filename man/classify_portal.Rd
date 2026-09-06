@@ -15,7 +15,9 @@ character vector of the same length, values from \code{\link[=distribution_porta
 \description{
 Host-based: \code{edi} (edirepository.org, pasta.lternet.edu), \code{ncei},
 \code{erddap-noaa} (coastwatch / oceanview / upwell \code{pfeg.noaa.gov} ERDDAPs),
-\code{erddap-calcofi}, \code{datazoo} and the other oceaninformatics.ucsd.edu portals
+\code{erddap} (erddap.calcofi.io — the one id CalCOFI's own ERDDAP has anywhere in the
+record since 4.6.0; \code{erddap-calcofi} was the registry's old name for it),
+\code{datazoo} and the other oceaninformatics.ucsd.edu portals
 (ZooDB, ZooScan), \code{ucsd-library}, \code{obis}, \code{ipt}, \code{caloos}, \code{zenodo}, \code{ncbi},
 \code{calcofi.org}, \code{gcs} (storage.googleapis.com / storage.calcofi.io), else
 \code{other}. \code{NA} for an empty input.

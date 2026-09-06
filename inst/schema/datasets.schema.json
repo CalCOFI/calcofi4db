@@ -614,7 +614,7 @@
         "portal": {
           "type": "string",
           "enum": [
-            "erddap-calcofi",
+            "erddap",
             "erddap-noaa",
             "edi",
             "ncei",

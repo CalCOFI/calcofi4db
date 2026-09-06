@@ -249,14 +249,11 @@ observe_distributions <- function(registry, portals = NULL, fetch = NULL, quiet 
   if (is.null(fetch)) fetch <- function(url, ...) .http_get(url, ...)
   d <- tibble::as_tibble(registry)
   stopifnot(all(c("dataset_key", "url") %in% names(d)))
-  # `distribution.csv` names the portal FAMILY (`erddap-calcofi`), `portal.csv` the
-  # portal (`erddap`) — one alias, so our own ERDDAP is asked by `.das` like NOAA's
-  alias <- c("erddap-calcofi" = "erddap")
   method_of <- function(portal, url) {
     # a doi.org address is a DOI whatever the portal column says
     if (grepl("^https?://(dx\\.)?doi\\.org/", .s(url))) return("doi")
     if (is.null(portals) || !nrow(portals)) return("http")
-    pk <- .s(portal); pk <- unname(alias[pk] %||% pk); if (is.na(pk)) pk <- .s(portal)
+    pk <- .s(portal)
     i <- match(pk, portals$portal)
     m <- if (is.na(i)) "" else .s(portals$observe_method[i])
     if (!nzchar(m) || !m %in% observe_methods()) "http" else m
