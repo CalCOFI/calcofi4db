@@ -73,7 +73,7 @@ distribution_kinds <- function() c("download", "service", "mirror", "source", "a
 #' @rdname distribution_kinds
 #' @export
 distribution_portals <- function() c(
-  "erddap-calcofi", "erddap-noaa", "edi", "ncei", "obis", "ipt", "caloos", "datazoo", "ucsd-library",
+  "erddap", "erddap-noaa", "edi", "ncei", "obis", "ipt", "caloos", "datazoo", "ucsd-library",
   "zenodo", "ncbi", "calcofi.org", "gcs", "other")
 
 #' @rdname distribution_kinds
@@ -420,7 +420,9 @@ read_catalog_registries <- function(metadata_dir) {
 #'
 #' Host-based: `edi` (edirepository.org, pasta.lternet.edu), `ncei`,
 #' `erddap-noaa` (coastwatch / oceanview / upwell `pfeg.noaa.gov` ERDDAPs),
-#' `erddap-calcofi`, `datazoo` and the other oceaninformatics.ucsd.edu portals
+#' `erddap` (erddap.calcofi.io — the one id CalCOFI's own ERDDAP has anywhere in the
+#' record since 4.6.0; `erddap-calcofi` was the registry's old name for it),
+#' `datazoo` and the other oceaninformatics.ucsd.edu portals
 #' (ZooDB, ZooScan), `ucsd-library`, `obis`, `ipt`, `caloos`, `zenodo`, `ncbi`,
 #' `calcofi.org`, `gcs` (storage.googleapis.com / storage.calcofi.io), else
 #' `other`. `NA` for an empty input.
@@ -436,7 +438,7 @@ classify_portal <- function(url) {
     if (grepl("edirepository\\.org$|lternet\\.edu$", host)) return("edi")
     if (grepl("ncei\\.noaa\\.gov$|nodc\\.noaa\\.gov$", host)) return("ncei")
     if (grepl("pfeg\\.noaa\\.gov$|coastwatch\\.noaa\\.gov$", host)) return("erddap-noaa")
-    if (grepl("^erddap\\.calcofi\\.io$", host)) return("erddap-calcofi")
+    if (grepl("^erddap\\.calcofi\\.io$", host)) return("erddap")
     if (grepl("oceaninformatics\\.ucsd\\.edu$", host)) return("datazoo")
     if (grepl("library\\.ucsd\\.edu$", host)) return("ucsd-library")
     if (grepl("^(api\\.|www\\.)?obis\\.org$", host)) return("obis")
@@ -586,13 +588,20 @@ dataset_since_versions <- function(versions, base = CC_RELEASES_HTTPS, fetch = N
 #' @param curated the `distribution.csv` rows for this key (tibble, may be empty)
 #' @param version the release version (selects the netCDF entry)
 #' @param workflow_url the ingest notebook URL
+#' @param stac_base the STAC root the release writes (`https://…/calcofi-db/stac`);
+#'   NULL (a holding, or a run with no STAC) adds no row
 #' @return A list of rows, each a named list (`kind`, `url`, …).
 #' @export
 #' @concept catalog
 dataset_distributions <- function(key, ds, objects, erddap = NULL, netcdf = NULL, curated = NULL,
-                                  version = NULL, workflow_url = NULL) {
+                                  version = NULL, workflow_url = NULL, stac_base = NULL) {
   rows <- list()
   add <- function(r) rows[[length(rows) + 1]] <<- r
+  # the STAC collection (4.6.0): one per public dataset at the release's STAC root, an item per
+  # release — the machine address; a browser (calcofi.io/stac/) opens it by the same path
+  if (nzchar(.s(stac_base)))
+    add(.dist_row("service", sprintf("%s/collections/%s/collection.json", sub("/+$", "", stac_base), key),
+                  format = "stac", id = key, title = "STAC collection", status = "current"))
   # parquet objects ----
   for (o in objects)
     add(.dist_row("download", o[["url"]], format = "parquet", table = o[["table"]], scope = o[["scope"]],
@@ -658,7 +667,7 @@ dataset_distributions <- function(key, ds, objects, erddap = NULL, netcdf = NULL
       cr <- curated[i, ]
       u  <- .s(cr[["url"]])
       if (nzchar(u) && u %in% have_urls) next
-      legacy <- identical(cr[["portal"]], "erddap-calcofi")
+      legacy <- identical(.s(cr[["portal"]]), "erddap")
       # a curated row with no `id` gets one from its own URL — the same rule the site's
       # _plugins/derive_id.rb used as a fallback, so the two cannot disagree (§ D-9)
       cid <- .chr_or_null(cr[["id"]]) %||% .chr_or_null(.na_null(derive_registration_id(u)))
@@ -963,6 +972,8 @@ dataset_distributions <- function(key, ds, objects, erddap = NULL, netcdf = NULL
 #' @param bathymetry the `bathymetry/gebco_2025.json` manifest (for `reference[]`)
 #' @param workflows_base the URL prefix of the rendered notebooks
 #' @param release_prefix the bucket-relative releases prefix the run writes to
+#' @param stac_base the STAC root this release writes (`release_database.qmd` derives it from
+#'   the prefix the same way); every public dataset gets a `format: stac` distribution under it
 #'   (`ducklake/releases`, or the staging prefix) — `release.url` follows it
 #' @return A list ready for [write_dataset_catalog()] / `jsonlite::write_json(auto_unbox = TRUE)`.
 #' @export
@@ -972,7 +983,9 @@ build_dataset_catalog <- function(meta, coverage, catalog, registries, version =
                                   erddap = NULL, netcdf = NULL, since = NULL, source_accessed = NULL,
                                   spatial_layers = NULL, bathymetry = NULL,
                                   workflows_base = "https://calcofi.io/workflows/",
-                                  release_prefix = "ducklake/releases") {
+                                  release_prefix = "ducklake/releases",
+                                  stac_base = sprintf("https://storage.googleapis.com/calcofi-db/%s",
+                                                      if (grepl("staging", release_prefix)) "stac-staging" else "stac")) {
   meta <- .read_json(meta); coverage <- .read_json(coverage); catalog <- .read_json(catalog)
   if (!is.null(spatial_layers)) spatial_layers <- .read_json(spatial_layers)
   if (!is.null(bathymetry)) bathymetry <- .read_json(bathymetry)
@@ -992,6 +1005,7 @@ build_dataset_catalog <- function(meta, coverage, catalog, registries, version =
     objects <- .dataset_objects(key, ds, meta, catalog)
     wf <- .chr_or_null(ds[["workflow_url"]]) %||% paste0(workflows_base, "ingest_", key, ".html")
     dists <- dataset_distributions(key, ds, objects, erddap = erddap, netcdf = netcdf, curated = cur,
+                                   stac_base = stac_base,
                                    version = version, workflow_url = wf)
     erddap_published <- any(vapply(dists, function(r) identical(r[["kind"]], "service") && identical(r[["format"]], "erddap"), logical(1)))
     list(
@@ -1048,17 +1062,9 @@ build_dataset_catalog <- function(meta, coverage, catalog, registries, version =
 .portals_block <- function(registries) {
   pr <- registries[["portal"]]
   if (is.null(pr) || !nrow(pr)) return(NULL)
-  # CalCOFI's own ERDDAP has two ids in the record and always has: portal.csv registers it as
-  # `erddap` (and registrations[] use that), while distribution_portals() and classify_portal()
-  # call it `erddap-calcofi`. A consumer looking either up must find it, so the block carries both
-  # rather than leaving half the rows unnameable. Collapsing the two ids is a registry change with
-  # its own consumers (observe_distributions, distribution.csv) — noted in RELEASES.md, not done
-  # here on the way past.
-  if ("erddap" %in% pr[["portal"]] && !"erddap-calcofi" %in% pr[["portal"]]) {
-    alias <- pr[pr[["portal"]] == "erddap", , drop = FALSE][1, , drop = FALSE]
-    alias[["portal"]] <- "erddap-calcofi"
-    pr <- rbind(pr, alias)
-  }
+  # one id for CalCOFI's own ERDDAP (4.6.0): `erddap`, in portal.csv, distribution.csv and the
+  # registrations alike — the record used to carry it under `erddap-calcofi` too, from
+  # distribution_portals(), and a consumer had to look both up
   lapply(seq_len(nrow(pr)), function(i) {
     # the first sentence of `notes`: enough to say what the portal is, in a title=
     d <- .first_sentence(pr[["notes"]][i])

@@ -304,6 +304,14 @@
     "since_version": "v2026.05.19",
     "distributions": [
       {
+        "kind": "service",
+        "url": "https://storage.googleapis.com/calcofi-db/stac/collections/swfsc_ichthyo/collection.json",
+        "format": "stac",
+        "id": "swfsc_ichthyo",
+        "title": "STAC collection",
+        "status": "current"
+      },
+      {
         "kind": "download",
         "url": "https://storage.googleapis.com/calcofi-db/ducklake/releases/v2026.09.04/parquet/obs/dataset_key=swfsc_ichthyo/data_0.parquet",
         "format": "parquet",
