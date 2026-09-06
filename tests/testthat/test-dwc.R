@@ -392,6 +392,17 @@ test_that("dwc_archive() writes the five files, a zip and a manifest", {
                    dataset_key = "test_ds", version = "v2026.09.05",
                    zip_path = file.path(d, "again.zip"))
   expect_equal(b$content_hash, a$content_hash)
+  # …and the ZIP is byte-identical too (4.6.2): members are stamped with the release
+  # date, not the wall clock, so a hash-compared upload sees no change
+  expect_equal(digest::digest(a$zip, algo = "md5", file = TRUE),
+               digest::digest(b$zip, algo = "md5", file = TRUE))
+  ma <- jsonlite::fromJSON(a$manifest, simplifyVector = FALSE)
+  Sys.sleep(1.1)
+  c2 <- dwc_archive(file.path(d, "test_ds"), ev, oc, mf, eml_path = eml,
+                    dataset_key = "test_ds", version = "v2026.09.05")
+  mc <- jsonlite::fromJSON(c2$manifest, simplifyVector = FALSE)
+  expect_equal(mc$generated_utc, ma$generated_utc)   # same content, same manifest
+  expect_equal(as.numeric(.dwc_version_time("v2026.09.05")), as.numeric(as.POSIXct("2026-09-05 00:00:00", tz = "UTC")))
 })
 
 test_that("a manifest whose uploaded bytes are these bytes reads as published", {

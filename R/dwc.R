@@ -1128,6 +1128,12 @@ dwc_archive <- function(dir, event, occurrence = NULL, emof = NULL, eml_path = N
     zip_path <- file.path(dirname(dir), paste0(dataset_key, "_", version, ".zip"))
   dir.create(dirname(zip_path), recursive = TRUE, showWarnings = FALSE)
   if (file.exists(zip_path)) unlink(zip_path)
+  # the zip must be a function of its content: a zip entry carries the file's mtime, so
+  # two builds of identical rows a minute apart produced different bytes, and every
+  # hash-compared upload saw a "change". Every member gets one fixed instant — the
+  # release's own date where the version names one, else a constant — before zipping.
+  stamp <- .dwc_version_time(version)
+  Sys.setFileTime(files, rep(stamp, length(files)))
   if (requireNamespace("zip", quietly = TRUE)) {
     zip::zip(zip_path, files = basename(files), root = dir)
   } else {
@@ -1142,6 +1148,10 @@ dwc_archive <- function(dir, event, occurrence = NULL, emof = NULL, eml_path = N
   # uploaded_utc survives only while the bytes do: a changed content_hash means the
   # published copy is stale, and saying "uploaded" of these bytes would be false
   same <- identical(.s(prev[["content_hash"]]), content_hash)
+  # generated_utc says when THESE bytes were first made: a rebuild of identical rows
+  # keeps it, so a manifest changes only when its content does
+  gen <- if (same && nzchar(.s(prev[["generated_utc"]]))) .s(prev[["generated_utc"]]) else
+    format(as.POSIXct(Sys.time(), tz = "UTC"), "%Y-%m-%dT%H:%M:%SZ")
   man <- list(
     dataset_key     = dataset_key,
     version         = version,
@@ -1153,10 +1163,19 @@ dwc_archive <- function(dir, event, occurrence = NULL, emof = NULL, eml_path = N
     uploaded_utc    = if (same) .or_null(prev[["uploaded_utc"]]) else NULL,
     uploaded_hash   = if (same) .or_null(prev[["uploaded_hash"]]) else
                       .or_null(prev[["uploaded_hash"]]),
-    generated_utc   = format(as.POSIXct(Sys.time(), tz = "UTC"), "%Y-%m-%dT%H:%M:%SZ"))
+    generated_utc   = gen)
   writeLines(jsonlite::toJSON(man, auto_unbox = TRUE, pretty = TRUE, null = "null"), mpath)
 
   list(zip = zip_path, manifest = mpath, content_hash = content_hash, counts = counts)
+}
+
+# the one instant every member of an archive is stamped with: the release date the
+# version names (vYYYY.MM.DD, at 00:00 UTC), else a fixed epoch — never the wall clock
+.dwc_version_time <- function(version) {
+  v <- .s(version)
+  d <- if (grepl("^v?\\d{4}\\.\\d{2}\\.\\d{2}$", v)) as.Date(gsub("\\.", "-", sub("^v", "", v))) else
+    as.Date("2020-01-01")
+  as.POSIXct(paste(format(d), "00:00:00"), tz = "UTC")
 }
 
 #' Read a Darwin Core Archive manifest and say whether the OBIS copy is current
