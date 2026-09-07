@@ -670,6 +670,7 @@
       "priority": "must-complete",
       "gh_issue": null,
       "blockers": null,
+      "publish_policy": "Archive of record: OBIS via the OBIS-USA IPT; NCEI is SWFSC to deposit; EDI does not apply.",
       "updated": "2026-09-04",
       "questions_open": 14,
       "questions_dataset": [

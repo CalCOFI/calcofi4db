@@ -293,6 +293,7 @@
       "priority": "must-complete",
       "gh_issue": "https://github.com/CalCOFI/workflows/issues/25",
       "blockers": "spatial match only 24.7% (#47)",
+      "publish_policy": null,
       "updated": "2026-06-07",
       "questions_open": 7,
       "questions_dataset": []

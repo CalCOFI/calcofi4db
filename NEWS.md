@@ -1,3 +1,12 @@
+# calcofi4db 4.6.3
+
+## The record states each dataset's archive-of-record policy
+
+- `status.publish_policy` (schema 1.1, additive): the one sentence `metadata/dataset_status.csv`
+  now carries per dataset — which portal holds the citable copy and why the other
+  registrations are planned or do not apply — so a dataset page can state the policy above
+  its portal table instead of leaving a reader to infer it from an `n/a`.
+
 # calcofi4db 4.6.2
 
 ## A Darwin Core Archive is a function of its rows

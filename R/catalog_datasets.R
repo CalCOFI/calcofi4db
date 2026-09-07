@@ -899,6 +899,10 @@ dataset_distributions <- function(key, ds, objects, erddap = NULL, netcdf = NULL
     priority = .chr_or_null(if (is.null(st)) NULL else st[["priority"]]),
     gh_issue = if (grepl("^#[0-9]+$", gh)) paste0(CC_WORKFLOWS_ISSUES, sub("#", "", gh)) else .chr_or_null(gh),
     blockers = .chr_or_null(if (is.null(st)) NULL else st[["blockers"]]),
+    # the dataset's archive-of-record policy in one sentence (dataset_status.csv
+    # `publish_policy`, 4.6.3): which portal holds the citable copy and why the others are
+    # planned or do not apply — what a dataset page states above its portal table
+    publish_policy = .chr_or_null(if (is.null(st) || !"publish_policy" %in% names(st)) NULL else st[["publish_policy"]]),
     updated  = .chr_or_null(if (is.null(st)) NULL else st[["updated"]]),
     questions_open = { n <- registries$questions_open(key); if (is.na(n)) NULL else as.integer(n) },
     questions_dataset = qd)

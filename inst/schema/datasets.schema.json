@@ -749,6 +749,10 @@
         "blockers": {
           "$ref": "#/definitions/nullable_string"
         },
+        "publish_policy": {
+          "description": "One sentence: which portal is this dataset's archive of record and why the other registrations are planned or n/a (dataset_status.csv publish_policy; optional, from calcofi4db 4.6.3).",
+          "$ref": "#/definitions/nullable_string"
+        },
         "updated": {
           "$ref": "#/definitions/nullable_string"
         },

@@ -710,6 +710,13 @@ test_that("every public dataset opens with its STAC collection; a holding has no
   expect_length(dataset_distributions("x_y", list(), list(), stac_base = NULL), 0)
 })
 
+test_that("status.publish_policy carries the archive-of-record sentence, absent where none is written", {
+  rec <- fixture_record()
+  expect_match(rec_of(rec, "swfsc_ichthyo")$status$publish_policy, "^Archive of record: OBIS")
+  expect_null(rec_of(rec, "calcofi_dic")$status$publish_policy)
+  expect_true(validate_dataset_catalog(rec))
+})
+
 test_that("CalCOFI's own ERDDAP is `erddap` everywhere in the record, and the old id is rejected", {
   rec <- fixture_record()
   ids <- unlist(lapply(c(rec$datasets, rec$holdings), function(r) c(
