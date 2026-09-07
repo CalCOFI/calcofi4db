@@ -65,3 +65,12 @@ test_that("put_gcs_file() skips an object whose MD5 matches, uploads otherwise",
   put_gcs_file(f, "gs://b/x/w.txt", skip_unchanged = FALSE)
   expect_equal(length(uploads), 3)
 })
+
+test_that("gcs_object_md5() reads a real object's MD5 when gcloud is available", {
+  skip_if(is.null(tryCatch(calcofi4db:::find_gcloud(), error = function(e) NULL)), "no gcloud")
+  skip_if_offline()
+  m <- gcs_object_md5("gs://calcofi-db/ducklake/releases/latest.txt")
+  expect_match(m, "^[A-Za-z0-9+/]+=*$")
+  expect_true(is.na(gcs_object_md5("gs://calcofi-db/ducklake/releases/no-such-object.txt")))
+})
+

@@ -1,3 +1,9 @@
+# calcofi4db 4.6.4
+
+- `gcs_object_md5()` quotes its `--format=value(md5Hash)` argument: unquoted, the shell choked on
+  the parentheses, the MD5 read as unknown and `put_gcs_file(skip_unchanged = TRUE)` uploaded
+  every object anyway.
+
 # calcofi4db 4.6.3
 
 ## The record states each dataset's archive-of-record policy

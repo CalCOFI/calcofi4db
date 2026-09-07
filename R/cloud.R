@@ -1168,8 +1168,10 @@ gcloud_upload <- function(local_path, bucket, gcs_path) {
 gcs_object_md5 <- function(gcs_uri) {
   gcloud <- tryCatch(find_gcloud(), error = function(e) NULL)
   if (is.null(gcloud)) return(NA_character_)
+  # system2() hands its arguments to a shell: the parentheses in the format spec must be quoted
+  # or the call dies with a syntax error and every object reads as "unknown" (2026-09-07)
   out <- suppressWarnings(system2(gcloud, c("storage", "objects", "describe", shQuote(gcs_uri),
-                                            "--format=value(md5Hash)"),
+                                            shQuote("--format=value(md5Hash)")),
                                   stdout = TRUE, stderr = FALSE))
   st <- attr(out, "status")
   if (!is.null(st) && st != 0) return(NA_character_)
