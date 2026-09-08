@@ -708,7 +708,23 @@ core_relationships <- function(tables) {
     cruise             = "cruise_key",
     ship               = "ship_key",
     measurement_type   = "measurement_type",
-    region             = "region_key")
+    region             = "region_key",
+    # the release-built tables (release_database.qmd), so every released table
+    # declares a key and check_release_relationships() can measure it. Every
+    # candidate below was measured unique on v2026.09.06 (2026-09-08); a
+    # composite key is a character vector and is counted as a tuple.
+    obs_bio            = "obs_id",
+    obs_env            = "obs_id",
+    obs_ctd_full       = "obs_id",
+    obs_mets_full      = "obs_id",
+    sample_root        = "root_id",
+    sample_spatial     = c("root_sample_key", "spatial_key"),
+    spatial            = "spatial_key",
+    spatial_attribute  = c("spatial_key", "fld"),
+    climatology        = c("dataset_key", "grid_key", "month", "depth_bin", "measurement_type"),
+    dataset            = "dataset_key",
+    lookup             = "lookup_id",
+    taxon_group        = c("taxon_group_key", "taxon_key"))
   fk <- list(
     list(table = "sample",             column = "parent_sample_key", ref_table = "sample",           ref_column = "sample_key"),
     list(table = "sample",             column = "root_sample_key",   ref_table = "sample",           ref_column = "sample_key"),

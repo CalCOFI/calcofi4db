@@ -373,8 +373,9 @@ validate_for_release <- function(
 
   # check 4: completeness (expected tables present)
   if (run_check("completeness")) {
-    expected_tables <- config$expected_tables %||%
-      c("cruise", "site", "tow", "net", "larva", "species")
+    # no default: the pre-consolidation names (cruise, site, tow, net, larva,
+    # species) made this check a no-op for a year; pass config$expected_tables
+    expected_tables <- config$expected_tables %||% character()
 
     missing <- setdiff(expected_tables, tables)
     if (length(missing) > 0) {

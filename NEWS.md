@@ -1,3 +1,26 @@
+# calcofi4db 4.7.0
+
+## Every released key is declared, and every declared key is measured
+
+- `check_release_relationships()` walks the merged `relationships.json` on the assembled release —
+  each primary key unique and non-NULL, each non-NULL foreign key resolving in its referenced
+  column — and writes the `integrity.json` sidecar beside `catalog.json` (`primary_keys[]` with
+  `n_rows`/`n_distinct`/`n_dup`/`n_null`, `foreign_keys[]` with `n_rows`/`n_null`/`n_orphan`, a
+  per-key `status` of `ok`/`fail`/`skipped`, and `ok` overall). A duplicate or NULL key or any
+  orphan stops the release; a NULL foreign key is a nullable edge, not an orphan; a key whose
+  table is not released is `skipped`, never dropped. Until now only the core primary keys
+  (`check_core_pk_unique()`) and the `cruise_key` edges were gated — the other ~50 declared
+  edges were true by construction and shown in the ERD as if checked.
+- `core_relationships()` declares a primary key for the twelve release-built tables that had
+  none (`obs_bio`, `obs_env`, `obs_ctd_full`, `obs_mets_full` on `obs_id`; `sample_root` on
+  `root_id`; `sample_spatial` on `(root_sample_key, spatial_key)`; `spatial`; `spatial_attribute`
+  on `(spatial_key, fld)`; `climatology` on its five-column grain; `dataset`; `lookup`;
+  `taxon_group` on `(taxon_group_key, taxon_key)`), each measured unique on v2026.09.06.
+  `check_core_pk_unique()` already counted a composite key as a tuple.
+- `validate_for_release()`'s `completeness` check no longer defaults to the pre-consolidation
+  table names (`cruise, site, tow, net, larva, species`), which made it a silent no-op; it
+  checks only what `config$expected_tables` names.
+
 # calcofi4db 4.6.4
 
 - `gcs_object_md5()` quotes its `--format=value(md5Hash)` argument: unquoted, the shell choked on
