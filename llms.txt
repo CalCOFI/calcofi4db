@@ -956,6 +956,9 @@ check for other functions or datasets not captured by above categories
 - [`check_registry_na_strings()`](https://calcofi.io/calcofi4db/reference/check_registry_na_strings.md)
   : Reject sentinel strings that should have been empty cells
 
+- [`check_release_relationships()`](https://calcofi.io/calcofi4db/reference/check_release_relationships.md)
+  : Measure every declared primary and foreign key on the frozen tables
+
 - [`check_seafloor_nulls()`](https://calcofi.io/calcofi4db/reference/check_seafloor_nulls.md)
   :
 

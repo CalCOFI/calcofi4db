@@ -32,7 +32,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.6.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.7.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -67,6 +67,18 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.7.0" id="calcofi4db-470">calcofi4db 4.7.0<a class="anchor" aria-label="anchor" href="#calcofi4db-470"></a></h2>
+<div class="section level3">
+<h3 id="every-released-key-is-declared-and-every-declared-key-is-measured-4-7-0">Every released key is declared, and every declared key is measured<a class="anchor" aria-label="anchor" href="#every-released-key-is-declared-and-every-declared-key-is-measured-4-7-0"></a></h3>
+<ul><li>
+<code><a href="../reference/check_release_relationships.html">check_release_relationships()</a></code> walks the merged <code>relationships.json</code> on the assembled release — each primary key unique and non-NULL, each non-NULL foreign key resolving in its referenced column — and writes the <code>integrity.json</code> sidecar beside <code>catalog.json</code> (<code>primary_keys[]</code> with <code>n_rows</code>/<code>n_distinct</code>/<code>n_dup</code>/<code>n_null</code>, <code>foreign_keys[]</code> with <code>n_rows</code>/<code>n_null</code>/<code>n_orphan</code>, a per-key <code>status</code> of <code>ok</code>/<code>fail</code>/<code>skipped</code>, and <code>ok</code> overall). A duplicate or NULL key or any orphan stops the release; a NULL foreign key is a nullable edge, not an orphan; a key whose table is not released is <code>skipped</code>, never dropped. Until now only the core primary keys (<code><a href="../reference/check_core_pk_unique.html">check_core_pk_unique()</a></code>) and the <code>cruise_key</code> edges were gated — the other ~50 declared edges were true by construction and shown in the ERD as if checked.</li>
+<li>
+<code><a href="../reference/core_relationships.html">core_relationships()</a></code> declares a primary key for the twelve release-built tables that had none (<code>obs_bio</code>, <code>obs_env</code>, <code>obs_ctd_full</code>, <code>obs_mets_full</code> on <code>obs_id</code>; <code>sample_root</code> on <code>root_id</code>; <code>sample_spatial</code> on <code>(root_sample_key, spatial_key)</code>; <code>spatial</code>; <code>spatial_attribute</code> on <code>(spatial_key, fld)</code>; <code>climatology</code> on its five-column grain; <code>dataset</code>; <code>lookup</code>; <code>taxon_group</code> on <code>(taxon_group_key, taxon_key)</code>), each measured unique on v2026.09.06. <code><a href="../reference/check_core_pk_unique.html">check_core_pk_unique()</a></code> already counted a composite key as a tuple.</li>
+<li>
+<code><a href="../reference/validate_for_release.html">validate_for_release()</a></code>’s <code>completeness</code> check no longer defaults to the pre-consolidation table names (<code>cruise, site, tow, net, larva, species</code>), which made it a silent no-op; it checks only what <code>config$expected_tables</code> names.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.6.4" id="calcofi4db-464">calcofi4db 4.6.4<a class="anchor" aria-label="anchor" href="#calcofi4db-464"></a></h2>
 <ul><li>
