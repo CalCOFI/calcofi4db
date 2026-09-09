@@ -10,7 +10,7 @@
 
 #' Build the release's `climatology` table
 #'
-#' A plain mean per **dataset, station, calendar month, 10 m depth bin and measurement type** over
+#' A plain mean per **dataset, station (`site_key`), calendar month, 10 m depth bin and measurement type** over
 #' the env realm of `obs` across a fixed window of years — the baseline every CalCOFI anomaly
 #' (ctd-transects, the CalCOFI Explorer's Sections lens, [calcofi4r::cc_climatology()]) is a
 #' departure from. Written once at release time so the products cannot disagree.
@@ -34,6 +34,16 @@
 #'   the heatwave and everything after read as departures. Not a WMO normal. The bounds are stamped
 #'   on every row (`clim_yr_min`, `clim_yr_max`), so a consumer reading the parquet alone knows what
 #'   the mean is a mean of.
+#' - **The station is `sample.site_key`, not the grid cell.** `grid_key` is a point-in-polygon
+#'   into ~2,350 km² nearshore cells that each hold 2–4 real stations, all occupied every cruise
+#'   since 2004 (`st30-ln90` holds 90.30, 90.28, 90.27.7 and 88.5/30.1; 3.7 CTD occupations per
+#'   cruise). Until calcofi4db 4.8.0 the baseline pooled them into one cell — ~1 °C off at the
+#'   surface for the inshore station — while ctd-transects drew one of them and the Explorer
+#'   averaged them. The grain is now the station, read from `sample` through `sample_key`
+#'   (`obs` does not carry `site_key`); `grid_key` stays on the row as the station's modal cell
+#'   (709 of 9,705 stations straddle a cell edge across their occupations) so a map or hex consumer
+#'   can still aggregate by cell. Rows whose sample has no station (underway, transect,
+#'   region-pooled) contribute nothing.
 #' - **A floor in cruises, not observations** (`min_cruises`, default 3). A grid cell can hold
 #'   several stations' casts from one cruise (`st30-ln90` holds 90.30, 90.28, 90.27.7 and
 #'   88.5/30.1), so an observation floor is met by one lucky cruise. `clim_n` and `n_cruises` both
@@ -56,12 +66,14 @@
 #'   scientifically meaningful precision. Applied to the finished aggregate, so it is a pure function
 #'   of the (order-independent) value, not of how it was summed.
 #'
-#' Rows without a station (`grid_key`), a time or a depth, non-finite values, and values the quality
+#' Rows without a station (`site_key`), a time or a depth, non-finite values, and values the quality
 #' predicate rejects are left out; nothing is interpolated. A cell that is absent has no baseline —
 #' a consumer must leave its anomaly blank, never 0.
 #'
-#' @param con DuckDB connection holding `obs` (with `realm`, `grid_key`, `datetime`, `depth_min_m`,
-#'   `measurement_value`, `measurement_qual`, `cruise_key`, `dataset_key`, `measurement_type`).
+#' @param con DuckDB connection holding `obs` (with `realm`, `sample_key`, `grid_key`, `datetime`,
+#'   `depth_min_m`, `measurement_value`, `measurement_qual`, `cruise_key`, `dataset_key`,
+#'   `measurement_type`) and `sample_tbl` (with `sample_key`, `site_key`).
+#' @param sample_tbl the sample table joined for `site_key` (default `"sample"`).
 #' @param qual_ok_sql the quality predicate over alias `o` — `calcofi4r::cc_qual_ok_sql("o")`,
 #'   passed in so this package never carries a second copy of it.
 #' @param yr_min,yr_max the baseline window, inclusive years.
@@ -84,7 +96,7 @@
 #' @importFrom glue glue
 build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, min_cruises = 3L,
                               depth_bin_m = 10L, depth_max_m = 500L, round_digits = 6L,
-                              tbl = "climatology") {
+                              tbl = "climatology", sample_tbl = "sample") {
   stopifnot(is.character(qual_ok_sql), length(qual_ok_sql) == 1, nzchar(qual_ok_sql),
             is.numeric(yr_min), is.numeric(yr_max), length(yr_min) == 1, length(yr_max) == 1,
             yr_min <= yr_max, is.numeric(min_cruises), min_cruises >= 1,
@@ -95,7 +107,9 @@ build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, 
   round_digits <- as.integer(round_digits)
   dbExecute(con, glue("
     CREATE OR REPLACE TABLE {tbl} AS
-    SELECT o.dataset_key, o.grid_key,
+    SELECT o.dataset_key,
+           s.site_key,
+           mode(o.grid_key)                                            AS grid_key,
            month(o.datetime)::TINYINT                                  AS month,
            (floor(o.depth_min_m / {depth_bin_m}) * {depth_bin_m})::INTEGER AS depth_bin,
            o.measurement_type,
@@ -106,14 +120,15 @@ build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, 
            {yr_min}::SMALLINT                                          AS clim_yr_min,
            {yr_max}::SMALLINT                                          AS clim_yr_max
     FROM obs o
+    JOIN {sample_tbl} s USING (sample_key)
     WHERE o.realm = 'env'
-      AND o.grid_key IS NOT NULL AND o.datetime IS NOT NULL
+      AND s.site_key IS NOT NULL AND o.datetime IS NOT NULL
       AND o.depth_min_m IS NOT NULL AND o.depth_min_m >= 0
       AND o.depth_min_m < {depth_max_m} + {depth_bin_m}
       AND o.measurement_value IS NOT NULL AND isfinite(o.measurement_value)
       AND year(o.datetime) BETWEEN {yr_min} AND {yr_max}
       AND ({qual_ok_sql})
-    GROUP BY ALL
+    GROUP BY o.dataset_key, s.site_key, month, depth_bin, o.measurement_type
     HAVING count(DISTINCT o.cruise_key) >= {min_cruises}"))
   n <- dbGetQuery(con, glue("SELECT count(*) AS n FROM {tbl}"))$n
   invisible(n)

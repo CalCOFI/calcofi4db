@@ -379,6 +379,21 @@ append_sample <- function(con, select_sql, sample_tbl = "sample") {
       "append_sample(): {n_bad} row(s) had a non-finite coordinate ",
       "(NaN/Inf) — normalised to NULL, so no geometry is minted for them"))
 
+  # site_key is rewritten to its one canonical spelling here, for the same
+  # reason the coordinates are: every ingest's sample arm passes through this
+  # function, so the fix lands once. v2026.09.06 shipped 28 CTD casts whose
+  # site_key was the source's own `Sta_ID` ("93.3    26.4", "0093. 060.0"), which
+  # is harmless for a map (grid_key is the join) and fatal for anything keyed on
+  # the station (a section, the climatology). Reported, not silent.
+  site_canon <- site_key_sql("site_key")
+  n_site <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT COUNT(*) AS n FROM ( {select_sql} ) AS src({src_alias})
+      WHERE site_key IS NOT NULL AND site_key IS DISTINCT FROM ({site_canon})"))$n
+  if (n_site > 0)
+    message(glue::glue(
+      "append_sample(): {n_site} row(s) had a non-canonical site_key ",
+      "— rewritten to printf('%05.1f %05.1f', line, station)"))
+
   DBI::dbExecute(con, glue::glue(
     "INSERT INTO {sample_tbl}
        (sample_key, sample_type, parent_sample_key, root_sample_key,
@@ -390,7 +405,8 @@ append_sample <- function(con, select_sql, sample_tbl = "sample") {
               CASE WHEN isnan(latitude)  OR isinf(latitude)  THEN NULL
                    ELSE latitude  END AS latitude,
               CASE WHEN isnan(longitude) OR isinf(longitude) THEN NULL
-                   ELSE longitude END AS longitude)
+                   ELSE longitude END AS longitude,
+              ({site_canon}) AS site_key)
             FROM src)
      SELECT sample_key, sample_type, parent_sample_key, root_sample_key,
             dataset_key, grid_key, site_key, cruise_key, order_occ, latitude, longitude, datetime,
@@ -721,7 +737,7 @@ core_relationships <- function(tables) {
     sample_spatial     = c("root_sample_key", "spatial_key"),
     spatial            = "spatial_key",
     spatial_attribute  = c("spatial_key", "fld"),
-    climatology        = c("dataset_key", "grid_key", "month", "depth_bin", "measurement_type"),
+    climatology        = c("dataset_key", "site_key", "month", "depth_bin", "measurement_type"),
     dataset            = "dataset_key",
     lookup             = "lookup_id",
     taxon_group        = c("taxon_group_key", "taxon_key"))
