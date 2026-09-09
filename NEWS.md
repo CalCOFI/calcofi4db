@@ -13,10 +13,21 @@
   (`worms:217452` → `worms-217452`), the directory of the page at calcofi.io/species/.
 - `taxa_source_flags()` is the vocabulary of the pill beside a dataset's own name: `synonym`
   (not the accepted name), `sp_to_genus` (a `… sp.` / `… spp.` / `… sp A` name that resolved to a
-  Genus — less precise, not wrong, and it replaces `synonym`), `rekeyed` (an id the source
-  supplied that the authority has since deprecated) and `no_name` (the dataset carries only a
-  code). Measured over v2026.09.06's 1,917 `dataset_taxon` rows: 1,704 use the accepted name,
-  120 `no_name`, 93 a different name, 54 `rekeyed` (all Farallon, all ITIS).
+  Genus — less precise, not wrong, and it replaces `synonym`), `rekeyed`, `id_conflict` and
+  `no_name` (the dataset carries only a code). Measured over v2026.09.06's 1,917 `dataset_taxon`
+  rows: 1,704 use the accepted name, 120 `no_name`, 93 a different name.
+- **Which authority moved decides the id flag.** A taxon is keyed by exactly one authority, and
+  only a disagreement *there* is a re-key: `rekeyed` compares `itis_id` for an `itis:` key and
+  `worms_id` for a `worms:` key, and a dataset-local class — keyed by no authority — can never be
+  re-keyed. A disagreement on the **other** authority's id is the new `id_conflict`: the source's
+  own hint against the cross-reference the key authority publishes. Measured on v2026.09.06 the
+  54 rows that a single combined rule reported are two different facts — **27 `rekeyed`, all
+  Farallon** (`taxon.notes`: "itis:174550 deprecated in ITIS -> itis:1255048"), and **27
+  `id_conflict`, all ichthyoplankton**, `worms:`-keyed taxa whose source ITIS hint differs from
+  the `itis_id` WoRMS publishes as its external link (`taxon.notes`: "2026-08-05: itis_id 622362
+  via WoRMS external link"). Nothing was re-keyed in those 27, and a species page saying so would
+  have been wrong. `gbif_id` rides along in `sources[].ids` but is never flagged: it keys nothing
+  (one ichthyo row disagrees on it alone).
 - `write_taxa_catalog()` writes `taxa.json` (minified, ~2.4 MB); `validate_taxa_catalog()` checks
   it against the new `inst/schema/taxa.schema.json` (draft-07, `schema_version` 1.0) as
   `validate_dataset_catalog()` does; `check_taxa_catalog(record, con, dataset_record)` re-measures

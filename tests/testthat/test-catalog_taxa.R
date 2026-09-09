@@ -36,7 +36,8 @@ new_taxa_fixture <- function() {
                   "worms:50", "worms:51", "worms:52", "worms:60",
                   "itis:174371", "itis:1255048", "ds_beta:218"),
     worms_id  = c(1L, 10L, 20L, 30L, 35L, 40L, 50L, 51L, 52L, 60L, NA, NA, NA),
-    itis_id   = c(NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, 174371L, 1255048L, NA),
+    # worms:50 carries WoRMS's own ITIS cross-reference, so a source hint can disagree
+    itis_id   = c(NA, NA, NA, NA, NA, NA, 161744L, NA, NA, NA, 174371L, 1255048L, NA),
     gbif_id   = c(rep(NA_integer_, 6), 5017L, rep(NA_integer_, 6)),
     ncbi_id   = NA_integer_,
     inat_id   = NA_integer_,
@@ -78,7 +79,11 @@ new_taxa_fixture <- function() {
     ds_common_name = c("Pacific sardine", NA, NA, "bristlemouth", "Wedge-tailed Shearwater",
                        "other, unidentified", NA),
     ds_taxa_code = c("SAR", "sard", "sarc", "CYC", "WTSH", "218", "SNE"),
-    ds_source_json = c('{"worms_id":50}', NA, NA, NA, '{"itis_id":174550}', NA, NA),
+    # dt1 agrees on the key authority and offers no secondary id -> no flag
+    # dt2 agrees on worms (the key) and disagrees on itis (secondary) -> id_conflict
+    # dt5 disagrees on itis, which IS the key of itis:1255048           -> rekeyed
+    ds_source_json = c('{"worms_id":50}', '{"worms_id":50,"itis_id":161743}', NA, NA,
+                       '{"itis_id":174550}', NA, NA),
     stringsAsFactors = FALSE)
 
   taxon_group <- data.frame(
@@ -137,7 +142,7 @@ fixture_taxa_record <- function() {
 # the vocabulary ---------------------------------------------------------------------
 
 test_that("taxa_source_flags() is the schema's enum", {
-  expect_equal(taxa_source_flags(), c("synonym", "sp_to_genus", "rekeyed", "no_name"))
+  expect_equal(taxa_source_flags(), c("synonym", "sp_to_genus", "rekeyed", "id_conflict", "no_name"))
   schema <- jsonlite::fromJSON(
     system.file("schema", "taxa.schema.json", package = "calcofi4db"), simplifyVector = TRUE)
   enum <- schema$definitions$taxon$properties$datasets$items$properties$sources$items$properties$flags$items$enum
@@ -277,7 +282,7 @@ test_that("a taxon carries its lineage, ids, groups and notes", {
   expect_equal(t50$lineage, list(kingdom = "Animalia", phylum = "Chordata",
                                  class = "Actinopterygii", order = "Clupeiformes",
                                  family = "Alosidae"))
-  expect_equal(t50$ids, list(worms_id = 50L, itis_id = NA_integer_, gbif_id = 5017L,
+  expect_equal(t50$ids, list(worms_id = 50L, itis_id = 161744L, gbif_id = 5017L,
                              ncbi_id = NA_integer_, inat_id = NA_integer_))
   expect_equal(as.character(t50$groups), "calcofi:forage_fish")
   expect_true(is.na(t50$notes))
@@ -308,6 +313,7 @@ test_that("a source row that uses the accepted name carries no flag", {
   expect_equal(s[[1]]$name, "Sardinops sagax")
   expect_equal(s[[1]]$common_name, "Pacific sardine")
   expect_equal(s[[1]]$code, "SAR")
+  # the key authority's id agrees and no secondary id is offered
   expect_equal(s[[1]]$ids, list(worms_id = 50L, itis_id = NA_integer_, gbif_id = NA_integer_))
   expect_length(s[[1]]$flags, 0)
 })
@@ -330,10 +336,10 @@ test_that("sp_to_genus: a '… sp.' name on a Genus is less precise, not wrong",
 test_that("sp_to_genus needs the Genus: a 'sp.' name keyed to a species is a synonym", {
   # regression: "Delphinus sp." keyed to Delphinus delphis is a different name, not
   # a genus rollup — the rank of the taxon it resolved to is what decides
-  expect_equal(calcofi4db:::.taxa_flags_of("Delphinus sp.", NA, "Species", "Delphinus delphis",
-                                           NA, NA), "synonym")
-  expect_equal(calcofi4db:::.taxa_flags_of("Delphinus sp.", NA, "Genus", "Delphinus",
-                                           NA, NA), "sp_to_genus")
+  expect_equal(calcofi4db:::.taxa_flags_of("worms:137094", "Delphinus sp.", NA, "Species",
+                                           "Delphinus delphis", NA, NA), "synonym")
+  expect_equal(calcofi4db:::.taxa_flags_of("worms:137094", "Delphinus sp.", NA, "Genus",
+                                           "Delphinus", NA, NA), "sp_to_genus")
   # the three name shapes the plan measured
   expect_true(calcofi4db:::.taxa_is_sp_name("Cyclothone sp."))
   expect_true(calcofi4db:::.taxa_is_sp_name("Thysanoessa spp."))
@@ -341,13 +347,56 @@ test_that("sp_to_genus needs the Genus: a 'sp.' name keyed to a species is a syn
   expect_false(calcofi4db:::.taxa_is_sp_name("Sardinops sagax"))
 })
 
-test_that("rekeyed: the source's own id was deprecated by the authority", {
+test_that("rekeyed: the KEY authority's id was deprecated and the row follows it", {
   rec <- fixture_taxa_record()
   s <- tx_ds(tx_of(rec, "itis:1255048"), "ds_beta")$sources[[1]]
   expect_equal(s$name, "Ardenna pacifica")          # the name agrees; only the id moved
   expect_equal(s$ids$itis_id, 174550L)              # what the source supplied
   expect_equal(tx_of(rec, "itis:1255048")$ids$itis_id, 1255048L)   # where it is keyed
+  # the taxon is keyed `itis:`, so a differing itis_id IS a re-key
   expect_equal(as.character(s$flags), "rekeyed")
+})
+
+test_that("id_conflict: a SECONDARY authority's id disagrees, and nothing was re-keyed", {
+  # the ichthyoplankton case: a worms:-keyed taxon whose source ITIS hint differs from
+  # the itis_id WoRMS publishes as its external link. Until 4.9.0 this read `rekeyed`,
+  # which told a reader an id had moved when none had.
+  rec <- fixture_taxa_record()
+  s <- tx_ds(tx_of(rec, "worms:50"), "ds_beta")$sources[[1]]
+  expect_equal(s$name, "Sardinops sagax")    # the accepted name
+  expect_equal(s$ids$worms_id, 50L)          # the KEY authority agrees
+  expect_equal(s$ids$itis_id, 161743L)       # the secondary one does not
+  expect_equal(tx_of(rec, "worms:50")$ids$itis_id, 161744L)
+  expect_equal(as.character(s$flags), "id_conflict")
+})
+
+test_that("which authority moved decides which flag", {
+  F <- calcofi4db:::.taxa_flags_of
+  # a worms: key, worms id moved -> rekeyed
+  expect_equal(F("worms:50", "Sardinops sagax", '{"worms_id":49}', "Species",
+                 "Sardinops sagax", 50L, NA), "rekeyed")
+  # a worms: key, itis hint differs -> id_conflict
+  expect_equal(F("worms:50", "Sardinops sagax", '{"itis_id":161743}', "Species",
+                 "Sardinops sagax", 50L, 161744L), "id_conflict")
+  # an itis: key, the mirror image
+  expect_equal(F("itis:1255048", "Ardenna pacifica", '{"itis_id":174550}', "Species",
+                 "Ardenna pacifica", NA, 1255048L), "rekeyed")
+  expect_equal(F("itis:1255048", "Ardenna pacifica", '{"worms_id":1}', "Species",
+                 "Ardenna pacifica", 2L, 1255048L), "id_conflict")
+  # both at once, both reported
+  expect_equal(F("worms:50", "Sardinops sagax", '{"worms_id":49,"itis_id":161743}', "Species",
+                 "Sardinops sagax", 50L, 161744L), c("rekeyed", "id_conflict"))
+  # a dataset-local class is keyed by no authority, so it can never be re-keyed
+  expect_equal(F("ds_beta:218", "a local class", '{"worms_id":49}', NA, "a local class",
+                 50L, NA), "id_conflict")
+  # an id the source did not supply, or the taxon does not carry, is not a disagreement
+  expect_length(F("worms:50", "Sardinops sagax", '{"worms_id":50}', "Species",
+                  "Sardinops sagax", 50L, 161744L), 0)
+  expect_length(F("worms:50", "Sardinops sagax", NA, "Species", "Sardinops sagax",
+                  50L, 161744L), 0)
+  # a gbif_id keys nothing and is never flagged
+  expect_length(F("worms:50", "Sardinops sagax", '{"worms_id":50,"gbif_id":999}', "Species",
+                  "Sardinops sagax", 50L, NA), 0)
 })
 
 test_that("no_name: the dataset carries only a code", {
@@ -361,7 +410,8 @@ test_that("no_name: the dataset carries only a code", {
 test_that("every flag rule fires exactly once over the fixture", {
   rec <- fixture_taxa_record()
   expect_equal(as.list(all_flags(rec)),
-               list(no_name = 1L, rekeyed = 1L, sp_to_genus = 1L, synonym = 1L))
+               list(id_conflict = 1L, no_name = 1L, rekeyed = 1L, sp_to_genus = 1L, synonym = 1L))
+  expect_true(all(names(all_flags(rec)) %in% taxa_source_flags()))
 })
 
 # datasets[] --------------------------------------------------------------------------

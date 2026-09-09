@@ -137,8 +137,8 @@
                     "code":        { "$ref": "#/definitions/nullable_string" },
                     "ids": { "type": "object", "additionalProperties": false, "description": "the ids the source itself supplied (ds_source_json)",
                              "properties": { "worms_id": { "$ref": "#/definitions/nullable_integer" }, "itis_id": { "$ref": "#/definitions/nullable_integer" }, "gbif_id": { "$ref": "#/definitions/nullable_integer" } } },
-                    "flags": { "type": "array", "items": { "type": "string", "enum": ["synonym", "sp_to_genus", "rekeyed", "no_name"] },
-                               "description": "synonym: the name is not the accepted name · sp_to_genus: a 'sp.' name resolved to its genus · rekeyed: a source id the authority deprecated, re-keyed to the successor · no_name: the dataset carries only a code" }
+                    "flags": { "type": "array", "items": { "type": "string", "enum": ["synonym", "sp_to_genus", "rekeyed", "id_conflict", "no_name"] },
+                               "description": "synonym: the name is not the accepted name · sp_to_genus: a 'sp.' name resolved to its genus · rekeyed: the KEY authority's id the source supplied was deprecated, re-keyed to the successor (an itis: key compares itis_id, a worms: key worms_id; a dataset-local key never re-keys) · id_conflict: the source's id for a secondary authority disagrees with the key authority's cross-reference · no_name: the dataset carries only a code" }
                   }
                 }
               }

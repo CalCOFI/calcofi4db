@@ -21,11 +21,24 @@ page can show a quiet pill beside it rather than two names with no explanation:
 \item \code{sp_to_genus} — a \verb{… sp.} / \verb{… spp.} / \verb{… sp A} name that resolved to a
 Genus-rank taxon (mesopelagic "Cyclothone sp." → \emph{Cyclothone}). It replaces
 \code{synonym}: the name is not wrong, it is less precise.
-\item \code{rekeyed} — an id the source supplied in \code{ds_source_json} that the authority
-has since deprecated; the row is keyed to the successor (54 Farallon rows on
-v2026.09.06, \code{taxon.notes} naming the move).
+\item \code{rekeyed} — the id the source supplied for the taxon's \strong{own key authority} has
+since been deprecated there, and the row is keyed to the successor. An \verb{itis:}
+key compares \code{itis_id}, a \verb{worms:} key compares \code{worms_id}; a dataset-local key
+is keyed by no authority and can never be re-keyed. 27 rows on v2026.09.06, all
+Farallon (\code{taxon.notes}: "itis:174550 deprecated in ITIS -> itis:1255048").
+\item \code{id_conflict} — the source's id for a \strong{secondary} authority disagrees with the
+key authority's cross-reference: nothing was re-keyed, the two authorities' own
+crosswalks disagree. 27 rows on v2026.09.06, all ichthyoplankton — \verb{worms:}-keyed
+taxa whose source ITIS hint differs from the \code{itis_id} WoRMS publishes as its
+external link (\code{taxon.notes}: "2026-08-05: itis_id 622362 via WoRMS external
+link"). Until calcofi4db 4.9.0 these were reported as \code{rekeyed}, which said on a
+page that an id had moved when none had.
 \item \code{no_name} — the dataset carries only a code (\code{ds_scientific_name} is NULL).
 }
+
+\code{rekeyed} and \code{id_conflict} are computed over the two authorities that can key a
+taxon (WoRMS, ITIS). A \code{gbif_id} is carried in \verb{sources[].ids} for the reader but
+never flagged: it keys nothing, and one ichthyo row disagrees on it alone.
 }
 \examples{
 taxa_source_flags()

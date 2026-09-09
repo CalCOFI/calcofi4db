@@ -95,8 +95,15 @@ CC_TAXA_MAX_DEPTH <- 64L
 # "Delphinus sp." keyed to *Delphinus delphis* is a synonym, not a genus rollup.
 .taxa_is_sp_name <- function(name) grepl("\\bspp?\\.?( ?[A-Z])?$", name)
 
+# The authority a taxon_key is keyed by — "worms" or "itis"; NA for a dataset-local
+# class, which no authority keys and which therefore can never be re-keyed.
+.taxa_key_authority <- function(taxon_key) {
+  a <- sub(":.*$", "", .taxa_chr(taxon_key))
+  if (!is.na(a) && a %in% CC_TAXA_AUTHORITIES) a else NA_character_
+}
+
 # the flags of one `dataset_taxon` row against the taxon it resolved to
-.taxa_flags_of <- function(ds_name, ds_json, rank, scientific_name, worms_id, itis_id) {
+.taxa_flags_of <- function(taxon_key, ds_name, ds_json, rank, scientific_name, worms_id, itis_id) {
   f <- character()
   ids  <- .taxa_source_ids(ds_json)
   name <- .taxa_chr(ds_name)
@@ -108,10 +115,22 @@ CC_TAXA_MAX_DEPTH <- 64L
     accepted <- .taxa_chr(scientific_name)
     if (!sp && !is.na(accepted) && .taxa_norm(name) != .taxa_norm(accepted)) f <- c(f, "synonym")
   }
-  t_worms <- .taxa_int(worms_id); t_itis <- .taxa_int(itis_id)
-  rekeyed <- (!is.na(ids$itis_id)  && !is.na(t_itis)  && ids$itis_id  != t_itis) ||
-             (!is.na(ids$worms_id) && !is.na(t_worms) && ids$worms_id != t_worms)
-  if (rekeyed) f <- c(f, "rekeyed")
+  # Which authority moved decides which flag. The taxon is keyed by exactly one
+  # authority; a disagreement THERE is a re-key (the source's id was deprecated and
+  # the row points at the successor). A disagreement on the OTHER authority's id is a
+  # crosswalk conflict: the source's own hint against the cross-reference the key
+  # authority publishes — worth a pill, but nothing was re-keyed.
+  t_ids   <- list(worms_id = .taxa_int(worms_id), itis_id = .taxa_int(itis_id))
+  differs <- function(field) {
+    a <- ids[[field]]; b <- t_ids[[field]]
+    !is.na(a) && !is.na(b) && a != b
+  }
+  key_field <- .taxa_key_authority(taxon_key)
+  key_field <- if (is.na(key_field)) NA_character_ else paste0(key_field, "_id")
+  fields    <- paste0(CC_TAXA_AUTHORITIES, "_id")
+  if (!is.na(key_field) && differs(key_field)) f <- c(f, "rekeyed")
+  secondary <- if (is.na(key_field)) fields else setdiff(fields, key_field)
+  if (any(vapply(secondary, differs, logical(1)))) f <- c(f, "id_conflict")
   f
 }
 
@@ -166,17 +185,30 @@ CC_TAXA_MAX_DEPTH <- 64L
 #' * `sp_to_genus` — a `… sp.` / `… spp.` / `… sp A` name that resolved to a
 #'   Genus-rank taxon (mesopelagic "Cyclothone sp." → *Cyclothone*). It replaces
 #'   `synonym`: the name is not wrong, it is less precise.
-#' * `rekeyed` — an id the source supplied in `ds_source_json` that the authority
-#'   has since deprecated; the row is keyed to the successor (54 Farallon rows on
-#'   v2026.09.06, `taxon.notes` naming the move).
+#' * `rekeyed` — the id the source supplied for the taxon's **own key authority** has
+#'   since been deprecated there, and the row is keyed to the successor. An `itis:`
+#'   key compares `itis_id`, a `worms:` key compares `worms_id`; a dataset-local key
+#'   is keyed by no authority and can never be re-keyed. 27 rows on v2026.09.06, all
+#'   Farallon (`taxon.notes`: "itis:174550 deprecated in ITIS -> itis:1255048").
+#' * `id_conflict` — the source's id for a **secondary** authority disagrees with the
+#'   key authority's cross-reference: nothing was re-keyed, the two authorities' own
+#'   crosswalks disagree. 27 rows on v2026.09.06, all ichthyoplankton — `worms:`-keyed
+#'   taxa whose source ITIS hint differs from the `itis_id` WoRMS publishes as its
+#'   external link (`taxon.notes`: "2026-08-05: itis_id 622362 via WoRMS external
+#'   link"). Until calcofi4db 4.9.0 these were reported as `rekeyed`, which said on a
+#'   page that an id had moved when none had.
 #' * `no_name` — the dataset carries only a code (`ds_scientific_name` is NULL).
+#'
+#' `rekeyed` and `id_conflict` are computed over the two authorities that can key a
+#' taxon (WoRMS, ITIS). A `gbif_id` is carried in `sources[].ids` for the reader but
+#' never flagged: it keys nothing, and one ichthyo row disagrees on it alone.
 #'
 #' @return A character vector, the enum of `taxa.schema.json`.
 #' @export
 #' @concept taxonomy
 #' @examples
 #' taxa_source_flags()
-taxa_source_flags <- function() c("synonym", "sp_to_genus", "rekeyed", "no_name")
+taxa_source_flags <- function() c("synonym", "sp_to_genus", "rekeyed", "id_conflict", "no_name")
 
 # build ---------------------------------------------------------------------------------
 
@@ -359,7 +391,7 @@ build_taxa_catalog <- function(con, record, release_version = NULL, release_date
              code        = .taxa_chr(dtx[["ds_taxa_code"]][s]),
              ids         = ids,
              flags       = .arr(.taxa_flags_of(
-               dtx[["ds_scientific_name"]][s], dtx[["ds_source_json"]][s],
+               k, dtx[["ds_scientific_name"]][s], dtx[["ds_source_json"]][s],
                taxon[["rank"]][ti], taxon[["scientific_name"]][ti],
                taxon[["worms_id"]][ti], taxon[["itis_id"]][ti])))
       })
