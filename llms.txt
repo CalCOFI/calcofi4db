@@ -814,6 +814,12 @@ check for other functions or datasets not captured by above categories
   [`check_stac()`](https://calcofi.io/calcofi4db/reference/check_stac.md)
   found an error
 
+- [`assert_taxa_catalog()`](https://calcofi.io/calcofi4db/reference/assert_taxa_catalog.md)
+  :
+
+  Stop on any failing check from
+  [`check_taxa_catalog()`](https://calcofi.io/calcofi4db/reference/check_taxa_catalog.md)
+
 - [`assign_grid_key()`](https://calcofi.io/calcofi4db/reference/assign_grid_key.md)
   : Assign Grid Key via Spatial Join
 
@@ -874,6 +880,11 @@ check for other functions or datasets not captured by above categories
 
 - [`build_stac()`](https://calcofi.io/calcofi4db/reference/build_stac.md)
   : Build the static STAC catalog of a release
+
+- [`build_taxa_catalog()`](https://calcofi.io/calcofi4db/reference/build_taxa_catalog.md)
+  :
+
+  Build the species catalog record (`taxa.json`)
 
 - [`build_taxon_group()`](https://calcofi.io/calcofi4db/reference/build_taxon_group.md)
   :
@@ -969,6 +980,11 @@ check for other functions or datasets not captured by above categories
 
 - [`check_stac()`](https://calcofi.io/calcofi4db/reference/check_stac.md)
   : Validate a written STAC catalog
+
+- [`check_taxa_catalog()`](https://calcofi.io/calcofi4db/reference/check_taxa_catalog.md)
+  :
+
+  Check a `taxa.json` against the release it was built from
 
 - [`citation_findings()`](https://calcofi.io/calcofi4db/reference/citation_findings.md)
   [`citation_error_findings()`](https://calcofi.io/calcofi4db/reference/citation_findings.md)
@@ -1566,10 +1582,22 @@ check for other functions or datasets not captured by above categories
 - [`supplemental_core_tables()`](https://calcofi.io/calcofi4db/reference/supplemental_core_tables.md)
   : Supplemental full-resolution tables declared by the ingests
 
+- [`taxa_catalog_checks()`](https://calcofi.io/calcofi4db/reference/taxa_catalog_checks.md)
+  :
+
+  The checks
+  [`check_taxa_catalog()`](https://calcofi.io/calcofi4db/reference/check_taxa_catalog.md)
+  runs, with their level
+
 - [`taxa_rank_reference()`](https://calcofi.io/calcofi4db/reference/taxa_rank_reference.md)
   :
 
   The canonical taxonomic rank ordering (`taxa_rank`)
+
+- [`taxa_source_flags()`](https://calcofi.io/calcofi4db/reference/taxa_source_flags.md)
+  :
+
+  The `flags[]` a `taxa.json` source row can carry
 
 - [`taxon_key_of()`](https://calcofi.io/calcofi4db/reference/taxon_key_of.md)
   :
@@ -1597,6 +1625,11 @@ check for other functions or datasets not captured by above categories
 
   Validate a `datasets.json` against the package's JSON schema
 
+- [`validate_taxa_catalog()`](https://calcofi.io/calcofi4db/reference/validate_taxa_catalog.md)
+  :
+
+  Validate a `taxa.json` against the package's JSON schema
+
 - [`write_dataset_catalog()`](https://calcofi.io/calcofi4db/reference/write_dataset_catalog.md)
   :
 
@@ -1614,6 +1647,11 @@ check for other functions or datasets not captured by above categories
 
 - [`write_sitemap_xml()`](https://calcofi.io/calcofi4db/reference/write_sitemap_xml.md)
   : Write a sitemap XML file (sitemaps.org 0.9)
+
+- [`write_taxa_catalog()`](https://calcofi.io/calcofi4db/reference/write_taxa_catalog.md)
+  :
+
+  Write `taxa.json`
 
 - [`write_taxon_common()`](https://calcofi.io/calcofi4db/reference/write_taxon_common.md)
   : Write the vernacular-name registry

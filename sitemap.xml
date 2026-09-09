@@ -31,6 +31,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/assert_eml.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assert_sitemap.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assert_stac.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/assert_taxa_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assign_deterministic_uuids.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assign_deterministic_uuids_md5.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assign_grid_key.html</loc></url>
@@ -54,6 +55,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/build_spatial_layers.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_stac.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_targets_list.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/build_taxa_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_taxon_group.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_taxon_hierarchy.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_taxon_reference.html</loc></url>
@@ -89,6 +91,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/check_seafloor_nulls.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_sitemap.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_stac.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/check_taxa_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_taxon_ids.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_taxon_registries.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_ungridded_obs.html</loc></url>
@@ -348,7 +351,9 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/supplemental_core_tables.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/sync_to_gcs.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/sync_to_gcs_archive.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/taxa_catalog_checks.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/taxa_rank_reference.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/taxa_source_flags.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/taxon_key_of.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/thin_plan.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/transform_data.html</loc></url>
@@ -364,6 +369,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/validate_fk_references.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/validate_for_release.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/validate_lookup_values.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/validate_taxa_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/write_dataset_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/write_distribution_observed.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/write_eml_files.html</loc></url>
@@ -373,6 +379,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/write_parquet_table.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/write_sitemap_xml.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/write_spatial_manifest.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/write_taxa_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/write_taxon_common.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/zenodo_doi_for_tag.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/zenodo_metadata.html</loc></url>

@@ -32,7 +32,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.8.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.9.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -67,6 +67,22 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.9.0" id="calcofi4db-490">calcofi4db 4.9.0<a class="anchor" aria-label="anchor" href="#calcofi4db-490"></a></h2>
+<div class="section level3">
+<h3 id="every-observed-taxon-has-a-record-taxajson-the-species-catalog-4-9-0">Every observed taxon has a record: <code>taxa.json</code>, the species catalog<a class="anchor" aria-label="anchor" href="#every-observed-taxon-has-a-record-taxajson-the-species-catalog-4-9-0"></a></h3>
+<ul><li>
+<code>build_taxa_catalog(con, record)</code> writes the release’s species catalog — one entry per row of the <code>taxon</code> table <strong>with an observation at or below it</strong>, the observed taxa plus their ancestors (2,410 of 2,614 rows on v2026.09.06; the 204 vocabulary-only rows get no entry and are listed under the dataset that declares them, in <code>datasets[].vocabulary_only[]</code>). Each entry carries its lineage, ids and groups, the <code>direct{}</code> counts of observations keyed to the taxon itself and the <code>rollup{}</code> counts over it and every descendant, and one block per dataset that observed it — years, life stages and <code>sources[]</code>, the <code>dataset_taxon</code> rows that resolve to it: what that dataset calls the taxon. <code>slug</code> is the <code>taxon_key</code> with its <code>:</code> written <code>-</code> (<code>worms:217452</code> → <code>worms-217452</code>), the directory of the page at calcofi.io/species/.</li>
+<li>
+<code><a href="../reference/taxa_source_flags.html">taxa_source_flags()</a></code> is the vocabulary of the pill beside a dataset’s own name: <code>synonym</code> (not the accepted name), <code>sp_to_genus</code> (a <code>… sp.</code> / <code>… spp.</code> / <code>… sp A</code> name that resolved to a Genus — less precise, not wrong, and it replaces <code>synonym</code>), <code>rekeyed</code>, <code>id_conflict</code> and <code>no_name</code> (the dataset carries only a code). Measured over v2026.09.06’s 1,917 <code>dataset_taxon</code> rows: 1,704 use the accepted name, 120 <code>no_name</code>, 93 a different name.</li>
+<li>
+<strong>Which authority moved decides the id flag.</strong> A taxon is keyed by exactly one authority, and only a disagreement <em>there</em> is a re-key: <code>rekeyed</code> compares <code>itis_id</code> for an <code>itis:</code> key and <code>worms_id</code> for a <code>worms:</code> key, and a dataset-local class — keyed by no authority — can never be re-keyed. A disagreement on the <strong>other</strong> authority’s id is the new <code>id_conflict</code>: the source’s own hint against the cross-reference the key authority publishes. Measured on v2026.09.06 the 54 rows that a single combined rule reported are two different facts — <strong>27 <code>rekeyed</code>, all Farallon</strong> (<code>taxon.notes</code>: “itis:174550 deprecated in ITIS -&gt; itis:1255048”), and <strong>27 <code>id_conflict</code>, all ichthyoplankton</strong>, <code>worms:</code>-keyed taxa whose source ITIS hint differs from the <code>itis_id</code> WoRMS publishes as its external link (<code>taxon.notes</code>: “2026-08-05: itis_id 622362 via WoRMS external link”). Nothing was re-keyed in those 27, and a species page saying so would have been wrong. <code>gbif_id</code> rides along in <code>sources[].ids</code> but is never flagged: it keys nothing (one ichthyo row disagrees on it alone).</li>
+<li>
+<code><a href="../reference/write_taxa_catalog.html">write_taxa_catalog()</a></code> writes <code>taxa.json</code> (minified, ~2.4 MB); <code><a href="../reference/validate_taxa_catalog.html">validate_taxa_catalog()</a></code> checks it against the new <code>inst/schema/taxa.schema.json</code> (draft-07, <code>schema_version</code> 1.0) as <code><a href="../reference/validate_dataset_catalog.html">validate_dataset_catalog()</a></code> does; <code>check_taxa_catalog(record, con, dataset_record)</code> re-measures the record against the release it came from — the counts against <code>obs_bio</code>, every <code>parent_taxon_key</code> resolving inside <code>taxa[]</code>, the roots’ <code>rollup$n_obs</code> summing to the keyed <code>obs_bio</code> row count, unique slugs, every dataset in <code>datasets.json</code>, every flag in the enum — and <code><a href="../reference/assert_taxa_catalog.html">assert_taxa_catalog()</a></code> stops the release on a failure. <code><a href="../reference/taxa_catalog_checks.html">taxa_catalog_checks()</a></code> names them.</li>
+<li>
+<strong><code>taxa.json</code> joins <code>RELEASE_REQUIRED_OBJECTS</code></strong>, so <code><a href="../reference/check_release_complete.html">check_release_complete()</a></code> and <code><a href="../reference/promote_release.html">promote_release()</a></code> refuse a release that does not carry it — the same rule <code>datasets.json</code> has had since 4.1.0. A release cut by an older <code>release_database.qmd</code> will now fail promotion until its step 3b′ writes the record.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.8.0" id="calcofi4db-480">calcofi4db 4.8.0<a class="anchor" aria-label="anchor" href="#calcofi4db-480"></a></h2>
 <div class="section level3">
