@@ -10,7 +10,8 @@ build_spatial_layers(
   version,
   pmtiles_base,
   built = NULL,
-  names_max = 200
+  names_max = 200,
+  reference_json = NULL
 )
 }
 \arguments{
@@ -26,13 +27,16 @@ build_spatial_layers(
 skew between releases and archives is accepted but must be visible.}
 
 \item{names_max}{Above this many distinct names a layer's \code{names} is \code{NULL}.}
+
+\item{reference_json}{Path to the reference-layer manifest (\verb{layers.<dataset_id>.n_features} /
+\code{.bbox}); \code{NULL} (default) leaves a reference row at zero features.}
 }
 \value{
 A list ready for \code{jsonlite::write_json(auto_unbox = TRUE)}: \code{version}, \code{pmtiles_base},
 \code{built}, and \code{layers[]} with \code{id} (the registry \code{dataset_id}), \code{group}, \code{name} (the human
-layer name), \code{source}, \code{geom}, \code{filter} (the registry expression verbatim, as parsed JSON),
-the symbology defaults, \code{name_field}, \code{description}, \code{attribution}, \code{n_features}, \code{bbox},
-\code{names}, \code{n_memberships}.
+layer name), \code{source}, \code{geom}, \code{role}, \code{source_type}, \code{source_url}, \code{filter} (the registry
+expression verbatim, as parsed JSON), the symbology defaults, \code{name_field}, \code{description},
+\code{attribution}, \code{n_features}, \code{bbox}, \code{names}, \code{n_memberships}.
 }
 \description{
 \code{metadata/spatial_layers.csv} is the registry of the boundary layers (Erin's sheet: one row per
@@ -44,5 +48,15 @@ layer's feature count, bbox, its sorted distinct \code{name}s when there are at 
 by-name palette, D24; \code{NULL} above that, and the app falls back to an id-hash palette), and
 \code{n_memberships} (distinct root samples in \code{sample_spatial}, so the Regions lens can list exactly
 the layers that can summarize something).
+}
+\details{
+\strong{Reference layers} (plan 2026-09-09 D52): a registry row with \code{role = reference} (the OSM land
+mask, the GEBCO gazetteer labels, Esri's raster reference) is not a region — it has no rows in
+\code{spatial}, no memberships and no names — so its \code{n_features} and \code{bbox} come from
+\code{reference_json} (\code{data/parquet/spatial/reference_layers.json}, written by \code{ingest_spatial.qmd}'s
+Reference layers section) and its absence from \code{spatial} is not a warning. The optional registry
+columns \code{role} (default \code{boundary}), \code{source_type} (\code{pmtiles} | \code{raster}, default \code{pmtiles}) and
+\code{source_url} (raster tiles only) ride through to the sidecar; \code{geom_type} may also be \code{label}
+(a symbol layer) or \code{raster}.
 }
 \concept{explore}

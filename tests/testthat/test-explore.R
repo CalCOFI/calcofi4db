@@ -259,3 +259,41 @@ test_that("build_spatial_layers joins the registry with the release spatial tabl
   y <- suppressWarnings(build_spatial_layers(con, csv, "vTEST", "u/", names_max = 0))
   expect_null(y$layers[[1]]$names)
 })
+
+test_that("build_spatial_layers passes reference rows through from their manifest, never from `spatial` (D52)", {
+  con <- ex_con(); ex_fixture(con)
+  csv <- withr::local_tempfile(fileext = ".csv")
+  writeLines(c(
+    "dataset_id,dataset_group,layer,group,geom_type,filter_expr,line_color,fill_color,line_width,fill_opacity,default_visible,name_field,description,attribution,role,source_type,source_url",
+    "ca_mpas,ca_marine_protected_areas,Marine Protected Areas,Protected Areas,polygon,,#388e3c,#a5d6a7,1,0.2,FALSE,fullname,MPAs,CDFW,,,",
+    "osm_land,osm_land,Land,Reference,polygon,,,,,,TRUE,name,the coast,OSM,reference,pmtiles,",
+    "gebco_gazetteer,gebco_gazetteer,Undersea feature names,Reference,label,,,,,,FALSE,label,names,GEBCO,reference,pmtiles,",
+    "esri_ocean_reference,esri_ocean_reference,Esri ocean reference,Reference,raster,,,,,1,FALSE,,esri,Esri,reference,raster,https://example.org/{z}/{y}/{x}"), csv)
+  ref <- withr::local_tempfile(fileext = ".json")
+  jsonlite::write_json(list(built = "2026-09-09", layers = list(
+    osm_land = list(n_features = 45249L, bbox = c(-134.6, 18.3, -105, 56)),
+    gebco_gazetteer = list(n_features = 219L, bbox = c(-168, -54.7, -84.8, 56)))),
+    ref, auto_unbox = TRUE, digits = NA)
+  # no warning: the reference rows are not expected in `spatial`
+  expect_no_warning(x <- build_spatial_layers(con, csv, "vTEST", "u/", reference_json = ref))
+  expect_length(x$layers, 4)
+  ids <- vapply(x$layers, function(l) l$id, "")
+  land <- x$layers[[match("osm_land", ids)]]; gaz <- x$layers[[match("gebco_gazetteer", ids)]]
+  esri <- x$layers[[match("esri_ocean_reference", ids)]]; mpa <- x$layers[[match("ca_mpas", ids)]]
+  expect_identical(land$role, "reference"); expect_identical(land$source_type, "pmtiles"); expect_null(land$source_url)
+  expect_identical(land$n_features, 45249L); expect_identical(land$bbox, c(-134.6, 18.3, -105, 56))
+  expect_null(land$names); expect_identical(land$n_memberships, 0L); expect_true(land$default_visible)
+  expect_identical(gaz$geom, "label"); expect_identical(gaz$n_features, 219L)
+  expect_identical(esri$geom, "raster"); expect_identical(esri$source_type, "raster")
+  expect_identical(esri$source_url, "https://example.org/{z}/{y}/{x}")
+  expect_identical(esri$n_features, 0L); expect_null(esri$bbox) # not in the manifest: zero, never an error
+  # a boundary row is untouched by the new columns: defaults, and its counts still come from `spatial`
+  expect_identical(mpa$role, "boundary"); expect_identical(mpa$source_type, "pmtiles"); expect_gte(mpa$n_features, 1)
+  # without the manifest a reference row is zero features, still no warning
+  expect_no_warning(y <- build_spatial_layers(con, csv, "vTEST", "u/"))
+  expect_identical(y$layers[[match("osm_land", ids)]]$n_features, 0L)
+  # a raster row without its URL is refused
+  csv2 <- withr::local_tempfile(fileext = ".csv")
+  writeLines(c(readLines(csv)[1], "bad,bad,Bad,Reference,raster,,,,,1,FALSE,,,,reference,raster,"), csv2)
+  expect_error(build_spatial_layers(con, csv2, "vTEST", "u/"), "source_url")
+})

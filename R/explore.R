@@ -108,7 +108,7 @@ build_obs_slim <- function(con, realm = c("bio", "env"), qual_ok_sql, density_sq
       FROM sample_measurement
       WHERE measurement_type IN ('std_haul_factor', 'prop_sorted', 'volume_sampled') GROUP BY 1),
     x AS (
-      SELECT o.obs_id, o.dataset_key, r.root_id, o.sample_key, o.grid_key, o.cruise_key,
+      SELECT o.obs_id, o.dataset_key, r.root_id, o.sample_key, o.grid_key, s.site_key, o.cruise_key,
              o.latitude, o.longitude, o.datetime,
              year(o.datetime)::SMALLINT AS year, quarter(o.datetime)::TINYINT AS quarter,
              COALESCE(o.depth_min_m, s.depth_min_m, r.depth_min_m) AS depth_min_m,
@@ -124,7 +124,7 @@ build_obs_slim <- function(con, realm = c("bio", "env"), qual_ok_sql, density_sq
       LEFT JOIN eff e USING (sample_key)
       LEFT JOIN measurement_type m USING (measurement_type)
       WHERE o.realm = '{realm}')
-    SELECT obs_id, dataset_key, root_id, sample_key, grid_key, cruise_key, latitude, longitude, datetime, year, quarter,
+    SELECT obs_id, dataset_key, root_id, sample_key, grid_key, site_key, cruise_key, latitude, longitude, datetime, year, quarter,
            depth_min_m, depth_max_m, (floor(depth_min_m / 10) * 10)::INTEGER AS depth_bin,
            taxon_key, life_stage, measurement_type, units, measurement_value AS value, measurement_qual, measurement_prec, qual_ok,
            tow_type, std_haul_factor, prop_sorted, volume_sampled_m3,
@@ -475,6 +475,15 @@ build_coverage_stations <- function(con, version) {
 #' `n_memberships` (distinct root samples in `sample_spatial`, so the Regions lens can list exactly
 #' the layers that can summarize something).
 #'
+#' **Reference layers** (plan 2026-09-09 D52): a registry row with `role = reference` (the OSM land
+#' mask, the GEBCO gazetteer labels, Esri's raster reference) is not a region — it has no rows in
+#' `spatial`, no memberships and no names — so its `n_features` and `bbox` come from
+#' `reference_json` (`data/parquet/spatial/reference_layers.json`, written by `ingest_spatial.qmd`'s
+#' Reference layers section) and its absence from `spatial` is not a warning. The optional registry
+#' columns `role` (default `boundary`), `source_type` (`pmtiles` | `raster`, default `pmtiles`) and
+#' `source_url` (raster tiles only) ride through to the sidecar; `geom_type` may also be `label`
+#' (a symbol layer) or `raster`.
+#'
 #' @param con DuckDB connection holding `spatial` (and, if built, `sample_spatial`).
 #' @param registry_csv Path to `metadata/spatial_layers.csv`.
 #' @param version Release version string, stamped into the sidecar.
@@ -482,16 +491,28 @@ build_coverage_stations <- function(con, version) {
 #' @param built When the archives were last built (the `ingest_spatial` manifest's mtime) — version
 #'   skew between releases and archives is accepted but must be visible.
 #' @param names_max Above this many distinct names a layer's `names` is `NULL`.
+#' @param reference_json Path to the reference-layer manifest (`layers.<dataset_id>.n_features` /
+#'   `.bbox`); `NULL` (default) leaves a reference row at zero features.
 #' @return A list ready for `jsonlite::write_json(auto_unbox = TRUE)`: `version`, `pmtiles_base`,
 #'   `built`, and `layers[]` with `id` (the registry `dataset_id`), `group`, `name` (the human
-#'   layer name), `source`, `geom`, `filter` (the registry expression verbatim, as parsed JSON),
-#'   the symbology defaults, `name_field`, `description`, `attribution`, `n_features`, `bbox`,
-#'   `names`, `n_memberships`.
+#'   layer name), `source`, `geom`, `role`, `source_type`, `source_url`, `filter` (the registry
+#'   expression verbatim, as parsed JSON), the symbology defaults, `name_field`, `description`,
+#'   `attribution`, `n_features`, `bbox`, `names`, `n_memberships`.
 #' @export
 #' @concept explore
 build_spatial_layers <- function(con, registry_csv, version, pmtiles_base,
-                                 built = NULL, names_max = 200) {
+                                 built = NULL, names_max = 200, reference_json = NULL) {
   reg <- readr::read_csv(registry_csv, show_col_types = FALSE, na = c("", "NA"))
+  # the optional columns (D52): absent = every row a PMTiles boundary layer
+  if (!"role" %in% names(reg)) reg$role <- "boundary"
+  if (!"source_type" %in% names(reg)) reg$source_type <- "pmtiles"
+  if (!"source_url" %in% names(reg)) reg$source_url <- NA_character_
+  reg$role <- ifelse(is.na(reg$role) | reg$role == "", "boundary", reg$role)
+  reg$source_type <- ifelse(is.na(reg$source_type) | reg$source_type == "", "pmtiles", reg$source_type)
+  stopifnot("role must be boundary | reference" = all(reg$role %in% c("boundary", "reference")),
+            "source_type must be pmtiles | raster" = all(reg$source_type %in% c("pmtiles", "raster")),
+            "a raster row needs its source_url" = all(reg$source_type != "raster" | !is.na(reg$source_url)))
+  ref <- if (is.null(reference_json)) list() else jsonlite::fromJSON(reference_json, simplifyVector = FALSE)$layers
   need <- c("dataset_id", "dataset_group", "layer", "group", "geom_type", "filter_expr",
             "line_color", "fill_color", "line_width", "fill_opacity", "default_visible",
             "name_field", "description", "attribution")
@@ -505,7 +526,7 @@ build_spatial_layers <- function(con, registry_csv, version, pmtiles_base,
   mem <- if ("sample_spatial" %in% DBI::dbListTables(con))
     DBI::dbGetQuery(con, "SELECT layer, count(DISTINCT root_id) AS n FROM sample_spatial GROUP BY 1")
   else data.frame(layer = character(), n = integer())
-  missing <- setdiff(reg$layer, sp$layer)
+  missing <- setdiff(reg$layer[reg$role == "boundary"], sp$layer)
   if (length(missing))
     warning("spatial_layers registry rows with no features in `spatial`: ",
             paste(missing, collapse = ", "), call. = FALSE)
@@ -516,17 +537,19 @@ build_spatial_layers <- function(con, registry_csv, version, pmtiles_base,
     r <- reg[i, ]
     j <- match(r$layer, sp$layer)
     nms <- nm$name[nm$layer == r$layer]
+    rj <- if (r$role == "reference") ref[[r$dataset_id]] else NULL # a reference row counts from its manifest, never from `spatial`
     list(
       id = r$dataset_id, group = r$group, name = r$layer,
       source = r$dataset_group, geom = r$geom_type,
+      role = r$role, source_type = r$source_type, source_url = chr(r$source_url),
       # the filter expression reaches the style verbatim (a MapLibre expression the registry owns)
       filter = if (blank(r$filter_expr)) NULL else jsonlite::fromJSON(r$filter_expr, simplifyVector = FALSE),
       line_color = chr(r$line_color), fill_color = chr(r$fill_color),
       line_width = num(r$line_width), fill_opacity = num(r$fill_opacity),
       default_visible = isTRUE(as.logical(r$default_visible)),
       name_field = chr(r$name_field), description = chr(r$description), attribution = chr(r$attribution),
-      n_features = if (is.na(j)) 0L else as.integer(sp$n_features[j]),
-      bbox = if (is.na(j)) NULL else round(c(sp$w[j], sp$s[j], sp$e[j], sp$n[j]), 4),
+      n_features = if (!is.null(rj)) as.integer(rj$n_features %||% 0L) else if (is.na(j)) 0L else as.integer(sp$n_features[j]),
+      bbox = if (!is.null(rj)) (if (is.null(rj$bbox)) NULL else round(unlist(rj$bbox), 4)) else if (is.na(j)) NULL else round(c(sp$w[j], sp$s[j], sp$e[j], sp$n[j]), 4),
       names = if (length(nms) >= 1 && length(nms) <= names_max) as.list(nms) else NULL,
       n_memberships = { k <- match(r$layer, mem$layer); if (is.na(k)) 0L else as.integer(mem$n[k]) })
   })
