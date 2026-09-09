@@ -22,7 +22,8 @@ build_spatial_layers(
   version,
   pmtiles_base,
   built = NULL,
-  names_max = 200
+  names_max = 200,
+  reference_json = NULL
 )
 ```
 
@@ -54,11 +55,30 @@ build_spatial_layers(
 
   Above this many distinct names a layer's `names` is `NULL`.
 
+- reference_json:
+
+  Path to the reference-layer manifest (`layers.<dataset_id>.n_features`
+  / `.bbox`); `NULL` (default) leaves a reference row at zero features.
+
 ## Value
 
 A list ready for `jsonlite::write_json(auto_unbox = TRUE)`: `version`,
 `pmtiles_base`, `built`, and `layers[]` with `id` (the registry
 `dataset_id`), `group`, `name` (the human layer name), `source`, `geom`,
-`filter` (the registry expression verbatim, as parsed JSON), the
-symbology defaults, `name_field`, `description`, `attribution`,
-`n_features`, `bbox`, `names`, `n_memberships`.
+`role`, `source_type`, `source_url`, `filter` (the registry expression
+verbatim, as parsed JSON), the symbology defaults, `name_field`,
+`description`, `attribution`, `n_features`, `bbox`, `names`,
+`n_memberships`.
+
+## Details
+
+**Reference layers** (plan 2026-09-09 D52): a registry row with
+`role = reference` (the OSM land mask, the GEBCO gazetteer labels,
+Esri's raster reference) is not a region — it has no rows in `spatial`,
+no memberships and no names — so its `n_features` and `bbox` come from
+`reference_json` (`data/parquet/spatial/reference_layers.json`, written
+by `ingest_spatial.qmd`'s Reference layers section) and its absence from
+`spatial` is not a warning. The optional registry columns `role`
+(default `boundary`), `source_type` (`pmtiles` \| `raster`, default
+`pmtiles`) and `source_url` (raster tiles only) ride through to the
+sidecar; `geom_type` may also be `label` (a symbol layer) or `raster`.

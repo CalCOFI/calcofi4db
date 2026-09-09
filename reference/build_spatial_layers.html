@@ -48,7 +48,7 @@ the layers that can summarize something)."><!-- calcofi.io brand contract v2 (ht
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.7.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.8.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -104,7 +104,8 @@ the layers that can summarize something).</p>
 <span>  <span class="va">version</span>,</span>
 <span>  <span class="va">pmtiles_base</span>,</span>
 <span>  built <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  names_max <span class="op">=</span> <span class="fl">200</span></span>
+<span>  names_max <span class="op">=</span> <span class="fl">200</span>,</span>
+<span>  reference_json <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -136,14 +137,30 @@ skew between releases and archives is accepted but must be visible.</p></dd>
 <dt id="arg-names-max">names_max<a class="anchor" aria-label="anchor" href="#arg-names-max"></a></dt>
 <dd><p>Above this many distinct names a layer's <code>names</code> is <code>NULL</code>.</p></dd>
 
+
+<dt id="arg-reference-json">reference_json<a class="anchor" aria-label="anchor" href="#arg-reference-json"></a></dt>
+<dd><p>Path to the reference-layer manifest (<code>layers.&lt;dataset_id&gt;.n_features</code> /
+<code>.bbox</code>); <code>NULL</code> (default) leaves a reference row at zero features.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A list ready for <code>jsonlite::write_json(auto_unbox = TRUE)</code>: <code>version</code>, <code>pmtiles_base</code>,
 <code>built</code>, and <code>layers[]</code> with <code>id</code> (the registry <code>dataset_id</code>), <code>group</code>, <code>name</code> (the human
-layer name), <code>source</code>, <code>geom</code>, <code>filter</code> (the registry expression verbatim, as parsed JSON),
-the symbology defaults, <code>name_field</code>, <code>description</code>, <code>attribution</code>, <code>n_features</code>, <code>bbox</code>,
-<code>names</code>, <code>n_memberships</code>.</p>
+layer name), <code>source</code>, <code>geom</code>, <code>role</code>, <code>source_type</code>, <code>source_url</code>, <code>filter</code> (the registry
+expression verbatim, as parsed JSON), the symbology defaults, <code>name_field</code>, <code>description</code>,
+<code>attribution</code>, <code>n_features</code>, <code>bbox</code>, <code>names</code>, <code>n_memberships</code>.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p><strong>Reference layers</strong> (plan 2026-09-09 D52): a registry row with <code>role = reference</code> (the OSM land
+mask, the GEBCO gazetteer labels, Esri's raster reference) is not a region — it has no rows in
+<code>spatial</code>, no memberships and no names — so its <code>n_features</code> and <code>bbox</code> come from
+<code>reference_json</code> (<code>data/parquet/spatial/reference_layers.json</code>, written by <code>ingest_spatial.qmd</code>'s
+Reference layers section) and its absence from <code>spatial</code> is not a warning. The optional registry
+columns <code>role</code> (default <code>boundary</code>), <code>source_type</code> (<code>pmtiles</code> | <code>raster</code>, default <code>pmtiles</code>) and
+<code>source_url</code> (raster tiles only) ride through to the sidecar; <code>geom_type</code> may also be <code>label</code>
+(a symbol layer) or <code>raster</code>.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
