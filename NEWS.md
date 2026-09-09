@@ -1,3 +1,34 @@
+# calcofi4db 4.9.0
+
+## Every observed taxon has a record: `taxa.json`, the species catalog
+
+- `build_taxa_catalog(con, record)` writes the release's species catalog — one entry per row of
+  the `taxon` table **with an observation at or below it**, the observed taxa plus their
+  ancestors (2,410 of 2,614 rows on v2026.09.06; the 204 vocabulary-only rows get no entry and
+  are listed under the dataset that declares them, in `datasets[].vocabulary_only[]`). Each entry
+  carries its lineage, ids and groups, the `direct{}` counts of observations keyed to the taxon
+  itself and the `rollup{}` counts over it and every descendant, and one block per dataset that
+  observed it — years, life stages and `sources[]`, the `dataset_taxon` rows that resolve to it:
+  what that dataset calls the taxon. `slug` is the `taxon_key` with its `:` written `-`
+  (`worms:217452` → `worms-217452`), the directory of the page at calcofi.io/species/.
+- `taxa_source_flags()` is the vocabulary of the pill beside a dataset's own name: `synonym`
+  (not the accepted name), `sp_to_genus` (a `… sp.` / `… spp.` / `… sp A` name that resolved to a
+  Genus — less precise, not wrong, and it replaces `synonym`), `rekeyed` (an id the source
+  supplied that the authority has since deprecated) and `no_name` (the dataset carries only a
+  code). Measured over v2026.09.06's 1,917 `dataset_taxon` rows: 1,704 use the accepted name,
+  120 `no_name`, 93 a different name, 54 `rekeyed` (all Farallon, all ITIS).
+- `write_taxa_catalog()` writes `taxa.json` (minified, ~2.4 MB); `validate_taxa_catalog()` checks
+  it against the new `inst/schema/taxa.schema.json` (draft-07, `schema_version` 1.0) as
+  `validate_dataset_catalog()` does; `check_taxa_catalog(record, con, dataset_record)` re-measures
+  the record against the release it came from — the counts against `obs_bio`, every
+  `parent_taxon_key` resolving inside `taxa[]`, the roots' `rollup$n_obs` summing to the keyed
+  `obs_bio` row count, unique slugs, every dataset in `datasets.json`, every flag in the enum —
+  and `assert_taxa_catalog()` stops the release on a failure. `taxa_catalog_checks()` names them.
+- **`taxa.json` joins `RELEASE_REQUIRED_OBJECTS`**, so `check_release_complete()` and
+  `promote_release()` refuse a release that does not carry it — the same rule `datasets.json` has
+  had since 4.1.0. A release cut by an older `release_database.qmd` will now fail promotion until
+  its step 3b′ writes the record.
+
 # calcofi4db 4.8.0
 
 ## Reference layers ride the boundary registry
