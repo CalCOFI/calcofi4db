@@ -1,10 +1,11 @@
 # Build the release's `climatology` table
 
-A plain mean per **dataset, station, calendar month, 10 m depth bin and
-measurement type** over the env realm of `obs` across a fixed window of
-years — the baseline every CalCOFI anomaly (ctd-transects, the CalCOFI
-Explorer's Sections lens, `calcofi4r::cc_climatology()`) is a departure
-from. Written once at release time so the products cannot disagree.
+A plain mean per **dataset, station (`site_key`), calendar month, 10 m
+depth bin and measurement type** over the env realm of `obs` across a
+fixed window of years — the baseline every CalCOFI anomaly
+(ctd-transects, the CalCOFI Explorer's Sections lens,
+`calcofi4r::cc_climatology()`) is a departure from. Written once at
+release time so the products cannot disagree.
 
 ## Usage
 
@@ -18,7 +19,8 @@ build_climatology(
   depth_bin_m = 10L,
   depth_max_m = 500L,
   round_digits = 6L,
-  tbl = "climatology"
+  tbl = "climatology",
+  sample_tbl = "sample"
 )
 ```
 
@@ -26,9 +28,10 @@ build_climatology(
 
 - con:
 
-  DuckDB connection holding `obs` (with `realm`, `grid_key`, `datetime`,
-  `depth_min_m`, `measurement_value`, `measurement_qual`, `cruise_key`,
-  `dataset_key`, `measurement_type`).
+  DuckDB connection holding `obs` (with `realm`, `sample_key`,
+  `grid_key`, `datetime`, `depth_min_m`, `measurement_value`,
+  `measurement_qual`, `cruise_key`, `dataset_key`, `measurement_type`)
+  and `sample_tbl` (with `sample_key`, `site_key`).
 
 - qual_ok_sql:
 
@@ -63,6 +66,10 @@ build_climatology(
 - tbl:
 
   output table (default `climatology`).
+
+- sample_tbl:
+
+  the sample table joined for `site_key` (default `"sample"`).
 
 ## Value
 
@@ -100,6 +107,20 @@ Why each part of the grain:
   `clim_yr_max`), so a consumer reading the parquet alone knows what the
   mean is a mean of.
 
+- **The station is `sample.site_key`, not the grid cell.** `grid_key` is
+  a point-in-polygon into ~2,350 km² nearshore cells that each hold 2–4
+  real stations, all occupied every cruise since 2004 (`st30-ln90` holds
+  90.30, 90.28, 90.27.7 and 88.5/30.1; 3.7 CTD occupations per cruise).
+  Until calcofi4db 4.8.0 the baseline pooled them into one cell — ~1 °C
+  off at the surface for the inshore station — while ctd-transects drew
+  one of them and the Explorer averaged them. The grain is now the
+  station, read from `sample` through `sample_key` (`obs` does not carry
+  `site_key`); `grid_key` stays on the row as the station's modal cell
+  (709 of 9,705 stations straddle a cell edge across their occupations)
+  so a map or hex consumer can still aggregate by cell. Rows whose
+  sample has no station (underway, transect, region-pooled) contribute
+  nothing.
+
 - **A floor in cruises, not observations** (`min_cruises`, default 3). A
   grid cell can hold several stations' casts from one cruise
   (`st30-ln90` holds 90.30, 90.28, 90.27.7 and 88.5/30.1), so an
@@ -132,7 +153,7 @@ Why each part of the grain:
   precision. Applied to the finished aggregate, so it is a pure function
   of the (order-independent) value, not of how it was summed.
 
-Rows without a station (`grid_key`), a time or a depth, non-finite
+Rows without a station (`site_key`), a time or a depth, non-finite
 values, and values the quality predicate rejects are left out; nothing
 is interpolated. A cell that is absent has no baseline — a consumer must
 leave its anomaly blank, never 0.

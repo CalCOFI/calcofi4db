@@ -89,6 +89,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/check_release_complete.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_release_relationships.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_seafloor_nulls.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/check_site_key_format.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_sitemap.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_stac.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_taxa_catalog.html</loc></url>
@@ -243,6 +244,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/nc_profile_write.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/nerc_uri_prefixes.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/normalize_citation.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/normalize_site_key.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ns_key.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/obs_view_sql.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/obs_wide_sql.html</loc></url>
@@ -336,6 +338,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/show_source_files.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/show_tables_redefine.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/show_validation_results.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/site_key_sql.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/sitemap_findings.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/source_accessed_from_git.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/stac_collection.html</loc></url>

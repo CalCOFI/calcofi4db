@@ -707,6 +707,11 @@ check for other functions or datasets not captured by above categories
 
   Classify the samples whose `seafloor_depth_m` is NULL, by cause
 
+- [`check_site_key_format()`](https://calcofi.io/calcofi4db/reference/check_site_key_format.md)
+  :
+
+  Fail unless every non-NULL `site_key` is in its canonical spelling
+
 - [`check_sitemap()`](https://calcofi.io/calcofi4db/reference/check_sitemap.md)
   : Check a generated sitemap
 
@@ -1012,6 +1017,11 @@ check for other functions or datasets not captured by above categories
 - [`normalize_citation()`](https://calcofi.io/calcofi4db/reference/normalize_citation.md)
   : Normalize a citation string for comparison
 
+- [`normalize_site_key()`](https://calcofi.io/calcofi4db/reference/normalize_site_key.md)
+  :
+
+  Normalize `site_key` strings in R
+
 - [`ns_key()`](https://calcofi.io/calcofi4db/reference/ns_key.md) :
 
   Namespaced `sample_key` expression: `dataset_key:sample_type:id`
@@ -1274,6 +1284,11 @@ check for other functions or datasets not captured by above categories
 
 - [`sbe_split_header()`](https://calcofi.io/calcofi4db/reference/sbe_split_header.md)
   : Recover the column names from a fixed-width Sea-Bird ASCII header
+
+- [`site_key_sql()`](https://calcofi.io/calcofi4db/reference/site_key_sql.md)
+  :
+
+  The canonical `site_key` spelling, as a SQL expression
 
 - [`sitemap_findings()`](https://calcofi.io/calcofi4db/reference/sitemap_findings.md)
   :
