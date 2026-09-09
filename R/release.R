@@ -83,7 +83,7 @@ release_sort_keys <- function(core_sort = c("grid_key NULLS LAST", "depth_min_m 
     sample_spatial     = list(partition_by = NULL, order_by = c("layer", "spatial_key", "root_id")),
     # the one baseline every anomaly subtracts (R/climatology.R); one object per variable, like obs_env
     climatology        = list(partition_by = "measurement_type",
-                              order_by = c("measurement_type", "dataset_key", "grid_key", "month", "depth_bin"))))
+                              order_by = c("measurement_type", "dataset_key", "site_key", "month", "depth_bin"))))
 }
 
 .order_cols <- function(order_by) trimws(sub("\\s+NULLS\\s+(FIRST|LAST)$", "", order_by, ignore.case = TRUE))

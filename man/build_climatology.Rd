@@ -13,12 +13,14 @@ build_climatology(
   depth_bin_m = 10L,
   depth_max_m = 500L,
   round_digits = 6L,
-  tbl = "climatology"
+  tbl = "climatology",
+  sample_tbl = "sample"
 )
 }
 \arguments{
-\item{con}{DuckDB connection holding \code{obs} (with \code{realm}, \code{grid_key}, \code{datetime}, \code{depth_min_m},
-\code{measurement_value}, \code{measurement_qual}, \code{cruise_key}, \code{dataset_key}, \code{measurement_type}).}
+\item{con}{DuckDB connection holding \code{obs} (with \code{realm}, \code{sample_key}, \code{grid_key}, \code{datetime},
+\code{depth_min_m}, \code{measurement_value}, \code{measurement_qual}, \code{cruise_key}, \code{dataset_key},
+\code{measurement_type}) and \code{sample_tbl} (with \code{sample_key}, \code{site_key}).}
 
 \item{qual_ok_sql}{the quality predicate over alias \code{o} — \code{calcofi4r::cc_qual_ok_sql("o")},
 passed in so this package never carries a second copy of it.}
@@ -36,12 +38,14 @@ sensor resolution but well above the parallel-aggregation floating-point noise f
 above), so the table is byte-identical across re-exports of unchanged data.}
 
 \item{tbl}{output table (default \code{climatology}).}
+
+\item{sample_tbl}{the sample table joined for \code{site_key} (default \code{"sample"}).}
 }
 \value{
 Invisibly, the row count.
 }
 \description{
-A plain mean per \strong{dataset, station, calendar month, 10 m depth bin and measurement type} over
+A plain mean per \strong{dataset, station (\code{site_key}), calendar month, 10 m depth bin and measurement type} over
 the env realm of \code{obs} across a fixed window of years — the baseline every CalCOFI anomaly
 (ctd-transects, the CalCOFI Explorer's Sections lens, \code{\link[calcofi4r:cc_climatology]{calcofi4r::cc_climatology()}}) is a
 departure from. Written once at release time so the products cannot disagree.
@@ -67,6 +71,16 @@ with both phases of the 1997–99 ENSO inside it, ending before the 2014–16 ma
 the heatwave and everything after read as departures. Not a WMO normal. The bounds are stamped
 on every row (\code{clim_yr_min}, \code{clim_yr_max}), so a consumer reading the parquet alone knows what
 the mean is a mean of.
+\item \strong{The station is \code{sample.site_key}, not the grid cell.} \code{grid_key} is a point-in-polygon
+into ~2,350 km² nearshore cells that each hold 2–4 real stations, all occupied every cruise
+since 2004 (\code{st30-ln90} holds 90.30, 90.28, 90.27.7 and 88.5/30.1; 3.7 CTD occupations per
+cruise). Until calcofi4db 4.8.0 the baseline pooled them into one cell — ~1 °C off at the
+surface for the inshore station — while ctd-transects drew one of them and the Explorer
+averaged them. The grain is now the station, read from \code{sample} through \code{sample_key}
+(\code{obs} does not carry \code{site_key}); \code{grid_key} stays on the row as the station's modal cell
+(709 of 9,705 stations straddle a cell edge across their occupations) so a map or hex consumer
+can still aggregate by cell. Rows whose sample has no station (underway, transect,
+region-pooled) contribute nothing.
 \item \strong{A floor in cruises, not observations} (\code{min_cruises}, default 3). A grid cell can hold
 several stations' casts from one cruise (\code{st30-ln90} holds 90.30, 90.28, 90.27.7 and
 88.5/30.1), so an observation floor is met by one lucky cruise. \code{clim_n} and \code{n_cruises} both
@@ -90,7 +104,7 @@ scientifically meaningful precision. Applied to the finished aggregate, so it is
 of the (order-independent) value, not of how it was summed.
 }
 
-Rows without a station (\code{grid_key}), a time or a depth, non-finite values, and values the quality
+Rows without a station (\code{site_key}), a time or a depth, non-finite values, and values the quality
 predicate rejects are left out; nothing is interpolated. A cell that is absent has no baseline —
 a consumer must leave its anomaly blank, never 0.
 }

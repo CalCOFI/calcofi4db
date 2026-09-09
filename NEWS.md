@@ -1,3 +1,28 @@
+# calcofi4db 4.10.0
+
+## Sections and the climatology key on the station, not the grid cell
+
+- `build_climatology()` grains on **`sample.site_key`** (joined through `sample_key`; `obs` carries
+  no `site_key`) instead of `grid_key`, keeping `grid_key` on the row as the station's modal cell
+  (`mode(grid_key)`: 709 of 9,705 stations straddle a cell edge across their occupations). Measured
+  on v2026.09.06: the inshore cells of the core lines each hold 2–4 stations occupied every cruise
+  since 2004 (`st30-ln90` = 90.30 · 90.28 · 90.27.7 · 88.5/30.1, 3.67 CTD occupations per cruise;
+  `st35-ln86.7` 3.22; `st40-ln83.3` 2.88; `st25-ln93.3` 2.69), so the cell-grained baseline blended
+  stations 15–30 km apart where the gradient is steepest, ctd-transects drew whichever the ship
+  reached first (1,595 of 9,637 occupations, 16.6 %, never drew; 26 % on line 90 since 2004) and the
+  Explorer averaged them. New argument `sample_tbl = "sample"`; column order is now `dataset_key,
+  site_key, grid_key, month, depth_bin, measurement_type, …`; the primary key in
+  `core_relationships()` follows (`dataset_key, site_key, month, depth_bin, measurement_type`).
+  **Consumers:** ctd-transects, the Explorer's `section_clim.sql` and `calcofi4r::cc_climatology()`
+  join on `site_key`; a cell-level consumer aggregates the rows by `grid_key` weighted by `clim_n`.
+- `site_key_sql()` / `normalize_site_key()`: one canonical spelling of the station,
+  `printf('%05.1f %05.1f', line, station)` — the first two signed decimals in the string, whatever
+  the padding or separator; a negative station keeps its sign. `append_sample()` applies it to every
+  ingest's sample arm (and reports how many rows changed): v2026.09.06 shipped 28 CTD casts carrying
+  the source's own `Sta_ID` forms (`93.3    26.4`, `0093. 060.0`, `090.0 27.76`, `88.50 030.1`)
+  beside the canonical form. `check_site_key_format()` is the release gate (NULL allowed; any
+  non-canonical value stops the release and names the dataset).
+
 # calcofi4db 4.9.0
 
 ## Every observed taxon has a record: `taxa.json`, the species catalog
@@ -53,31 +78,11 @@
   no names and no memberships, and its absence from the release's `spatial` table no longer warns.
   A row without the columns is a `boundary` / `pmtiles` layer as before.
 
-## Sections and the climatology key on the station, not the grid cell
+## `obs_bio` / `obs_env` carry `site_key`
 
-- `build_climatology()` grains on **`sample.site_key`** (joined through `sample_key`; `obs` carries
-  no `site_key`) instead of `grid_key`, keeping `grid_key` on the row as the station's modal cell
-  (`mode(grid_key)`: 709 of 9,705 stations straddle a cell edge across their occupations). Measured
-  on v2026.09.06: the inshore cells of the core lines each hold 2–4 stations occupied every cruise
-  since 2004 (`st30-ln90` = 90.30 · 90.28 · 90.27.7 · 88.5/30.1, 3.67 CTD occupations per cruise;
-  `st35-ln86.7` 3.22; `st40-ln83.3` 2.88; `st25-ln93.3` 2.69), so the cell-grained baseline blended
-  stations 15–30 km apart where the gradient is steepest, ctd-transects drew whichever the ship
-  reached first (1,595 of 9,637 occupations, 16.6 %, never drew; 26 % on line 90 since 2004) and the
-  Explorer averaged them. New argument `sample_tbl = "sample"`; column order is now `dataset_key,
-  site_key, grid_key, month, depth_bin, measurement_type, …`; the primary key in
-  `core_relationships()` follows (`dataset_key, site_key, month, depth_bin, measurement_type`).
-  **Consumers:** ctd-transects, the Explorer's `section_clim.sql` and `calcofi4r::cc_climatology()`
-  join on `site_key`; a cell-level consumer aggregates the rows by `grid_key` weighted by `clim_n`.
 - `build_obs_slim()`: `obs_bio` / `obs_env` carry **`site_key`** (after `grid_key`, from `sample`), so a
   browser consumer (the Explorer's Sections lens) can key on the station without loading `sample`. The
   `obs` catalog view keeps its 18 columns; `check_obs_pair_parity()` is unaffected.
-- `site_key_sql()` / `normalize_site_key()`: one canonical spelling of the station,
-  `printf('%05.1f %05.1f', line, station)` — the first two signed decimals in the string, whatever
-  the padding or separator; a negative station keeps its sign. `append_sample()` applies it to every
-  ingest's sample arm (and reports how many rows changed): v2026.09.06 shipped 28 CTD casts carrying
-  the source's own `Sta_ID` forms (`93.3    26.4`, `0093. 060.0`, `090.0 27.76`, `88.50 030.1`)
-  beside the canonical form. `check_site_key_format()` is the release gate (NULL allowed; any
-  non-canonical value stops the release and names the dataset).
 
 # calcofi4db 4.7.0
 
