@@ -199,9 +199,17 @@ test_that("build_coverage() puts variable.csv's label onto variables[] (measurem
   DBI::dbExecute(con, "ALTER TABLE measurement_type ADD COLUMN category VARCHAR")
   DBI::dbExecute(con, "ALTER TABLE measurement_type ADD COLUMN variable VARCHAR")
   DBI::dbExecute(con, "UPDATE measurement_type SET category = 'Physical Oceanography', variable = 'temperature' WHERE measurement_type = 'temperature'")
+  DBI::dbExecute(con, "ALTER TABLE measurement_type ADD COLUMN valid_min DOUBLE")
+  DBI::dbExecute(con, "ALTER TABLE measurement_type ADD COLUMN valid_max DOUBLE")
+  DBI::dbExecute(con, "UPDATE measurement_type SET valid_min = -2, valid_max = 40 WHERE measurement_type = 'temperature'")
   vr <- data.frame(variable = "temperature", label = "Temperature", stringsAsFactors = FALSE)
   v <- build_coverage(con, "v2026.09.01", variable = vr)$variables
   expect_equal(v$label[v$measurement_type == "temperature"], "Temperature")
+  # the declared bounds ride along so the explorer can clip before the engine is warm
+  expect_equal(v$valid_min[v$measurement_type == "temperature"], -2)
+  expect_equal(v$valid_max[v$measurement_type == "temperature"], 40)
+  # undeclared is NULL, never the observed range
+  expect_true(is.na(v$valid_max[v$measurement_type == "abundance"]))
   # a type with no `variable` — so no key, so no row — gets NA, never an invented label
   expect_true(is.na(v$label[v$measurement_type == "abundance"]))
   # no registry at all: the column is there and empty, and nothing errors

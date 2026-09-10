@@ -58,11 +58,18 @@ CC_MEASUREMENT_BOTTLE_RE    <- "(^btl_)|(_btl$)|(_btl_)"
 CC_MEASUREMENT_REPLICATE_RE <- "_rep[0-9]*$"
 #' @keywords internal
 CC_MEASUREMENT_PRE_QC_RE    <- "^r_"
+# the registry `derivation` of the mean of a sensor pair opens with these words
+#' @keywords internal
+CC_MEASUREMENT_MEAN_RE      <- "^[[:space:]]*mean of"
 
-# a value at or above this, in a series with no declared bound, reads as a
-# possible fill sentinel (the 99.00 degC bottle temperature of v2026.09.06)
+# With no bound declared, a maximum is only suspicious when it is both large in
+# absolute terms (>= 99, the shape a 9-fill takes) AND far outside the series'
+# own distribution (more than 100x its 95th percentile). Either test alone
+# floods: PAR reads 14,187 uE/m2/s and radiation 1,456 W/m2 legitimately.
 #' @keywords internal
 CC_MEASUREMENT_SENTINEL <- 99
+#' @keywords internal
+CC_MEASUREMENT_SENTINEL_RATIO <- 100
 
 # helpers ----------------------------------------------------------------------------
 
@@ -137,11 +144,16 @@ CC_MEASUREMENT_SENTINEL <- 99
 #'   quality control, kept beside the QC'd one.
 #' * `no_bound` — the registry declares neither `valid_min` nor `valid_max`, so
 #'   nothing in the pipeline can call one of its values impossible.
-#' * `sentinel_suspected` — the observed maximum exceeds the declared
-#'   `valid_max`, or (with no bound declared at all) reaches
-#'   `CC_MEASUREMENT_SENTINEL` (99), the shape a fill value takes. On
-#'   v2026.09.06 the bottle's `temperature` reads 99.00 degC — one corrupt 2020
-#'   cast, fixed at the ingest for the next release.
+#' * `sentinel_suspected` — a value the series' own registry row says is
+#'   impossible, or one that looks like a fill where nothing is declared.
+#'   Precisely: `out_of_bounds$n > 0` (at least one value outside the declared
+#'   `valid_min` / `valid_max`), or — with no bound declared at all — an observed
+#'   maximum both at or above `CC_MEASUREMENT_SENTINEL` (99, the shape a 9-fill
+#'   takes) **and** more than `CC_MEASUREMENT_SENTINEL_RATIO` (100) times the
+#'   series' own 95th percentile. Both halves of the second test are needed:
+#'   PAR reads 14,187 uE/m2/s and short-wave radiation 1,456 W/m2 legitimately,
+#'   while the METS `sst_c` of v2026.09.06 reads 9,895 degC against a 95th
+#'   percentile of 20.4.
 #' * `no_flag_at_grain` — the registry names no `_qual_column`, so the series
 #'   reaches the release carrying no quality code. The CTD's `temperature_ave`
 #'   is the headline case: the sensor flags ride `temperature_1` / `temperature_2`
@@ -187,12 +199,21 @@ measurement_flags <- function() "no_label"
 #' * `replicate_vs_mean` — one side is a `…_rep` replicate, the other a mean
 #'   (`alkalinity_rep1` beside `alkalinity`).
 #' * `pre_qc_twin` — one side is an `r_*` series reported before quality control.
+#' * `sensor_vs_mean` — the two share a dataset and exactly one side's registry
+#'   `derivation` starts with "Mean of": a raw sensor beside the mean of the
+#'   sensor pair (`oxygen_ml_l_1` beside `oxygen_ml_l_ave_sta_corr`, which is
+#'   the `oxygen_ml_l` key). One is an input to the other.
+#' * `same_casts` — the residual same-quantity case: different datasets, neither
+#'   underway, and no bottle-table, replicate, pre-QC or sensor marker to name a
+#'   sharper difference. Plausibly the same water sampled on the same casts, and
+#'   kept apart for that reason — the DIC package's `salinity_pss78`, which is
+#'   the CTD salinity of the DIC casts, beside the unified `salinity`.
 #'
 #' They are tested in that order, because the first that applies is the
 #' coarsest difference: an underway intake beside a cast's bottle table is
 #' `underway_vs_cast`, not `same_bottles`.
 #'
-#' A pair sharing a P01 that matches none of the four gets **no** `related[]`
+#' A pair sharing a P01 that matches none of the six gets **no** `related[]`
 #' entry: the vocabulary states no reason, and the record never invents one.
 #'
 #' @return A character vector, the `related[].why` enum.
@@ -201,7 +222,8 @@ measurement_flags <- function() "no_label"
 #' @examples
 #' measurement_related_reasons()
 measurement_related_reasons <- function()
-  c("underway_vs_cast", "same_bottles", "replicate_vs_mean", "pre_qc_twin")
+  c("underway_vs_cast", "same_bottles", "replicate_vs_mean", "pre_qc_twin",
+    "sensor_vs_mean", "same_casts")
 
 # build ---------------------------------------------------------------------------------
 
@@ -250,8 +272,15 @@ measurement_related_reasons <- function()
 #'   Named here rather than inferred, because nothing in the release states it.
 #' @param supplemental_tables named character vector mapping a registry
 #'   `_source_table` to the full-resolution release table its non-released series
-#'   live in; the names are also what makes a canonical series absent from
-#'   `obs_env` a `full_resolution_only[]` row rather than an empty one.
+#'   live in. Only a registry row from one of these source tables can be a
+#'   `full_resolution_only[]` row: a row from anywhere else that never reaches
+#'   `obs_env` is simply not released, not "full resolution only".
+#' @param supplemental_rows named numeric vector, release table -> row count,
+#'   used for any `supplemental_tables` entry the connection does not carry (a
+#'   promoted release read through `cc_get_db()` does not attach them). Read it
+#'   from that release's own `catalog.json`; never type it. `full_rows` is
+#'   `counts$obs_env_rows` plus these, and is `NA` when a supplemental is neither
+#'   on the connection nor supplied.
 #' @return A list ready for [write_measurements_catalog()] /
 #'   `jsonlite::write_json(auto_unbox = TRUE)`, validating against
 #'   `inst/schema/measurements.schema.json`.
@@ -264,7 +293,8 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
                                        category, release_version = NULL, release_date = NULL,
                                        underway_datasets = "calcofi_mets",
                                        supplemental_tables = c(ctd_raw = "obs_ctd_full",
-                                                               mets_measurement = "obs_mets_full")) {
+                                                               mets_measurement = "obs_mets_full"),
+                                       supplemental_rows = NULL) {
   stopifnot(
     "build_measurements_catalog(): `con` must be an open DBI connection to the release tables" =
       inherits(con, "DBIConnection"),
@@ -298,23 +328,45 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
   mt_i <- stats::setNames(seq_len(nrow(mt)), mt[["measurement_type"]])
   reg  <- function(type, col) mt[[col]][mt_i[[type]]]
 
+  # the key and the declared bounds, pushed into SQL once ---------------------------
+  # `observed{}` describes the series a reader would use, so it is computed WITHIN
+  # the declared bounds; what falls outside is counted and bracketed separately in
+  # `out_of_bounds{}` rather than silently widening the quantiles. The raw counts
+  # (n_values, years{}, months[], depth_bands{}, qual{}, qual_ok_n) are untouched,
+  # so the release's own arithmetic gate still equals obs_env's row count.
+  map <- data.frame(
+    measurement_type = as.character(mt[["measurement_type"]]),
+    mkey      = .mm_key_of(mt[["measurement_type"]], mt[["variable"]]),
+    valid_min = suppressWarnings(as.numeric(mt[["valid_min"]])),
+    valid_max = suppressWarnings(as.numeric(mt[["valid_max"]])),
+    stringsAsFactors = FALSE)
+  DBI::dbWriteTable(con, "_mm_map", map, temporary = TRUE, overwrite = TRUE)
+  on.exit(try(DBI::dbRemoveTable(con, "_mm_map"), silent = TRUE), add = TRUE)
+  in_b <- "(m.valid_min IS NULL OR o.value >= m.valid_min)
+           AND (m.valid_max IS NULL OR o.value <= m.valid_max)"
+
   # what the release measures -----------------------------------------------------
-  ser <- DBI::dbGetQuery(con, "
-    SELECT dataset_key, measurement_type,
-           CAST(count(*)                    AS INTEGER) AS n_values,
-           CAST(count(DISTINCT sample_key)  AS INTEGER) AS n_samples,
-           CAST(count(DISTINCT root_id)     AS INTEGER) AS n_roots,
-           CAST(count(DISTINCT grid_key)    AS INTEGER) AS n_cells,
-           CAST(count(DISTINCT cruise_key)  AS INTEGER) AS n_cruises,
-           CAST(min(year) AS INTEGER) AS year_min, CAST(max(year) AS INTEGER) AS year_max,
-           min(depth_min_m) AS depth_min_m, max(depth_max_m) AS depth_max_m,
-           CAST(count(*) FILTER (WHERE qual_ok) AS INTEGER) AS qual_ok_n,
-           min(value)                     FILTER (WHERE isfinite(value)) AS v_min,
-           quantile_cont(value, 0.05)     FILTER (WHERE isfinite(value)) AS v_p05,
-           quantile_cont(value, 0.50)     FILTER (WHERE isfinite(value)) AS v_p50,
-           quantile_cont(value, 0.95)     FILTER (WHERE isfinite(value)) AS v_p95,
-           max(value)                     FILTER (WHERE isfinite(value)) AS v_max
-    FROM obs_env GROUP BY 1, 2 ORDER BY 1, 2")
+  ser <- DBI::dbGetQuery(con, glue::glue("
+    SELECT o.dataset_key, o.measurement_type,
+           CAST(count(*)                      AS INTEGER) AS n_values,
+           CAST(count(DISTINCT o.sample_key)  AS INTEGER) AS n_samples,
+           CAST(count(DISTINCT o.root_id)     AS INTEGER) AS n_roots,
+           CAST(count(DISTINCT o.grid_key)    AS INTEGER) AS n_cells,
+           CAST(count(DISTINCT o.cruise_key)  AS INTEGER) AS n_cruises,
+           CAST(min(o.year) AS INTEGER) AS year_min, CAST(max(o.year) AS INTEGER) AS year_max,
+           min(o.depth_min_m) AS depth_min_m, max(o.depth_max_m) AS depth_max_m,
+           CAST(count(*) FILTER (WHERE o.qual_ok) AS INTEGER) AS qual_ok_n,
+           any_value(m.valid_min) AS valid_min, any_value(m.valid_max) AS valid_max,
+           min(o.value)                 FILTER (WHERE isfinite(o.value) AND {in_b}) AS v_min,
+           quantile_cont(o.value, 0.05) FILTER (WHERE isfinite(o.value) AND {in_b}) AS v_p05,
+           quantile_cont(o.value, 0.50) FILTER (WHERE isfinite(o.value) AND {in_b}) AS v_p50,
+           quantile_cont(o.value, 0.95) FILTER (WHERE isfinite(o.value) AND {in_b}) AS v_p95,
+           max(o.value)                 FILTER (WHERE isfinite(o.value) AND {in_b}) AS v_max,
+           CAST(count(*) FILTER (WHERE isfinite(o.value) AND NOT ({in_b})) AS INTEGER) AS ob_n,
+           min(o.value) FILTER (WHERE isfinite(o.value) AND NOT ({in_b})) AS ob_min,
+           max(o.value) FILTER (WHERE isfinite(o.value) AND NOT ({in_b})) AS ob_max
+    FROM obs_env o LEFT JOIN _mm_map m USING (measurement_type)
+    GROUP BY 1, 2 ORDER BY 1, 2"))
   stopifnot("build_measurements_catalog(): obs_env carries no rows" = nrow(ser) > 0)
   sy <- DBI::dbGetQuery(con, "
     SELECT dataset_key, measurement_type, CAST(year AS INTEGER) AS year,
@@ -350,18 +402,11 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
   if (length(unknown))
     stop("build_measurements_catalog(): obs_env carries measurement_type(s) absent from the registry: ",
          paste(utils::head(unknown, 8), collapse = ", "), call. = FALSE)
-  ser[["key"]] <- .mm_key_of(ser[["measurement_type"]],
-                             vapply(ser[["measurement_type"]], function(t) .mm_chr(reg(t, "variable")), ""))
-  types <- sort(unique(ser[["measurement_type"]]))
-  map   <- data.frame(measurement_type = types,
-                      mkey = .mm_key_of(types, vapply(types, function(t) .mm_chr(reg(t, "variable")), "")),
-                      stringsAsFactors = FALSE)
+  ser[["key"]] <- map[["mkey"]][match(ser[["measurement_type"]], map[["measurement_type"]])]
 
   # totals at the key grain: distinct samples and roots cannot be summed over
   # series (two series of one dataset would share sample_keys), so the key is
-  # pushed into SQL as a temp mapping and counted once
-  DBI::dbWriteTable(con, "_mm_map", map, temporary = TRUE, overwrite = TRUE)
-  on.exit(try(DBI::dbRemoveTable(con, "_mm_map"), silent = TRUE), add = TRUE)
+  # counted once through the same temp mapping
   tot <- DBI::dbGetQuery(con, "
     SELECT m.mkey AS key,
            CAST(count(*)                      AS INTEGER) AS n_values,
@@ -379,9 +424,25 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
   clim <- if ("climatology" %in% tbls)
     DBI::dbGetQuery(con, "SELECT DISTINCT measurement_type FROM climatology")$measurement_type else
       character()
-  full_tbls <- grep("^obs_[a-z0-9]+_full$", tbls, value = TRUE)
-  full_rows <- if (length(full_tbls)) sum(vapply(full_tbls, function(t)
-    as.numeric(DBI::dbGetQuery(con, paste0('SELECT count(*) AS n FROM "', t, '"'))$n), 0)) else NA_real_
+  # `full_rows` is every environmental measurement the release publishes: obs_env
+  # plus the full-resolution supplementals. Counted on the connection where it
+  # carries them (the release's own con_wdl does); otherwise taken from
+  # `supplemental_rows`, which a caller reading a promoted release supplies from
+  # that release's catalog.json — read, never typed. A supplemental neither on
+  # the connection nor in `supplemental_rows` makes `full_rows` NA rather than an
+  # undercount that looks like a number.
+  want_full <- unname(supplemental_tables)
+  have_full <- vapply(want_full, function(t) {
+    if (t %in% tbls)
+      as.numeric(DBI::dbGetQuery(con, paste0('SELECT count(*) AS n FROM "', t, '"'))$n) else {
+        # `[[` on a named atomic vector errors on a missing name: match(), always
+        j <- if (is.null(supplemental_rows)) NA_integer_ else
+          match(t, names(supplemental_rows))
+        if (is.na(j)) NA_real_ else as.numeric(supplemental_rows[[j]])
+      }
+  }, 0)
+  full_rows <- if (!length(have_full) || anyNA(have_full)) NA_real_ else
+    n_obs_env + sum(have_full)
 
   # the categories ----------------------------------------------------------------
   cg    <- as.data.frame(category, stringsAsFactors = FALSE)
@@ -427,6 +488,11 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
   })
   key_types <- split(ser[["measurement_type"]], ser[["key"]])
   key_dsets <- split(ser[["dataset_key"]], ser[["key"]])
+  # a key is "the mean side" when one of its types says so in the registry
+  is_mean <- function(types) any(vapply(types, function(t) {
+    d <- .mm_chr(reg(t, "derivation"))
+    !is.na(d) && grepl(CC_MEASUREMENT_MEAN_RE, d, ignore.case = TRUE)
+  }, logical(1)))
   why_of <- function(a, b) {
     ta <- key_types[[a]]; tb <- key_types[[b]]
     da <- key_dsets[[a]]; db <- key_dsets[[b]]
@@ -435,6 +501,12 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
     if (any(grepl(CC_MEASUREMENT_BOTTLE_RE,    c(ta, tb))))           return("same_bottles")
     if (any(grepl(CC_MEASUREMENT_REPLICATE_RE, c(ta, tb))))           return("replicate_vs_mean")
     if (any(grepl(CC_MEASUREMENT_PRE_QC_RE,    c(ta, tb))))           return("pre_qc_twin")
+    # a raw sensor beside the mean of its pair: the same dataset, and exactly one
+    # side derived as a mean
+    if (length(intersect(da, db)) && xor(is_mean(ta), is_mean(tb)))   return("sensor_vs_mean")
+    # the residual criterion-(iv) case: two datasets sampling the same water on
+    # the same casts, with no sharper marker to name
+    if (!length(intersect(da, db)) && !uw(da) && !uw(db))             return("same_casts")
     NA_character_
   }
 
@@ -454,7 +526,10 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
     bands <- stats::setNames(as.list(integer(length(CC_MEASUREMENT_DEPTH_BANDS))),
                              CC_MEASUREMENT_DEPTH_BANDS)
     if (length(db)) for (j in db) bands[[sd[["band"]][j]]] <- as.integer(sd[["n"]][j])
+    obs_min <- .mm_num(ser[["v_min"]][i])
     obs_max <- .mm_num(ser[["v_max"]][i])
+    obs_p95 <- .mm_num(ser[["v_p95"]][i])
+    has_bound <- !is.na(.mm_num(ser[["valid_min"]][i])) || !is.na(.mm_num(ser[["valid_max"]][i]))
     list(measurement_type = tp,
          dataset_key      = dk,
          source_column    = .mm_chr(reg(tp, "_source_column")),
@@ -477,10 +552,15 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
          depth_bands = bands,
          qual = .mm_obj(sq[["qual"]][qu], sq[["n"]][qu]),
          qual_ok_n = .mm_int(ser[["qual_ok_n"]][i]),
-         observed = list(min = .mm_num(ser[["v_min"]][i]), p05 = .mm_num(ser[["v_p05"]][i]),
-                         p50 = .mm_num(ser[["v_p50"]][i]), p95 = .mm_num(ser[["v_p95"]][i]),
+         observed = list(min = obs_min, p05 = .mm_num(ser[["v_p05"]][i]),
+                         p50 = .mm_num(ser[["v_p50"]][i]), p95 = obs_p95,
                          max = obs_max),
-         flags = .arr(.mm_series_flags(tp, mt, mt_i, obs_max)))
+         out_of_bounds = if (has_bound) list(
+           n   = .mm_int(ser[["ob_n"]][i]),
+           min = .mm_num(ser[["ob_min"]][i]),
+           max = .mm_num(ser[["ob_max"]][i])) else NULL,
+         flags = .arr(.mm_series_flags(tp, mt, mt_i, obs_min, obs_max, obs_p95,
+                                       .mm_int(ser[["ob_n"]][i]))))
   }
 
   measurements <- lapply(keys, function(k) {
@@ -549,13 +629,14 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
   datasets <- lapply(ds_keys, function(dk) {
     m  <- ds_meta[[dk]]
     rr <- which(ser[["dataset_key"]] == dk)
-    # a registry row this dataset declares that never reaches obs_env: a raw
-    # sensor, a thermosalinograph past the first. It gets no page; it is here so
-    # a reader can find the full-resolution product it does live in.
+    # a registry row this dataset declares that never reaches obs_env AND whose
+    # source table IS a full-resolution supplemental: a raw sensor, a
+    # thermosalinograph past the first. It gets no page; it is here so a reader
+    # can find the product it does live in. A row from any other source table is
+    # simply not released — not "full resolution only" — and is not listed.
     claims <- vapply(ds_of_type, function(v) dk %in% trimws(v), logical(1))
     fro <- which(claims & !mt[["measurement_type"]] %in% ser[["measurement_type"]][rr] &
-                   (!vapply(mt[["is_canonical"]], function(x) isTRUE(.mm_lgl(x)), logical(1)) |
-                      as.character(mt[["_source_table"]]) %in% names(supplemental_tables)))
+                   as.character(mt[["_source_table"]]) %in% names(supplemental_tables))
     fro <- fro[order(mt[["measurement_type"]][fro])]
     list(dataset_key        = dk,
          dataset_name_short = if (is.null(m)) NA_character_ else m$dataset_name_short,
@@ -591,7 +672,7 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
 }
 
 # the flags of one series against its registry row
-.mm_series_flags <- function(type, mt, mt_i, obs_max) {
+.mm_series_flags <- function(type, mt, mt_i, obs_min, obs_max, obs_p95, ob_n = 0L) {
   i <- mt_i[[type]]
   f <- character()
   drv <- .mm_chr(mt[["derivation"]][i])
@@ -602,8 +683,14 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
   if (grepl(CC_MEASUREMENT_REPLICATE_RE, type))                     f <- c(f, "replicate")
   if (grepl(CC_MEASUREMENT_PRE_QC_RE, type))                        f <- c(f, "reported_pre_qc")
   if (no_bound)                                                     f <- c(f, "no_bound")
-  if (!is.na(obs_max) && ((!is.na(vmax) && obs_max > vmax) ||
-                          (no_bound && obs_max >= CC_MEASUREMENT_SENTINEL)))
+  # a declared bound broken is a fact (`out_of_bounds.n > 0`; `observed{}` is
+  # clipped to the bounds, so it can no longer show the breach itself); with
+  # nothing declared, only a maximum both >= 99 and 100x outside the series' own
+  # 95th percentile is worth a pill
+  scale <- max(abs(if (is.na(obs_p95)) 0 else obs_p95), 1)
+  if ((!no_bound && !is.na(ob_n) && ob_n > 0) ||
+      (no_bound && !is.na(obs_max) && obs_max >= CC_MEASUREMENT_SENTINEL &&
+         obs_max > CC_MEASUREMENT_SENTINEL_RATIO * scale))
     f <- c(f, "sentinel_suspected")
   if (is.na(.mm_chr(mt[["_qual_column"]][i])))                      f <- c(f, "no_flag_at_grain")
   if (is.na(.mm_chr(mt[["nerc_p01"]][i])))                          f <- c(f, "no_p01")

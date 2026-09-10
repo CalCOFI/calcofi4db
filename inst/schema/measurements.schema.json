@@ -23,7 +23,7 @@
         "series":       { "type": "integer", "minimum": 0, "description": "measurement_type x dataset pairs in obs_env" },
         "datasets":     { "type": "integer", "minimum": 0, "description": "datasets carrying an obs_env row" },
         "obs_env_rows": { "type": "integer", "minimum": 0, "description": "rows of obs_env; equals the sum of series[].n_values over every key" },
-        "full_rows":    { "type": ["integer", "null"], "minimum": 0, "description": "rows of the full-resolution supplementals (obs_ctd_full, obs_mets_full); null when they are not on the connection" },
+        "full_rows":    { "type": ["integer", "null"], "minimum": 0, "description": "every environmental measurement the release publishes: obs_env_rows plus the full-resolution supplementals (obs_ctd_full, obs_mets_full); null when a supplemental is neither on the connection nor supplied" },
         "pages":        { "type": "integer", "minimum": 0, "description": "length of measurements[]: one page per key" }
       }
     },
@@ -132,7 +132,7 @@
             "type": "object", "additionalProperties": false, "required": ["key", "why"],
             "properties": {
               "key": { "type": "string" },
-              "why": { "type": "string", "enum": ["underway_vs_cast", "same_bottles", "replicate_vs_mean", "pre_qc_twin"] }
+              "why": { "type": "string", "enum": ["underway_vs_cast", "same_bottles", "replicate_vs_mean", "pre_qc_twin", "sensor_vs_mean", "same_casts"], "description": "underway_vs_cast: one side is an underway intake · same_bottles: one side is another dataset's own copy of the bottle table, plausibly the same physical bottles · replicate_vs_mean: a _rep replicate beside a mean · pre_qc_twin: an r_ series reported before QC · sensor_vs_mean: a raw sensor beside the mean of its pair, in the same dataset · same_casts: two datasets sampling the same water on the same casts, with no sharper marker" }
             }
           }
         },
@@ -145,7 +145,7 @@
     },
     "series": {
       "type": "object", "additionalProperties": false,
-      "required": ["measurement_type", "dataset_key", "source_column", "qual_column", "description", "units", "nerc_p01", "is_canonical", "n_values", "n_samples", "n_roots", "n_cells", "n_cruises", "year_min", "year_max", "depth_min_m", "depth_max_m", "years", "months", "depth_bands", "qual", "qual_ok_n", "observed", "flags"],
+      "required": ["measurement_type", "dataset_key", "source_column", "qual_column", "description", "units", "nerc_p01", "is_canonical", "n_values", "n_samples", "n_roots", "n_cells", "n_cruises", "year_min", "year_max", "depth_min_m", "depth_max_m", "years", "months", "depth_bands", "qual", "qual_ok_n", "observed", "out_of_bounds", "flags"],
       "properties": {
         "measurement_type": { "type": "string" },
         "dataset_key":      { "type": "string" },
@@ -190,9 +190,19 @@
           "description": "values per measurement_qual code, each dataset's own uninterpreted vocabulary; 'none' is the rows carrying no code"
         },
         "qual_ok_n": { "type": "integer", "minimum": 0, "description": "values the release's own qual_ok keeps" },
+        "out_of_bounds": {
+          "type": ["object", "null"],
+          "additionalProperties": false, "required": ["n", "min", "max"],
+          "description": "the finite values outside the series' declared valid_min / valid_max, which observed{} excludes. null when the registry declares no bound; n is 0 with null min/max when nothing falls outside. n is NOT subtracted from n_values: the raw counts are what the release's arithmetic gate checks.",
+          "properties": {
+            "n":   { "type": "integer", "minimum": 0 },
+            "min": { "$ref": "#/definitions/nullable_number" },
+            "max": { "$ref": "#/definitions/nullable_number" }
+          }
+        },
         "observed": {
           "type": "object", "additionalProperties": false, "required": ["min", "p05", "p50", "p95", "max"],
-          "description": "quantiles of the finite values; NaN and infinities are excluded",
+          "description": "quantiles of the finite values WITHIN the declared bounds; NaN, infinities and out-of-bounds values are excluded",
           "properties": {
             "min": { "$ref": "#/definitions/nullable_number" }, "p05": { "$ref": "#/definitions/nullable_number" },
             "p50": { "$ref": "#/definitions/nullable_number" }, "p95": { "$ref": "#/definitions/nullable_number" },

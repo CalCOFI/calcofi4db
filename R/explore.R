@@ -320,8 +320,8 @@ build_sample_spatial <- function(con, layers = NULL, tbl = "sample_spatial") {
 #'
 #' n observations and root samples by dataset, by dataset x station x year, by dataset x year and by
 #' dataset x measurement type (with year and depth spans, and — when the `measurement_type` table
-#' carries them — the registry's `category` and `variable`, plus the key's `label` from
-#' `metadata/variable.csv` when one is supplied); the per-station year x month detail is
+#' carries them — the registry's `category`, `variable`, `valid_min` and `valid_max`, plus the key's
+#' `label` from `metadata/variable.csv` when one is supplied); the per-station year x month detail is
 #' [build_coverage_stations()], a second sidecar fetched on demand — small enough to paint the grid before
 #' DuckDB-WASM wakes up, and the variable-based inventory Task 14 asks for. Since 3.25.0 also `taxa[]`
 #' (explorer UI plan D14): one row per taxon of the bio realm — key, names, rank, class, n_obs, year
@@ -400,11 +400,19 @@ build_coverage <- function(con, version, variable = NULL) {
                          min(depth_min_m) AS depth_min_m, max(depth_max_m) AS depth_max_m
                   FROM _cov GROUP BY dataset_key, realm, measurement_type ORDER BY dataset_key, measurement_type")
   # the registry's category + variable onto variables[] (explorer UI plan D14) — only when the table carries them
+  # `valid_min` / `valid_max` ride along (measurements catalog plan 2026-09-10): the explorer clips
+  # its colour ramp and its axes at first paint, before DuckDB-WASM is warm, and a declared bound is
+  # the only thing that says a 9,895 degC underway reading is not the top of the scale. NULL where
+  # nothing is declared — never the observed range, which is what a bound is not.
   if (has("measurement_type")) {
-    mcols <- intersect(c("category", "variable"), DBI::dbListFields(con, "measurement_type"))
-    if (length(mcols)) {
-      mt <- q(glue::glue("SELECT measurement_type, {paste(mcols, collapse = ', ')} FROM measurement_type"))
-      for (cl in mcols) variables[[cl]] <- as.character(mt[[cl]][match(variables$measurement_type, mt$measurement_type)])
+    mflds <- DBI::dbListFields(con, "measurement_type")
+    mcols <- intersect(c("category", "variable"), mflds)
+    ncols <- intersect(c("valid_min", "valid_max"), mflds)
+    if (length(c(mcols, ncols))) {
+      mt <- q(glue::glue("SELECT measurement_type, {paste(c(mcols, ncols), collapse = ', ')} FROM measurement_type"))
+      i  <- match(variables$measurement_type, mt$measurement_type)
+      for (cl in mcols) variables[[cl]] <- as.character(mt[[cl]][i])
+      for (cl in ncols) variables[[cl]] <- suppressWarnings(as.numeric(mt[[cl]][i]))
     }
   }
   # `label` (measurements catalog plan 2026-09-10 § D3/D10): the display name of the KEY, from

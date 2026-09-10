@@ -13,7 +13,8 @@ build_measurements_catalog(
   release_version = NULL,
   release_date = NULL,
   underway_datasets = "calcofi_mets",
-  supplemental_tables = c(ctd_raw = "obs_ctd_full", mets_measurement = "obs_mets_full")
+  supplemental_tables = c(ctd_raw = "obs_ctd_full", mets_measurement = "obs_mets_full"),
+  supplemental_rows = NULL
 )
 }
 \arguments{
@@ -45,8 +46,16 @@ Named here rather than inferred, because nothing in the release states it.}
 
 \item{supplemental_tables}{named character vector mapping a registry
 \verb{_source_table} to the full-resolution release table its non-released series
-live in; the names are also what makes a canonical series absent from
-\code{obs_env} a \code{full_resolution_only[]} row rather than an empty one.}
+live in. Only a registry row from one of these source tables can be a
+\code{full_resolution_only[]} row: a row from anywhere else that never reaches
+\code{obs_env} is simply not released, not "full resolution only".}
+
+\item{supplemental_rows}{named numeric vector, release table -> row count,
+used for any \code{supplemental_tables} entry the connection does not carry (a
+promoted release read through \code{cc_get_db()} does not attach them). Read it
+from that release's own \code{catalog.json}; never type it. \code{full_rows} is
+\code{counts$obs_env_rows} plus these, and is \code{NA} when a supplemental is neither
+on the connection nor supplied.}
 }
 \value{
 A list ready for \code{\link[=write_measurements_catalog]{write_measurements_catalog()}} /

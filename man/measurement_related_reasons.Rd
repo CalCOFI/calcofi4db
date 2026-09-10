@@ -24,13 +24,22 @@ physical bottles, so merging them would double count.
 \item \code{replicate_vs_mean} — one side is a \verb{…_rep} replicate, the other a mean
 (\code{alkalinity_rep1} beside \code{alkalinity}).
 \item \code{pre_qc_twin} — one side is an \verb{r_*} series reported before quality control.
+\item \code{sensor_vs_mean} — the two share a dataset and exactly one side's registry
+\code{derivation} starts with "Mean of": a raw sensor beside the mean of the
+sensor pair (\code{oxygen_ml_l_1} beside \code{oxygen_ml_l_ave_sta_corr}, which is
+the \code{oxygen_ml_l} key). One is an input to the other.
+\item \code{same_casts} — the residual same-quantity case: different datasets, neither
+underway, and no bottle-table, replicate, pre-QC or sensor marker to name a
+sharper difference. Plausibly the same water sampled on the same casts, and
+kept apart for that reason — the DIC package's \code{salinity_pss78}, which is
+the CTD salinity of the DIC casts, beside the unified \code{salinity}.
 }
 
 They are tested in that order, because the first that applies is the
 coarsest difference: an underway intake beside a cast's bottle table is
 \code{underway_vs_cast}, not \code{same_bottles}.
 
-A pair sharing a P01 that matches none of the four gets \strong{no} \code{related[]}
+A pair sharing a P01 that matches none of the six gets \strong{no} \code{related[]}
 entry: the vocabulary states no reason, and the record never invents one.
 }
 \examples{

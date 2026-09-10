@@ -13,15 +13,30 @@
   queries, never one per key; deterministic (no wall clock, no network); ordered by the category
   registry, then by size.
 - `related[]` names the other keys sharing a NERC P01 concept that are **kept apart on purpose**,
-  with the reason — `underway_vs_cast`, `same_bottles`, `replicate_vs_mean`, `pre_qc_twin`
-  ([`measurement_related_reasons()`]). P01 identity says two series name the same quantity, never
-  that they may be pooled: the CTD files' own bottle table is plausibly the same physical bottles as
-  the bottle dataset, so merging them would double count.
+  with the reason — `underway_vs_cast`, `same_bottles`, `replicate_vs_mean`, `pre_qc_twin`,
+  `sensor_vs_mean` (a raw sensor beside the mean of its pair, in the same dataset) and `same_casts`
+  (two datasets sampling the same water on the same casts, with no sharper marker), tested in that
+  order ([`measurement_related_reasons()`]). P01 identity says two series name the same quantity,
+  never that they may be pooled: the CTD files' own bottle table is plausibly the same physical
+  bottles as the bottle dataset, so merging them would double count.
+- **`observed{}` is computed within the declared bounds**, and the values outside them are counted
+  and bracketed in `out_of_bounds{n, min, max}` (`null` where the registry declares no bound). A
+  measurement page then shows the range a reader would actually use while the breach stays visible —
+  the bottle's `temperature` reads 1.44–31.14 °C with `out_of_bounds` `{n: 2, min: 56.87, max: 99}`
+  on v2026.09.06. The raw counts (`n_values`, `years{}`, `months[]`, `depth_bands{}`, `qual{}`,
+  `qual_ok_n`) are untouched, so the release's arithmetic gate still equals `obs_env`'s row count.
 - `measurement_series_flags()` is the per-series vocabulary — `sensor_mean`, `replicate`,
   `reported_pre_qc`, `no_bound`, `sentinel_suspected`, `no_flag_at_grain`, `no_p01` — and
   `measurement_flags()` the one measurement-level flag, `no_label`: absent a `metadata/variable.csv`
   row the label falls back to the canonical series' registry description and says so. The builder
-  never invents a label.
+  never invents a label. `sentinel_suspected` fires on `out_of_bounds$n > 0`, or — with no bound
+  declared — only when the observed maximum is both ≥ 99 and more than 100× the series' own 95th
+  percentile, so PAR's 14,187 µE/m²/s passes while METS `sst_c`'s 9,895 °C (95th: 20.4) does not.
+- `full_resolution_only[]` lists only a registry row whose `_source_table` is one of
+  `supplemental_tables`: a row that never reaches `obs_env` from anywhere else is simply not
+  released, not "full resolution only". `counts$full_rows` is `obs_env_rows` plus the supplementals,
+  counted on the connection where it carries them and otherwise taken from the new
+  `supplemental_rows` argument (read from a promoted release's `catalog.json`, never typed).
 - `write_measurements_catalog()`, `validate_measurements_catalog()` (against the new
   `inst/schema/measurements.schema.json`, `schema_version` 1.0), `check_measurements_catalog()` /
   `assert_measurements_catalog()` / `measurements_catalog_checks()` — twelve checks, all `error`:
@@ -31,6 +46,8 @@
 - `build_coverage()` gains a `variable` argument and puts the key's `label` onto `variables[]` when
   `metadata/variable.csv` supplies one (the Explorer hard-codes five labels in `variables.ts` and
   says they belong in the registry; this is the hook). No row means `NA`, never a derived label.
+  `variables[]` also gains the registry's `valid_min` / `valid_max`, so the Explorer can clip a
+  ramp or an axis at first paint; `NULL` where nothing is declared, never the observed range.
 - `RELEASE_REQUIRED_OBJECTS` gains `measurements.json`, so a release cannot be promoted without it.
 
 # calcofi4db 4.11.0

@@ -23,8 +23,8 @@ A list ready for \code{jsonlite::write_json(auto_unbox = TRUE)}.
 \description{
 n observations and root samples by dataset, by dataset x station x year, by dataset x year and by
 dataset x measurement type (with year and depth spans, and — when the \code{measurement_type} table
-carries them — the registry's \code{category} and \code{variable}, plus the key's \code{label} from
-\code{metadata/variable.csv} when one is supplied); the per-station year x month detail is
+carries them — the registry's \code{category}, \code{variable}, \code{valid_min} and \code{valid_max}, plus the key's
+\code{label} from \code{metadata/variable.csv} when one is supplied); the per-station year x month detail is
 \code{\link[=build_coverage_stations]{build_coverage_stations()}}, a second sidecar fetched on demand — small enough to paint the grid before
 DuckDB-WASM wakes up, and the variable-based inventory Task 14 asks for. Since 3.25.0 also \code{taxa[]}
 (explorer UI plan D14): one row per taxon of the bio realm — key, names, rank, class, n_obs, year

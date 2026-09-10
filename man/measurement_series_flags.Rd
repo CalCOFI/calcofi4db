@@ -27,11 +27,16 @@ quantity (\code{alkalinity_rep1}), never itself the mean.
 quality control, kept beside the QC'd one.
 \item \code{no_bound} — the registry declares neither \code{valid_min} nor \code{valid_max}, so
 nothing in the pipeline can call one of its values impossible.
-\item \code{sentinel_suspected} — the observed maximum exceeds the declared
-\code{valid_max}, or (with no bound declared at all) reaches
-\code{CC_MEASUREMENT_SENTINEL} (99), the shape a fill value takes. On
-v2026.09.06 the bottle's \code{temperature} reads 99.00 degC — one corrupt 2020
-cast, fixed at the ingest for the next release.
+\item \code{sentinel_suspected} — a value the series' own registry row says is
+impossible, or one that looks like a fill where nothing is declared.
+Precisely: \code{out_of_bounds$n > 0} (at least one value outside the declared
+\code{valid_min} / \code{valid_max}), or — with no bound declared at all — an observed
+maximum both at or above \code{CC_MEASUREMENT_SENTINEL} (99, the shape a 9-fill
+takes) \strong{and} more than \code{CC_MEASUREMENT_SENTINEL_RATIO} (100) times the
+series' own 95th percentile. Both halves of the second test are needed:
+PAR reads 14,187 uE/m2/s and short-wave radiation 1,456 W/m2 legitimately,
+while the METS \code{sst_c} of v2026.09.06 reads 9,895 degC against a 95th
+percentile of 20.4.
 \item \code{no_flag_at_grain} — the registry names no \verb{_qual_column}, so the series
 reaches the release carrying no quality code. The CTD's \code{temperature_ave}
 is the headline case: the sensor flags ride \code{temperature_1} / \code{temperature_2}
