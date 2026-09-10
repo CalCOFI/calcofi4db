@@ -723,6 +723,11 @@ check for other functions or datasets not captured by above categories
 
   Check a `taxa.json` against the release it was built from
 
+- [`check_variable_registry()`](https://calcofi.io/calcofi4db/reference/check_variable_registry.md)
+  :
+
+  Check `metadata/variable.csv` against `metadata/measurement_type.csv`
+
 - [`citation_findings()`](https://calcofi.io/calcofi4db/reference/citation_findings.md)
   [`citation_error_findings()`](https://calcofi.io/calcofi4db/reference/citation_findings.md)
   :
@@ -1223,8 +1228,18 @@ check for other functions or datasets not captured by above categories
 
   Read the `taxon_group` rule registry (`metadata/taxon_group.csv`)
 
+- [`read_variable()`](https://calcofi.io/calcofi4db/reference/read_variable.md)
+  :
+
+  Read `metadata/variable.csv`, refusing a corrupted registry
+
 - [`register_measurement_types()`](https://calcofi.io/calcofi4db/reference/register_measurement_types.md)
   : Append new measurement types to the shared registry, safely
+
+- [`register_variables()`](https://calcofi.io/calcofi4db/reference/register_variables.md)
+  :
+
+  Append new rows to `metadata/variable.csv`, safely
 
 - [`release_citation()`](https://calcofi.io/calcofi4db/reference/release_citation.md)
   : The citation for a release of the integrated database

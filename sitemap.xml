@@ -96,6 +96,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/check_taxon_ids.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_taxon_registries.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_ungridded_obs.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/check_variable_registry.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/citation_findings.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/classify_portal.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/clean_taxon_name.html</loc></url>
@@ -150,6 +151,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/dot-convert_wkb_to_geometry.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/dot-discover_parquet_sources.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/dot-load_prior_tables_gcs.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/dot-variable_registry_cols.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/download_archive.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/drop_out_of_bounds.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/dt.html</loc></url>
@@ -309,8 +311,10 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/read_sbe_header.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_taxon_common.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_taxon_group_rules.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/read_variable.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/record_schema_version.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/register_measurement_types.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/register_variables.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/release_citation.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/release_excluded_datasets.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/release_notes_section.html</loc></url>
@@ -374,6 +378,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/validate_for_release.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/validate_lookup_values.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/validate_taxa_catalog.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/variable_csv_header_comment.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/write_dataset_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/write_distribution_observed.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/write_eml_files.html</loc></url>
