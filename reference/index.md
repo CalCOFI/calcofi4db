@@ -737,6 +737,10 @@ check for other functions or datasets not captured by above categories
 - [`clean_taxon_name()`](https://calcofi.io/calcofi4db/reference/clean_taxon_name.md)
   : Normalize a source taxon name for an authority lookup
 
+- [`combine_sensor_pair()`](https://calcofi.io/calcofi4db/reference/combine_sensor_pair.md)
+  [`combine_sensor_pair_sql()`](https://calcofi.io/calcofi4db/reference/combine_sensor_pair.md)
+  : Combine a CTD sensor pair by the provider's quality flags
+
 - [`compat_event_sql()`](https://calcofi.io/calcofi4db/reference/compat_event_sql.md)
   :
 

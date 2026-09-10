@@ -1,5 +1,26 @@
 # Changelog
 
+## calcofi4db 4.11.0
+
+### One value from a CTD’s two sensors, by the provider’s flags
+
+- `combine_sensor_pair(v1, v2, q1, q2)` and its SQL twin
+  [`combine_sensor_pair_sql()`](https://calcofi.io/calcofi4db/reference/combine_sensor_pair.md):
+  the mean of the two corrected sensors; a sensor flagged 8
+  (questionable) or 9 (bad) is dropped and the other stands alone; a 1 /
+  2 flag (use primary / secondary) selects that sensor when both flags
+  agree and falls back to the mean when they disagree; `NULL` when
+  neither survives. Flags are read as the source writes them (`"8"`,
+  `"8.0"`, `8`, blank). Rasmus Swalethorp’s rule for the transect
+  plotter (2026-09-09): the files’ own `*_ave_*` columns were computed
+  inside the processing software, so a consumer could not say how a
+  flagged sensor had been treated — “theoretically already done within
+  decodr, but this is a safer option”. One implementation, tested branch
+  by branch, for ctd-transects, the Explorer and any notebook; the
+  per-sensor corrected series it needs are canonical in the release from
+  the cut after v2026.09.06 (`libs/build_ctd_measurement_registry.R` in
+  CalCOFI/workflows).
+
 ## calcofi4db 4.10.0
 
 ### Sections and the climatology key on the station, not the grid cell

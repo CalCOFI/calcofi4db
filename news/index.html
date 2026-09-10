@@ -32,7 +32,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.10.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.11.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -67,6 +67,14 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.11.0" id="calcofi4db-4110">calcofi4db 4.11.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4110"></a></h2>
+<div class="section level3">
+<h3 id="one-value-from-a-ctds-two-sensors-by-the-providers-flags-4-11-0">One value from a CTD’s two sensors, by the provider’s flags<a class="anchor" aria-label="anchor" href="#one-value-from-a-ctds-two-sensors-by-the-providers-flags-4-11-0"></a></h3>
+<ul><li>
+<code>combine_sensor_pair(v1, v2, q1, q2)</code> and its SQL twin <code><a href="../reference/combine_sensor_pair.html">combine_sensor_pair_sql()</a></code>: the mean of the two corrected sensors; a sensor flagged 8 (questionable) or 9 (bad) is dropped and the other stands alone; a 1 / 2 flag (use primary / secondary) selects that sensor when both flags agree and falls back to the mean when they disagree; <code>NULL</code> when neither survives. Flags are read as the source writes them (<code>"8"</code>, <code>"8.0"</code>, <code>8</code>, blank). Rasmus Swalethorp’s rule for the transect plotter (2026-09-09): the files’ own <code>*_ave_*</code> columns were computed inside the processing software, so a consumer could not say how a flagged sensor had been treated — “theoretically already done within decodr, but this is a safer option”. One implementation, tested branch by branch, for ctd-transects, the Explorer and any notebook; the per-sensor corrected series it needs are canonical in the release from the cut after v2026.09.06 (<code>libs/build_ctd_measurement_registry.R</code> in CalCOFI/workflows).</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.10.0" id="calcofi4db-4100">calcofi4db 4.10.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4100"></a></h2>
 <div class="section level3">
