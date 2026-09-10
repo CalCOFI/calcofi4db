@@ -11,7 +11,9 @@ get_duckdb_con(path = ":memory:", read_only = FALSE, config = list())
 
 \item{read_only}{Open database in read-only mode (default: FALSE)}
 
-\item{config}{Named list of DuckDB configuration options (default: empty list)}
+\item{config}{Named list of DuckDB configuration options (default: empty list).
+\code{CALCOFI_DUCKDB_MEMORY_LIMIT} (e.g. \code{"10GB"}) and \code{CALCOFI_DUCKDB_THREADS} in the
+environment supply \code{memory_limit} / \code{threads} defaults; an entry here overrides them.}
 }
 \value{
 DuckDB connection object
