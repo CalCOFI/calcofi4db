@@ -53,7 +53,7 @@ combine_sensor_pair <- function(v1, v2, q1 = NA, q2 = NA) {
   out <- ifelse(both, (a + b) / 2, ifelse(is.na(a), b, a))
   out[use1] <- a[use1]
   out[use2] <- b[use2]
-  out
+  as.numeric(out)
 }
 
 #' @rdname combine_sensor_pair
@@ -61,7 +61,7 @@ combine_sensor_pair <- function(v1, v2, q1 = NA, q2 = NA) {
 combine_sensor_pair_sql <- function(v1, v2, q1, q2) {
   stopifnot(is.character(v1), is.character(v2), is.character(q1), is.character(q2),
             length(v1) == 1, length(v2) == 1, length(q1) == 1, length(q2) == 1)
-  nq <- function(q) glue::glue("regexp_replace(CAST({q} AS VARCHAR), '\\\\.0+$', '')")
+  nq <- function(q) glue::glue("regexp_replace(CAST({q} AS VARCHAR), '\\.0+$', '')")
   n1 <- nq(q1); n2 <- nq(q2)
   a  <- glue::glue("CASE WHEN {n1} IN ('8', '9') THEN NULL ELSE {v1} END")
   b  <- glue::glue("CASE WHEN {n2} IN ('8', '9') THEN NULL ELSE {v2} END")

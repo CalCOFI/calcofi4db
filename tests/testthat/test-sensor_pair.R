@@ -9,8 +9,8 @@ SP <- data.frame(
            "numeric flags", "blank flag is good"),
   v1 = c(10, 10, 10, 10, 10, 10, 10, 10, 10, NA, NA, 10, 10),
   v2 = c(12, 12, 12, 12, 12, 12, 12, 12, 12, 12, NA, 12, 12),
-  q1 = c(NA, "8", NA,  "8", "1", NA,  NA,  "1", "1", NA, NA, "1", ""),
-  q2 = c(NA, NA,  "9.0", "9", NA, "2", "1", "2", "9", NA, NA, NA, ""),
+  q1 = c(NA, "8", NA,  "8", "1", NA,  NA,  "1", "9", NA, NA, "1", ""),
+  q2 = c(NA, NA,  "9.0", "9", NA, "2", "1", "2", "1", NA, NA, NA, ""),
   want = c(11, 12, 10, NA, 10, 12, 10, 11, 12, 12, NA, 10, 11),
   stringsAsFactors = FALSE)
 
