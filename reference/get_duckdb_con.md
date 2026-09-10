@@ -21,7 +21,10 @@ get_duckdb_con(path = ":memory:", read_only = FALSE, config = list())
 
 - config:
 
-  Named list of DuckDB configuration options (default: empty list)
+  Named list of DuckDB configuration options (default: empty list).
+  `CALCOFI_DUCKDB_MEMORY_LIMIT` (e.g. `"10GB"`) and
+  `CALCOFI_DUCKDB_THREADS` in the environment supply `memory_limit` /
+  `threads` defaults; an entry here overrides them.
 
 ## Value
 

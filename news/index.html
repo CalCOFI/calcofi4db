@@ -32,7 +32,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.11.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.11.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -67,6 +67,14 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.11.1" id="calcofi4db-4111">calcofi4db 4.11.1<a class="anchor" aria-label="anchor" href="#calcofi4db-4111"></a></h2>
+<div class="section level3">
+<h3 id="a-memory-ceiling-for-the-engine-from-the-environment-4-11-1">A memory ceiling for the engine, from the environment<a class="anchor" aria-label="anchor" href="#a-memory-ceiling-for-the-engine-from-the-environment-4-11-1"></a></h3>
+<ul><li>
+<code><a href="../reference/get_duckdb_con.html">get_duckdb_con()</a></code> reads <code>CALCOFI_DUCKDB_MEMORY_LIMIT</code> and <code>CALCOFI_DUCKDB_THREADS</code> into the connection’s <code>memory_limit</code> / <code>threads</code> (an explicit <code>config</code> entry still wins). DuckDB’s default limit is 80 % of physical RAM; on 2026-09-10 the CTD ingest’s <code>obs_ctd_full</code> sort spent 1.5 h at 7 % CPU with 18 GB of spill files while the OS swap (34 GB) was full — the buffer pool itself was being paged. A ceiling below free RAM lets DuckDB run its own external sort at disk speed.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.11.0" id="calcofi4db-4110">calcofi4db 4.11.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4110"></a></h2>
 <div class="section level3">

@@ -34,7 +34,7 @@ Optionally downloads from GCS if path starts with gs://."><!-- calcofi.io brand 
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.11.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.11.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -93,7 +93,9 @@ Optionally downloads from GCS if path starts with gs://.</p>
 
 
 <dt id="arg-config">config<a class="anchor" aria-label="anchor" href="#arg-config"></a></dt>
-<dd><p>Named list of DuckDB configuration options (default: empty list)</p></dd>
+<dd><p>Named list of DuckDB configuration options (default: empty list).
+<code>CALCOFI_DUCKDB_MEMORY_LIMIT</code> (e.g. <code>"10GB"</code>) and <code>CALCOFI_DUCKDB_THREADS</code> in the
+environment supply <code>memory_limit</code> / <code>threads</code> defaults; an entry here overrides them.</p></dd>
 
 </dl></div>
     <div class="section level2">
