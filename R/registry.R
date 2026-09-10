@@ -492,3 +492,246 @@ declare_measurement_fields <- function(fields, path, categories = NULL, overwrit
   if (!quiet) message(glue::glue("measurement_type registry: declared {paste(cols, collapse = ' / ')} on {length(unique(changed))} type(s)"))
   d
 }
+
+# the variable registry: a label per crosswalk key -----------------------------
+#
+# `measurement_type.variable` (declare_measurement_fields()) is the crosswalk
+# that says which raw types measure the same thing comparably across datasets
+# (D3, "Measurements catalog" plan, 2026-09-10) — `temperature` for the
+# bottle's `temperature` and the CTD's `temperature_ave`. That registry has
+# nowhere to put a *label* for the KEY itself, only a `description` on each
+# member row, and a member's description is a column note ("DO average
+# station-corrected"), not a name a person would want on a page heading.
+#
+# `metadata/variable.csv` is the small registry that holds one row per key:
+# `variable, label, description, units, nerc_p01, category, is_unified`. It is
+# read with [read_variable()], appended with [register_variables()], and
+# checked against `measurement_type.csv` with [check_variable_registry()] —
+# same `na = ""` / strict-read discipline as the rest of this file, because
+# it is exactly the same CSV round trip.
+
+#' The `# ...` line written at the top of `metadata/variable.csv`
+#'
+#' Same pattern as [write_holdings_csv()]'s: a single `#`-prefixed line ahead
+#' of the real header, saying what the file is and who appends to it, so a
+#' person opening the CSV cold does not have to find this file to learn that.
+#' [read_variable()] skips it with `readr::read_csv(comment = "#")`.
+#'
+#' @return length-1 character
+#' @keywords internal
+variable_csv_header_comment <- function()
+  paste0("# metadata/variable.csv — one row per crosswalk key (measurement_type.variable, D3, ",
+         "\"Measurements catalog\" plan 2026-09-10): a label/description/units/nerc_p01 for the ",
+         "KEY, not a series. Read with calcofi4db::read_variable(), appended with ",
+         "calcofi4db::register_variables() — never a bare write_csv().")
+
+#' Read `metadata/variable.csv`, refusing a corrupted registry
+#'
+#' @param path path to `metadata/variable.csv`
+#' @param validate error on sentinel strings (default TRUE). Only set FALSE to
+#'   inspect a file you already know is broken.
+#'
+#' @return A [tibble][tibble::tibble] of the registry, with empty cells as `NA`.
+#' @export
+#' @concept registry
+#' @importFrom readr read_csv
+read_variable <- function(path, validate = TRUE) {
+  stopifnot("variable.csv not found" = file.exists(path))
+  # na = "" is load-bearing, not stylistic — see the top of this file; comment = "#"
+  # skips the header-comment line written by register_variables()/create_variable_registry()
+  d <- readr::read_csv(path, na = "", comment = "#", show_col_types = FALSE)
+  if (isTRUE(validate)) check_registry_na_strings(d, path)
+  d
+}
+
+#' The empty registry shape, used by [register_variables()] to bootstrap a
+#' `metadata/variable.csv` that does not exist yet.
+#' @keywords internal
+.variable_registry_cols <- function()
+  c("variable", "label", "description", "units", "nerc_p01", "category", "is_unified")
+
+#' Append new rows to `metadata/variable.csv`, safely
+#'
+#' Mirrors [register_measurement_types()]: append-only (edit the CSV by hand to
+#' change an existing row), refuses a duplicate `variable` key, writes with
+#' `na = ""`.
+#'
+#' It additionally refuses a row whose `nerc_p01` is set but disagrees with a
+#' member series' own `nerc_p01` in `measurement_type.csv` — the whole point of
+#' the crosswalk key is that agreement can be asserted once, and a silent
+#' mismatch would ship the wrong concept URI to an OBIS/DwC export for every
+#' series sharing the key but one. It does **not** refuse a key whose member
+#' series disagree with each OTHER (two series under the same `variable` that
+#' carry two different NERC concepts) — that is a real fact about the data
+#' (`sigma_theta`: the bottle's own computation is `SIGTEQ01`, the CTD's is
+#' `SIGTPR01` — different P01 concepts, found WS-M1 2026-09-10), and the
+#' correct way to record it is to leave the row's own `nerc_p01` empty, exactly
+#' as an id is left empty anywhere else in these registries when no single
+#' concept says exactly what a row is (`metadata-registries` skill). Passing a
+#' non-empty `nerc_p01` for such a key is refused, because it would silently
+#' pick a side.
+#'
+#' @param new_vars data.frame with a `variable` column and any of `label`,
+#'   `description`, `units`, `nerc_p01`, `category`, `is_unified`. Columns
+#'   absent from the registry are dropped with a warning.
+#' @param path path to `metadata/variable.csv`
+#' @param measurement_type_path path to `metadata/measurement_type.csv`, used
+#'   only to check `nerc_p01` agreement against member series (rows whose
+#'   `variable` equals the new row's `variable`). `NULL` skips the check (not
+#'   recommended — nothing else catches this).
+#' @param quiet suppress the "added N variable(s)" message
+#'
+#' @return The full updated registry.
+#' @export
+#' @concept registry
+#' @seealso [check_variable_registry()], the standing invariant this enforces
+#'   at write time.
+#' @importFrom readr write_csv
+#' @examples
+#' \dontrun{
+#' register_variables(
+#'   data.frame(variable = "temperature", label = "Temperature",
+#'              units = "degC",
+#'              nerc_p01 = "http://vocab.nerc.ac.uk/collection/P01/current/TEMPPR01/",
+#'              category = "Physical Oceanography", is_unified = TRUE),
+#'   here::here("metadata/variable.csv"),
+#'   here::here("metadata/measurement_type.csv"))
+#' }
+register_variables <- function(new_vars, path, measurement_type_path = NULL, quiet = FALSE) {
+  if (!file.exists(path)) {
+    # bootstrap: header comment + column header, no data rows, so the first
+    # call to register_variables() has a registry to append to
+    empty <- stats::setNames(
+      as.data.frame(replicate(length(.variable_registry_cols()), character(0), simplify = FALSE)),
+      .variable_registry_cols())
+    writeLines(c(variable_csv_header_comment(), readr::format_csv(empty, na = "")), path)
+  }
+  d <- read_variable(path)
+  if (is.null(new_vars) || !nrow(new_vars)) return(d)
+  stopifnot("new_vars needs a variable column" = "variable" %in% names(new_vars))
+
+  extra <- setdiff(names(new_vars), names(d))
+  if (length(extra)) {
+    warning("dropping column(s) not in the registry: ",
+            paste(extra, collapse = ", "), call. = FALSE)
+    new_vars <- new_vars[, setdiff(names(new_vars), extra), drop = FALSE]
+  }
+
+  dup <- unique(new_vars$variable[duplicated(new_vars$variable)])
+  if (length(dup))
+    stop("duplicate variable in new_vars: ", paste(dup, collapse = ", "), call. = FALSE)
+
+  clash <- intersect(new_vars$variable, d$variable)
+  if (length(clash))
+    stop("already in the registry: ", paste(clash, collapse = ", "),
+         "\n  register_variables() only appends; edit metadata/variable.csv by hand to change an existing row.",
+         call. = FALSE)
+
+  if (!is.null(measurement_type_path) && "nerc_p01" %in% names(new_vars)) {
+    mt <- read_measurement_type(measurement_type_path)
+    for (i in seq_len(nrow(new_vars))) {
+      p01 <- new_vars$nerc_p01[i]
+      if (is.na(p01) || !nzchar(trimws(p01))) next
+      mem_p01 <- stats::na.omit(unique(
+        mt$nerc_p01[!is.na(mt$variable) & mt$variable == new_vars$variable[i]]))
+      bad <- setdiff(mem_p01, p01)
+      if (length(bad))
+        stop("nerc_p01 for '", new_vars$variable[i], "' (", p01,
+             ") disagrees with a member series' own nerc_p01: ", paste(bad, collapse = ", "),
+             "\n  Either the members agree and this value should match, or they genuinely",
+             " disagree (different NERC concepts) and the row's nerc_p01 must stay empty.",
+             call. = FALSE)
+    }
+  }
+
+  out <- dplyr::bind_rows(d, new_vars)
+  out <- out[order(out$variable), , drop = FALSE]
+  # na = "" is the whole reason R/registry.R exists; the header comment is
+  # rewritten every time so it survives even if it was ever hand-deleted
+  writeLines(c(variable_csv_header_comment(), readr::format_csv(out, na = "")), path)
+  # re-read so the caller gets exactly what is now on disk
+  out <- read_variable(path)
+  if (!quiet)
+    message(glue::glue("variable registry: added {nrow(new_vars)} variable(s) — ",
+                        "{paste(new_vars$variable, collapse = ', ')}"))
+  out
+}
+
+#' Check `metadata/variable.csv` against `metadata/measurement_type.csv`
+#'
+#' Three standing invariants a measurement page (D6) needs to hold, checked
+#' together so a single run reports every violation rather than stopping at
+#' the first:
+#'
+#' * every non-`NA` `measurement_type.variable` value has **exactly one**
+#'   `variable.csv` row — no crosswalk key is orphaned
+#' * every `variable.csv` row has **>= 1 member series** in
+#'   `measurement_type.csv` — no unused key ships
+#' * a row's `nerc_p01`, when set, equals **every** member series' own
+#'   `nerc_p01` (an empty row value is always allowed — see
+#'   [register_variables()] for why a genuine member disagreement is recorded
+#'   that way, not as an error)
+#' * a key's member series carry the **same units**, or a known-equivalent
+#'   spelling (`PSS-78` / `PSU` — the same practical salinity scale under two
+#'   names; the CalCOFI bottle and the CTD's own processing software write it
+#'   differently)
+#'
+#' @param variable_csv path to `metadata/variable.csv`
+#' @param measurement_type_csv path to `metadata/measurement_type.csv`
+#'
+#' @return `TRUE`, invisibly, on success.
+#' @export
+#' @concept registry
+#' @seealso [register_variables()], which enforces the `nerc_p01` half of this
+#'   at write time.
+check_variable_registry <- function(variable_csv, measurement_type_csv) {
+  v  <- read_variable(variable_csv)
+  mt <- read_measurement_type(measurement_type_csv)
+  problems <- character()
+
+  used <- stats::na.omit(unique(mt$variable))
+  orphan_keys <- setdiff(used, v$variable)
+  if (length(orphan_keys))
+    problems <- c(problems, paste0(
+      "measurement_type.variable value(s) with no variable.csv row: ",
+      paste(orphan_keys, collapse = ", ")))
+
+  no_members <- v$variable[!v$variable %in% used]
+  if (length(no_members))
+    problems <- c(problems, paste0(
+      "variable.csv row(s) with no member series in measurement_type.csv: ",
+      paste(no_members, collapse = ", ")))
+
+  equiv_units <- list(c("PSS-78", "PSU"))
+  norm_unit <- function(u) {
+    for (grp in equiv_units) if (u %in% grp) return(grp[1])
+    u
+  }
+
+  for (i in seq_len(nrow(v))) {
+    key <- v$variable[i]
+    mem <- mt[!is.na(mt$variable) & mt$variable == key, , drop = FALSE]
+    if (!nrow(mem)) next  # already reported above as an unused key
+
+    p01 <- v$nerc_p01[i]
+    if (!is.na(p01) && nzchar(trimws(p01))) {
+      mem_p01 <- stats::na.omit(unique(mem$nerc_p01))
+      bad <- setdiff(mem_p01, p01)
+      if (length(bad))
+        problems <- c(problems, paste0(
+          key, ": variable.csv nerc_p01 (", p01, ") disagrees with member series' nerc_p01: ",
+          paste(bad, collapse = ", ")))
+    }
+
+    mem_units <- stats::na.omit(unique(mem$units))
+    normed <- vapply(mem_units, norm_unit, character(1))
+    if (length(unique(normed)) > 1)
+      problems <- c(problems, paste0(
+        key, ": member series carry inconsistent units: ", paste(mem_units, collapse = ", ")))
+  }
+
+  if (length(problems))
+    stop("check_variable_registry() found ", length(problems), " problem(s):\n  ",
+         paste(problems, collapse = "\n  "), call. = FALSE)
+  invisible(TRUE)
+}
