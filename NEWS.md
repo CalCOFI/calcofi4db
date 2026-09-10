@@ -1,3 +1,34 @@
+# calcofi4db (development version)
+
+## A label per crosswalk key: `read_variable()` / `register_variables()` / `check_variable_registry()`
+
+- `measurement_type.variable` (D3, "Measurements catalog" plan 2026-09-10) says which raw series
+  measure the same thing across datasets, but had nowhere to hold a *label* for the key itself —
+  only `description` on each member row. New registry `metadata/variable.csv` (`variable, label,
+  description, units, nerc_p01, category, is_unified`) and three functions in `R/registry.R`,
+  mirroring `read_measurement_type()` / `register_measurement_types()` /
+  `declare_measurement_fields()`:
+  - `read_variable(path)` — strict read (`na = ""`, `check_registry_na_strings()`), skipping the
+    file's own leading `#` header-comment line.
+  - `register_variables(new_vars, path, measurement_type_path = NULL)` — append-only, refuses a
+    duplicate `variable` key, and refuses a row whose `nerc_p01` is set but disagrees with a member
+    series' own `nerc_p01` in `measurement_type.csv`. Does **not** refuse a key whose member series
+    disagree with *each other* (the real `sigma_theta` case: the bottle's own computation carries
+    NERC P01 `SIGTEQ01`, the CTD's `SIGTPR01` — two different concepts) — the correct way to record
+    that is an empty `nerc_p01` on the row, exactly as an id is left empty anywhere else in these
+    registries on anything short of an exact match; a non-empty value for such a key is refused
+    rather than silently picking a side. Bootstraps the file (header comment + column header, no
+    data rows) on first use so there is always something to append to.
+  - `check_variable_registry(variable_csv, measurement_type_csv)` — every non-`NA`
+    `measurement_type.variable` value has exactly one `variable.csv` row, every row has >= 1 member
+    series, a row's `nerc_p01` (when set) agrees with every member's own value, and a key's members
+    carry the same units or a known-equivalent spelling (`PSS-78` / `PSU`).
+  - Bug found while validating this against v2026.09.06: a `left_join()` re-selecting a column
+    (`is_canonical`) that a prior step had already carried through silently produced
+    `is_canonical.x` / `.y` instead of erroring, so a canonical-only check read as `NA` and every
+    confirmed pair came back "apart". Fixed by not re-joining a column already present; worth
+    knowing about generally — a duplicate-name `left_join()` fails silently in dplyr, not loudly.
+
 # calcofi4db 4.11.0
 
 ## One value from a CTD's two sensors, by the provider's flags
