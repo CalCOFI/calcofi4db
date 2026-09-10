@@ -4,7 +4,7 @@
 \alias{build_coverage}
 \title{The coverage cube behind the explorer's first paint}
 \usage{
-build_coverage(con, version)
+build_coverage(con, version, variable = NULL)
 }
 \arguments{
 \item{con}{DuckDB connection holding \code{obs} (with \code{dataset_key}, \code{grid_key}, \code{datetime}, \code{taxon_key},
@@ -12,6 +12,10 @@ build_coverage(con, version)
 variable fields) when present.}
 
 \item{version}{the release version string.}
+
+\item{variable}{the label registry (\code{metadata/variable.csv}): a data frame with \code{variable} and
+\code{label}, which puts \code{label} onto \code{variables[]}. \code{NULL} (the default) falls back to a \code{variable}
+table on \code{con} when there is one, and otherwise leaves \code{label} \code{NA} — never invented.}
 }
 \value{
 A list ready for \code{jsonlite::write_json(auto_unbox = TRUE)}.
@@ -19,7 +23,8 @@ A list ready for \code{jsonlite::write_json(auto_unbox = TRUE)}.
 \description{
 n observations and root samples by dataset, by dataset x station x year, by dataset x year and by
 dataset x measurement type (with year and depth spans, and — when the \code{measurement_type} table
-carries them — the registry's \code{category} and \code{variable}); the per-station year x month detail is
+carries them — the registry's \code{category} and \code{variable}, plus the key's \code{label} from
+\code{metadata/variable.csv} when one is supplied); the per-station year x month detail is
 \code{\link[=build_coverage_stations]{build_coverage_stations()}}, a second sidecar fetched on demand — small enough to paint the grid before
 DuckDB-WASM wakes up, and the variable-based inventory Task 14 asks for. Since 3.25.0 also \code{taxa[]}
 (explorer UI plan D14): one row per taxon of the bio realm — key, names, rank, class, n_obs, year

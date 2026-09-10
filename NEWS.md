@@ -1,3 +1,38 @@
+# calcofi4db (unreleased — WS-M2, the integrator assigns the version)
+
+## The measurements catalog record (`measurements.json`)
+
+- `build_measurements_catalog(con, record, measurement_type, variable, category)` — `taxa.json`'s
+  twin for the environment half of the catalog (plan 2026-09-10 "Measurements catalog — the
+  environment's Species", § D2/D4, Appendix A). One entry per measurement **key** the release's
+  `obs_env` carries — the registry's `variable` where one is set (the bottle's `temperature` and the
+  CTD's `temperature_ave` are both `temperature`), else the `measurement_type` — with one `series[]`
+  per `measurement_type` × dataset carrying that dataset's own source and flag column, its values by
+  year, calendar month, depth band and quality code, the observed quantiles, the declared bounds and
+  the NERC P01/P06 ids. 79 keys over 84 series and 25,006,583 values on v2026.09.06. Six grouped
+  queries, never one per key; deterministic (no wall clock, no network); ordered by the category
+  registry, then by size.
+- `related[]` names the other keys sharing a NERC P01 concept that are **kept apart on purpose**,
+  with the reason — `underway_vs_cast`, `same_bottles`, `replicate_vs_mean`, `pre_qc_twin`
+  ([`measurement_related_reasons()`]). P01 identity says two series name the same quantity, never
+  that they may be pooled: the CTD files' own bottle table is plausibly the same physical bottles as
+  the bottle dataset, so merging them would double count.
+- `measurement_series_flags()` is the per-series vocabulary — `sensor_mean`, `replicate`,
+  `reported_pre_qc`, `no_bound`, `sentinel_suspected`, `no_flag_at_grain`, `no_p01` — and
+  `measurement_flags()` the one measurement-level flag, `no_label`: absent a `metadata/variable.csv`
+  row the label falls back to the canonical series' registry description and says so. The builder
+  never invents a label.
+- `write_measurements_catalog()`, `validate_measurements_catalog()` (against the new
+  `inst/schema/measurements.schema.json`, `schema_version` 1.0), `check_measurements_catalog()` /
+  `assert_measurements_catalog()` / `measurements_catalog_checks()` — twelve checks, all `error`:
+  the sum of `series[].n_values` over every key must be `obs_env`'s row count (a series counted twice
+  is what that catches), every `years{}` must sum to at most its series, every `measurement_type`
+  must be registered, every `dataset_key` in the release record.
+- `build_coverage()` gains a `variable` argument and puts the key's `label` onto `variables[]` when
+  `metadata/variable.csv` supplies one (the Explorer hard-codes five labels in `variables.ts` and
+  says they belong in the registry; this is the hook). No row means `NA`, never a derived label.
+- `RELEASE_REQUIRED_OBJECTS` gains `measurements.json`, so a release cannot be promoted without it.
+
 # calcofi4db 4.11.0
 
 ## One value from a CTD's two sensors, by the provider's flags

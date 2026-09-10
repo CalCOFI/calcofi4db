@@ -1,0 +1,206 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://calcofi.io/schema/measurements.schema.json",
+  "title": "CalCOFI measurements catalog record (measurements.json)",
+  "description": "One record per release: every measurement key the release's obs_env carries (the registry's `variable` where set, else the measurement_type), its series one per measurement_type x dataset, their counts by year, month, depth band and quality code, the declared bounds and observed quantiles, and the other keys sharing a NERC P01 concept that are kept apart on purpose. Written by calcofi4db::build_measurements_catalog() beside taxa.json; read by calcofi.io/measurements/.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "release", "counts", "datasets", "measurements", "flags"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "release": {
+      "type": "object", "additionalProperties": false, "required": ["version", "release_date"],
+      "properties": {
+        "version": { "type": "string", "pattern": "^v[0-9]{4}\\.[0-9]{2}\\.[0-9]{2}$" },
+        "release_date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" }
+      }
+    },
+    "counts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["measurements", "series", "datasets", "obs_env_rows", "full_rows", "pages"],
+      "properties": {
+        "measurements": { "type": "integer", "minimum": 0, "description": "measurement keys with a series in obs_env" },
+        "series":       { "type": "integer", "minimum": 0, "description": "measurement_type x dataset pairs in obs_env" },
+        "datasets":     { "type": "integer", "minimum": 0, "description": "datasets carrying an obs_env row" },
+        "obs_env_rows": { "type": "integer", "minimum": 0, "description": "rows of obs_env; equals the sum of series[].n_values over every key" },
+        "full_rows":    { "type": ["integer", "null"], "minimum": 0, "description": "rows of the full-resolution supplementals (obs_ctd_full, obs_mets_full); null when they are not on the connection" },
+        "pages":        { "type": "integer", "minimum": 0, "description": "length of measurements[]: one page per key" }
+      }
+    },
+    "datasets": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["dataset_key", "dataset_name_short", "color", "category", "n_series", "n_values", "year_min", "year_max", "full_resolution_only"],
+        "properties": {
+          "dataset_key":        { "type": "string" },
+          "dataset_name_short": { "type": "string" },
+          "color":              { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+          "category":           { "$ref": "#/definitions/category" },
+          "n_series":           { "type": "integer", "minimum": 0 },
+          "n_values":           { "type": "integer", "minimum": 0 },
+          "year_min":           { "$ref": "#/definitions/nullable_integer" },
+          "year_max":           { "$ref": "#/definitions/nullable_integer" },
+          "full_resolution_only": {
+            "type": "array",
+            "description": "registry rows this dataset declares that never reach obs_env — a raw sensor, a thermosalinograph past the first. No page; they live in the full-resolution supplemental named by `table`.",
+            "items": {
+              "type": "object", "additionalProperties": false,
+              "required": ["measurement_type", "description", "table"],
+              "properties": {
+                "measurement_type": { "type": "string" },
+                "description":      { "$ref": "#/definitions/nullable_string" },
+                "table":            { "$ref": "#/definitions/nullable_string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "measurements": { "type": "array", "items": { "$ref": "#/definitions/measurement" } },
+    "flags": {
+      "type": "array",
+      "description": "the series[].flags vocabulary this record was written with — calcofi4db::measurement_series_flags()",
+      "items": { "$ref": "#/definitions/series_flag" }
+    }
+  },
+  "definitions": {
+    "nullable_string":  { "type": ["string", "null"] },
+    "nullable_integer": { "type": ["integer", "null"] },
+    "nullable_number":  { "type": ["number", "null"] },
+    "category": {
+      "type": "object", "additionalProperties": false, "required": ["name", "realm"],
+      "properties": {
+        "key":   { "$ref": "#/definitions/nullable_string" },
+        "name":  { "type": ["string", "null"] },
+        "icon":  { "$ref": "#/definitions/nullable_string" },
+        "realm": { "type": ["string", "null"], "enum": ["bio", "env", null] },
+        "order": { "$ref": "#/definitions/nullable_integer" }
+      }
+    },
+    "series_flag": {
+      "type": "string",
+      "enum": ["sensor_mean", "replicate", "reported_pre_qc", "no_bound", "sentinel_suspected", "no_flag_at_grain", "no_p01"],
+      "description": "sensor_mean: the registry's derivation says it is a mean of a sensor pair · replicate: a _rep series beside a mean · reported_pre_qc: an r_ series reported before QC · no_bound: neither valid_min nor valid_max is declared · sentinel_suspected: the observed max exceeds the declared valid_max, or reaches 99 with no bound declared · no_flag_at_grain: the registry names no quality column, so the series reaches the release with no flag · no_p01: no NERC P01 concept says exactly this"
+    },
+    "measurement": {
+      "type": "object", "additionalProperties": false,
+      "required": ["key", "slug", "label", "description", "units", "units_nerc_p06", "nerc_p01", "category", "is_unified", "derivation", "climatology", "bounds", "totals", "series", "related", "flags"],
+      "properties": {
+        "key":  { "type": "string", "description": "the registry's `variable` where set, else the measurement_type" },
+        "slug": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$", "description": "the page directory /measurements/{slug}/ — equal to key, which is already URL-safe" },
+        "label":          { "$ref": "#/definitions/nullable_string", "description": "from metadata/variable.csv; absent a row, the canonical series' registry description, and the measurement carries the no_label flag" },
+        "description":    { "$ref": "#/definitions/nullable_string" },
+        "units":          { "$ref": "#/definitions/nullable_string" },
+        "units_nerc_p06": { "$ref": "#/definitions/nullable_string" },
+        "nerc_p01":       { "$ref": "#/definitions/nullable_string", "description": "null means no concept says exactly this, never 'not looked at'" },
+        "category":       { "$ref": "#/definitions/category" },
+        "is_unified":     { "type": "boolean", "description": "more than one measurement_type resolves to this key" },
+        "derivation":     { "$ref": "#/definitions/nullable_string" },
+        "climatology":    { "type": "boolean", "description": "the release's climatology table carries one of this key's types" },
+        "bounds": {
+          "type": "object", "additionalProperties": false, "required": ["valid_min", "valid_max", "declared_by"],
+          "properties": {
+            "valid_min":   { "$ref": "#/definitions/nullable_number" },
+            "valid_max":   { "$ref": "#/definitions/nullable_number" },
+            "declared_by": { "type": "array", "items": { "type": "string" }, "description": "the measurement_types that declare a bound" }
+          }
+        },
+        "totals": {
+          "type": "object", "additionalProperties": false,
+          "required": ["n_values", "n_samples", "n_roots", "n_datasets", "year_min", "year_max", "depth_min_m", "depth_max_m"],
+          "properties": {
+            "n_values":   { "type": "integer", "minimum": 0 },
+            "n_samples":  { "type": "integer", "minimum": 0 },
+            "n_roots":    { "type": "integer", "minimum": 0 },
+            "n_datasets": { "type": "integer", "minimum": 0 },
+            "year_min":   { "$ref": "#/definitions/nullable_integer" },
+            "year_max":   { "$ref": "#/definitions/nullable_integer" },
+            "depth_min_m": { "$ref": "#/definitions/nullable_number" },
+            "depth_max_m": { "$ref": "#/definitions/nullable_number" }
+          }
+        },
+        "series": {
+          "type": "array", "minItems": 1,
+          "description": "one per measurement_type x dataset in obs_env, most values first",
+          "items": { "$ref": "#/definitions/series" }
+        },
+        "related": {
+          "type": "array",
+          "description": "other keys sharing this key's NERC P01 concept, kept apart on purpose, with the reason. A pair the vocabulary states no reason for is not listed.",
+          "items": {
+            "type": "object", "additionalProperties": false, "required": ["key", "why"],
+            "properties": {
+              "key": { "type": "string" },
+              "why": { "type": "string", "enum": ["underway_vs_cast", "same_bottles", "replicate_vs_mean", "pre_qc_twin"] }
+            }
+          }
+        },
+        "flags": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["no_label"] },
+          "description": "no_label: no metadata/variable.csv row supplies a display label, so `label` is the canonical series' registry description"
+        }
+      }
+    },
+    "series": {
+      "type": "object", "additionalProperties": false,
+      "required": ["measurement_type", "dataset_key", "source_column", "qual_column", "description", "units", "nerc_p01", "is_canonical", "n_values", "n_samples", "n_roots", "n_cells", "n_cruises", "year_min", "year_max", "depth_min_m", "depth_max_m", "years", "months", "depth_bands", "qual", "qual_ok_n", "observed", "flags"],
+      "properties": {
+        "measurement_type": { "type": "string" },
+        "dataset_key":      { "type": "string" },
+        "source_column":    { "$ref": "#/definitions/nullable_string", "description": "what the source called the column" },
+        "qual_column":      { "$ref": "#/definitions/nullable_string", "description": "null means the series carries no quality code at the release grain" },
+        "description":      { "$ref": "#/definitions/nullable_string" },
+        "units":            { "$ref": "#/definitions/nullable_string" },
+        "nerc_p01":         { "$ref": "#/definitions/nullable_string" },
+        "is_canonical":     { "type": ["boolean", "null"] },
+        "n_values":   { "type": "integer", "minimum": 1 },
+        "n_samples":  { "type": "integer", "minimum": 0 },
+        "n_roots":    { "type": "integer", "minimum": 0 },
+        "n_cells":    { "type": "integer", "minimum": 0 },
+        "n_cruises":  { "type": "integer", "minimum": 0 },
+        "year_min":   { "$ref": "#/definitions/nullable_integer" },
+        "year_max":   { "$ref": "#/definitions/nullable_integer" },
+        "depth_min_m": { "$ref": "#/definitions/nullable_number" },
+        "depth_max_m": { "$ref": "#/definitions/nullable_number" },
+        "years": {
+          "type": "object", "additionalProperties": { "type": "integer", "minimum": 1 },
+          "propertyNames": { "pattern": "^[0-9]{4}$" },
+          "description": "values per year; rows with no year are absent, so the sum is at most n_values"
+        },
+        "months": { "type": "array", "minItems": 12, "maxItems": 12, "items": { "type": "integer", "minimum": 0 } },
+        "depth_bands": {
+          "type": "object", "additionalProperties": false,
+          "required": ["0-10", "10-50", "50-100", "100-200", "200-500", "500-1000", "1000-2000", "2000+"],
+          "description": "counts by band of depth_min_m, left-closed and right-open",
+          "properties": {
+            "0-10":      { "type": "integer", "minimum": 0 },
+            "10-50":     { "type": "integer", "minimum": 0 },
+            "50-100":    { "type": "integer", "minimum": 0 },
+            "100-200":   { "type": "integer", "minimum": 0 },
+            "200-500":   { "type": "integer", "minimum": 0 },
+            "500-1000":  { "type": "integer", "minimum": 0 },
+            "1000-2000": { "type": "integer", "minimum": 0 },
+            "2000+":     { "type": "integer", "minimum": 0 }
+          }
+        },
+        "qual": {
+          "type": "object", "additionalProperties": { "type": "integer", "minimum": 1 },
+          "description": "values per measurement_qual code, each dataset's own uninterpreted vocabulary; 'none' is the rows carrying no code"
+        },
+        "qual_ok_n": { "type": "integer", "minimum": 0, "description": "values the release's own qual_ok keeps" },
+        "observed": {
+          "type": "object", "additionalProperties": false, "required": ["min", "p05", "p50", "p95", "max"],
+          "description": "quantiles of the finite values; NaN and infinities are excluded",
+          "properties": {
+            "min": { "$ref": "#/definitions/nullable_number" }, "p05": { "$ref": "#/definitions/nullable_number" },
+            "p50": { "$ref": "#/definitions/nullable_number" }, "p95": { "$ref": "#/definitions/nullable_number" },
+            "max": { "$ref": "#/definitions/nullable_number" }
+          }
+        },
+        "flags": { "type": "array", "items": { "$ref": "#/definitions/series_flag" } }
+      }
+    }
+  }
+}

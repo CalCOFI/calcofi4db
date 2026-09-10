@@ -1298,8 +1298,10 @@ read_promoted_release <- function(bucket = "calcofi-db", prefix = "ducklake/rele
 # ERDDAP's globals and the page's JSON-LD all derive from. A trailing "/" names a prefix.
 # taxa.json (4.9.0): the species catalog record calcofi.io/species/ generates every page
 # from — a release without it would leave the species pages on the previous release.
+# measurements.json (measurements catalog plan 2026-09-10 § D4): the same, for
+# calcofi.io/measurements/ — one entry per measurement key of obs_env.
 RELEASE_REQUIRED_OBJECTS <- c("catalog.json", "metadata.json", "relationships.json",
-                              "datasets.json", "taxa.json", "eml/")
+                              "datasets.json", "taxa.json", "measurements.json", "eml/")
 
 #' Assert a frozen release is structurally complete
 #'
