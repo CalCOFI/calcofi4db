@@ -364,3 +364,166 @@ test_that("upsert_measurement_types() keeps the registry-owned fields across an 
   expect_equal(row("brand_new")$category, "Hydrography")                   # a new type takes the literal
   expect_equal(row("brand_new")$is_canonical, "TRUE")
 })
+
+# ---- variable registry (WS-M1, 2026-09-10 plan, D3): a label per crosswalk key ----
+#
+# measurement_type.variable says WHICH raw types measure the same thing; it has
+# nowhere to put a label for the key itself. metadata/variable.csv is that
+# small registry — same na="" / strict-read discipline, plus one invariant of
+# its own: a row's nerc_p01, when set, must agree with every member series'
+# own nerc_p01, because the whole point of the crosswalk is asserting that
+# agreement once.
+
+var_fixture <- function(env = parent.frame()) {
+  d <- tibble::tibble(
+    variable      = c("oxygen_ml_l", "temperature"),
+    label         = c("Dissolved oxygen (ml/L)", "Temperature"),
+    description   = c(NA_character_, "Water temperature"),  # an empty cell to round-trip
+    units         = c("ml/L", "degC"),
+    nerc_p01      = c("http://vocab.nerc.ac.uk/collection/P01/current/DOXYZZXX/",
+                       "http://vocab.nerc.ac.uk/collection/P01/current/TEMPPR01/"),
+    category      = c("Physical Oceanography", "Physical Oceanography"),
+    is_unified    = c(TRUE, TRUE))
+  path <- withr::local_tempfile(fileext = ".csv", .local_envir = env)
+  readr::write_csv(d, path, na = "")
+  path
+}
+
+# a measurement_type.csv with a `variable` column, two members per key, and one
+# deliberately unresolvable pair (sigma_theta: the bottle and the CTD disagree
+# with EACH OTHER on nerc_p01 — the real v2026.09.06 finding)
+mt_variable_fixture <- function(env = parent.frame()) {
+  d <- tibble::tibble(
+    measurement_type = c("oxygen_ml_l", "oxygen_ml_l_ave_sta_corr",
+                         "temperature", "temperature_ave",
+                         "sigma_theta", "sigma_theta_1",
+                         "salinity", "salinity_ave_corr",
+                         "nitrate"),
+    units    = c("ml/L", "ml/L", "degC", "degC", "kg/m3", "kg/m3", "PSS-78", "PSU", "umol/L"),
+    variable = c("oxygen_ml_l", "oxygen_ml_l", "temperature", "temperature",
+                "sigma_theta", "sigma_theta", "salinity", "salinity", NA),
+    nerc_p01 = c("http://vocab.nerc.ac.uk/collection/P01/current/DOXYZZXX/",
+                "http://vocab.nerc.ac.uk/collection/P01/current/DOXYZZXX/",
+                "http://vocab.nerc.ac.uk/collection/P01/current/TEMPPR01/",
+                "http://vocab.nerc.ac.uk/collection/P01/current/TEMPPR01/",
+                "http://vocab.nerc.ac.uk/collection/P01/current/SIGTEQ01/",
+                "http://vocab.nerc.ac.uk/collection/P01/current/SIGTPR01/",
+                "http://vocab.nerc.ac.uk/collection/P01/current/PSLTZZ01/",
+                "http://vocab.nerc.ac.uk/collection/P01/current/PSLTZZ01/",
+                NA))
+  path <- withr::local_tempfile(fileext = ".csv", .local_envir = env)
+  readr::write_csv(d, path, na = "")
+  path
+}
+
+test_that("read_variable() errors on the write_csv(na='NA') round trip", {
+  path <- var_fixture()
+  expect_s3_class(read_variable(path), "data.frame")
+  readr::write_csv(readr::read_csv(path, show_col_types = FALSE), path)  # na = "NA"
+  expect_error(read_variable(path), "sentinel strings")
+  expect_s3_class(read_variable(path, validate = FALSE), "data.frame")
+})
+
+test_that("register_variables() writes empty cells, appends, and refuses a duplicate", {
+  path <- var_fixture()
+  new <- tibble::tibble(variable = "salinity", label = "Salinity",
+                        units = "PSU", category = "Physical Oceanography",
+                        is_unified = TRUE)
+  out <- register_variables(new, path, quiet = TRUE)
+  expect_true("salinity" %in% out$variable)
+  expect_equal(nrow(out), 3)
+  raw <- readLines(path)
+  expect_false(any(grepl("(^|,)NA(,|$)", raw)))
+  expect_silent(read_variable(path))
+
+  # register_variables() only appends — a repeat of an existing key is refused,
+  # never silently merged or overwritten
+  expect_error(register_variables(
+    tibble::tibble(variable = "salinity", label = "Salinity (again)"), path),
+    "already in the registry")
+
+  # a stray column is dropped with a warning, not silently widened in
+  expect_warning(
+    out2 <- register_variables(
+      tibble::tibble(variable = "silicate", label = "Silicate", bogus_col = "x"),
+      path, quiet = TRUE),
+    "bogus_col")
+  expect_false("bogus_col" %in% names(out2))
+
+  # NULL / zero-row input is a no-op
+  expect_equal(nrow(register_variables(NULL, path, quiet = TRUE)), 4)
+})
+
+test_that("register_variables() refuses a nerc_p01 that disagrees with a member series", {
+  path <- var_fixture()
+  mtp  <- mt_variable_fixture()
+
+  # nitrate has no `variable` assigned in the fixture at all, so this is an
+  # unrelated key with no members to check against; oxygen_ml_l already exists
+  # in the fixture, so use a fresh key sharing sigma_theta's members
+  expect_error(
+    register_variables(
+      tibble::tibble(variable = "sigma_theta", label = "Potential density",
+                     nerc_p01 = "http://vocab.nerc.ac.uk/collection/P01/current/SIGTEQ01/"),
+      path, measurement_type_path = mtp),
+    "disagrees with a member series")
+
+  # the SAME key with an EMPTY nerc_p01 is exactly how a genuine member
+  # disagreement (sigma_theta: SIGTEQ01 vs SIGTPR01) is meant to be recorded
+  out <- register_variables(
+    tibble::tibble(variable = "sigma_theta", label = "Potential density",
+                   units = "kg/m3", category = "Physical Oceanography"),
+    path, measurement_type_path = mtp, quiet = TRUE)
+  expect_true(is.na(out$nerc_p01[out$variable == "sigma_theta"]))
+
+  # a key whose members DO agree may be registered with that shared nerc_p01
+  path2 <- var_fixture()
+  out2 <- register_variables(
+    tibble::tibble(variable = "salinity", label = "Salinity",
+                   nerc_p01 = "http://vocab.nerc.ac.uk/collection/P01/current/PSLTZZ01/"),
+    path2, measurement_type_path = mtp, quiet = TRUE)
+  expect_equal(out2$nerc_p01[out2$variable == "salinity"],
+              "http://vocab.nerc.ac.uk/collection/P01/current/PSLTZZ01/")
+})
+
+test_that("check_variable_registry() passes a consistent registry and catches each violation", {
+  path <- var_fixture()
+  mtp  <- mt_variable_fixture()
+  register_variables(
+    tibble::tibble(variable = "salinity", label = "Salinity", units = "PSU",
+                   nerc_p01 = "http://vocab.nerc.ac.uk/collection/P01/current/PSLTZZ01/",
+                   category = "Physical Oceanography"),
+    path, measurement_type_path = mtp, quiet = TRUE)
+  register_variables(
+    tibble::tibble(variable = "sigma_theta", label = "Potential density",
+                   units = "kg/m3", category = "Physical Oceanography"),
+    path, measurement_type_path = mtp, quiet = TRUE)
+
+  expect_true(check_variable_registry(path, mtp))
+
+  # an orphan: a measurement_type.variable value with no variable.csv row
+  mt_orphan <- mt_variable_fixture()
+  d <- readr::read_csv(mt_orphan, na = "", show_col_types = FALSE)
+  d$variable[d$measurement_type == "nitrate"] <- "nitrate"  # now used, but never registered
+  readr::write_csv(d, mt_orphan, na = "")
+  expect_error(check_variable_registry(path, mt_orphan), "no variable\\.csv row")
+
+  # an unused row: a variable.csv key with zero member series
+  path_unused <- var_fixture()
+  register_variables(tibble::tibble(variable = "ph", label = "pH"),
+                     path_unused, quiet = TRUE)
+  expect_error(check_variable_registry(path_unused, mt_variable_fixture()),
+              "no member series")
+
+  # a units mismatch that is NOT the PSS-78/PSU equivalence: force one member
+  # onto an incompatible unit and confirm the check catches it
+  mt_bad_units <- mt_variable_fixture()
+  d2 <- readr::read_csv(mt_bad_units, na = "", show_col_types = FALSE)
+  d2$units[d2$measurement_type == "temperature_ave"] <- "deg_F"
+  readr::write_csv(d2, mt_bad_units, na = "")
+  expect_error(check_variable_registry(path, mt_bad_units), "inconsistent units")
+
+  # PSS-78 vs PSU is explicitly NOT flagged — same practical salinity scale,
+  # two spellings
+  expect_true(check_variable_registry(path, mtp))
+})
