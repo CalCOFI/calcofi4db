@@ -320,7 +320,8 @@ build_sample_spatial <- function(con, layers = NULL, tbl = "sample_spatial") {
 #'
 #' n observations and root samples by dataset, by dataset x station x year, by dataset x year and by
 #' dataset x measurement type (with year and depth spans, and — when the `measurement_type` table
-#' carries them — the registry's `category` and `variable`); the per-station year x month detail is
+#' carries them — the registry's `category`, `variable`, `valid_min` and `valid_max`, plus the key's
+#' `label` from `metadata/variable.csv` when one is supplied); the per-station year x month detail is
 #' [build_coverage_stations()], a second sidecar fetched on demand — small enough to paint the grid before
 #' DuckDB-WASM wakes up, and the variable-based inventory Task 14 asks for. Since 3.25.0 also `taxa[]`
 #' (explorer UI plan D14): one row per taxon of the bio realm — key, names, rank, class, n_obs, year
@@ -332,10 +333,13 @@ build_sample_spatial <- function(con, layers = NULL, tbl = "sample_spatial") {
 #'   `life_stage`) and `sample_root`; `taxon` (for `taxa[]`) and `measurement_type` (for the two
 #'   variable fields) when present.
 #' @param version the release version string.
+#' @param variable the label registry (`metadata/variable.csv`): a data frame with `variable` and
+#'   `label`, which puts `label` onto `variables[]`. `NULL` (the default) falls back to a `variable`
+#'   table on `con` when there is one, and otherwise leaves `label` `NA` — never invented.
 #' @return A list ready for `jsonlite::write_json(auto_unbox = TRUE)`.
 #' @export
 #' @concept release
-build_coverage <- function(con, version) {
+build_coverage <- function(con, version, variable = NULL) {
   q <- function(sql) dbGetQuery(con, sql)
   # obs -> root via sample (obs.sample_key may be a child of the root)
   has <- function(t) t %in% DBI::dbListTables(con)
@@ -396,12 +400,30 @@ build_coverage <- function(con, version) {
                          min(depth_min_m) AS depth_min_m, max(depth_max_m) AS depth_max_m
                   FROM _cov GROUP BY dataset_key, realm, measurement_type ORDER BY dataset_key, measurement_type")
   # the registry's category + variable onto variables[] (explorer UI plan D14) — only when the table carries them
+  # `valid_min` / `valid_max` ride along (measurements catalog plan 2026-09-10): the explorer clips
+  # its colour ramp and its axes at first paint, before DuckDB-WASM is warm, and a declared bound is
+  # the only thing that says a 9,895 degC underway reading is not the top of the scale. NULL where
+  # nothing is declared — never the observed range, which is what a bound is not.
   if (has("measurement_type")) {
-    mcols <- intersect(c("category", "variable"), DBI::dbListFields(con, "measurement_type"))
-    if (length(mcols)) {
-      mt <- q(glue::glue("SELECT measurement_type, {paste(mcols, collapse = ', ')} FROM measurement_type"))
-      for (cl in mcols) variables[[cl]] <- as.character(mt[[cl]][match(variables$measurement_type, mt$measurement_type)])
+    mflds <- DBI::dbListFields(con, "measurement_type")
+    mcols <- intersect(c("category", "variable"), mflds)
+    ncols <- intersect(c("valid_min", "valid_max"), mflds)
+    if (length(c(mcols, ncols))) {
+      mt <- q(glue::glue("SELECT measurement_type, {paste(c(mcols, ncols), collapse = ', ')} FROM measurement_type"))
+      i  <- match(variables$measurement_type, mt$measurement_type)
+      for (cl in mcols) variables[[cl]] <- as.character(mt[[cl]][i])
+      for (cl in ncols) variables[[cl]] <- suppressWarnings(as.numeric(mt[[cl]][i]))
     }
+  }
+  # `label` (measurements catalog plan 2026-09-10 § D3/D10): the display name of the KEY, from
+  # metadata/variable.csv. The explorer hard-codes five labels in `variables.ts` and says they
+  # belong in the registry; this is the hook that lets it read them instead. A key with no row
+  # gets NA — the label is authored, never derived from a column note.
+  if ("variable" %in% names(variables)) {
+    vr <- if (!is.null(variable)) as.data.frame(variable, stringsAsFactors = FALSE) else
+      if (has("variable")) q("SELECT * FROM variable") else NULL
+    variables$label <- if (!is.null(vr) && all(c("variable", "label") %in% names(vr)))
+      as.character(vr$label[match(variables$variable, vr$variable)]) else NA_character_
   }
   # taxa[]: one row per taxon of the bio realm, its datasets nested, names/rank/class from the taxon reference
   taxa <- list()

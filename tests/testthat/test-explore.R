@@ -194,6 +194,34 @@ test_that("build_coverage() is the cube behind the first paint, and deterministi
   expect_false(grepl("generated", j1))
 })
 
+test_that("build_coverage() puts variable.csv's label onto variables[] (measurements catalog D3/D10)", {
+  con <- ex_con(); ex_fixture(con); build_sample_root(con)
+  DBI::dbExecute(con, "ALTER TABLE measurement_type ADD COLUMN category VARCHAR")
+  DBI::dbExecute(con, "ALTER TABLE measurement_type ADD COLUMN variable VARCHAR")
+  DBI::dbExecute(con, "UPDATE measurement_type SET category = 'Physical Oceanography', variable = 'temperature' WHERE measurement_type = 'temperature'")
+  DBI::dbExecute(con, "ALTER TABLE measurement_type ADD COLUMN valid_min DOUBLE")
+  DBI::dbExecute(con, "ALTER TABLE measurement_type ADD COLUMN valid_max DOUBLE")
+  DBI::dbExecute(con, "UPDATE measurement_type SET valid_min = -2, valid_max = 40 WHERE measurement_type = 'temperature'")
+  vr <- data.frame(variable = "temperature", label = "Temperature", stringsAsFactors = FALSE)
+  v <- build_coverage(con, "v2026.09.01", variable = vr)$variables
+  expect_equal(v$label[v$measurement_type == "temperature"], "Temperature")
+  # the declared bounds ride along so the explorer can clip before the engine is warm
+  expect_equal(v$valid_min[v$measurement_type == "temperature"], -2)
+  expect_equal(v$valid_max[v$measurement_type == "temperature"], 40)
+  # undeclared is NULL, never the observed range
+  expect_true(is.na(v$valid_max[v$measurement_type == "abundance"]))
+  # a type with no `variable` — so no key, so no row — gets NA, never an invented label
+  expect_true(is.na(v$label[v$measurement_type == "abundance"]))
+  # no registry at all: the column is there and empty, and nothing errors
+  v0 <- build_coverage(con, "v2026.09.01")$variables
+  expect_true("label" %in% names(v0))
+  expect_true(all(is.na(v0$label)))
+  # a `variable` table on the connection is the fallback
+  DBI::dbWriteTable(con, "variable", vr)
+  expect_equal(build_coverage(con, "v2026.09.01")$variables$label[v$measurement_type == "temperature"],
+               "Temperature")
+})
+
 test_that("build_coverage() carries taxa[] and the registry's category / variable (explorer UI plan D14)", {
   con <- ex_con(); ex_fixture(con); build_sample_root(con)
   # a taxon reference + the two new registry columns; the test fixture's measurement_type has neither by default
