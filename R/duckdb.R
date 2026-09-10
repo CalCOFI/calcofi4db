@@ -7,7 +7,9 @@
 #'
 #' @param path Path to DuckDB file, GCS path, or ":memory:" for in-memory
 #' @param read_only Open database in read-only mode (default: FALSE)
-#' @param config Named list of DuckDB configuration options (default: empty list)
+#' @param config Named list of DuckDB configuration options (default: empty list).
+#'   `CALCOFI_DUCKDB_MEMORY_LIMIT` (e.g. `"10GB"`) and `CALCOFI_DUCKDB_THREADS` in the
+#'   environment supply `memory_limit` / `threads` defaults; an entry here overrides them.
 #'
 #' @return DuckDB connection object
 #' @export
@@ -64,7 +66,20 @@ get_duckdb_con <- function(
   default_config <- list(
     autoload_known_extensions     = "true",
     storage_compatibility_version = "latest")
-  config <- utils::modifyList(default_config, config)
+  # a ceiling for the engine, from the environment: DuckDB's default memory_limit
+  # is 80 % of physical RAM, which on a machine already using swap lets its own
+  # buffer pool be paged out — the 2026-09-10 CTD ingest sat 1.5 h in
+  # write_parquet's obs_ctd_full sort at 7 % CPU with 18 GB of spill files and the
+  # OS swap full (34 GB). A lower limit makes DuckDB run its own disciplined
+  # external sort on its temp files at disk speed instead. An explicit `config`
+  # entry wins over the environment; an empty variable is ignored.
+  env_config <- list(
+    memory_limit = Sys.getenv("CALCOFI_DUCKDB_MEMORY_LIMIT", ""),
+    threads      = Sys.getenv("CALCOFI_DUCKDB_THREADS", ""))
+  env_config <- env_config[nzchar(unlist(env_config))]
+  config <- utils::modifyList(utils::modifyList(default_config, env_config), config)
+  # duckdb::duckdb() wants every config value as a string (`threads = 4` errors)
+  config <- lapply(config, as.character)
 
   # the duckdb R package points temp_directory at tempdir()/duckdb/temp but
   # never creates the parent, and DuckDB's own mkdir is not recursive — so the

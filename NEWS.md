@@ -1,3 +1,13 @@
+# calcofi4db 4.11.1
+
+## A memory ceiling for the engine, from the environment
+
+- `get_duckdb_con()` reads `CALCOFI_DUCKDB_MEMORY_LIMIT` and `CALCOFI_DUCKDB_THREADS` into the
+  connection's `memory_limit` / `threads` (an explicit `config` entry still wins). DuckDB's default
+  limit is 80 % of physical RAM; on 2026-09-10 the CTD ingest's `obs_ctd_full` sort spent 1.5 h at
+  7 % CPU with 18 GB of spill files while the OS swap (34 GB) was full — the buffer pool itself was
+  being paged. A ceiling below free RAM lets DuckDB run its own external sort at disk speed.
+
 # calcofi4db 4.11.0
 
 ## One value from a CTD's two sensors, by the provider's flags
