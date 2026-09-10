@@ -3,8 +3,9 @@
 n observations and root samples by dataset, by dataset x station x year,
 by dataset x year and by dataset x measurement type (with year and depth
 spans, and — when the `measurement_type` table carries them — the
-registry's `category` and `variable`); the per-station year x month
-detail is
+registry's `category`, `variable`, `valid_min` and `valid_max`, plus the
+key's `label` from `metadata/variable.csv` when one is supplied); the
+per-station year x month detail is
 [`build_coverage_stations()`](https://calcofi.io/calcofi4db/reference/build_coverage_stations.md),
 a second sidecar fetched on demand — small enough to paint the grid
 before DuckDB-WASM wakes up, and the variable-based inventory Task 14
@@ -18,7 +19,7 @@ writes identical bytes.
 ## Usage
 
 ``` r
-build_coverage(con, version)
+build_coverage(con, version, variable = NULL)
 ```
 
 ## Arguments
@@ -33,6 +34,13 @@ build_coverage(con, version)
 - version:
 
   the release version string.
+
+- variable:
+
+  the label registry (`metadata/variable.csv`): a data frame with
+  `variable` and `label`, which puts `label` onto `variables[]`. `NULL`
+  (the default) falls back to a `variable` table on `con` when there is
+  one, and otherwise leaves `label` `NA` — never invented.
 
 ## Value
 

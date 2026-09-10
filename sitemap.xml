@@ -29,6 +29,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/assert_dataset_citation.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assert_dwc.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assert_eml.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/assert_measurements_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assert_sitemap.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assert_stac.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assert_taxa_catalog.html</loc></url>
@@ -45,6 +46,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/build_eml.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_eml_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_grid_reference.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/build_measurements_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_metadata_json.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_obs_slim.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_relationships_json.html</loc></url>
@@ -83,6 +85,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/check_eml.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_eml_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_measurement_bounds.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/check_measurements_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_multiple_datasets.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_obs_pair_parity.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_registry_na_strings.html</loc></url>
@@ -234,7 +237,11 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/match_nearest_by_depth.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/match_ships.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/match_station_occupation.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/measurement_flags.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/measurement_related_reasons.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/measurement_series_flags.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/measurement_var_meta.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/measurements_catalog_checks.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/merge_dataset_meta.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/merge_metadata_json.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/merge_relationships_json.html</loc></url>
@@ -377,6 +384,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/validate_fk_references.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/validate_for_release.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/validate_lookup_values.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/validate_measurements_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/validate_taxa_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/variable_csv_header_comment.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/write_dataset_catalog.html</loc></url>
@@ -384,6 +392,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/write_eml_files.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/write_ingest_outputs.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/write_input_fingerprint.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/write_measurements_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/write_parquet_outputs.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/write_parquet_table.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/write_sitemap_xml.html</loc></url>

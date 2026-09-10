@@ -800,6 +800,12 @@ check for other functions or datasets not captured by above categories
   Stop on any non-exempt error finding from
   [`check_eml()`](https://calcofi.io/calcofi4db/reference/check_eml.md)
 
+- [`assert_measurements_catalog()`](https://calcofi.io/calcofi4db/reference/assert_measurements_catalog.md)
+  :
+
+  Stop on any failing check from
+  [`check_measurements_catalog()`](https://calcofi.io/calcofi4db/reference/check_measurements_catalog.md)
+
 - [`assert_sitemap()`](https://calcofi.io/calcofi4db/reference/assert_sitemap.md)
   :
 
@@ -856,6 +862,11 @@ check for other functions or datasets not captured by above categories
 
   Build the shared `grid` reference table (deterministic,
   dataset-independent)
+
+- [`build_measurements_catalog()`](https://calcofi.io/calcofi4db/reference/build_measurements_catalog.md)
+  :
+
+  Build the measurements catalog record (`measurements.json`)
 
 - [`build_obs_slim()`](https://calcofi.io/calcofi4db/reference/build_obs_slim.md)
   :
@@ -958,6 +969,11 @@ check for other functions or datasets not captured by above categories
 
 - [`check_eml_catalog()`](https://calcofi.io/calcofi4db/reference/check_eml_catalog.md)
   : Check every dataset's EML document
+
+- [`check_measurements_catalog()`](https://calcofi.io/calcofi4db/reference/check_measurements_catalog.md)
+  :
+
+  Check a `measurements.json` against the release it was built from
 
 - [`check_obs_pair_parity()`](https://calcofi.io/calcofi4db/reference/check_obs_pair_parity.md)
   :
@@ -1254,10 +1270,30 @@ check for other functions or datasets not captured by above categories
   Stamp `sample.station_uuid`: the SWFSC station occupation an event
   belongs to
 
+- [`measurement_flags()`](https://calcofi.io/calcofi4db/reference/measurement_flags.md)
+  :
+
+  The `flags[]` a `measurements.json` measurement (a page) can carry
+
+- [`measurement_related_reasons()`](https://calcofi.io/calcofi4db/reference/measurement_related_reasons.md)
+  : Why two measurement keys sharing a NERC P01 concept are kept apart
+
+- [`measurement_series_flags()`](https://calcofi.io/calcofi4db/reference/measurement_series_flags.md)
+  :
+
+  The `flags[]` a `measurements.json` series can carry
+
 - [`measurement_var_meta()`](https://calcofi.io/calcofi4db/reference/measurement_var_meta.md)
   :
 
   CF variable metadata from the `measurement_type` registry
+
+- [`measurements_catalog_checks()`](https://calcofi.io/calcofi4db/reference/measurements_catalog_checks.md)
+  :
+
+  The checks
+  [`check_measurements_catalog()`](https://calcofi.io/calcofi4db/reference/check_measurements_catalog.md)
+  runs, with their level
 
 - [`merge_dataset_meta()`](https://calcofi.io/calcofi4db/reference/merge_dataset_meta.md)
   :
@@ -1659,6 +1695,11 @@ check for other functions or datasets not captured by above categories
 
   Validate a `datasets.json` against the package's JSON schema
 
+- [`validate_measurements_catalog()`](https://calcofi.io/calcofi4db/reference/validate_measurements_catalog.md)
+  :
+
+  Validate a `measurements.json` against the package's JSON schema
+
 - [`validate_taxa_catalog()`](https://calcofi.io/calcofi4db/reference/validate_taxa_catalog.md)
   :
 
@@ -1678,6 +1719,11 @@ check for other functions or datasets not captured by above categories
   :
 
   Write `eml/{dataset_key}.xml` for every built document
+
+- [`write_measurements_catalog()`](https://calcofi.io/calcofi4db/reference/write_measurements_catalog.md)
+  :
+
+  Write `measurements.json`
 
 - [`write_sitemap_xml()`](https://calcofi.io/calcofi4db/reference/write_sitemap_xml.md)
   : Write a sitemap XML file (sitemaps.org 0.9)
