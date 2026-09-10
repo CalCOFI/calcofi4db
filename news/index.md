@@ -1,18 +1,90 @@
 # Changelog
 
-## calcofi4db 4.11.1
+## calcofi4db 4.12.0
 
-### A memory ceiling for the engine, from the environment
+### The measurements catalog record (`measurements.json`)
 
-- [`get_duckdb_con()`](https://calcofi.io/calcofi4db/reference/get_duckdb_con.md)
-  reads `CALCOFI_DUCKDB_MEMORY_LIMIT` and `CALCOFI_DUCKDB_THREADS` into
-  the connection’s `memory_limit` / `threads` (an explicit `config`
-  entry still wins). DuckDB’s default limit is 80 % of physical RAM; on
-  2026-09-10 the CTD ingest’s `obs_ctd_full` sort spent 1.5 h at 7 % CPU
-  with 18 GB of spill files while the OS swap (34 GB) was full — the
-  buffer pool itself was being paged. A ceiling below free RAM lets
-  DuckDB run its own external sort at disk speed. \# calcofi4db
-  (development version)
+- `build_measurements_catalog(con, record, measurement_type, variable, category)`
+  — `taxa.json`’s twin for the environment half of the catalog (plan
+  2026-09-10 “Measurements catalog — the environment’s Species”, §
+  D2/D4, Appendix A). One entry per measurement **key** the release’s
+  `obs_env` carries — the registry’s `variable` where one is set (the
+  bottle’s `temperature` and the CTD’s `temperature_ave` are both
+  `temperature`), else the `measurement_type` — with one `series[]` per
+  `measurement_type` × dataset carrying that dataset’s own source and
+  flag column, its values by year, calendar month, depth band and
+  quality code, the observed quantiles, the declared bounds and the NERC
+  P01/P06 ids. 79 keys over 84 series and 25,006,583 values on
+  v2026.09.06. Six grouped queries, never one per key; deterministic (no
+  wall clock, no network); ordered by the category registry, then by
+  size.
+- `related[]` names the other keys sharing a NERC P01 concept that are
+  **kept apart on purpose**, with the reason — `underway_vs_cast`,
+  `same_bottles`, `replicate_vs_mean`, `pre_qc_twin`, `sensor_vs_mean`
+  (a raw sensor beside the mean of its pair, in the same dataset),
+  `paired_sensors` (the two sensors of one instrument, neither of them
+  the mean) and `same_casts` (two datasets sampling the same water on
+  the same casts, with no sharper marker), tested in that order
+  (\[[`measurement_related_reasons()`](https://calcofi.io/calcofi4db/reference/measurement_related_reasons.md)\]).
+  All 76 of v2026.09.06’s directed P01-sharing pairs carry one. P01
+  identity says two series name the same quantity, never that they may
+  be pooled: the CTD files’ own bottle table is plausibly the same
+  physical bottles as the bottle dataset, so merging them would double
+  count.
+- **`observed{}` is computed within the declared bounds**, and the
+  values outside them are counted and bracketed in
+  `out_of_bounds{n, min, max}` (`null` where the registry declares no
+  bound). A measurement page then shows the range a reader would
+  actually use while the breach stays visible — the bottle’s
+  `temperature` reads 1.44–31.14 °C with `out_of_bounds`
+  `{n: 2, min: 56.87, max: 99}` on v2026.09.06. The raw counts
+  (`n_values`, `years{}`, `months[]`, `depth_bands{}`, `qual{}`,
+  `qual_ok_n`) are untouched, so the release’s arithmetic gate still
+  equals `obs_env`’s row count.
+- [`measurement_series_flags()`](https://calcofi.io/calcofi4db/reference/measurement_series_flags.md)
+  is the per-series vocabulary — `sensor_mean`, `replicate`,
+  `reported_pre_qc`, `no_bound`, `sentinel_suspected`,
+  `no_flag_at_grain`, `no_p01` — and
+  [`measurement_flags()`](https://calcofi.io/calcofi4db/reference/measurement_flags.md)
+  the one measurement-level flag, `no_label`: absent a
+  `metadata/variable.csv` row the label falls back to the canonical
+  series’ registry description and says so. The builder never invents a
+  label. `sentinel_suspected` fires on `out_of_bounds$n > 0`, or — with
+  no bound declared — only when an extreme is both past ±99 and more
+  than 100× the series’ own 95th (or 5th) percentile in magnitude, so a
+  legitimately large reading passes while the bottle’s
+  `r_oxygen_umol_kg` at −8,740 (5th: ~0) does not.
+- `full_resolution_only[]` lists only a registry row whose
+  `_source_table` is one of `supplemental_tables`: a row that never
+  reaches `obs_env` from anywhere else is simply not released, not “full
+  resolution only”. `counts$full_rows` is `obs_env_rows` plus the
+  supplementals, counted on the connection where it carries them and
+  otherwise taken from the new `supplemental_rows` argument (read from a
+  promoted release’s `catalog.json`, never typed).
+- [`write_measurements_catalog()`](https://calcofi.io/calcofi4db/reference/write_measurements_catalog.md),
+  [`validate_measurements_catalog()`](https://calcofi.io/calcofi4db/reference/validate_measurements_catalog.md)
+  (against the new `inst/schema/measurements.schema.json`,
+  `schema_version` 1.0),
+  [`check_measurements_catalog()`](https://calcofi.io/calcofi4db/reference/check_measurements_catalog.md)
+  /
+  [`assert_measurements_catalog()`](https://calcofi.io/calcofi4db/reference/assert_measurements_catalog.md)
+  /
+  [`measurements_catalog_checks()`](https://calcofi.io/calcofi4db/reference/measurements_catalog_checks.md)
+  — twelve checks, all `error`: the sum of `series[].n_values` over
+  every key must be `obs_env`’s row count (a series counted twice is
+  what that catches), every `years{}` must sum to at most its series,
+  every `measurement_type` must be registered, every `dataset_key` in
+  the release record.
+- [`build_coverage()`](https://calcofi.io/calcofi4db/reference/build_coverage.md)
+  gains a `variable` argument and puts the key’s `label` onto
+  `variables[]` when `metadata/variable.csv` supplies one (the Explorer
+  hard-codes five labels in `variables.ts` and says they belong in the
+  registry; this is the hook). No row means `NA`, never a derived label.
+  `variables[]` also gains the registry’s `valid_min` / `valid_max`, so
+  the Explorer can clip a ramp or an axis at first paint; `NULL` where
+  nothing is declared, never the observed range.
+- `RELEASE_REQUIRED_OBJECTS` gains `measurements.json`, so a release
+  cannot be promoted without it.
 
 ### A label per crosswalk key: `read_variable()` / `register_variables()` / `check_variable_registry()`
 
@@ -57,7 +129,18 @@
     present; worth knowing about generally — a duplicate-name
     `left_join()` fails silently in dplyr, not loudly.
 
-## calcofi4db 4.11.0
+## calcofi4db 4.11.1
+
+### A memory ceiling for the engine, from the environment
+
+- [`get_duckdb_con()`](https://calcofi.io/calcofi4db/reference/get_duckdb_con.md)
+  reads `CALCOFI_DUCKDB_MEMORY_LIMIT` and `CALCOFI_DUCKDB_THREADS` into
+  the connection’s `memory_limit` / `threads` (an explicit `config`
+  entry still wins). DuckDB’s default limit is 80 % of physical RAM; on
+  2026-09-10 the CTD ingest’s `obs_ctd_full` sort spent 1.5 h at 7 % CPU
+  with 18 GB of spill files while the OS swap (34 GB) was full — the
+  buffer pool itself was being paged. A ceiling below free RAM lets
+  DuckDB run its own external sort at disk speed. \# calcofi4db 4.11.0
 
 ### One value from a CTD’s two sensors, by the provider’s flags
 
