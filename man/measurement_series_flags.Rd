@@ -36,7 +36,9 @@ takes) \strong{and} more than \code{CC_MEASUREMENT_SENTINEL_RATIO} (100) times t
 series' own 95th percentile. Both halves of the second test are needed:
 PAR reads 14,187 uE/m2/s and short-wave radiation 1,456 W/m2 legitimately,
 while the METS \code{sst_c} of v2026.09.06 reads 9,895 degC against a 95th
-percentile of 20.4.
+percentile of 20.4. The minimum is tested the same way — at or below -99 and
+more than 100x the 5th percentile in magnitude — which is what catches the
+CTD \code{spar} of -3.07e17.
 \item \code{no_flag_at_grain} — the registry names no \verb{_qual_column}, so the series
 reaches the release carrying no quality code. The CTD's \code{temperature_ave}
 is the headline case: the sensor flags ride \code{temperature_1} / \code{temperature_2}

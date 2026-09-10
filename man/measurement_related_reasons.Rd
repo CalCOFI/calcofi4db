@@ -28,6 +28,9 @@ physical bottles, so merging them would double count.
 \code{derivation} starts with "Mean of": a raw sensor beside the mean of the
 sensor pair (\code{oxygen_ml_l_1} beside \code{oxygen_ml_l_ave_sta_corr}, which is
 the \code{oxygen_ml_l} key). One is an input to the other.
+\item \code{paired_sensors} — the two sensors of one instrument: the same dataset and
+the same P01, and neither side is the mean (\code{oxygen_ml_l_1} beside
+\code{oxygen_ml_l_2}). Two readings of one water sample, not two measurements.
 \item \code{same_casts} — the residual same-quantity case: different datasets, neither
 underway, and no bottle-table, replicate, pre-QC or sensor marker to name a
 sharper difference. Plausibly the same water sampled on the same casts, and
@@ -39,7 +42,7 @@ They are tested in that order, because the first that applies is the
 coarsest difference: an underway intake beside a cast's bottle table is
 \code{underway_vs_cast}, not \code{same_bottles}.
 
-A pair sharing a P01 that matches none of the six gets \strong{no} \code{related[]}
+A pair sharing a P01 that matches none of the seven gets \strong{no} \code{related[]}
 entry: the vocabulary states no reason, and the record never invents one.
 }
 \examples{

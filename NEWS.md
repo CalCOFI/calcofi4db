@@ -54,9 +54,10 @@
   registry, then by size.
 - `related[]` names the other keys sharing a NERC P01 concept that are **kept apart on purpose**,
   with the reason — `underway_vs_cast`, `same_bottles`, `replicate_vs_mean`, `pre_qc_twin`,
-  `sensor_vs_mean` (a raw sensor beside the mean of its pair, in the same dataset) and `same_casts`
-  (two datasets sampling the same water on the same casts, with no sharper marker), tested in that
-  order ([`measurement_related_reasons()`]). P01 identity says two series name the same quantity,
+  `sensor_vs_mean` (a raw sensor beside the mean of its pair, in the same dataset), `paired_sensors`
+  (the two sensors of one instrument, neither of them the mean) and `same_casts` (two datasets
+  sampling the same water on the same casts, with no sharper marker), tested in that order
+  ([`measurement_related_reasons()`]). All 76 of v2026.09.06's directed P01-sharing pairs carry one. P01 identity says two series name the same quantity,
   never that they may be pooled: the CTD files' own bottle table is plausibly the same physical
   bottles as the bottle dataset, so merging them would double count.
 - **`observed{}` is computed within the declared bounds**, and the values outside them are counted
@@ -70,8 +71,9 @@
   `measurement_flags()` the one measurement-level flag, `no_label`: absent a `metadata/variable.csv`
   row the label falls back to the canonical series' registry description and says so. The builder
   never invents a label. `sentinel_suspected` fires on `out_of_bounds$n > 0`, or — with no bound
-  declared — only when the observed maximum is both ≥ 99 and more than 100× the series' own 95th
-  percentile, so PAR's 14,187 µE/m²/s passes while METS `sst_c`'s 9,895 °C (95th: 20.4) does not.
+  declared — only when an extreme is both past ±99 and more than 100× the series' own 95th (or 5th)
+  percentile in magnitude, so a legitimately large reading passes while the bottle's
+  `r_oxygen_umol_kg` at −8,740 (5th: ~0) does not.
 - `full_resolution_only[]` lists only a registry row whose `_source_table` is one of
   `supplemental_tables`: a row that never reaches `obs_env` from anywhere else is simply not
   released, not "full resolution only". `counts$full_rows` is `obs_env_rows` plus the supplementals,

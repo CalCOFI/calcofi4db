@@ -132,7 +132,7 @@
             "type": "object", "additionalProperties": false, "required": ["key", "why"],
             "properties": {
               "key": { "type": "string" },
-              "why": { "type": "string", "enum": ["underway_vs_cast", "same_bottles", "replicate_vs_mean", "pre_qc_twin", "sensor_vs_mean", "same_casts"], "description": "underway_vs_cast: one side is an underway intake · same_bottles: one side is another dataset's own copy of the bottle table, plausibly the same physical bottles · replicate_vs_mean: a _rep replicate beside a mean · pre_qc_twin: an r_ series reported before QC · sensor_vs_mean: a raw sensor beside the mean of its pair, in the same dataset · same_casts: two datasets sampling the same water on the same casts, with no sharper marker" }
+              "why": { "type": "string", "enum": ["underway_vs_cast", "same_bottles", "replicate_vs_mean", "pre_qc_twin", "sensor_vs_mean", "paired_sensors", "same_casts"], "description": "underway_vs_cast: one side is an underway intake · same_bottles: one side is another dataset's own copy of the bottle table, plausibly the same physical bottles · replicate_vs_mean: a _rep replicate beside a mean · pre_qc_twin: an r_ series reported before QC · sensor_vs_mean: a raw sensor beside the mean of its pair, in the same dataset · paired_sensors: the two sensors of one instrument, neither of them the mean · same_casts: two datasets sampling the same water on the same casts, with no sharper marker" }
             }
           }
         },

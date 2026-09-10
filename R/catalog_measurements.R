@@ -153,7 +153,9 @@ CC_MEASUREMENT_SENTINEL_RATIO <- 100
 #'   series' own 95th percentile. Both halves of the second test are needed:
 #'   PAR reads 14,187 uE/m2/s and short-wave radiation 1,456 W/m2 legitimately,
 #'   while the METS `sst_c` of v2026.09.06 reads 9,895 degC against a 95th
-#'   percentile of 20.4.
+#'   percentile of 20.4. The minimum is tested the same way — at or below -99 and
+#'   more than 100x the 5th percentile in magnitude — which is what catches the
+#'   CTD `spar` of -3.07e17.
 #' * `no_flag_at_grain` — the registry names no `_qual_column`, so the series
 #'   reaches the release carrying no quality code. The CTD's `temperature_ave`
 #'   is the headline case: the sensor flags ride `temperature_1` / `temperature_2`
@@ -203,6 +205,9 @@ measurement_flags <- function() "no_label"
 #'   `derivation` starts with "Mean of": a raw sensor beside the mean of the
 #'   sensor pair (`oxygen_ml_l_1` beside `oxygen_ml_l_ave_sta_corr`, which is
 #'   the `oxygen_ml_l` key). One is an input to the other.
+#' * `paired_sensors` — the two sensors of one instrument: the same dataset and
+#'   the same P01, and neither side is the mean (`oxygen_ml_l_1` beside
+#'   `oxygen_ml_l_2`). Two readings of one water sample, not two measurements.
 #' * `same_casts` — the residual same-quantity case: different datasets, neither
 #'   underway, and no bottle-table, replicate, pre-QC or sensor marker to name a
 #'   sharper difference. Plausibly the same water sampled on the same casts, and
@@ -213,7 +218,7 @@ measurement_flags <- function() "no_label"
 #' coarsest difference: an underway intake beside a cast's bottle table is
 #' `underway_vs_cast`, not `same_bottles`.
 #'
-#' A pair sharing a P01 that matches none of the six gets **no** `related[]`
+#' A pair sharing a P01 that matches none of the seven gets **no** `related[]`
 #' entry: the vocabulary states no reason, and the record never invents one.
 #'
 #' @return A character vector, the `related[].why` enum.
@@ -223,7 +228,7 @@ measurement_flags <- function() "no_label"
 #' measurement_related_reasons()
 measurement_related_reasons <- function()
   c("underway_vs_cast", "same_bottles", "replicate_vs_mean", "pre_qc_twin",
-    "sensor_vs_mean", "same_casts")
+    "sensor_vs_mean", "paired_sensors", "same_casts")
 
 # build ---------------------------------------------------------------------------------
 
@@ -504,6 +509,8 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
     # a raw sensor beside the mean of its pair: the same dataset, and exactly one
     # side derived as a mean
     if (length(intersect(da, db)) && xor(is_mean(ta), is_mean(tb)))   return("sensor_vs_mean")
+    # the two sensors of one instrument: same dataset, neither derived as a mean
+    if (length(intersect(da, db)) && !is_mean(ta) && !is_mean(tb))    return("paired_sensors")
     # the residual criterion-(iv) case: two datasets sampling the same water on
     # the same casts, with no sharper marker to name
     if (!length(intersect(da, db)) && !uw(da) && !uw(db))             return("same_casts")
@@ -560,7 +567,7 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
            min = .mm_num(ser[["ob_min"]][i]),
            max = .mm_num(ser[["ob_max"]][i])) else NULL,
          flags = .arr(.mm_series_flags(tp, mt, mt_i, obs_min, obs_max, obs_p95,
-                                       .mm_int(ser[["ob_n"]][i]))))
+                                       .mm_int(ser[["ob_n"]][i]), .mm_num(ser[["v_p05"]][i]))))
   }
 
   measurements <- lapply(keys, function(k) {
@@ -672,7 +679,8 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
 }
 
 # the flags of one series against its registry row
-.mm_series_flags <- function(type, mt, mt_i, obs_min, obs_max, obs_p95, ob_n = 0L) {
+.mm_series_flags <- function(type, mt, mt_i, obs_min, obs_max, obs_p95, ob_n = 0L,
+                             obs_p05 = NA_real_) {
   i <- mt_i[[type]]
   f <- character()
   drv <- .mm_chr(mt[["derivation"]][i])
@@ -687,10 +695,13 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
   # clipped to the bounds, so it can no longer show the breach itself); with
   # nothing declared, only a maximum both >= 99 and 100x outside the series' own
   # 95th percentile is worth a pill
-  scale <- max(abs(if (is.na(obs_p95)) 0 else obs_p95), 1)
+  hi <- max(abs(if (is.na(obs_p95)) 0 else obs_p95), 1)
+  lo <- max(abs(if (is.na(obs_p05)) 0 else obs_p05), 1)
   if ((!no_bound && !is.na(ob_n) && ob_n > 0) ||
       (no_bound && !is.na(obs_max) && obs_max >= CC_MEASUREMENT_SENTINEL &&
-         obs_max > CC_MEASUREMENT_SENTINEL_RATIO * scale))
+         obs_max > CC_MEASUREMENT_SENTINEL_RATIO * hi) ||
+      (no_bound && !is.na(obs_min) && obs_min <= -CC_MEASUREMENT_SENTINEL &&
+         abs(obs_min) > CC_MEASUREMENT_SENTINEL_RATIO * lo))
     f <- c(f, "sentinel_suspected")
   if (is.na(.mm_chr(mt[["_qual_column"]][i])))                      f <- c(f, "no_flag_at_grain")
   if (is.na(.mm_chr(mt[["nerc_p01"]][i])))                          f <- c(f, "no_p01")

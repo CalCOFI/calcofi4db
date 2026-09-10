@@ -14,7 +14,9 @@
 #                                                          same P01 -> same_bottles
 #   sst            ds_c · sst       (2)                    underway -> underway_vs_cast
 #   temp_s1        ds_b · temp_s1   (2)                    a raw sensor beside the
-#                                                          mean -> sensor_vs_mean
+#   temp_s2        ds_b · temp_s2   (2)                    mean -> sensor_vs_mean,
+#                                                          and each other ->
+#                                                          paired_sensors
 #   alk            ds_b · alk       (2)                    the mean of a replicate
 #   alk_rep1       ds_a · alk_rep1  (2)                    -> replicate_vs_mean
 #   r_alk          ds_a · r_alk     (2)                    -> pre_qc_twin
@@ -28,7 +30,7 @@
 #   ds_a · pres    is in the registry, non-canonical, sourced from a table that is
 #                  NOT a supplemental -> listed nowhere
 #
-# 24 rows of obs_env in 10 series over 9 keys.
+# 26 rows of obs_env in 11 series over 10 keys.
 
 mfx_categories <- function() data.frame(
   category = c("Physical Oceanography", "Carbonate System", "Picoplankton & Bacteria"),
@@ -40,32 +42,34 @@ mfx_categories <- function() data.frame(
 p01 <- function(code) paste0("http://vocab.nerc.ac.uk/collection/P01/current/", code, "/")
 
 mfx_measurement_type <- function() data.frame(
-  measurement_type = c("temp", "temp_ave", "temp_1", "temp_s1", "btl_temp", "sst",
+  measurement_type = c("temp", "temp_ave", "temp_1", "temp_s1", "temp_s2", "btl_temp", "sst",
                        "alk", "alk_rep1", "r_alk", "alk_dic", "count_x", "pres"),
   description = c("Water temperature (QC'd)", "Average temperature",
                   "Temperature, sensor 1 (raw)", "Temperature, sensor 1 (corrected)",
+                  "Temperature, sensor 2 (corrected)",
                   "Bottle temperature", "Sea surface temperature",
                   "Total alkalinity", "Total alkalinity, replicate 1",
                   "Reported total alkalinity (pre-QC)", "Total alkalinity (DIC package)",
                   "Cell counts", "Pressure at the cast"),
-  units = c("degC", "degC", "degC", "degC", "degC", "deg_C",
+  units = c("degC", "degC", "degC", "degC", "degC", "degC", "deg_C",
             "umol/kg", "umol/kg", "umol/kg", "umol/kg", "cells/mL", "dbar"),
-  valid_min = c(-2, rep(NA, 11)),
-  valid_max = c(40, rep(NA, 11)),
-  derivation = c(NA, "Mean of the two temperature sensors.", rep(NA, 10)),
-  is_canonical = c(TRUE, TRUE, FALSE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE),
-  `_source_column` = c("t_degc", "temp_ave", "t1", "t1_corr", "btl_t", "sst_c",
+  valid_min = c(-2, rep(NA, 12)),
+  valid_max = c(40, rep(NA, 12)),
+  derivation = c(NA, "Mean of the two temperature sensors.", rep(NA, 11)),
+  is_canonical = c(TRUE, TRUE, FALSE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE),
+  `_source_column` = c("t_degc", "temp_ave", "t1", "t1_corr", "t2_corr", "btl_t", "sst_c",
                        "alk", "alk1", "r_alk", "alk_dic", "cells", "pres"),
-  `_qual_column` = c("t_qual", NA, NA, NA, NA, NA, "a_qual", NA, NA, NA, NA, NA),
-  `_source_table` = c("bottle", "ctd_raw", "ctd_raw", "ctd_raw", "ctd_raw", "mets_measurement",
+  `_qual_column` = c("t_qual", NA, NA, NA, NA, NA, NA, "a_qual", NA, NA, NA, NA, NA),
+  `_source_table` = c("bottle", "ctd_raw", "ctd_raw", "ctd_raw", "ctd_raw", "ctd_raw",
+                      "mets_measurement",
                       "ctd_raw", "bottle", "bottle", "dic_measurement", "pico", "casts"),
-  `_source_datasets` = c("ds_a", "ds_b", "ds_b", "ds_b", "ds_b", "ds_c",
+  `_source_datasets` = c("ds_a", "ds_b", "ds_b", "ds_b", "ds_b", "ds_b", "ds_c",
                          "ds_b", "ds_a", "ds_a", "ds_d", "ds_c", "ds_a"),
-  category = c(rep("Physical Oceanography", 6), rep("Carbonate System", 4),
+  category = c(rep("Physical Oceanography", 7), rep("Carbonate System", 4),
                "Picoplankton & Bacteria", "Physical Oceanography"),
-  variable = c("temperature", "temperature", "temperature", rep(NA_character_, 9)),
-  nerc_p01 = c(rep(p01("TEMPPR01"), 6), rep(p01("MDMAP014"), 4), NA, NA),
-  units_nerc_p06 = c(rep("http://vocab.nerc.ac.uk/collection/P06/current/UPAA/", 6),
+  variable = c("temperature", "temperature", "temperature", rep(NA_character_, 10)),
+  nerc_p01 = c(rep(p01("TEMPPR01"), 7), rep(p01("MDMAP014"), 4), NA, NA),
+  units_nerc_p06 = c(rep("http://vocab.nerc.ac.uk/collection/P06/current/UPAA/", 7),
                      rep(NA_character_, 6)),
   check.names = FALSE, stringsAsFactors = FALSE)
 
@@ -95,41 +99,41 @@ new_measurements_fixture <- function() {
   testthat::skip_if_not_installed("duckdb")
   con <- get_duckdb_con(":memory:")
   obs_env <- data.frame(
-    obs_id      = 1:24,
+    obs_id      = 1:26,
     dataset_key = c(rep("ds_a", 4), rep("ds_b", 3), rep("ds_b", 2), rep("ds_c", 2),
-                    rep("ds_b", 2), rep("ds_b", 2), rep("ds_a", 2), rep("ds_a", 2),
-                    rep("ds_d", 2), rep("ds_c", 3)),
+                    rep("ds_b", 2), rep("ds_b", 2), rep("ds_b", 2), rep("ds_a", 2),
+                    rep("ds_a", 2), rep("ds_d", 2), rep("ds_c", 3)),
     measurement_type = c(rep("temp", 4), rep("temp_ave", 3), rep("btl_temp", 2),
-                         rep("sst", 2), rep("temp_s1", 2), rep("alk", 2),
-                         rep("alk_rep1", 2), rep("r_alk", 2), rep("alk_dic", 2),
-                         rep("count_x", 3)),
+                         rep("sst", 2), rep("temp_s1", 2), rep("temp_s2", 2),
+                         rep("alk", 2), rep("alk_rep1", 2), rep("r_alk", 2),
+                         rep("alk_dic", 2), rep("count_x", 3)),
     sample_key  = c("a1", "a1", "a2", "a2", "b1", "b1", "b2", "b3", "b3",
-                    "c1", "c2", "b1", "b2", "b4", "b4", "a3", "a3", "a3", "a3",
+                    "c1", "c2", "b1", "b2", "b1", "b2", "b4", "b4", "a3", "a3", "a3", "a3",
                     "d1", "d2", "c3", "c4", "c4"),
-    root_id     = c(1L, 1L, 2L, 2L, 3L, 3L, 4L, 5L, 5L, 6L, 7L, 3L, 4L, 8L, 8L,
+    root_id     = c(1L, 1L, 2L, 2L, 3L, 3L, 4L, 5L, 5L, 6L, 7L, 3L, 4L, 3L, 4L, 8L, 8L,
                     9L, 9L, 9L, 9L, 12L, 13L, 10L, 11L, 11L),
     grid_key    = c("g1", "g1", "g2", "g2", "g3", "g3", "g3", "g4", "g4",
-                    "g5", "g5", "g3", "g3", "g6", "g6", "g7", "g7", "g7", "g7",
+                    "g5", "g5", "g3", "g3", "g3", "g3", "g6", "g6", "g7", "g7", "g7", "g7",
                     "g9", "g9", "g8", "g8", "g8"),
     cruise_key  = c("cr1", "cr1", "cr2", "cr2", "cr3", "cr3", "cr4", "cr3", "cr3",
-                    "cr5", "cr5", "cr3", "cr4", "cr6", "cr6", "cr6", "cr6", "cr6", "cr6",
-                    "cr8", "cr8", "cr7", "cr7", "cr7"),
+                    "cr5", "cr5", "cr3", "cr4", "cr3", "cr4", "cr6", "cr6", "cr6", "cr6",
+                    "cr6", "cr6", "cr8", "cr8", "cr7", "cr7", "cr7"),
     year        = c(2000L, 2000L, 2001L, 2001L, 2010L, 2010L, 2011L, 2010L, 2011L,
-                    2015L, 2015L, 2010L, 2011L, 2012L, 2013L, 2012L, 2013L, 2012L, 2013L,
-                    2014L, 2015L, 2020L, 2020L, NA),
-    depth_min_m = c(0, 20, 150, 600, 5, 60, 2500, 10, 10, 0, 0, 5, 60,
+                    2015L, 2015L, 2010L, 2011L, 2010L, 2011L, 2012L, 2013L, 2012L, 2013L,
+                    2012L, 2013L, 2014L, 2015L, 2020L, 2020L, NA),
+    depth_min_m = c(0, 20, 150, 600, 5, 60, 2500, 10, 10, 0, 0, 5, 60, 5, 60,
                     100, 100, 100, 100, 100, 100, 50, 50, 0, 0, 0),
-    depth_max_m = c(0, 20, 150, 600, 5, 60, 2500, 10, 10, 0, 0, 5, 60,
+    depth_max_m = c(0, 20, 150, 600, 5, 60, 2500, 10, 10, 0, 0, 5, 60, 5, 60,
                     100, 100, 100, 100, 100, 100, 50, 50, 0, 0, 0),
-    value = c(5, 10, 15, 99, 6, 11, 16, 7, 12, 18, 19, 6.5, 11.5,
+    value = c(5, 10, 15, 99, 6, 11, 16, 7, 12, 18, 19, 6.5, 11.5, 5.5, 10.5,
               2200, 2250, 2210, 2260, 2205, 2255, 2215, 2265, 100, 200, 300),
-    measurement_qual = c(NA, "6", "8", NA, rep(NA_character_, 20)),
-    qual_ok = c(TRUE, TRUE, FALSE, TRUE, rep(TRUE, 20)),
+    measurement_qual = c(NA, "6", "8", NA, rep(NA_character_, 22)),
+    qual_ok = c(TRUE, TRUE, FALSE, TRUE, rep(TRUE, 22)),
     stringsAsFactors = FALSE)
   obs_env$datetime <- as.POSIXct(
     ifelse(is.na(obs_env$year), NA_character_,
            sprintf("%04d-%02d-15 12:00:00", obs_env$year,
-                   c(1L, 1L, 4L, 4L, 2L, 2L, 5L, 2L, 5L, 7L, 7L, 2L, 5L,
+                   c(1L, 1L, 4L, 4L, 2L, 2L, 5L, 2L, 5L, 7L, 7L, 2L, 5L, 2L, 5L,
                      3L, 3L, 3L, 3L, 3L, 3L, 6L, 6L, 11L, 11L, 1L))),
     tz = "UTC")
   climatology <- data.frame(measurement_type = c("temp", "temp_ave"), stringsAsFactors = FALSE)
@@ -165,16 +169,16 @@ test_that("the record's counts are the fixture's own arithmetic", {
   rec <- fixture_measurements_record()
   expect_identical(rec$schema_version, "1.0")
   expect_identical(rec$release$version, "v2026.01.01")
-  expect_identical(rec$counts$measurements, 9L)
-  expect_identical(rec$counts$pages, 9L)
-  expect_identical(rec$counts$series, 10L)
+  expect_identical(rec$counts$measurements, 10L)
+  expect_identical(rec$counts$pages, 10L)
+  expect_identical(rec$counts$series, 11L)
   expect_identical(rec$counts$datasets, 4L)
-  expect_identical(rec$counts$obs_env_rows, 24L)
+  expect_identical(rec$counts$obs_env_rows, 26L)
   # the fixture has neither obs_*_full table nor a supplemental_rows argument
   expect_true(is.na(rec$counts$full_rows))
   n <- sum(vapply(rec$measurements, function(m)
     sum(vapply(m$series, function(s) s$n_values, 0L)), 0L))
-  expect_identical(n, 24L)
+  expect_identical(n, 26L)
 })
 
 test_that("full_rows is obs_env plus the supplementals, read never typed", {
@@ -186,13 +190,13 @@ test_that("full_rows is obs_env plus the supplementals, read never typed", {
     underway_datasets = "ds_c", ...)
   # both supplementals supplied by the caller (from a promoted release's catalog.json)
   expect_identical(build(supplemental_rows = c(obs_ctd_full = 1000, obs_mets_full = 500))$counts$full_rows,
-                   24L + 1500L)
+                   26L + 1500L)
   # one missing is NA, not a silent undercount
   expect_true(is.na(build(supplemental_rows = c(obs_ctd_full = 1000))$counts$full_rows))
   # a supplemental ON the connection is counted there
   DBI::dbExecute(con, "CREATE TABLE obs_ctd_full AS SELECT * FROM obs_env")
   expect_identical(build(supplemental_rows = c(obs_mets_full = 500))$counts$full_rows,
-                   24L + 24L + 500L)
+                   26L + 26L + 500L)
 })
 
 test_that("a unified key carries both series, and the totals are counted once", {
@@ -319,7 +323,7 @@ test_that("related[] states why two keys sharing a P01 are kept apart", {
   rec <- fixture_measurements_record()
   expect_identical(mm_related(mm_of(rec, "temperature")),
                    c(btl_temp = "same_bottles", sst = "underway_vs_cast",
-                     temp_s1 = "sensor_vs_mean"))
+                     temp_s1 = "sensor_vs_mean", temp_s2 = "sensor_vs_mean"))
   # an underway intake beside a cast's own bottle table is underway, not same_bottles
   expect_identical(mm_related(mm_of(rec, "sst"))[["btl_temp"]], "underway_vs_cast")
   expect_identical(mm_related(mm_of(rec, "alk")),
@@ -330,6 +334,9 @@ test_that("related[] states why two keys sharing a P01 are kept apart", {
   expect_identical(mm_related(mm_of(rec, "temp_s1"))[["temperature"]], "sensor_vs_mean")
   # another dataset's own casts of the same quantity, with no sharper marker
   expect_identical(mm_related(mm_of(rec, "alk_dic"))[["alk"]], "same_casts")
+  # the two sensors of one instrument: same dataset, neither of them the mean
+  expect_identical(mm_related(mm_of(rec, "temp_s1"))[["temp_s2"]], "paired_sensors")
+  expect_identical(mm_related(mm_of(rec, "temp_s2"))[["temp_s1"]], "paired_sensors")
   # the relation is symmetric: every P01-sharing pair appears from both sides
   n_rel <- vapply(rec$measurements, function(m) length(m$related), 0L)
   p01   <- vapply(rec$measurements, function(m)
@@ -340,7 +347,7 @@ test_that("related[] states why two keys sharing a P01 are kept apart", {
   expect_length(mm_of(rec, "count_x")$related, 0L)
   whys <- unlist(lapply(rec$measurements, function(m) vapply(m$related, function(r) r$why, "")))
   expect_true(all(whys %in% measurement_related_reasons()))
-  expect_length(measurement_related_reasons(), 6L)
+  expect_length(measurement_related_reasons(), 7L)
 })
 
 test_that("a non-canonical type that never reaches obs_env is listed under its dataset", {
@@ -355,7 +362,7 @@ test_that("a non-canonical type that never reaches obs_env is listed under its d
   expect_length(mm_ds(rec, "ds_a")$full_resolution_only, 0L)
   expect_false("pres" %in% vapply(rec$measurements, function(m) m$key, ""))
   # temp_ave, btl_temp, temp_s1 and alk reach obs_env; temp_1 does not
-  expect_identical(mm_ds(rec, "ds_b")$n_series, 4L)
+  expect_identical(mm_ds(rec, "ds_b")$n_series, 5L)
   expect_identical(mm_ds(rec, "ds_a")$color, "#4dabf7")
 })
 
