@@ -120,6 +120,8 @@ publish_object_signatures <- function(con, catalog, tables, owners = NULL, cache
   DBI::dbExecute(con, glue::glue("CREATE OR REPLACE VIEW {vw} AS SELECT * FROM read_parquet('{url}')"))
   on.exit(try(DBI::dbExecute(con, glue::glue("DROP VIEW IF EXISTS {vw}")), silent = TRUE), add = TRUE)
   sigs <- .partition_content_hashes(con, vw, "dataset_key")
+  # GROUP BY returns groups in no fixed order; sort so a scan and the cache agree row for row
+  sigs <- sigs[order(names(sigs))]
   vapply(sigs, function(s) digest::digest(s, algo = "md5", serialize = FALSE), "")
 }
 
@@ -168,6 +170,7 @@ publish_table_signatures <- function(con, tables, via = list()) {
       on.exit(try(DBI::dbExecute(con, glue::glue('DROP VIEW IF EXISTS "{src}"')), silent = TRUE), add = TRUE)
     }
     sigs <- .partition_content_hashes(con, src, "dataset_key")
+    sigs <- sigs[order(names(sigs))]
     if (length(sigs)) out[[length(out) + 1]] <- row(tb, names(sigs), md5(unname(sigs)))
   }
   res <- if (length(out)) do.call(rbind, out) else
