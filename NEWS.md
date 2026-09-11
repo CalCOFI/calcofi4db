@@ -1,4 +1,4 @@
-# calcofi4db (unreleased)
+# calcofi4db 4.13.0
 
 - `build_taxa_catalog()`: `n_present` (rows with `value > 0`) beside `n_obs` in `datasets[]`,
   `direct` and `rollup`; `taxa.schema.json` 1.1.
