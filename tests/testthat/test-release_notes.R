@@ -7,6 +7,7 @@ rn_md <- c(
   "# CalCOFI integrated database — release notes", "", "intro", "",
   "# Unreleased", "",
   "## Something is now true", "", "because.", "",
+  "# v2026.09.10", "", "## Undated heading", "", "text u", "",
   "# v2026.08.14 (2026-08-14)", "", "## Dungeness enters", "", "text a", "",
   "# v2026.08.04 – v2026.08.06 (2026-08-04 … 2026-08-06)", "", "three releases", "",
   "# v2026.03 (2026-03-06)", "", "old")
@@ -25,7 +26,8 @@ test_that("promote_unreleased() renames a non-empty Unreleased once and refuses 
   out <- promote_unreleased(rn_md, "v2026.08.25", as.Date("2026-08-25"))
   lines <- strsplit(out, "\n")[[1]]
   expect_equal(sum(grepl("^# Unreleased", lines)), 1)
-  expect_true("# v2026.08.25 (2026-08-25)" %in% lines)
+  expect_true("# v2026.08.25" %in% lines)
+  expect_false(any(grepl("^# v2026.08.25 \\(", lines)))   # no date in the heading (2026-09-11)
   expect_equal(release_notes_section(lines, "v2026.08.25")$body,
                "## Something is now true\n\nbecause.")
   expect_equal(release_notes_section(lines, "Unreleased"), NULL)   # versions only

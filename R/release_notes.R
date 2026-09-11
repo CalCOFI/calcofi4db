@@ -81,12 +81,14 @@ release_notes_section <- function(md, version) {
 #' Turn `# Unreleased` into the section for a version being cut
 #'
 #' If `# Unreleased` has a non-empty body it is renamed
-#' `# {version} ({date})` and a fresh empty `# Unreleased` is inserted above
+#' `# {version}` and a fresh empty `# Unreleased` is inserted above
 #' it. If it is empty (or absent) and no section for `version` exists, this
 #' errors: a release with nothing to say about itself is the failure mode this
 #' file exists to prevent.
 #' @param md RELEASES.md text (single string) or lines.
-#' @param version,date the release being cut.
+#' @param version the release being cut.
+#' @param date accepted for compatibility; no longer written into the heading (the version
+#'   string carries the date, `versions.json` the release_date).
 #' @return The updated text as a single string.
 #' @export
 #' @concept release
@@ -106,7 +108,9 @@ promote_unreleased <- function(md, version, date = Sys.Date()) {
     stop("RELEASES.md has BOTH a non-empty `# Unreleased` and a `# ", version,
          "` section — merge them by hand.", call. = FALSE)
   h <- grep("^# Unreleased", lines, ignore.case = TRUE)[1]
-  lines[h] <- sprintf("# %s (%s)", version, format(as.Date(date), "%Y-%m-%d"))
+  # the heading is the version alone: the date is already in the version string (Ben,
+  # 2026-09-11); the appendix and versions.json carry release_date. `date` is kept for callers.
+  lines[h] <- sprintf("# %s", version)
   lines <- append(lines, c("# Unreleased", ""), after = h - 1)
   paste(lines, collapse = "\n")
 }

@@ -1,3 +1,10 @@
+# calcofi4db 4.12.2
+
+- `promote_unreleased()` writes the version heading as `# vYYYY.MM.DD` — no `(date)` suffix, the
+  version string already carries it. `release_notes_sections()` still reads a date when a heading
+  has one; `render_release_notes()` takes the date from the catalog otherwise. `RELEASES.md`'s
+  existing headings were stripped the same way (v2026.02 keeps its day, which its version lacks).
+
 # calcofi4db 4.12.1
 
 - The release's DataCurator contributors (`.zenodo.json`, `CITATION.cff`) are Ben Best, **Erin

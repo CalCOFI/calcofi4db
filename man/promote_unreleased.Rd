@@ -9,14 +9,17 @@ promote_unreleased(md, version, date = Sys.Date())
 \arguments{
 \item{md}{RELEASES.md text (single string) or lines.}
 
-\item{version, date}{the release being cut.}
+\item{version}{the release being cut.}
+
+\item{date}{accepted for compatibility; no longer written into the heading (the version
+string carries the date, \code{versions.json} the release_date).}
 }
 \value{
 The updated text as a single string.
 }
 \description{
 If \verb{# Unreleased} has a non-empty body it is renamed
-\verb{# \{version\} (\{date\})} and a fresh empty \verb{# Unreleased} is inserted above
+\verb{# \{version\}} and a fresh empty \verb{# Unreleased} is inserted above
 it. If it is empty (or absent) and no section for \code{version} exists, this
 errors: a release with nothing to say about itself is the failure mode this
 file exists to prevent.
