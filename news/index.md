@@ -1,5 +1,23 @@
 # Changelog
 
+## calcofi4db 4.12.2
+
+- [`promote_unreleased()`](https://calcofi.io/calcofi4db/reference/promote_unreleased.md)
+  writes the version heading as `# vYYYY.MM.DD` — no `(date)` suffix,
+  the version string already carries it.
+  [`release_notes_sections()`](https://calcofi.io/calcofi4db/reference/release_notes_sections.md)
+  still reads a date when a heading has one;
+  [`render_release_notes()`](https://calcofi.io/calcofi4db/reference/render_release_notes.md)
+  takes the date from the catalog otherwise. `RELEASES.md`’s existing
+  headings were stripped the same way (v2026.02 keeps its day, which its
+  version lacks).
+
+## calcofi4db 4.12.1
+
+- The release’s DataCurator contributors (`.zenodo.json`,
+  `CITATION.cff`) are Ben Best, **Erin Satterthwaite** (ORCID
+  0000-0003-0177-7770) and Betty Huang, in that order (Ben, 2026-09-11).
+
 ## calcofi4db 4.12.0
 
 ### The measurements catalog record (`measurements.json`)
