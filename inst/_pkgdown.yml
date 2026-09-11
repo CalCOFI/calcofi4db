@@ -2,7 +2,24 @@ url: https://calcofi.io/calcofi4db
 template:
   bootstrap: 5
   light-switch: true
+  # the dark half of the brand (https://calcofi.io/brand/v2/theme.css, :root[data-theme="dark"]):
+  # navy, not Bootstrap's near-black; the light half stays Bootstrap's own white
+  bslib:
+    body-bg-dark:             "#0f1a2e"
+    body-color-dark:          "#e9edf3"
+    body-emphasis-color-dark: "#ffffff"
+    body-secondary-bg-dark:   "#182b49"
+    body-tertiary-bg-dark:    "#21375c"
+    border-color-dark:        "#34486b"
+    link-color-dark:          "#4fb6e6"
+    link-hover-color-dark:    "#8ad0f0"
+    navbar-dark-bg:           "#182b49"
   includes:
+    # the "CalCOFI.io" lockup far left -> calcofi.io, then pkgdown's own brand (the package
+    # name -> this site) and version beside it: the brand contract's lockup + title, in the
+    # slot pkgdown's navbar template leaves before the title
+    before_title: |
+      <a class="cc-home" href="https://calcofi.io" aria-label="CalCOFI.io home"><img class="cc-logo-dark" src="https://calcofi.io/brand/v2/logo_calcofi_h.svg" alt="CalCOFI.io"><img class="cc-logo-light" src="https://calcofi.io/brand/v2/logo_calcofi_h_light.svg" alt="CalCOFI.io"></a>
     in_header: |
       <!-- calcofi.io brand contract v2 (https://calcofi.io/brand/v2/; light default,
            in force 2026-09-04): pkgdown's own light-switch stays as the toggle (its
@@ -22,8 +39,11 @@ template:
       <script defer src="https://calcofi.io/brand/v2/theme.js"></script>
       <script>(function(){var r=document.documentElement,last=r.getAttribute("data-bs-theme");new MutationObserver(function(){var t=r.getAttribute("data-bs-theme");if(t===last||(t!=="dark"&&t!=="light"))return;last=t;if(window.ccTheme&&ccTheme.get()!==t)ccTheme.set(t)}).observe(r,{attributes:true,attributeFilter:["data-bs-theme"]})})();</script>
       <style>
-        .navbar .cc-home .cc-logo{display:inline-block;width:118px;height:28px;vertical-align:middle;background:url(https://calcofi.io/brand/v2/logo_calcofi_h.svg) left center/contain no-repeat}
-        [data-bs-theme=light] .navbar .cc-home .cc-logo{background-image:url(https://calcofi.io/brand/v2/logo_calcofi_h_light.svg)}
+        /* the lockup (before_title) at the app header's 28 px; the ground it shows is pkgdown's data-bs-theme */
+        .navbar .cc-home{display:inline-flex;align-items:center;margin-right:.75rem;text-decoration:none}
+        .navbar .cc-home img{height:28px;width:auto}
+        .navbar .cc-home .cc-logo-dark,.navbar .cc-home .cc-logo-light{display:none}
+        [data-bs-theme=dark] .navbar .cc-home .cc-logo-dark,[data-bs-theme=light] .navbar .cc-home .cc-logo-light{display:block}
         /* the light-switch button wears the brand pair (theme.css exports the masks): the sun while
            the page is dark, the moon-in-sun while it is light — what a click moves toward, as on
            calcofi4py — in place of Font Awesome's current-mode sun/moon. The menu's own
@@ -47,19 +67,9 @@ template:
 navbar:
   structure:
     # no intro / articles: the package has no vignettes
-    left:  [calcofi, reference, news]
+    left:  [reference, news]
     right: [schema, query, docs, search, lightswitch, github]
   components:
-    # the CalCOFI logo far left, linking to calcofi.io (the brand contract);
-    # the package name beside it stays the pkgdown brand linking to this site.
-    # a native `link` component: pkgdown renders `icon` as <span class="cc cc-logo">
-    # (no `html` component type exists) and the <style> in in_header draws the
-    # logo on it, swapping to the light-ground variant with the light-switch
-    calcofi:
-      icon: cc-logo
-      href: https://calcofi.io
-      aria-label: CalCOFI.io home
-      class: cc-home
     schema:
       text: Schema
       href: https://calcofi.io/db-schema/
