@@ -1,3 +1,19 @@
+# calcofi4db 4.14.0
+
+## Publishers rebuild only what changed, and say which portal is behind
+
+- `publish_object_signatures()`: per-dataset row signatures of a release's objects, read off
+  `catalog.json` — a `dataset_key` partition is its own `content_hash` (no read); a shared
+  object is read once, grouped by `dataset_key`, and cached by `content_hash`.
+- `publish_table_signatures()`: the same over tables already in a connection, with `via`
+  signing a vocabulary (`taxon`, `cruise`) only through the keys a dataset reaches.
+- `publish_data_parts()`, `publish_record_digest()` (drops `objects`, `since_version`,
+  `distributions`, `registrations`, `status`), `publish_code_parts()` (a `.qmd`'s code chunks
+  only) and `publish_fingerprint()` compose one dataset's input fingerprint;
+  `publish_decide()` says reuse or build, and why (`changed_inputs()`).
+- `publish_upload_status()`: built `content_hash` vs the hash last deposited —
+  `not built` | `never uploaded` | `current` | `changed since {version}`, plus `needs_upload`.
+
 # calcofi4db 4.13.0
 
 - `build_taxa_catalog()`: `n_present` (rows with `value > 0`) beside `n_obs` in `datasets[]`,
