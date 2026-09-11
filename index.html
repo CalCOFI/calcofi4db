@@ -32,6 +32,13 @@
   .navbar .cc-home img{height:28px;width:auto}
   .navbar .cc-home .cc-logo-dark,.navbar .cc-home .cc-logo-light{display:none}
   [data-bs-theme=dark] .navbar .cc-home .cc-logo-dark,[data-bs-theme=light] .navbar .cc-home .cc-logo-light{display:block}
+  /* the bar spans the window, as every calcofi.io header does: the lockup at the left edge, the
+     links at the right, instead of both squeezed into the 1320 px content column; the page
+     below keeps pkgdown's centred column. From 1200 px the nav labels stay on one line ("Get
+     started"); between the collapse (992 px) and 1200 px they may wrap, and the search narrows. */
+  .navbar>.container{max-width:none;padding-left:1.25rem;padding-right:1.25rem}
+  @media (min-width:1200px){.navbar .nav-link{white-space:nowrap}}
+  @media (min-width:992px) and (max-width:1199.98px){.navbar input[type=search]{width:6rem}.navbar .navbar-nav .nav-link{padding-left:.35rem;padding-right:.35rem}}
   /* the light-switch button wears the brand pair (theme.css exports the masks): the sun while
      the page is dark, the moon-in-sun while it is light — what a click moves toward, as on
      calcofi4py — in place of Font Awesome's current-mode sun/moon. The menu's own
