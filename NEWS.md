@@ -1,3 +1,8 @@
+# calcofi4db 4.12.1
+
+- The release's DataCurator contributors (`.zenodo.json`, `CITATION.cff`) are Ben Best, **Erin
+  Satterthwaite** (ORCID 0000-0003-0177-7770) and Betty Huang, in that order (Ben, 2026-09-11).
+
 # calcofi4db 4.12.0
 
 ## The measurements catalog record (`measurements.json`)

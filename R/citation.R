@@ -870,6 +870,9 @@ CC_RELEASE_CREATORS <- c(
 CC_RELEASE_CURATORS <- list(
   list(name = "Best, Ben", type = "DataCurator", affiliation = "EcoQuants",
        orcid = "0000-0002-2686-0784"),
+  list(name = "Satterthwaite, Erin", type = "DataCurator",
+       affiliation = "Scripps Institution of Oceanography, UC San Diego; California Sea Grant",
+       orcid = "0000-0003-0177-7770"),
   list(name = "Huang, Betty", type = "DataCurator"))
 
 CC_RELEASE_KEYWORDS <- c(

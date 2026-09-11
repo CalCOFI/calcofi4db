@@ -477,7 +477,7 @@ test_that("zenodo_metadata() and citation_cff() name the three partners and the 
   pis <- Filter(function(x) x$type == "DataCollector", ctr)
   expect_equal(vapply(pis, `[[`, "", "name"), c("Koslow, J. Anthony", "Martz, Todd", "Mau, Aaron"))
   cur <- Filter(function(x) x$type == "DataCurator", ctr)
-  expect_equal(vapply(cur, `[[`, "", "name"), c("Best, Ben", "Huang, Betty"))
+  expect_equal(vapply(cur, `[[`, "", "name"), c("Best, Ben", "Satterthwaite, Erin", "Huang, Betty"))
   rel <- vapply(z$related_identifiers, `[[`, "", "identifier")
   expect_true(any(grepl("storage.googleapis.com/calcofi-db/ducklake/releases", rel)))
   expect_true(any(grepl("calcofi.io/db-schema", rel)))
