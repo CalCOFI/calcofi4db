@@ -17,6 +17,12 @@
 # * `direct{}` counts observations keyed to the taxon itself; `rollup{}` counts it
 #   and every descendant. `sum(rollup$n_obs)` over the roots is `obs_bio`'s keyed
 #   row count — the record's own arithmetic check.
+# * `n_obs` counts rows; `n_present` (schema 1.1) counts the rows whose `value` is
+#   greater than zero — a NULL or a NaN is not present. Several datasets record an
+#   absence as a zero row (CUFES, phytoplankton, phyllosoma, crab, zoodb), so on
+#   those `n_present` is the number of times the organism was actually seen and
+#   `n_obs` is the number of records. Both travel together in `datasets[]`,
+#   `direct{}` and `rollup{}`; nothing was renamed.
 # * `datasets[]` inside a taxon is one entry per dataset with a direct
 #   observation, each carrying `sources[]`: the `dataset_taxon` rows that resolve
 #   to this taxon — "what the source called it" — flagged where the authority says
@@ -28,7 +34,7 @@
 # table's; `datasets[]` follows the record's catalog order.
 
 #' @keywords internal
-CC_TAXA_SCHEMA_VERSION <- "1.0"
+CC_TAXA_SCHEMA_VERSION <- "1.1"
 
 # the id authorities a taxon_key can carry; anything else is a dataset-local class
 #' @keywords internal
@@ -265,6 +271,9 @@ build_taxa_catalog <- function(con, record, release_version = NULL, release_date
   txd <- DBI::dbGetQuery(con, "
     SELECT taxon_key, dataset_key,
            CAST(count(*) AS INTEGER)                    AS n_obs,
+           CAST(count(*) FILTER (
+             WHERE value > 0 AND NOT isnan(CAST(value AS DOUBLE)))
+                AS INTEGER)                             AS n_present,
            CAST(count(DISTINCT sample_key) AS INTEGER)  AS n_samples,
            CAST(min(year) AS INTEGER)                   AS year_min,
            CAST(max(year) AS INTEGER)                   AS year_max
@@ -338,13 +347,14 @@ build_taxa_catalog <- function(con, record, release_version = NULL, release_date
   ds_meta   <- .taxa_dataset_meta(record, dataset_tbl)
 
   # direct counts, then the rollup ------------------------------------------------
-  d_obs <- d_smp <- d_nds <- integer(n_pages)
+  d_obs <- d_pre <- d_smp <- d_nds <- integer(n_pages)
   d_ymin <- d_ymax <- rep(NA_integer_, n_pages)
   ds_mat <- matrix(FALSE, n_pages, length(ds_keys), dimnames = list(NULL, ds_keys))
   for (i in seq_len(n_pages)) {
     rr <- txd_by_taxon[[pages[i]]]
     if (is.null(rr)) next
     d_obs[i]  <- sum(txd[["n_obs"]][rr])
+    d_pre[i]  <- sum(txd[["n_present"]][rr])
     d_smp[i]  <- sum(txd[["n_samples"]][rr])
     d_nds[i]  <- length(unique(txd[["dataset_key"]][rr]))
     d_ymin[i] <- .taxa_min(txd[["year_min"]][rr])
@@ -354,6 +364,7 @@ build_taxa_catalog <- function(con, record, release_version = NULL, release_date
   is_species <- stats::setNames(!is.na(taxon[["rank"]]) & taxon[["rank"]] == "Species", tk)
   obs_pg <- pages %in% observed
   r_obs  <- d_obs
+  r_pre  <- d_pre
   r_taxa <- as.integer(obs_pg)
   r_sp   <- as.integer(obs_pg & unname(is_species[pages]))
   r_ymin <- d_ymin; r_ymax <- d_ymax
@@ -364,6 +375,7 @@ build_taxa_catalog <- function(con, record, release_version = NULL, release_date
     p <- par_i[i]
     if (is.na(p)) next
     r_obs[p]  <- r_obs[p]  + r_obs[i]
+    r_pre[p]  <- r_pre[p]  + r_pre[i]
     r_taxa[p] <- r_taxa[p] + r_taxa[i]
     r_sp[p]   <- r_sp[p]   + r_sp[i]
     r_ymin[p] <- .taxa_min(c(r_ymin[p], r_ymin[i]))
@@ -397,6 +409,7 @@ build_taxa_catalog <- function(con, record, release_version = NULL, release_date
       })
       list(dataset_key = dk,
            n_obs       = as.integer(txd[["n_obs"]][j]),
+           n_present   = as.integer(txd[["n_present"]][j]),
            n_samples   = as.integer(txd[["n_samples"]][j]),
            year_min    = .taxa_int(txd[["year_min"]][j]),
            year_max    = .taxa_int(txd[["year_max"]][j]),
@@ -426,11 +439,13 @@ build_taxa_catalog <- function(con, record, release_version = NULL, release_date
                  inat_id  = .taxa_int(taxon[["inat_id"]][ti])),
       groups = .arr(unique(grp_by_taxon[[k]])),
       notes  = .taxa_chr(taxon[["notes"]][ti]),
-      direct = list(n_obs = as.integer(d_obs[i]), n_samples = as.integer(d_smp[i]),
+      direct = list(n_obs = as.integer(d_obs[i]), n_present = as.integer(d_pre[i]),
+                    n_samples = as.integer(d_smp[i]),
                     n_datasets = as.integer(d_nds[i]),
                     year_min = d_ymin[i], year_max = d_ymax[i],
                     life_stages = .arr(unique(txds_by_taxon[[k]]))),
-      rollup = list(n_obs = as.integer(r_obs[i]), n_taxa = as.integer(r_taxa[i]),
+      rollup = list(n_obs = as.integer(r_obs[i]), n_present = as.integer(r_pre[i]),
+                    n_taxa = as.integer(r_taxa[i]),
                     n_species = as.integer(r_sp[i]), n_datasets = r_nds[i],
                     year_min = r_ymin[i], year_max = r_ymax[i]),
       datasets = datasets)
@@ -463,8 +478,9 @@ build_taxa_catalog <- function(con, record, release_version = NULL, release_date
          category           = if (is.null(m))
            list(key = NA_character_, name = NA_character_, icon = NA_character_,
                 realm = NA_character_, order = NA_integer_) else m$category,
-         n_obs  = as.integer(sum(txd[["n_obs"]][rr])),
-         n_taxa = length(unique(txd[["taxon_key"]][rr])),
+         n_obs     = as.integer(sum(txd[["n_obs"]][rr])),
+         n_present = as.integer(sum(txd[["n_present"]][rr])),
+         n_taxa    = length(unique(txd[["taxon_key"]][rr])),
          vocabulary_only = lapply(vo, function(j) list(
            taxon_key = .taxa_chr(dtx[["taxon_key"]][j]),
            name      = .taxa_chr(dtx[["ds_scientific_name"]][j]),

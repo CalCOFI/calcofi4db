@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "required": ["schema_version", "release", "counts", "datasets", "taxa"],
   "properties": {
-    "schema_version": { "const": "1.0" },
+    "schema_version": { "const": "1.1" },
     "release": {
       "type": "object", "additionalProperties": false, "required": ["version", "release_date"],
       "properties": {
@@ -31,7 +31,7 @@
       "type": "array",
       "items": {
         "type": "object", "additionalProperties": false,
-        "required": ["dataset_key", "dataset_name_short", "color", "category", "n_obs", "n_taxa", "vocabulary_only"],
+        "required": ["dataset_key", "dataset_name_short", "color", "category", "n_obs", "n_present", "n_taxa", "vocabulary_only"],
         "properties": {
           "dataset_key":        { "type": "string" },
           "dataset_name_short": { "type": "string" },
@@ -47,6 +47,7 @@
             }
           },
           "n_obs":  { "type": "integer", "minimum": 0, "description": "obs_bio rows of this dataset with a taxon_key" },
+          "n_present": { "type": "integer", "minimum": 0, "description": "of those, the rows with value > 0 (a NULL or NaN is not present)" },
           "n_taxa": { "type": "integer", "minimum": 0, "description": "distinct taxa observed in this dataset" },
           "vocabulary_only": {
             "type": "array", "description": "dataset_taxon rows of this dataset whose taxon has no observation anywhere (no page)",
@@ -101,18 +102,18 @@
         "notes":  { "$ref": "#/definitions/nullable_string" },
         "direct": {
           "type": "object", "additionalProperties": false, "description": "observations keyed to this taxon itself",
-          "required": ["n_obs", "n_samples", "n_datasets", "year_min", "year_max", "life_stages"],
+          "required": ["n_obs", "n_present", "n_samples", "n_datasets", "year_min", "year_max", "life_stages"],
           "properties": {
-            "n_obs": { "type": "integer", "minimum": 0 }, "n_samples": { "type": "integer", "minimum": 0 }, "n_datasets": { "type": "integer", "minimum": 0 },
+            "n_obs": { "type": "integer", "minimum": 0 }, "n_present": { "type": "integer", "minimum": 0, "description": "of n_obs, the rows with value > 0" }, "n_samples": { "type": "integer", "minimum": 0 }, "n_datasets": { "type": "integer", "minimum": 0 },
             "year_min": { "$ref": "#/definitions/nullable_integer" }, "year_max": { "$ref": "#/definitions/nullable_integer" },
             "life_stages": { "type": "array", "items": { "type": "string" } }
           }
         },
         "rollup": {
           "type": "object", "additionalProperties": false, "description": "this taxon and every descendant in taxa[]",
-          "required": ["n_obs", "n_taxa", "n_species", "n_datasets", "year_min", "year_max"],
+          "required": ["n_obs", "n_present", "n_taxa", "n_species", "n_datasets", "year_min", "year_max"],
           "properties": {
-            "n_obs": { "type": "integer", "minimum": 0 }, "n_taxa": { "type": "integer", "minimum": 0 }, "n_species": { "type": "integer", "minimum": 0 }, "n_datasets": { "type": "integer", "minimum": 0 },
+            "n_obs": { "type": "integer", "minimum": 0 }, "n_present": { "type": "integer", "minimum": 0, "description": "of n_obs, the rows with value > 0" }, "n_taxa": { "type": "integer", "minimum": 0 }, "n_species": { "type": "integer", "minimum": 0 }, "n_datasets": { "type": "integer", "minimum": 0 },
             "year_min": { "$ref": "#/definitions/nullable_integer" }, "year_max": { "$ref": "#/definitions/nullable_integer" }
           }
         },
@@ -120,10 +121,10 @@
           "type": "array", "description": "one per dataset with a direct observation of this taxon, most observations first",
           "items": {
             "type": "object", "additionalProperties": false,
-            "required": ["dataset_key", "n_obs", "n_samples", "year_min", "year_max", "life_stages", "years", "sources"],
+            "required": ["dataset_key", "n_obs", "n_present", "n_samples", "year_min", "year_max", "life_stages", "years", "sources"],
             "properties": {
               "dataset_key": { "type": "string" },
-              "n_obs": { "type": "integer", "minimum": 1 }, "n_samples": { "type": "integer", "minimum": 0 },
+              "n_obs": { "type": "integer", "minimum": 1 }, "n_present": { "type": "integer", "minimum": 0, "description": "of n_obs, the rows with value > 0" }, "n_samples": { "type": "integer", "minimum": 0 },
               "year_min": { "$ref": "#/definitions/nullable_integer" }, "year_max": { "$ref": "#/definitions/nullable_integer" },
               "life_stages": { "type": "array", "items": { "type": "string" } },
               "years": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 1 }, "propertyNames": { "pattern": "^[0-9]{4}$" }, "description": "observations per year" },

@@ -21,6 +21,10 @@
 #
 # 14 obs_bio rows carry a taxon_key (a 15th carries none); 12 of the 13 taxon
 # rows get an entry. Each `dataset_taxon` row exercises exactly one flag rule.
+#
+# `value` separates records from observations (schema 1.1): ds_alpha is
+# positive-only, so its `n_present` == `n_obs`; ds_beta holds zeros plus one NULL
+# and one NaN, none of which is present, so its `n_present` < `n_obs`.
 
 tfx <- function(...) testthat::test_path("fixtures", "taxa", ...)
 
@@ -104,6 +108,10 @@ new_taxa_fixture <- function() {
                     2010L, 2010L, 2011L, 2011L, 2011L, NA, NA, 2001L),
     sample_key  = c("s1", "s1", "s2", "s3", "s4", "s5", "s6",
                     "s7", "s7", "s8", "s9", "s10", "s11", "s12", "s13"),
+    # ds_alpha is positive-only; ds_beta records an absence as a zero row, and
+    # carries one NULL and one NaN as well — neither is present (schema 1.1)
+    value       = c(2, 1, 5, 0, 4, 0, 3,
+                    1, 0, 2, NA, NaN, 7, 0, 9),
     stringsAsFactors = FALSE)
 
   dataset <- data.frame(
@@ -160,7 +168,7 @@ test_that("taxa_catalog_checks() levels every check check_taxa_catalog() reports
 
 test_that("build_taxa_catalog() counts the release, not the taxon table", {
   rec <- fixture_taxa_record()
-  expect_equal(rec$schema_version, "1.0")
+  expect_equal(rec$schema_version, "1.1")
   expect_equal(rec$release, list(version = "v2026.01.01", release_date = "2026-01-01"))
   # 13 taxon rows, 5 observed, 12 with an observation at or below them
   expect_equal(rec$counts$taxon_rows, 13L)
@@ -267,6 +275,57 @@ test_that("rollup{} is the taxon and every descendant, and the roots hold everyt
   # every observation is under exactly one root
   roots <- Filter(function(t) is.na(t$parent_taxon_key), rec$taxa)
   expect_equal(sum(vapply(roots, function(t) t$rollup$n_obs, 0L)), rec$counts$obs_bio_rows)
+})
+
+# n_present: records vs observations (schema 1.1) --------------------------------------
+
+test_that("a dataset block counts records as n_obs and observations as n_present", {
+  rec <- fixture_taxa_record()
+  t50 <- tx_of(rec, "worms:50")
+  # ds_alpha is positive-only: every record is an observation
+  a <- tx_ds(t50, "ds_alpha")
+  expect_equal(a$n_obs, 3L)
+  expect_equal(a$n_present, 3L)
+  # ds_beta's one row for worms:50 is a zero — a record of an absence
+  b <- tx_ds(t50, "ds_beta")
+  expect_equal(b$n_obs, 1L)
+  expect_equal(b$n_present, 0L)
+  expect_lt(b$n_present, b$n_obs)
+  # the seabird's five ds_beta rows are 2 positive, 1 zero, 1 NULL, 1 NaN
+  bird <- tx_ds(tx_of(rec, "itis:1255048"), "ds_beta")
+  expect_equal(bird$n_obs, 5L)
+  expect_equal(bird$n_present, 2L)
+})
+
+test_that("direct{} and rollup{} carry n_present beside n_obs", {
+  rec <- fixture_taxa_record()
+  # direct: the taxon's own rows
+  expect_equal(tx_of(rec, "worms:50")$direct[c("n_obs", "n_present")],
+               list(n_obs = 4L, n_present = 3L))
+  expect_equal(tx_of(rec, "worms:51")$direct[c("n_obs", "n_present")],
+               list(n_obs = 2L, n_present = 1L))
+  expect_equal(tx_of(rec, "worms:60")$direct[c("n_obs", "n_present")],
+               list(n_obs = 1L, n_present = 1L))   # ds_alpha, positive-only
+  # the genus has no observation of its own, so its rollup is the sum over its
+  # species plus that zero direct
+  gen <- tx_of(rec, "worms:40")
+  expect_equal(gen$direct$n_present, 0L)
+  expect_equal(gen$rollup[c("n_obs", "n_present")], list(n_obs = 6L, n_present = 4L))
+  expect_equal(gen$rollup$n_present,
+               gen$direct$n_present +
+                 tx_of(rec, "worms:50")$direct$n_present +
+                 tx_of(rec, "worms:51")$direct$n_present)
+  # and up the tree, and over the roots
+  expect_equal(tx_of(rec, "worms:1")$rollup[c("n_obs", "n_present")],
+               list(n_obs = 12L, n_present = 7L))
+  roots <- Filter(function(t) is.na(t$parent_taxon_key), rec$taxa)
+  expect_equal(sum(vapply(roots, function(t) t$rollup$n_present, 0L)), 8L)
+  # n_present never exceeds n_obs, anywhere in the record
+  for (t in rec$taxa) {
+    expect_lte(t$direct$n_present, t$direct$n_obs)
+    expect_lte(t$rollup$n_present, t$rollup$n_obs)
+    for (d in t$datasets) expect_lte(d$n_present, d$n_obs)
+  }
 })
 
 # lineage, ids, groups, local ----------------------------------------------------------
@@ -426,10 +485,12 @@ test_that("datasets[] takes its name, colour and category from the record", {
   # admits only these five keys
   expect_equal(a$category, list(key = NA_character_, name = "Fish Eggs & Larvae",
                                 icon = "cat-ichthyo", realm = "bio", order = 10L))
-  expect_equal(a$n_obs, 4L)     # 3 of worms:50 + 1 of worms:60
+  expect_equal(a$n_obs, 4L)       # 3 of worms:50 + 1 of worms:60
+  expect_equal(a$n_present, 4L)   # positive-only
   expect_equal(a$n_taxa, 2L)
   b <- rec_ds(rec, "ds_beta")
-  expect_equal(b$n_obs, 10L)    # 1 + 2 + 5 + 2
+  expect_equal(b$n_obs, 10L)      # 1 + 2 + 5 + 2
+  expect_equal(b$n_present, 4L)   # 0 + 1 + 2 + 1: the zeros, the NULL and the NaN drop out
   expect_equal(b$n_taxa, 4L)
   expect_equal(a$n_obs + b$n_obs, rec$counts$obs_bio_rows)
 })

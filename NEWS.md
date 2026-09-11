@@ -1,3 +1,8 @@
+# calcofi4db (unreleased)
+
+- `build_taxa_catalog()`: `n_present` (rows with `value > 0`) beside `n_obs` in `datasets[]`,
+  `direct` and `rollup`; `taxa.schema.json` 1.1.
+
 # calcofi4db 4.12.2
 
 - `promote_unreleased()` writes the version heading as `# vYYYY.MM.DD` — no `(date)` suffix, the
