@@ -1,0 +1,3 @@
+dataset_key,measurement_type,platform,instrument,nerc_l22,principle,steps,wavelength_nm,precision,bibkeys,calcofi_org_url,text_fragment,source,source_url
+ds_a,temp,bottle,Reversing thermometer,,Thermal expansion read at depth,Trip the frame|Read both thermometers,,0.01 degC,carpenter1965,https://calcofi.org/sampling-info/methods/bottle-sampling-methods/,Dissolved Oxygen Sampling,CalCOFI bottle sampling methods,https://calcofi.org/sampling-info/methods/bottle-sampling-methods/
+ds_b,temp_ave,CTD,SBE 3plus thermistor pair,http://vocab.nerc.ac.uk/collection/L22/current/TOOL0870/,Mean of the two calibrated sensors,,,0.001 degC,,https://calcofi.org/sampling-info/methods/ctd-faq/,,CalCOFI CTD FAQ,https://calcofi.org/sampling-info/methods/ctd-faq/

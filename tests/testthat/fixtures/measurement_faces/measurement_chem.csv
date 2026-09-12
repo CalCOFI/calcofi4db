@@ -1,0 +1,3 @@
+key,chebi_id,role,mass_fraction,via,source,source_url,note
+oxygen_umol_kg,CHEBI:15379,the_thing,,nerc_s27,NERC NVS,http://vocab.nerc.ac.uk/collection/S27/current/CS002779/,
+salinity,CHEBI:26710,component,0.8577,registry,TEOS-10 Manual Table D.3,https://www.teos-10.org/,sodium chloride by mass of Reference Composition

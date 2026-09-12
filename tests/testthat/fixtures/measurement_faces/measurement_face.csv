@@ -1,0 +1,4 @@
+key,face_kind,face_of,stands_in_note,source
+temperature,scale,,,TEOS-10
+oxygen_umol_kg,structure,,,NERC P01 DOXMZZXX -> S27 -> ChEBI
+est_temperature,standsin,temperature,An estimate from a sensor proxy: the scale stands in for it.,WS-MF1

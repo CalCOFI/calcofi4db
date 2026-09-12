@@ -1,0 +1,4 @@
+key,rank,kind,text,bibkeys,source_url,eov,goos_doc
+temperature,2,goos,How is the ocean's heat content changing?,,https://goosocean.org/document/17473,Temperature,17473
+temperature,1,authored,"Temperature sets stratification, and stratification sets what reaches the surface.",bograd2008;rudnick2017,,Temperature,
+oxygen_umol_kg,1,authored,Below the mixed layer the oxygen minimum zone has shoaled through the record.,bograd2008,,Oxygen,

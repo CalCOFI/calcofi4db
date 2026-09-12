@@ -2,12 +2,12 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://calcofi.io/schema/measurements.schema.json",
   "title": "CalCOFI measurements catalog record (measurements.json)",
-  "description": "One record per release: every measurement key the release's obs_env carries (the registry's `variable` where set, else the measurement_type), its series one per measurement_type x dataset, their counts by year, month, depth band and quality code, the declared bounds and observed quantiles, and the other keys sharing a NERC P01 concept that are kept apart on purpose. Written by calcofi4db::build_measurements_catalog() beside taxa.json; read by calcofi.io/measurements/.",
+  "description": "One record per release: every measurement key the release's obs_env carries (the registry's `variable` where set, else the measurement_type), its series one per measurement_type x dataset, their counts by year, month, depth band and quality code, the declared bounds and observed quantiles, and the other keys sharing a NERC P01 concept that are kept apart on purpose. 1.1 adds, per key, the five face registries CalCOFI authors (face, chem, method, scale, why) and the per-depth-band `anomaly` measured against the release's own climatology; every 1.1 field is OPTIONAL, so a 1.0 record validates unchanged and a 1.0 consumer reads a 1.1 record. Written by calcofi4db::build_measurements_catalog() beside taxa.json; read by calcofi.io/measurements/.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "release", "counts", "datasets", "measurements", "flags"],
   "properties": {
-    "schema_version": { "const": "1.0" },
+    "schema_version": { "enum": ["1.0", "1.1"] },
     "release": {
       "type": "object", "additionalProperties": false, "required": ["version", "release_date"],
       "properties": {
@@ -117,9 +117,17 @@
             "year_min":   { "$ref": "#/definitions/nullable_integer" },
             "year_max":   { "$ref": "#/definitions/nullable_integer" },
             "depth_min_m": { "$ref": "#/definitions/nullable_number" },
-            "depth_max_m": { "$ref": "#/definitions/nullable_number" }
+            "depth_max_m": { "$ref": "#/definitions/nullable_number" },
+            "qual_ok_n":   { "type": "integer", "minimum": 0, "description": "1.1 — values the release's own qual_ok keeps, over every series of the key" },
+            "n_flagged":   { "type": "integer", "minimum": 0, "description": "1.1 — n_values less qual_ok_n: what a provider's quality flag removed from observed{} and from every derived number on the page" }
           }
         },
+        "face":    { "$ref": "#/definitions/face" },
+        "chem":    { "type": "array", "items": { "$ref": "#/definitions/chem" } },
+        "method":  { "type": "array", "items": { "$ref": "#/definitions/method" } },
+        "scale":   { "type": "array", "items": { "$ref": "#/definitions/scale" } },
+        "why":     { "type": "array", "items": { "$ref": "#/definitions/why" } },
+        "anomaly": { "$ref": "#/definitions/anomaly" },
         "series": {
           "type": "array", "minItems": 1,
           "description": "one per measurement_type x dataset in obs_env, most values first",
@@ -140,6 +148,130 @@
           "type": "array",
           "items": { "type": "string", "enum": ["no_label"] },
           "description": "no_label: no metadata/variable.csv row supplies a display label, so `label` is the canonical series' registry description"
+        }
+      }
+    },
+    "face": {
+      "type": "object", "additionalProperties": false, "required": ["kind"],
+      "description": "1.1 — metadata/measurement_face.csv: what the page draws for this key. `structure` a molecule, `composition` a pool or mixture given as rows, `scale` a physical scale, `organism` a taxon, `standsin` a borrowed face named by face_of (never shown as this key's own identity), `none` no face.",
+      "properties": {
+        "kind":           { "type": "string", "enum": ["structure", "composition", "scale", "organism", "standsin", "none"] },
+        "face_of":        { "$ref": "#/definitions/nullable_string", "description": "the key whose face stands in for this one" },
+        "stands_in_note": { "$ref": "#/definitions/nullable_string" },
+        "source":         { "$ref": "#/definitions/nullable_string" }
+      }
+    },
+    "chem": {
+      "type": "object", "additionalProperties": false, "required": ["chebi", "role"],
+      "description": "1.1 — metadata/measurement_chem.csv: one ChEBI entity of this measurement, and how it belongs to it. `via` says whether the identity came from the P01's own S27 (nerc_s27) or from the registry (registry). ChEBI ROLES are never carried: dioxygen's include 'anti-inflammatory drug'.",
+      "properties": {
+        "chebi":         { "$ref": "#/definitions/nullable_string" },
+        "role":          { "type": ["string", "null"], "enum": ["the_thing", "component", "conjugate", "method_product", "one_of", null] },
+        "via":           { "type": ["string", "null"], "enum": ["nerc_s27", "registry", null] },
+        "mass_fraction": { "$ref": "#/definitions/nullable_number" },
+        "note":          { "$ref": "#/definitions/nullable_string" },
+        "source":        { "$ref": "#/definitions/nullable_string" },
+        "source_url":    { "$ref": "#/definitions/nullable_string" }
+      }
+    },
+    "method": {
+      "type": "object", "additionalProperties": false, "required": ["dataset_key", "measurement_type"],
+      "description": "1.1 — metadata/measurement_method.csv, one entry per SERIES of this key that the registry carries a row for: how that dataset takes this measurement, authored from the provider's own method page and cited.",
+      "properties": {
+        "dataset_key":      { "type": "string" },
+        "measurement_type": { "type": "string" },
+        "platform":         { "$ref": "#/definitions/nullable_string" },
+        "instrument":       { "$ref": "#/definitions/nullable_string" },
+        "nerc_l22":         { "$ref": "#/definitions/nullable_string", "description": "the NERC L22 device concept, filled only on an exact match" },
+        "principle":        { "$ref": "#/definitions/nullable_string" },
+        "steps":            { "type": "array", "items": { "type": "string" }, "description": "the registry's `|`-separated steps" },
+        "wavelength_nm":    { "$ref": "#/definitions/nullable_number" },
+        "precision":        { "$ref": "#/definitions/nullable_string" },
+        "bibkeys":          { "type": "array", "items": { "type": "string" } },
+        "calcofi_org_url":  { "$ref": "#/definitions/nullable_string" },
+        "text_fragment":    { "$ref": "#/definitions/nullable_string" },
+        "source":           { "$ref": "#/definitions/nullable_string" },
+        "source_url":       { "$ref": "#/definitions/nullable_string" }
+      }
+    },
+    "scale": {
+      "type": "object", "additionalProperties": false, "required": ["value", "kind"],
+      "description": "1.1 — metadata/measurement_scale.csv: one mark on the familiar scale. A `computed` mark is a function of stated inputs and is RECOMPUTED at build from its own `how`; computed_at_build says whether this build could (carbonate-chemistry marks have no R equivalent installed and pass through the registry's value).",
+      "properties": {
+        "value":             { "$ref": "#/definitions/nullable_number" },
+        "lo":                { "$ref": "#/definitions/nullable_number" },
+        "hi":                { "$ref": "#/definitions/nullable_number" },
+        "label":             { "$ref": "#/definitions/nullable_string" },
+        "kind":              { "type": ["string", "null"], "enum": ["familiar", "physical", "threshold", "computed", null] },
+        "how":               { "$ref": "#/definitions/nullable_string" },
+        "computed_at_build": { "type": "boolean" },
+        "source":            { "$ref": "#/definitions/nullable_string" },
+        "source_url":        { "$ref": "#/definitions/nullable_string" }
+      }
+    },
+    "why": {
+      "type": "object", "additionalProperties": false, "required": ["rank", "kind"],
+      "description": "1.1 — metadata/measurement_why.csv: why this measurement matters, ranked. Rank 1 is the page's pick and must carry a citation; the rest are one click away. A `goos` entry quotes one question from the EOV specification sheet and links it, never a paragraph.",
+      "properties": {
+        "rank":       { "type": "integer", "minimum": 1 },
+        "kind":       { "type": ["string", "null"], "enum": ["authored", "goos", "wikipedia", "calcofi", null] },
+        "text":       { "$ref": "#/definitions/nullable_string" },
+        "bibkeys":    { "type": "array", "items": { "type": "string" } },
+        "source_url": { "$ref": "#/definitions/nullable_string" },
+        "eov":        { "$ref": "#/definitions/nullable_string" },
+        "goos_doc":   { "$ref": "#/definitions/nullable_string" }
+      }
+    },
+    "anomaly": {
+      "type": "object", "additionalProperties": false,
+      "required": ["baseline", "ymax", "spark_band", "bands", "deeper"],
+      "description": "1.1 — the yearly departure from the release's own climatology, per depth band of depth_bands' edges, for a key the climatology covers. obs_env joins climatology on dataset_key, measurement_type, site_key, calendar month and 10 m depth bin; qual_ok only (a provider's flag outranks a bound in anything derived); the mean is taken per cruise and then over cruises. A unified key merges its series' rows before aggregating, each series against the normal of its own measurement_type.",
+      "properties": {
+        "baseline":   { "type": ["array", "null"], "minItems": 2, "maxItems": 2, "items": { "type": "integer" }, "description": "the climatology window stamped on every climatology row" },
+        "ymax":       { "$ref": "#/definitions/nullable_number", "description": "the symmetric y limit shared by every band of this key, set by the years meeting min_cruises; a thinner year beyond it is clipped by the page" },
+        "spark_band": { "type": "string", "description": "the band with the most values: what the head's sparkline draws" },
+        "min_cruises": { "type": "integer", "minimum": 1, "description": "the cruises a year needs before it may set the trend, the extremes or ymax" },
+        "bands": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false, "required": ["band", "n_values", "series"],
+            "properties": {
+              "band":     { "type": "string" },
+              "n_values": { "type": "integer", "minimum": 0, "description": "values in this band that found a climatology row" },
+              "n_years":  { "type": "integer", "minimum": 0 },
+              "series": {
+                "type": "array",
+                "description": "[year, anom, n_cruises, n_values] per year, oldest first",
+                "items": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "number" } }
+              },
+              "trend": {
+                "type": ["object", "null"], "additionalProperties": false,
+                "required": ["per_decade", "intercept", "from", "to"],
+                "description": "least squares over the years inside the trend window that meet min_cruises; null when fewer than two such years",
+                "properties": {
+                  "per_decade": { "type": "number" }, "intercept": { "type": "number" },
+                  "from": { "type": "integer" }, "to": { "type": "integer" },
+                  "n_years": { "type": "integer", "minimum": 2 }
+                }
+              },
+              "ext": {
+                "type": ["object", "null"], "additionalProperties": false, "required": ["hi", "lo"],
+                "description": "the highest and lowest year of the band, over the years meeting min_cruises: [year, anom]",
+                "properties": {
+                  "hi": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+                  "lo": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } }
+                }
+              }
+            }
+          }
+        },
+        "deeper": {
+          "type": "array",
+          "description": "bands this key is measured in that no climatology row reaches, so the page can say a deep band has no normal rather than draw nothing",
+          "items": {
+            "type": "object", "additionalProperties": false, "required": ["band", "n_obs"],
+            "properties": { "band": { "type": "string" }, "n_obs": { "type": "integer", "minimum": 0 } }
+          }
         }
       }
     },
@@ -190,6 +322,7 @@
           "description": "values per measurement_qual code, each dataset's own uninterpreted vocabulary; 'none' is the rows carrying no code"
         },
         "qual_ok_n": { "type": "integer", "minimum": 0, "description": "values the release's own qual_ok keeps" },
+        "n_flagged": { "type": "integer", "minimum": 0, "description": "1.1 — n_values less qual_ok_n: the values a provider's quality flag removed from observed{}. The landing page's heads-up reads this rather than recomputing it." },
         "out_of_bounds": {
           "type": ["object", "null"],
           "additionalProperties": false, "required": ["n", "min", "max"],
@@ -202,7 +335,7 @@
         },
         "observed": {
           "type": "object", "additionalProperties": false, "required": ["min", "p05", "p50", "p95", "max"],
-          "description": "quantiles of the finite values WITHIN the declared bounds; NaN, infinities and out-of-bounds values are excluded",
+          "description": "quantiles of the finite values that are WITHIN the declared bounds AND pass the release's qual_ok; NaN, infinities, out-of-bounds values and values a provider flagged are excluded (1.1: a provider's quality flag outranks a physical bound, so a flagged extreme inside the bounds is not in this range either — it is counted in n_flagged)",
           "properties": {
             "min": { "$ref": "#/definitions/nullable_number" }, "p05": { "$ref": "#/definitions/nullable_number" },
             "p50": { "$ref": "#/definitions/nullable_number" }, "p95": { "$ref": "#/definitions/nullable_number" },
