@@ -1,3 +1,24 @@
+# calcofi4db 4.15.0
+
+## The measurement faces: five registries, `measurements.json` 1.1, the climatology to the bottom
+
+- `read_measurement_{chem,method,scale,why,face}()` read the five `metadata/measurement_*.csv`
+  registries (typed, `na = ""` aware); `register_measurement_{chem,method,scale,why,face}()`
+  append-or-update by natural key through the registry writer; `validate_measurement_faces()`
+  returns findings — a row without `source`, a vocabulary value outside the contract, a
+  `measurement_why` key with zero or two `rank = 1` rows, a `measurement_face` key absent from
+  `measurement_type`, a `nerc_l22` that is not an L22 concept URI.
+- `build_measurements_catalog()` writes schema **1.1** (additive): per key an `anomaly` block — the
+  yearly departure from the release `climatology` per depth band (mean per cruise, then per year,
+  `qual_ok` only), a 1984–2021 trend per decade over years with ≥ 2 cruises, extremes, one shared
+  `ymax`, `spark_band`, and `deeper[]` for bands with values but no baseline; the five registries
+  carried per key through the new `registries =` argument (a metadata directory or a named list);
+  `kind = computed` scale marks recomputed at build from their `how` (`gsw`, now in Suggests);
+  `n_flagged` (`n_values − qual_ok_n`) on every series and key; `observed{}` computed inside the
+  declared bounds **and** inside `qual_ok`, because a provider flag outranks a physical bound.
+- `build_climatology()`'s `depth_max_m` defaults to `NULL` — no depth ceiling; the ≥ n-cruise rule
+  alone stops the table where the data thins (500 → 720 m on v2026.09.10, purely additive).
+
 # calcofi4db 4.14.0
 
 ## Publishers rebuild only what changed, and say which portal is behind
