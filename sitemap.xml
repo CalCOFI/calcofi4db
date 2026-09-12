@@ -154,6 +154,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/dot-convert_wkb_to_geometry.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/dot-discover_parquet_sources.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/dot-load_prior_tables_gcs.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/dot-register_measurement_registry.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/dot-variable_registry_cols.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/download_archive.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/drop_out_of_bounds.html</loc></url>
@@ -272,7 +273,15 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/promote_unreleased.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/propagate_natural_key.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/prune_taxon_shard.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/publish_code_parts.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/publish_data_parts.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/publish_decide.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/publish_fingerprint.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/publish_object_signatures.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/publish_record_digest.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/publish_release_notes.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/publish_table_signatures.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/publish_upload_status.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/put_gcs_file.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/qc_cast_base.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/qc_cast_direction.html</loc></url>
@@ -306,7 +315,12 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/read_input_fingerprint.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_license_registry.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_life_stage_registry.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/read_measurement_chem.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/read_measurement_face.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/read_measurement_method.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/read_measurement_scale.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_measurement_type.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/read_measurement_why.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_parquet_table.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_portal_registry.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_promoted_release.html</loc></url>
@@ -320,7 +334,12 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/read_taxon_group_rules.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_variable.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/record_schema_version.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/register_measurement_chem.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/register_measurement_face.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/register_measurement_method.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/register_measurement_scale.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/register_measurement_types.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/register_measurement_why.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/register_variables.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/release_citation.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/release_excluded_datasets.html</loc></url>
@@ -384,6 +403,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/validate_fk_references.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/validate_for_release.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/validate_lookup_values.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/validate_measurement_faces.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/validate_measurements_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/validate_taxa_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/variable_csv_header_comment.html</loc></url>

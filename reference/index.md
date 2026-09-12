@@ -1119,8 +1119,33 @@ check for other functions or datasets not captured by above categories
 - [`prune_taxon_shard()`](https://calcofi.io/calcofi4db/reference/prune_taxon_shard.md)
   : Prune the taxa references to one dataset's shard
 
+- [`publish_code_parts()`](https://calcofi.io/calcofi4db/reference/publish_code_parts.md)
+  : Digest a publisher's own code
+
+- [`publish_data_parts()`](https://calcofi.io/calcofi4db/reference/publish_data_parts.md)
+  : One dataset's data inputs, table by table
+
+- [`publish_decide()`](https://calcofi.io/calcofi4db/reference/publish_decide.md)
+  : Reuse a dataset's previous build, or rebuild it?
+
+- [`publish_fingerprint()`](https://calcofi.io/calcofi4db/reference/publish_fingerprint.md)
+  : Fingerprint what one dataset's published output is a function of
+
+- [`publish_object_signatures()`](https://calcofi.io/calcofi4db/reference/publish_object_signatures.md)
+  : Per-dataset row signatures of a release's objects
+
+- [`publish_record_digest()`](https://calcofi.io/calcofi4db/reference/publish_record_digest.md)
+  : Digest a dataset's catalog record, ignoring what changes every
+  release
+
 - [`publish_release_notes()`](https://calcofi.io/calcofi4db/reference/publish_release_notes.md)
   : Render and (re)publish RELEASE_NOTES.md for a version
+
+- [`publish_table_signatures()`](https://calcofi.io/calcofi4db/reference/publish_table_signatures.md)
+  : Per-dataset row signatures of tables already in a connection
+
+- [`publish_upload_status()`](https://calcofi.io/calcofi4db/reference/publish_upload_status.md)
+  : Does a portal need a fresh upload?
 
 - [`qc_cast_base()`](https://calcofi.io/calcofi4db/reference/qc_cast_base.md)
   :
@@ -1221,10 +1246,35 @@ check for other functions or datasets not captured by above categories
 
   Read `metadata/life_stage.csv`, the life-stage registry
 
+- [`read_measurement_chem()`](https://calcofi.io/calcofi4db/reference/read_measurement_chem.md)
+  :
+
+  Read `metadata/measurement_chem.csv`
+
+- [`read_measurement_face()`](https://calcofi.io/calcofi4db/reference/read_measurement_face.md)
+  :
+
+  Read `metadata/measurement_face.csv`
+
+- [`read_measurement_method()`](https://calcofi.io/calcofi4db/reference/read_measurement_method.md)
+  :
+
+  Read `metadata/measurement_method.csv`
+
+- [`read_measurement_scale()`](https://calcofi.io/calcofi4db/reference/read_measurement_scale.md)
+  :
+
+  Read `metadata/measurement_scale.csv`
+
 - [`read_measurement_type()`](https://calcofi.io/calcofi4db/reference/read_measurement_type.md)
   :
 
   Read `metadata/measurement_type.csv`, refusing a corrupted registry
+
+- [`read_measurement_why()`](https://calcofi.io/calcofi4db/reference/read_measurement_why.md)
+  :
+
+  Read `metadata/measurement_why.csv`
 
 - [`read_portal_registry()`](https://calcofi.io/calcofi4db/reference/read_portal_registry.md)
   :
@@ -1269,8 +1319,35 @@ check for other functions or datasets not captured by above categories
 
   Read `metadata/variable.csv`, refusing a corrupted registry
 
+- [`register_measurement_chem()`](https://calcofi.io/calcofi4db/reference/register_measurement_chem.md)
+  :
+
+  Append-or-update `metadata/measurement_chem.csv` by (key, chebi_id,
+  role)
+
+- [`register_measurement_face()`](https://calcofi.io/calcofi4db/reference/register_measurement_face.md)
+  :
+
+  Append-or-update `metadata/measurement_face.csv` by key
+
+- [`register_measurement_method()`](https://calcofi.io/calcofi4db/reference/register_measurement_method.md)
+  :
+
+  Append-or-update `metadata/measurement_method.csv` by (dataset_key,
+  measurement_type)
+
+- [`register_measurement_scale()`](https://calcofi.io/calcofi4db/reference/register_measurement_scale.md)
+  :
+
+  Append-or-update `metadata/measurement_scale.csv` by (key, label)
+
 - [`register_measurement_types()`](https://calcofi.io/calcofi4db/reference/register_measurement_types.md)
   : Append new measurement types to the shared registry, safely
+
+- [`register_measurement_why()`](https://calcofi.io/calcofi4db/reference/register_measurement_why.md)
+  :
+
+  Append-or-update `metadata/measurement_why.csv` by (key, rank)
 
 - [`register_variables()`](https://calcofi.io/calcofi4db/reference/register_variables.md)
   :
@@ -1426,6 +1503,9 @@ check for other functions or datasets not captured by above categories
   :
 
   Validate a `datasets.json` against the package's JSON schema
+
+- [`validate_measurement_faces()`](https://calcofi.io/calcofi4db/reference/validate_measurement_faces.md)
+  : Validate the five measurement-face registries against Appendix A
 
 - [`validate_measurements_catalog()`](https://calcofi.io/calcofi4db/reference/validate_measurements_catalog.md)
   :

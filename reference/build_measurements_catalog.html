@@ -53,7 +53,7 @@ its P01 concept that are deliberately kept apart."><!-- calcofi.io brand contrac
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.13.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.15.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -109,7 +109,11 @@ its P01 concept that are deliberately kept apart.</p>
 <span>  release_date <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  underway_datasets <span class="op">=</span> <span class="st">"calcofi_mets"</span>,</span>
 <span>  supplemental_tables <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>ctd_raw <span class="op">=</span> <span class="st">"obs_ctd_full"</span>, mets_measurement <span class="op">=</span> <span class="st">"obs_mets_full"</span><span class="op">)</span>,</span>
-<span>  supplemental_rows <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  supplemental_rows <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  registries <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  anomaly <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  anomaly_trend <span class="op">=</span> <span class="va">CC_MEASUREMENT_ANOMALY_TREND</span>,</span>
+<span>  anomaly_min_cruises <span class="op">=</span> <span class="va">CC_MEASUREMENT_ANOMALY_MIN_CRUISES</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -174,6 +178,40 @@ promoted release read through <code>cc_get_db()</code> does not attach them). Re
 from that release's own <code>catalog.json</code>; never type it. <code>full_rows</code> is
 <code>counts$obs_env_rows</code> plus these, and is <code>NA</code> when a supplemental is neither
 on the connection nor supplied.</p></dd>
+
+
+<dt id="arg-registries">registries<a class="anchor" aria-label="anchor" href="#arg-registries"></a></dt>
+<dd><p>the five face registries of <code>measurements.json</code> 1.1 (plan
+2026-09-11 "Measurement faces", Appendix A) — <code>NULL</code> (the default), a
+<code>metadata/</code> directory holding <code>measurement_{chem,method,scale,why,face}.csv</code>,
+or a named list of any subset of <code>chem</code>, <code>method</code>, <code>scale</code>, <code>why</code>, <code>face</code> as
+data frames, which is how a caller passes
+<code><a href="read_measurement_chem.html">read_measurement_chem()</a></code> and its four siblings. Every field they add is
+<strong>additive</strong>: a key with no row in a registry carries no such field, and a
+build with <code>registries = NULL</code> writes exactly the 1.0 record.
+<code>kind = "computed"</code> rows of the scale registry are recomputed here from
+their own <code>how</code> (<code>gsw.&lt;function&gt;(&lt;numbers&gt;)</code>, resolved against TEOS-10's
+<span class="pkg">gsw</span>) and never read as typed numbers; a mark whose <code>how</code> this package
+cannot evaluate — carbonate chemistry, which has no R equivalent installed —
+passes through with <code>computed_at_build: false</code>.</p></dd>
+
+
+<dt id="arg-anomaly">anomaly<a class="anchor" aria-label="anchor" href="#arg-anomaly"></a></dt>
+<dd><p>compute the per-band <code>anomaly{}</code> block (default <code>TRUE</code>) — the
+yearly departure from the release's own <code>climatology</code>, per depth band, for
+every key the climatology covers. <code>FALSE</code>, or a connection carrying no
+usable <code>climatology</code>, leaves the field out.</p></dd>
+
+
+<dt id="arg-anomaly-trend">anomaly_trend<a class="anchor" aria-label="anchor" href="#arg-anomaly-trend"></a></dt>
+<dd><p>the two years the least-squares trend is fitted between,
+inclusive (default 1984-2021).</p></dd>
+
+
+<dt id="arg-anomaly-min-cruises">anomaly_min_cruises<a class="anchor" aria-label="anchor" href="#arg-anomaly-min-cruises"></a></dt>
+<dd><p>the cruises a year needs before it may set the
+trend, the extremes or the shared <code>ymax</code> (default 2). Thinner years stay in
+the series — the page draws them faded — but never steer a fitted line.</p></dd>
 
 </dl></div>
     <div class="section level2">

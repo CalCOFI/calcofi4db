@@ -49,7 +49,7 @@ departure from. Written once at release time so the products cannot disagree."><
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.13.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.15.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -100,7 +100,7 @@ departure from. Written once at release time so the products cannot disagree.</p
 <span>  yr_max <span class="op">=</span> <span class="fl">2013L</span>,</span>
 <span>  min_cruises <span class="op">=</span> <span class="fl">3L</span>,</span>
 <span>  depth_bin_m <span class="op">=</span> <span class="fl">10L</span>,</span>
-<span>  depth_max_m <span class="op">=</span> <span class="fl">500L</span>,</span>
+<span>  depth_max_m <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  round_digits <span class="op">=</span> <span class="fl">6L</span>,</span>
 <span>  tbl <span class="op">=</span> <span class="st">"climatology"</span>,</span>
 <span>  sample_tbl <span class="op">=</span> <span class="st">"sample"</span></span>
@@ -135,7 +135,15 @@ passed in so this package never carries a second copy of it.</p></dd>
 
 
 <dt id="arg-depth-max-m">depth_max_m<a class="anchor" aria-label="anchor" href="#arg-depth-max-m"></a></dt>
-<dd><p>deepest bin kept (its shallow edge); the release's sections stop at 500 m.</p></dd>
+<dd><p>deepest bin kept (its shallow edge), or <code>NULL</code> — the default — for <strong>no
+depth ceiling at all</strong>: the baseline then reaches the deepest bin the <code>min_cruises</code> rule
+itself passes, which is the only rule that ever decided whether a cell is a baseline
+(plan 2026-09-11 "Measurement faces" § D6/F7). Until calcofi4db 4.15.0 this defaulted to
+<code>500L</code>, the depth the Explorer's Sections lens draws to, and the cap silently travelled
+beyond that lens: 117,302 temperature, 105,689 salinity, 81,423 oxygen and 26,076 nitrate
+values below 500 m in v2026.09.10 had no normal to depart from, so a measurement page could
+not show a deep band's anomaly at all. Pass a number to cap it again (the release did so
+while a consumer needed it).</p></dd>
 
 
 <dt id="arg-round-digits">round_digits<a class="anchor" aria-label="anchor" href="#arg-round-digits"></a></dt>

@@ -1,5 +1,64 @@
 # Changelog
 
+## calcofi4db 4.15.0
+
+### The measurement faces: five registries, `measurements.json` 1.1, the climatology to the bottom
+
+- `read_measurement_{chem,method,scale,why,face}()` read the five
+  `metadata/measurement_*.csv` registries (typed, `na = ""` aware);
+  `register_measurement_{chem,method,scale,why,face}()` append-or-update
+  by natural key through the registry writer;
+  [`validate_measurement_faces()`](https://calcofi.io/calcofi4db/reference/validate_measurement_faces.md)
+  returns findings — a row without `source`, a vocabulary value outside
+  the contract, a `measurement_why` key with zero or two `rank = 1`
+  rows, a `measurement_face` key absent from `measurement_type`, a
+  `nerc_l22` that is not an L22 concept URI.
+- [`build_measurements_catalog()`](https://calcofi.io/calcofi4db/reference/build_measurements_catalog.md)
+  writes schema **1.1** (additive): per key an `anomaly` block — the
+  yearly departure from the release `climatology` per depth band (mean
+  per cruise, then per year, `qual_ok` only), a 1984–2021 trend per
+  decade over years with ≥ 2 cruises, extremes, one shared `ymax`,
+  `spark_band`, and `deeper[]` for bands with values but no baseline;
+  the five registries carried per key through the new `registries =`
+  argument (a metadata directory or a named list); `kind = computed`
+  scale marks recomputed at build from their `how` (`gsw`, now in
+  Suggests); `n_flagged` (`n_values − qual_ok_n`) on every series and
+  key; `observed{}` computed inside the declared bounds **and** inside
+  `qual_ok`, because a provider flag outranks a physical bound.
+- [`build_climatology()`](https://calcofi.io/calcofi4db/reference/build_climatology.md)’s
+  `depth_max_m` defaults to `NULL` — no depth ceiling; the ≥ n-cruise
+  rule alone stops the table where the data thins (500 → 720 m on
+  v2026.09.10, purely additive).
+
+## calcofi4db 4.14.0
+
+### Publishers rebuild only what changed, and say which portal is behind
+
+- [`publish_object_signatures()`](https://calcofi.io/calcofi4db/reference/publish_object_signatures.md):
+  per-dataset row signatures of a release’s objects, read off
+  `catalog.json` — a `dataset_key` partition is its own `content_hash`
+  (no read); a shared object is read once, grouped by `dataset_key`, and
+  cached by `content_hash`.
+- [`publish_table_signatures()`](https://calcofi.io/calcofi4db/reference/publish_table_signatures.md):
+  the same over tables already in a connection, with `via` signing a
+  vocabulary (`taxon`, `cruise`) only through the keys a dataset
+  reaches.
+- [`publish_data_parts()`](https://calcofi.io/calcofi4db/reference/publish_data_parts.md),
+  [`publish_record_digest()`](https://calcofi.io/calcofi4db/reference/publish_record_digest.md)
+  (drops `objects`, `since_version`, `distributions`, `registrations`,
+  `status`),
+  [`publish_code_parts()`](https://calcofi.io/calcofi4db/reference/publish_code_parts.md)
+  (a `.qmd`’s code chunks only) and
+  [`publish_fingerprint()`](https://calcofi.io/calcofi4db/reference/publish_fingerprint.md)
+  compose one dataset’s input fingerprint;
+  [`publish_decide()`](https://calcofi.io/calcofi4db/reference/publish_decide.md)
+  says reuse or build, and why
+  ([`changed_inputs()`](https://calcofi.io/calcofi4db/reference/changed_inputs.md)).
+- [`publish_upload_status()`](https://calcofi.io/calcofi4db/reference/publish_upload_status.md):
+  built `content_hash` vs the hash last deposited — `not built` \|
+  `never uploaded` \| `current` \| `changed since {version}`, plus
+  `needs_upload`.
+
 ## calcofi4db 4.13.0
 
 - [`build_taxa_catalog()`](https://calcofi.io/calcofi4db/reference/build_taxa_catalog.md):

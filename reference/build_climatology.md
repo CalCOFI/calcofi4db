@@ -17,7 +17,7 @@ build_climatology(
   yr_max = 2013L,
   min_cruises = 3L,
   depth_bin_m = 10L,
-  depth_max_m = 500L,
+  depth_max_m = NULL,
   round_digits = 6L,
   tbl = "climatology",
   sample_tbl = "sample"
@@ -53,8 +53,17 @@ build_climatology(
 
 - depth_max_m:
 
-  deepest bin kept (its shallow edge); the release's sections stop at
-  500 m.
+  deepest bin kept (its shallow edge), or `NULL` — the default — for
+  **no depth ceiling at all**: the baseline then reaches the deepest bin
+  the `min_cruises` rule itself passes, which is the only rule that ever
+  decided whether a cell is a baseline (plan 2026-09-11 "Measurement
+  faces" § D6/F7). Until calcofi4db 4.15.0 this defaulted to `500L`, the
+  depth the Explorer's Sections lens draws to, and the cap silently
+  travelled beyond that lens: 117,302 temperature, 105,689 salinity,
+  81,423 oxygen and 26,076 nitrate values below 500 m in v2026.09.10 had
+  no normal to depart from, so a measurement page could not show a deep
+  band's anomaly at all. Pass a number to cap it again (the release did
+  so while a consumer needed it).
 
 - round_digits:
 

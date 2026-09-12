@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.13.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.15.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,6 +77,32 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.15.0" id="calcofi4db-4150">calcofi4db 4.15.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4150"></a></h2>
+<div class="section level3">
+<h3 id="the-measurement-faces-five-registries-measurementsjson-the-climatology-to-the-bottom-4-15-0">The measurement faces: five registries, <code>measurements.json</code> 1.1, the climatology to the bottom<a class="anchor" aria-label="anchor" href="#the-measurement-faces-five-registries-measurementsjson-the-climatology-to-the-bottom-4-15-0"></a></h3>
+<ul><li>
+<code>read_measurement_{chem,method,scale,why,face}()</code> read the five <code>metadata/measurement_*.csv</code> registries (typed, <code>na = ""</code> aware); <code>register_measurement_{chem,method,scale,why,face}()</code> append-or-update by natural key through the registry writer; <code><a href="../reference/validate_measurement_faces.html">validate_measurement_faces()</a></code> returns findings — a row without <code>source</code>, a vocabulary value outside the contract, a <code>measurement_why</code> key with zero or two <code>rank = 1</code> rows, a <code>measurement_face</code> key absent from <code>measurement_type</code>, a <code>nerc_l22</code> that is not an L22 concept URI.</li>
+<li>
+<code><a href="../reference/build_measurements_catalog.html">build_measurements_catalog()</a></code> writes schema <strong>1.1</strong> (additive): per key an <code>anomaly</code> block — the yearly departure from the release <code>climatology</code> per depth band (mean per cruise, then per year, <code>qual_ok</code> only), a 1984–2021 trend per decade over years with ≥ 2 cruises, extremes, one shared <code>ymax</code>, <code>spark_band</code>, and <code>deeper[]</code> for bands with values but no baseline; the five registries carried per key through the new <code>registries =</code> argument (a metadata directory or a named list); <code>kind = computed</code> scale marks recomputed at build from their <code>how</code> (<code>gsw</code>, now in Suggests); <code>n_flagged</code> (<code>n_values − qual_ok_n</code>) on every series and key; <code>observed{}</code> computed inside the declared bounds <strong>and</strong> inside <code>qual_ok</code>, because a provider flag outranks a physical bound.</li>
+<li>
+<code><a href="../reference/build_climatology.html">build_climatology()</a></code>’s <code>depth_max_m</code> defaults to <code>NULL</code> — no depth ceiling; the ≥ n-cruise rule alone stops the table where the data thins (500 → 720 m on v2026.09.10, purely additive).</li>
+</ul></div>
+</div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.14.0" id="calcofi4db-4140">calcofi4db 4.14.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4140"></a></h2>
+<div class="section level3">
+<h3 id="publishers-rebuild-only-what-changed-and-say-which-portal-is-behind-4-14-0">Publishers rebuild only what changed, and say which portal is behind<a class="anchor" aria-label="anchor" href="#publishers-rebuild-only-what-changed-and-say-which-portal-is-behind-4-14-0"></a></h3>
+<ul><li>
+<code><a href="../reference/publish_object_signatures.html">publish_object_signatures()</a></code>: per-dataset row signatures of a release’s objects, read off <code>catalog.json</code> — a <code>dataset_key</code> partition is its own <code>content_hash</code> (no read); a shared object is read once, grouped by <code>dataset_key</code>, and cached by <code>content_hash</code>.</li>
+<li>
+<code><a href="../reference/publish_table_signatures.html">publish_table_signatures()</a></code>: the same over tables already in a connection, with <code>via</code> signing a vocabulary (<code>taxon</code>, <code>cruise</code>) only through the keys a dataset reaches.</li>
+<li>
+<code><a href="../reference/publish_data_parts.html">publish_data_parts()</a></code>, <code><a href="../reference/publish_record_digest.html">publish_record_digest()</a></code> (drops <code>objects</code>, <code>since_version</code>, <code>distributions</code>, <code>registrations</code>, <code>status</code>), <code><a href="../reference/publish_code_parts.html">publish_code_parts()</a></code> (a <code>.qmd</code>’s code chunks only) and <code><a href="../reference/publish_fingerprint.html">publish_fingerprint()</a></code> compose one dataset’s input fingerprint; <code><a href="../reference/publish_decide.html">publish_decide()</a></code> says reuse or build, and why (<code><a href="../reference/changed_inputs.html">changed_inputs()</a></code>).</li>
+<li>
+<code><a href="../reference/publish_upload_status.html">publish_upload_status()</a></code>: built <code>content_hash</code> vs the hash last deposited — <code>not built</code> | <code>never uploaded</code> | <code>current</code> | <code>changed since {version}</code>, plus <code>needs_upload</code>.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.13.0" id="calcofi4db-4130">calcofi4db 4.13.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4130"></a></h2>
 <ul><li>

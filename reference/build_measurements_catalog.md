@@ -21,7 +21,11 @@ build_measurements_catalog(
   release_date = NULL,
   underway_datasets = "calcofi_mets",
   supplemental_tables = c(ctd_raw = "obs_ctd_full", mets_measurement = "obs_mets_full"),
-  supplemental_rows = NULL
+  supplemental_rows = NULL,
+  registries = NULL,
+  anomaly = TRUE,
+  anomaly_trend = CC_MEASUREMENT_ANOMALY_TREND,
+  anomaly_min_cruises = CC_MEASUREMENT_ANOMALY_MIN_CRUISES
 )
 ```
 
@@ -87,6 +91,41 @@ build_measurements_catalog(
   that release's own `catalog.json`; never type it. `full_rows` is
   `counts$obs_env_rows` plus these, and is `NA` when a supplemental is
   neither on the connection nor supplied.
+
+- registries:
+
+  the five face registries of `measurements.json` 1.1 (plan 2026-09-11
+  "Measurement faces", Appendix A) — `NULL` (the default), a `metadata/`
+  directory holding `measurement_{chem,method,scale,why,face}.csv`, or a
+  named list of any subset of `chem`, `method`, `scale`, `why`, `face`
+  as data frames, which is how a caller passes
+  [`read_measurement_chem()`](https://calcofi.io/calcofi4db/reference/read_measurement_chem.md)
+  and its four siblings. Every field they add is **additive**: a key
+  with no row in a registry carries no such field, and a build with
+  `registries = NULL` writes exactly the 1.0 record. `kind = "computed"`
+  rows of the scale registry are recomputed here from their own `how`
+  (`gsw.<function>(<numbers>)`, resolved against TEOS-10's gsw) and
+  never read as typed numbers; a mark whose `how` this package cannot
+  evaluate — carbonate chemistry, which has no R equivalent installed —
+  passes through with `computed_at_build: false`.
+
+- anomaly:
+
+  compute the per-band `anomaly{}` block (default `TRUE`) — the yearly
+  departure from the release's own `climatology`, per depth band, for
+  every key the climatology covers. `FALSE`, or a connection carrying no
+  usable `climatology`, leaves the field out.
+
+- anomaly_trend:
+
+  the two years the least-squares trend is fitted between, inclusive
+  (default 1984-2021).
+
+- anomaly_min_cruises:
+
+  the cruises a year needs before it may set the trend, the extremes or
+  the shared `ymax` (default 2). Thinner years stay in the series — the
+  page draws them faded — but never steer a fitted line.
 
 ## Value
 

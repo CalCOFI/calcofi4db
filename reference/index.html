@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.13.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.15.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -2364,10 +2364,66 @@
 
         <dt>
 
+          <code><a href="publish_code_parts.html">publish_code_parts()</a></code>
+
+        </dt>
+        <dd>Digest a publisher's own code</dd>
+
+        <dt>
+
+          <code><a href="publish_data_parts.html">publish_data_parts()</a></code>
+
+        </dt>
+        <dd>One dataset's data inputs, table by table</dd>
+
+        <dt>
+
+          <code><a href="publish_decide.html">publish_decide()</a></code>
+
+        </dt>
+        <dd>Reuse a dataset's previous build, or rebuild it?</dd>
+
+        <dt>
+
+          <code><a href="publish_fingerprint.html">publish_fingerprint()</a></code>
+
+        </dt>
+        <dd>Fingerprint what one dataset's published output is a function of</dd>
+
+        <dt>
+
+          <code><a href="publish_object_signatures.html">publish_object_signatures()</a></code>
+
+        </dt>
+        <dd>Per-dataset row signatures of a release's objects</dd>
+
+        <dt>
+
+          <code><a href="publish_record_digest.html">publish_record_digest()</a></code>
+
+        </dt>
+        <dd>Digest a dataset's catalog record, ignoring what changes every release</dd>
+
+        <dt>
+
           <code><a href="publish_release_notes.html">publish_release_notes()</a></code>
 
         </dt>
         <dd>Render and (re)publish RELEASE_NOTES.md for a version</dd>
+
+        <dt>
+
+          <code><a href="publish_table_signatures.html">publish_table_signatures()</a></code>
+
+        </dt>
+        <dd>Per-dataset row signatures of tables already in a connection</dd>
+
+        <dt>
+
+          <code><a href="publish_upload_status.html">publish_upload_status()</a></code>
+
+        </dt>
+        <dd>Does a portal need a fresh upload?</dd>
 
         <dt>
 
@@ -2539,10 +2595,45 @@
 
         <dt>
 
+          <code><a href="read_measurement_chem.html">read_measurement_chem()</a></code>
+
+        </dt>
+        <dd>Read <code>metadata/measurement_chem.csv</code></dd>
+
+        <dt>
+
+          <code><a href="read_measurement_face.html">read_measurement_face()</a></code>
+
+        </dt>
+        <dd>Read <code>metadata/measurement_face.csv</code></dd>
+
+        <dt>
+
+          <code><a href="read_measurement_method.html">read_measurement_method()</a></code>
+
+        </dt>
+        <dd>Read <code>metadata/measurement_method.csv</code></dd>
+
+        <dt>
+
+          <code><a href="read_measurement_scale.html">read_measurement_scale()</a></code>
+
+        </dt>
+        <dd>Read <code>metadata/measurement_scale.csv</code></dd>
+
+        <dt>
+
           <code><a href="read_measurement_type.html">read_measurement_type()</a></code>
 
         </dt>
         <dd>Read <code>metadata/measurement_type.csv</code>, refusing a corrupted registry</dd>
+
+        <dt>
+
+          <code><a href="read_measurement_why.html">read_measurement_why()</a></code>
+
+        </dt>
+        <dd>Read <code>metadata/measurement_why.csv</code></dd>
 
         <dt>
 
@@ -2609,10 +2700,45 @@
 
         <dt>
 
+          <code><a href="register_measurement_chem.html">register_measurement_chem()</a></code>
+
+        </dt>
+        <dd>Append-or-update <code>metadata/measurement_chem.csv</code> by (key, chebi_id, role)</dd>
+
+        <dt>
+
+          <code><a href="register_measurement_face.html">register_measurement_face()</a></code>
+
+        </dt>
+        <dd>Append-or-update <code>metadata/measurement_face.csv</code> by key</dd>
+
+        <dt>
+
+          <code><a href="register_measurement_method.html">register_measurement_method()</a></code>
+
+        </dt>
+        <dd>Append-or-update <code>metadata/measurement_method.csv</code> by (dataset_key, measurement_type)</dd>
+
+        <dt>
+
+          <code><a href="register_measurement_scale.html">register_measurement_scale()</a></code>
+
+        </dt>
+        <dd>Append-or-update <code>metadata/measurement_scale.csv</code> by (key, label)</dd>
+
+        <dt>
+
           <code><a href="register_measurement_types.html">register_measurement_types()</a></code>
 
         </dt>
         <dd>Append new measurement types to the shared registry, safely</dd>
+
+        <dt>
+
+          <code><a href="register_measurement_why.html">register_measurement_why()</a></code>
+
+        </dt>
+        <dd>Append-or-update <code>metadata/measurement_why.csv</code> by (key, rank)</dd>
 
         <dt>
 
@@ -2872,6 +2998,13 @@
 
         </dt>
         <dd>Validate a <code>datasets.json</code> against the package's JSON schema</dd>
+
+        <dt>
+
+          <code><a href="validate_measurement_faces.html">validate_measurement_faces()</a></code>
+
+        </dt>
+        <dd>Validate the five measurement-face registries against Appendix A</dd>
 
         <dt>
 
