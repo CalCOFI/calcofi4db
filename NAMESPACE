@@ -318,7 +318,12 @@ export(read_ingest_yaml)
 export(read_input_fingerprint)
 export(read_license_registry)
 export(read_life_stage_registry)
+export(read_measurement_chem)
+export(read_measurement_face)
+export(read_measurement_method)
+export(read_measurement_scale)
 export(read_measurement_type)
+export(read_measurement_why)
 export(read_parquet_table)
 export(read_portal_registry)
 export(read_promoted_release)
@@ -332,7 +337,12 @@ export(read_taxon_common)
 export(read_taxon_group_rules)
 export(read_variable)
 export(record_schema_version)
+export(register_measurement_chem)
+export(register_measurement_face)
+export(register_measurement_method)
+export(register_measurement_scale)
 export(register_measurement_types)
+export(register_measurement_why)
 export(register_variables)
 export(registration_statuses)
 export(release_citation)
@@ -399,6 +409,7 @@ export(validate_egg_stages)
 export(validate_fk_references)
 export(validate_for_release)
 export(validate_lookup_values)
+export(validate_measurement_faces)
 export(validate_measurements_catalog)
 export(validate_taxa_catalog)
 export(visibility_values)
@@ -524,7 +535,10 @@ importFrom(purrr,
 )
 importFrom(readr,
   col_character,
+  col_double,
+  col_integer,
   cols,
+  format_csv,
   read_csv,
   write_csv
 )
