@@ -167,7 +167,7 @@ mm_related <- function(m) stats::setNames(
 
 test_that("the record's counts are the fixture's own arithmetic", {
   rec <- fixture_measurements_record()
-  expect_identical(rec$schema_version, "1.0")
+  expect_identical(rec$schema_version, "1.1")
   expect_identical(rec$release$version, "v2026.01.01")
   expect_identical(rec$counts$measurements, 10L)
   expect_identical(rec$counts$pages, 10L)
@@ -248,9 +248,13 @@ test_that("observed{} stays inside the declared bounds and out_of_bounds{} holds
   s <- mm_ser(mm_of(rec, "temperature"), "ds_a")
   # the 99 is outside -2..40: it is counted, bracketed, and excluded from the quantiles
   expect_identical(s$n_values, 4L)                       # the raw count is untouched
+  # and the 15 is flagged (qual 8): since 1.1, observed{} is in bounds AND qual_ok,
+  # so the range is 5..10 and the flag's cost is in n_flagged
   expect_identical(s$observed$min, 5)
-  expect_identical(s$observed$max, 15)
-  expect_identical(s$observed$p50, 10)
+  expect_identical(s$observed$max, 10)
+  expect_identical(s$observed$p50, 7.5)
+  expect_identical(s$n_flagged, 1L)
+  expect_identical(s$n_flagged, s$n_values - s$qual_ok_n)
   expect_identical(s$out_of_bounds$n, 1L)
   expect_identical(s$out_of_bounds$min, 99)
   expect_identical(s$out_of_bounds$max, 99)

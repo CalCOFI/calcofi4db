@@ -1,0 +1,7 @@
+key,value,lo,hi,label,kind,how,source,source_url
+temperature,20,,,room temperature,familiar,,authored,
+temperature,-99,,,the freezing point of seawater at S 35,computed,"gsw.t_freezing(35, 0, 1)",TEOS-10 gsw,https://www.teos-10.org/
+temperature,0,,,the freezing point of fresh water,physical,,authored,
+temperature,368,,,pCO2 at the surface medians (no R equivalent installed),computed,"PyCO2SYS.sys(2009.8, 2234.65)",PyCO2SYS 1.8.3 (Lueker et al. 2000),https://pyco2sys.readthedocs.io/
+oxygen_umol_kg,61,,,hypoxic (1.4 ml/L),threshold,,bograd2008,
+oxygen_umol_kg,245.2,,,air-saturated at the surface medians,computed,"PyCO2SYS.sys(2009.8, 2234.65)",PyCO2SYS 1.8.3,https://pyco2sys.readthedocs.io/

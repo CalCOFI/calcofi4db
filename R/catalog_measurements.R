@@ -30,6 +30,13 @@
 #   physical bottles as the bottle dataset (merging them would double count), a
 #   replicate is not a mean, an underway intake is not a cast.
 #
+# Schema 1.1 (plan 2026-09-11 "Measurement faces", § D6/D8, Appendix A) adds, per
+# key and strictly additively: `face`, `chem`, `method`, `scale` and `why` from
+# the five `metadata/measurement_*.csv` registries the caller passes in, and
+# `anomaly` — the yearly departure from the release's own `climatology` per depth
+# band. A key with no registry row and a release with no climatology write the
+# 1.0 record unchanged, which is why every 1.1 field is optional in the schema.
+#
 # The arithmetic the record checks on itself: the sum of `series[].n_values`
 # over every key is `obs_env`'s row count, and every series' `years{}` sums to
 # its own `n_values` less the rows carrying no year.
@@ -40,12 +47,46 @@
 # order.
 
 #' @keywords internal
-CC_MEASUREMENTS_SCHEMA_VERSION <- "1.0"
+CC_MEASUREMENTS_SCHEMA_VERSION <- "1.1"
 
 # the eight depth bands, on `depth_min_m`: left-closed, right-open, the last open
 #' @keywords internal
 CC_MEASUREMENT_DEPTH_BANDS <- c("0-10", "10-50", "50-100", "100-200",
                                 "200-500", "500-1000", "1000-2000", "2000+")
+
+# the band a `depth_min_m` expression falls in, as SQL. One definition, read by
+# the per-series `depth_bands{}` counts and by the anomaly, so a band can never
+# mean two things inside one record.
+#' @keywords internal
+.mm_band_sql <- function(col = "depth_min_m") paste0(
+  "CASE WHEN ", col, " <    10 THEN '0-10'
+        WHEN ", col, " <    50 THEN '10-50'
+        WHEN ", col, " <   100 THEN '50-100'
+        WHEN ", col, " <   200 THEN '100-200'
+        WHEN ", col, " <   500 THEN '200-500'
+        WHEN ", col, " <  1000 THEN '500-1000'
+        WHEN ", col, " <  2000 THEN '1000-2000'
+        ELSE '2000+' END")
+
+# the anomaly's trend window (1984 is where the modern station occupations begin;
+# 2021 is the last year every band is sampled through) and the floor in cruises a
+# year must meet to set the trend, the extremes and the shared `ymax`. A
+# one-cruise year is kept in the series — the page draws it faded — but never
+# steers a fitted line.
+#' @keywords internal
+CC_MEASUREMENT_ANOMALY_TREND <- c(1984L, 2021L)
+#' @keywords internal
+CC_MEASUREMENT_ANOMALY_MIN_CRUISES <- 2L
+# the anomaly is rounded where the probe rounded it, so the record and
+# `.claude/plans/2026-09-11 measurement-faces-probe/anom_bands.csv` are the same
+# numbers, and so repeated builds are byte-identical (a parallel `avg()` differs
+# in its last bits run to run: see build_climatology()'s `round_digits`)
+#' @keywords internal
+CC_MEASUREMENT_ANOMALY_DIGITS <- 4L
+# a scale mark recomputed at build is rounded here: far below any instrument's
+# resolution, far above floating-point noise
+#' @keywords internal
+CC_MEASUREMENT_SCALE_DIGITS <- 6L
 
 # the naming conventions of the measurement vocabulary that the flags and the
 # `related[]` reasons read. These are conventions of `measurement_type.csv`
@@ -230,6 +271,226 @@ measurement_related_reasons <- function()
   c("underway_vs_cast", "same_bottles", "replicate_vs_mean", "pre_qc_twin",
     "sensor_vs_mean", "paired_sensors", "same_casts")
 
+# the five face registries (schema 1.1) -------------------------------------------------
+#
+# `measurements.json` 1.1 carries, per key, what CalCOFI authors about a
+# measurement beside what the release measures about it (plan 2026-09-11
+# "Measurement faces" § D8, Appendix A): the face kind, the chemistry, the
+# method per series, the familiar scale and the ranked why. They are registries
+# under `metadata/`, read here through the caller's own reader
+# (`read_measurement_{chem,method,scale,why,face}()`), never fetched and never
+# authored in this package. Absent a registry the key simply has no such field
+# and a 1.0 consumer sees exactly the record it saw before.
+
+#' @keywords internal
+CC_MEASUREMENT_REGISTRY_FILES <- c(
+  chem   = "measurement_chem.csv",   method = "measurement_method.csv",
+  scale  = "measurement_scale.csv",  why    = "measurement_why.csv",
+  face   = "measurement_face.csv")
+
+# a `;`-separated registry cell (bibkeys) or a `|`-separated one (method steps)
+# as a character vector; "" and NA are the empty vector, so a field nobody has
+# filled is an empty array rather than a list holding one empty string
+.mm_list <- function(x, sep = ";") {
+  v <- .mm_chr(x)
+  if (is.na(v) || !nzchar(v)) return(character())
+  out <- trimws(strsplit(v, sep, fixed = TRUE)[[1]])
+  out[nzchar(out)]
+}
+
+# every column a reader of this registry touches, present (NA where the file
+# does not carry it), so a registry authored to an older header still reads
+.mm_cols <- function(d, cols) {
+  d <- as.data.frame(d, stringsAsFactors = FALSE)
+  for (cl in cols) if (!cl %in% names(d)) d[[cl]] <- NA
+  d
+}
+
+# `registries`: NULL, a metadata directory, or a named list of data frames
+.mm_registries <- function(registries) {
+  out <- stats::setNames(vector("list", length(CC_MEASUREMENT_REGISTRY_FILES)),
+                         names(CC_MEASUREMENT_REGISTRY_FILES))
+  if (is.null(registries)) return(out)
+  if (is.character(registries) && length(registries) == 1) {
+    stopifnot("build_measurements_catalog(): `registries` names no directory" =
+                dir.exists(registries))
+    for (nm in names(CC_MEASUREMENT_REGISTRY_FILES)) {
+      f <- file.path(registries, CC_MEASUREMENT_REGISTRY_FILES[[nm]])
+      # na = "": an empty cell is "", never the string "NA" and never a missing
+      # value a writer would round-trip differently (the registry rule)
+      if (file.exists(f))
+        out[[nm]] <- as.data.frame(
+          readr::read_csv(f, na = "", show_col_types = FALSE, progress = FALSE),
+          stringsAsFactors = FALSE)
+    }
+    return(out)
+  }
+  stopifnot(
+    "build_measurements_catalog(): `registries` must be NULL, a metadata directory, or a named list" =
+      is.list(registries))
+  unknown <- setdiff(names(registries), names(out))
+  if (length(unknown))
+    stop("build_measurements_catalog(): unknown registries: ", paste(unknown, collapse = ", "),
+         " (expected ", paste(names(out), collapse = ", "), ")", call. = FALSE)
+  for (nm in names(registries)) {
+    r <- registries[[nm]]
+    if (is.null(r)) next
+    stopifnot("build_measurements_catalog(): each registry must be a data frame" = is.data.frame(r))
+    out[[nm]] <- as.data.frame(r, stringsAsFactors = FALSE)
+  }
+  out
+}
+
+# A `kind = computed` scale mark is a FUNCTION of stated inputs, so it is
+# recomputed here from its own `how` and never trusted as a typed number — the
+# registry's value is evidence of what was meant, not of what is true today.
+# `how` is a call of the form `gsw.<function>(<numbers>)`; it is resolved against
+# the gsw namespace (TEOS-10), with every argument a numeric literal — nothing is
+# parsed as R code. Carbonate-chemistry marks (`PyCO2SYS…`) have no R equivalent
+# installed here (seacarb is not a dependency), so they pass through with
+# `computed_at_build: false` and the page shows the registry's own value with its
+# source. Returns NULL when the mark cannot be recomputed.
+.mm_recompute_scale <- function(how) {
+  h <- .mm_chr(how)
+  if (is.na(h)) return(NULL)
+  m <- regmatches(h, regexec("^\\s*gsw[.:_]+([A-Za-z0-9_]+)\\s*\\(([^()]*)\\)\\s*$", h))[[1]]
+  if (length(m) != 3L) return(NULL)
+  if (!requireNamespace("gsw", quietly = TRUE)) return(NULL)
+  fn <- paste0("gsw_", m[[2]])
+  if (!exists(fn, envir = asNamespace("gsw"), inherits = FALSE)) return(NULL)
+  args <- trimws(strsplit(m[[3]], ",", fixed = TRUE)[[1]])
+  args <- args[nzchar(args)]
+  nums <- suppressWarnings(as.numeric(args))
+  if (!length(nums) || anyNA(nums)) return(NULL)
+  v <- try(do.call(get(fn, envir = asNamespace("gsw")), as.list(nums)), silent = TRUE)
+  if (inherits(v, "try-error")) return(NULL)
+  v <- suppressWarnings(as.numeric(v))
+  if (length(v) != 1L || !is.finite(v)) return(NULL)
+  round(v, CC_MEASUREMENT_SCALE_DIGITS)
+}
+
+# the anomaly ---------------------------------------------------------------------------
+#
+# Per key and depth band, the yearly departure from the release's own
+# `climatology` (plan 2026-09-11 § D6). `obs_env` joins `climatology` on
+# dataset_key, measurement_type, site_key, calendar month and 10 m depth bin —
+# the climatology's own grain — so each value is compared with the normal of its
+# own station, month and depth. `qual_ok` only: a provider's quality flag
+# outranks a physical bound in anything derived (CLAUDE.md; the
+# `measurement-bounds` skill), and a yearly mean is derived. The mean is taken
+# per cruise and then over cruises, so a cruise that occupied a station twice
+# does not weigh double.
+#
+# A UNIFIED key merges its series' rows BEFORE aggregating: `temperature` is the
+# bottle's `temperature` and the CTD's `temperature_ave` in one yearly mean,
+# because the key is what the page is about. Each series still joins the
+# climatology row of its OWN measurement_type, so the departure is always from
+# the normal of the thing measured.
+#
+# Returns NULL when the connection carries no usable `climatology` — the fields
+# are then simply absent and the record is a 1.0 record.
+.mm_anomaly <- function(con, trend = CC_MEASUREMENT_ANOMALY_TREND,
+                        min_cruises = CC_MEASUREMENT_ANOMALY_MIN_CRUISES,
+                        map_tbl = "_mm_map") {
+  tbls <- DBI::dbListTables(con)
+  if (!"climatology" %in% tbls) return(NULL)
+  need_c <- c("dataset_key", "measurement_type", "site_key", "month", "depth_bin", "clim_mean")
+  need_o <- c("dataset_key", "measurement_type", "site_key", "datetime", "year",
+              "depth_bin", "depth_min_m", "value", "qual_ok", "cruise_key")
+  if (length(setdiff(need_c, DBI::dbListFields(con, "climatology"))) ||
+      length(setdiff(need_o, DBI::dbListFields(con, "obs_env")))) return(NULL)
+  band <- .mm_band_sql("o.depth_min_m")
+  base_sql <- glue::glue("
+    SELECT o.dataset_key, o.measurement_type, o.site_key, o.cruise_key,
+           CAST(o.year AS INTEGER) AS year, month(o.datetime)::TINYINT AS month,
+           o.depth_bin, o.value, m.mkey AS key, {band} AS band
+    FROM obs_env o JOIN {map_tbl} m USING (measurement_type)
+    WHERE o.qual_ok AND o.value IS NOT NULL AND isfinite(o.value)
+      AND o.depth_min_m IS NOT NULL AND isfinite(o.depth_min_m)
+      AND o.datetime IS NOT NULL AND o.year IS NOT NULL")
+  # the yearly series: mean per cruise, then the plain mean over cruises
+  ser <- DBI::dbGetQuery(con, glue::glue("
+    WITH o AS ({base_sql}),
+         a AS (SELECT o.key, o.band, o.year, o.cruise_key,
+                      avg(o.value - c.clim_mean) AS cm, count(*) AS n
+               FROM o JOIN climatology c
+                 USING (dataset_key, measurement_type, site_key, month, depth_bin)
+               GROUP BY 1, 2, 3, 4)
+    SELECT key, band, year,
+           round(avg(cm), {CC_MEASUREMENT_ANOMALY_DIGITS}) AS anom,
+           CAST(count(*)  AS INTEGER) AS n_cruises,
+           CAST(sum(n)    AS INTEGER) AS n_values
+    FROM a GROUP BY 1, 2, 3 ORDER BY 1, 2, 3"))
+  if (!nrow(ser)) return(NULL)
+  # every band that holds values at all, so a band with values and no normal can
+  # be named rather than silently dropped
+  obs <- DBI::dbGetQuery(con, glue::glue("
+    WITH o AS ({base_sql})
+    SELECT key, band, CAST(count(*) AS INTEGER) AS n_obs FROM o GROUP BY 1, 2 ORDER BY 1, 2"))
+  bl <- DBI::dbGetQuery(con, "
+    SELECT DISTINCT CAST(clim_yr_min AS INTEGER) AS yr_min, CAST(clim_yr_max AS INTEGER) AS yr_max
+    FROM climatology")
+  baseline <- if (nrow(bl) == 1L && !anyNA(bl)) c(bl$yr_min[[1]], bl$yr_max[[1]]) else NULL
+  list(series = ser, obs = obs, baseline = baseline,
+       trend = as.integer(trend), min_cruises = as.integer(min_cruises))
+}
+
+# one key's `anomaly{}` block from the two tables .mm_anomaly() measured
+.mm_anomaly_of <- function(an, key) {
+  if (is.null(an)) return(NULL)
+  s <- an$series[an$series[["key"]] == key, , drop = FALSE]
+  if (!nrow(s)) return(NULL)
+  ok  <- s[["n_cruises"]] >= an$min_cruises        # the years a fitted line may use
+  # the shared, symmetric y limit: set by the >= min_cruises years of EVERY band
+  # of this key, so the small multiples are read on one scale. A one-cruise year
+  # beyond it is clipped by the page and says so.
+  ymax <- if (any(ok)) max(abs(s[["anom"]][ok])) else max(abs(s[["anom"]]))
+  ord  <- order(match(s[["band"]], CC_MEASUREMENT_DEPTH_BANDS), s[["year"]])
+  s    <- s[ord, , drop = FALSE]; ok <- ok[ord]
+  bands <- lapply(CC_MEASUREMENT_DEPTH_BANDS[CC_MEASUREMENT_DEPTH_BANDS %in% s[["band"]]],
+                  function(b) {
+    i  <- which(s[["band"]] == b)
+    iw <- i[ok[i]]
+    it <- iw[s[["year"]][iw] >= an$trend[[1]] & s[["year"]][iw] <= an$trend[[2]]]
+    trend <- NULL
+    if (length(it) >= 2L) {
+      cf <- stats::coef(stats::lm(s[["anom"]][it] ~ s[["year"]][it]))
+      trend <- list(per_decade = round(unname(cf[[2]]) * 10, CC_MEASUREMENT_ANOMALY_DIGITS),
+                    intercept  = round(unname(cf[[1]]), CC_MEASUREMENT_ANOMALY_DIGITS),
+                    from = .mm_int(min(s[["year"]][it])), to = .mm_int(max(s[["year"]][it])),
+                    n_years = length(it))
+    }
+    ext <- NULL
+    if (length(iw)) {
+      hi <- iw[which.max(s[["anom"]][iw])]; lo <- iw[which.min(s[["anom"]][iw])]
+      ext <- list(hi = I(c(.mm_int(s[["year"]][hi]), .mm_num(s[["anom"]][hi]))),
+                  lo = I(c(.mm_int(s[["year"]][lo]), .mm_num(s[["anom"]][lo]))))
+    }
+    list(band     = b,
+         n_values = .mm_int(sum(s[["n_values"]][i])),
+         n_years  = length(i),
+         series   = lapply(i, function(j) I(c(
+           .mm_int(s[["year"]][j]), .mm_num(s[["anom"]][j]),
+           .mm_int(s[["n_cruises"]][j]), .mm_int(s[["n_values"]][j])))),
+         trend    = trend,
+         ext      = ext)
+  })
+  # the head's sparkline: the band the key has the most values in
+  nv    <- vapply(bands, function(b) as.numeric(b[["n_values"]]), 0)
+  spark <- vapply(bands, function(b) b[["band"]], "")[[which.max(nv)]]
+  o <- an$obs[an$obs[["key"]] == key, , drop = FALSE]
+  deep <- setdiff(o[["band"]], s[["band"]])
+  deep <- CC_MEASUREMENT_DEPTH_BANDS[CC_MEASUREMENT_DEPTH_BANDS %in% deep]
+  list(baseline   = if (is.null(an$baseline)) NA else I(as.integer(an$baseline)),
+       ymax       = .mm_num(ymax),
+       spark_band = spark,
+       min_cruises = an$min_cruises,
+       bands      = bands,
+       deeper     = lapply(deep, function(b) list(
+         band  = b,
+         n_obs = .mm_int(o[["n_obs"]][match(b, o[["band"]])]))))
+}
+
 # build ---------------------------------------------------------------------------------
 
 #' Build the measurements catalog record (`measurements.json`)
@@ -286,6 +547,28 @@ measurement_related_reasons <- function()
 #'   from that release's own `catalog.json`; never type it. `full_rows` is
 #'   `counts$obs_env_rows` plus these, and is `NA` when a supplemental is neither
 #'   on the connection nor supplied.
+#' @param registries the five face registries of `measurements.json` 1.1 (plan
+#'   2026-09-11 "Measurement faces", Appendix A) — `NULL` (the default), a
+#'   `metadata/` directory holding `measurement_{chem,method,scale,why,face}.csv`,
+#'   or a named list of any subset of `chem`, `method`, `scale`, `why`, `face` as
+#'   data frames, which is how a caller passes
+#'   `read_measurement_chem()` and its four siblings. Every field they add is
+#'   **additive**: a key with no row in a registry carries no such field, and a
+#'   build with `registries = NULL` writes exactly the 1.0 record.
+#'   `kind = "computed"` rows of the scale registry are recomputed here from
+#'   their own `how` (`gsw.<function>(<numbers>)`, resolved against TEOS-10's
+#'   \pkg{gsw}) and never read as typed numbers; a mark whose `how` this package
+#'   cannot evaluate — carbonate chemistry, which has no R equivalent installed —
+#'   passes through with `computed_at_build: false`.
+#' @param anomaly compute the per-band `anomaly{}` block (default `TRUE`) — the
+#'   yearly departure from the release's own `climatology`, per depth band, for
+#'   every key the climatology covers. `FALSE`, or a connection carrying no
+#'   usable `climatology`, leaves the field out.
+#' @param anomaly_trend the two years the least-squares trend is fitted between,
+#'   inclusive (default 1984-2021).
+#' @param anomaly_min_cruises the cruises a year needs before it may set the
+#'   trend, the extremes or the shared `ymax` (default 2). Thinner years stay in
+#'   the series — the page draws them faded — but never steer a fitted line.
 #' @return A list ready for [write_measurements_catalog()] /
 #'   `jsonlite::write_json(auto_unbox = TRUE)`, validating against
 #'   `inst/schema/measurements.schema.json`.
@@ -299,7 +582,10 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
                                        underway_datasets = "calcofi_mets",
                                        supplemental_tables = c(ctd_raw = "obs_ctd_full",
                                                                mets_measurement = "obs_mets_full"),
-                                       supplemental_rows = NULL) {
+                                       supplemental_rows = NULL,
+                                       registries = NULL, anomaly = TRUE,
+                                       anomaly_trend = CC_MEASUREMENT_ANOMALY_TREND,
+                                       anomaly_min_cruises = CC_MEASUREMENT_ANOMALY_MIN_CRUISES) {
   stopifnot(
     "build_measurements_catalog(): `con` must be an open DBI connection to the release tables" =
       inherits(con, "DBIConnection"),
@@ -335,10 +621,12 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
 
   # the key and the declared bounds, pushed into SQL once ---------------------------
   # `observed{}` describes the series a reader would use, so it is computed WITHIN
-  # the declared bounds; what falls outside is counted and bracketed separately in
-  # `out_of_bounds{}` rather than silently widening the quantiles. The raw counts
-  # (n_values, years{}, months[], depth_bands{}, qual{}, qual_ok_n) are untouched,
-  # so the release's own arithmetic gate still equals obs_env's row count.
+  # the declared bounds AND inside `qual_ok` (schema 1.1); what falls outside the
+  # bounds is counted and bracketed separately in `out_of_bounds{}` and what the
+  # flags removed is counted in `n_flagged`, rather than silently widening the
+  # quantiles. The raw counts (n_values, years{}, months[], depth_bands{}, qual{},
+  # qual_ok_n) are untouched, so the release's own arithmetic gate still equals
+  # obs_env's row count.
   map <- data.frame(
     measurement_type = as.character(mt[["measurement_type"]]),
     mkey      = .mm_key_of(mt[["measurement_type"]], mt[["variable"]]),
@@ -349,6 +637,14 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
   on.exit(try(DBI::dbRemoveTable(con, "_mm_map"), silent = TRUE), add = TRUE)
   in_b <- "(m.valid_min IS NULL OR o.value >= m.valid_min)
            AND (m.valid_max IS NULL OR o.value <= m.valid_max)"
+  # `observed{}` is the range a careful reader would quote, so it is computed over
+  # values that are in bounds AND `qual_ok`: a provider's quality flag outranks a
+  # physical bound (CLAUDE.md; the `measurement-bounds` skill), and a flagged
+  # extreme inside the bounds — the CTD salinity of 17 on a dead sensor — is
+  # exactly the number a range must not advertise. What the flags removed is
+  # counted in `n_flagged` (`n_values - qual_ok_n`, the arithmetic the landing
+  # page's own heads-up used before the record carried it), never hidden.
+  ok_b <- paste0("o.qual_ok AND ", in_b)
 
   # what the release measures -----------------------------------------------------
   ser <- DBI::dbGetQuery(con, glue::glue("
@@ -362,11 +658,11 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
            min(o.depth_min_m) AS depth_min_m, max(o.depth_max_m) AS depth_max_m,
            CAST(count(*) FILTER (WHERE o.qual_ok) AS INTEGER) AS qual_ok_n,
            any_value(m.valid_min) AS valid_min, any_value(m.valid_max) AS valid_max,
-           min(o.value)                 FILTER (WHERE isfinite(o.value) AND {in_b}) AS v_min,
-           quantile_cont(o.value, 0.05) FILTER (WHERE isfinite(o.value) AND {in_b}) AS v_p05,
-           quantile_cont(o.value, 0.50) FILTER (WHERE isfinite(o.value) AND {in_b}) AS v_p50,
-           quantile_cont(o.value, 0.95) FILTER (WHERE isfinite(o.value) AND {in_b}) AS v_p95,
-           max(o.value)                 FILTER (WHERE isfinite(o.value) AND {in_b}) AS v_max,
+           min(o.value)                 FILTER (WHERE isfinite(o.value) AND {ok_b}) AS v_min,
+           quantile_cont(o.value, 0.05) FILTER (WHERE isfinite(o.value) AND {ok_b}) AS v_p05,
+           quantile_cont(o.value, 0.50) FILTER (WHERE isfinite(o.value) AND {ok_b}) AS v_p50,
+           quantile_cont(o.value, 0.95) FILTER (WHERE isfinite(o.value) AND {ok_b}) AS v_p95,
+           max(o.value)                 FILTER (WHERE isfinite(o.value) AND {ok_b}) AS v_max,
            CAST(count(*) FILTER (WHERE isfinite(o.value) AND NOT ({in_b})) AS INTEGER) AS ob_n,
            min(o.value) FILTER (WHERE isfinite(o.value) AND NOT ({in_b})) AS ob_min,
            max(o.value) FILTER (WHERE isfinite(o.value) AND NOT ({in_b})) AS ob_max
@@ -382,19 +678,11 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
            CAST(EXTRACT(month FROM datetime) AS INTEGER) AS month,
            CAST(count(*) AS INTEGER) AS n
     FROM obs_env WHERE datetime IS NOT NULL GROUP BY 1, 2, 3 ORDER BY 1, 2, 3")
-  sd <- DBI::dbGetQuery(con, "
-    SELECT dataset_key, measurement_type,
-           CASE WHEN depth_min_m <    10 THEN '0-10'
-                WHEN depth_min_m <    50 THEN '10-50'
-                WHEN depth_min_m <   100 THEN '50-100'
-                WHEN depth_min_m <   200 THEN '100-200'
-                WHEN depth_min_m <   500 THEN '200-500'
-                WHEN depth_min_m <  1000 THEN '500-1000'
-                WHEN depth_min_m <  2000 THEN '1000-2000'
-                ELSE '2000+' END AS band,
+  sd <- DBI::dbGetQuery(con, glue::glue("
+    SELECT dataset_key, measurement_type, {.mm_band_sql('depth_min_m')} AS band,
            CAST(count(*) AS INTEGER) AS n
     FROM obs_env WHERE depth_min_m IS NOT NULL AND isfinite(depth_min_m)
-    GROUP BY 1, 2, 3 ORDER BY 1, 2, 3")
+    GROUP BY 1, 2, 3 ORDER BY 1, 2, 3"))
   sq <- DBI::dbGetQuery(con, "
     SELECT dataset_key, measurement_type,
            COALESCE(CAST(measurement_qual AS VARCHAR), 'none') AS qual,
@@ -418,6 +706,7 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
            CAST(count(DISTINCT o.sample_key)  AS INTEGER) AS n_samples,
            CAST(count(DISTINCT o.root_id)     AS INTEGER) AS n_roots,
            CAST(count(DISTINCT o.dataset_key) AS INTEGER) AS n_datasets,
+           CAST(count(*) FILTER (WHERE o.qual_ok) AS INTEGER) AS qual_ok_n,
            CAST(min(o.year) AS INTEGER) AS year_min, CAST(max(o.year) AS INTEGER) AS year_max,
            min(o.depth_min_m) AS depth_min_m, max(o.depth_max_m) AS depth_max_m
     FROM obs_env o JOIN _mm_map m USING (measurement_type)
@@ -476,6 +765,106 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
     i <- match(key, as.character(vr[["variable"]]))
     if (is.na(i)) NA_character_ else .mm_chr(vr[["label"]][i])
   }
+
+  # the five face registries, and the anomaly ---------------------------------------
+  regs <- .mm_registries(registries)
+  if (!is.null(regs$chem))
+    regs$chem <- .mm_cols(regs$chem, c("key", "chebi_id", "role", "mass_fraction", "via",
+                                       "source", "source_url", "note"))
+  if (!is.null(regs$method))
+    regs$method <- .mm_cols(regs$method, c("dataset_key", "measurement_type", "platform",
+                                           "instrument", "nerc_l22", "principle", "steps",
+                                           "wavelength_nm", "precision", "bibkeys",
+                                           "calcofi_org_url", "text_fragment", "source",
+                                           "source_url"))
+  if (!is.null(regs$scale))
+    regs$scale <- .mm_cols(regs$scale, c("key", "value", "lo", "hi", "label", "kind", "how",
+                                         "source", "source_url"))
+  if (!is.null(regs$why))
+    regs$why <- .mm_cols(regs$why, c("key", "rank", "kind", "text", "bibkeys", "source_url",
+                                     "eov", "goos_doc"))
+  if (!is.null(regs$face))
+    regs$face <- .mm_cols(regs$face, c("key", "face_kind", "face_of", "stands_in_note", "source"))
+
+  face_of_key <- function(k) {
+    d <- regs$face
+    if (is.null(d) || !nrow(d)) return(NULL)
+    i <- match(k, as.character(d[["key"]]))
+    if (is.na(i)) return(NULL)
+    list(kind = .mm_chr(d[["face_kind"]][i]), face_of = .mm_chr(d[["face_of"]][i]),
+         stands_in_note = .mm_chr(d[["stands_in_note"]][i]),
+         source = .mm_chr(d[["source"]][i]))
+  }
+  chem_of_key <- function(k) {
+    d <- regs$chem
+    if (is.null(d) || !nrow(d)) return(NULL)
+    rr <- which(as.character(d[["key"]]) == k)
+    if (!length(rr)) return(NULL)
+    lapply(rr, function(i) list(
+      chebi = .mm_chr(d[["chebi_id"]][i]), role = .mm_chr(d[["role"]][i]),
+      via = .mm_chr(d[["via"]][i]), mass_fraction = .mm_num(d[["mass_fraction"]][i]),
+      note = .mm_chr(d[["note"]][i]), source = .mm_chr(d[["source"]][i]),
+      source_url = .mm_chr(d[["source_url"]][i])))
+  }
+  # the method is per SERIES: a key's rows are the registry rows whose
+  # dataset_key x measurement_type the release actually carries, in the key's own
+  # series order
+  method_of_series <- function(dk, tp) {
+    d <- regs$method
+    if (is.null(d) || !nrow(d)) return(NULL)
+    i <- which(as.character(d[["dataset_key"]]) == dk &
+                 as.character(d[["measurement_type"]]) == tp)
+    if (!length(i)) return(NULL)
+    i <- i[[1]]
+    list(dataset_key = dk, measurement_type = tp,
+         platform    = .mm_chr(d[["platform"]][i]),
+         instrument  = .mm_chr(d[["instrument"]][i]),
+         nerc_l22    = .mm_chr(d[["nerc_l22"]][i]),
+         principle   = .mm_chr(d[["principle"]][i]),
+         steps       = .arr(.mm_list(d[["steps"]][i], "|")),
+         wavelength_nm = .mm_num(d[["wavelength_nm"]][i]),
+         precision   = .mm_chr(d[["precision"]][i]),
+         bibkeys     = .arr(.mm_list(d[["bibkeys"]][i])),
+         calcofi_org_url = .mm_chr(d[["calcofi_org_url"]][i]),
+         text_fragment   = .mm_chr(d[["text_fragment"]][i]),
+         source      = .mm_chr(d[["source"]][i]),
+         source_url  = .mm_chr(d[["source_url"]][i]))
+  }
+  scale_of_key <- function(k) {
+    d <- regs$scale
+    if (is.null(d) || !nrow(d)) return(NULL)
+    rr <- which(as.character(d[["key"]]) == k)
+    if (!length(rr)) return(NULL)
+    lapply(rr, function(i) {
+      kind <- .mm_chr(d[["kind"]][i])
+      how  <- .mm_chr(d[["how"]][i])
+      v    <- .mm_num(d[["value"]][i])
+      done <- FALSE
+      if (!is.na(kind) && kind == "computed") {
+        r <- .mm_recompute_scale(how)
+        if (!is.null(r)) { v <- r; done <- TRUE }
+      }
+      list(value = v, lo = .mm_num(d[["lo"]][i]), hi = .mm_num(d[["hi"]][i]),
+           label = .mm_chr(d[["label"]][i]), kind = kind, how = how,
+           computed_at_build = done,
+           source = .mm_chr(d[["source"]][i]), source_url = .mm_chr(d[["source_url"]][i]))
+    })
+  }
+  why_of_key <- function(k) {
+    d <- regs$why
+    if (is.null(d) || !nrow(d)) return(NULL)
+    rr <- which(as.character(d[["key"]]) == k)
+    if (!length(rr)) return(NULL)
+    rr <- rr[order(suppressWarnings(as.numeric(d[["rank"]][rr])), rr)]
+    lapply(rr, function(i) list(
+      rank = .mm_int(d[["rank"]][i]), kind = .mm_chr(d[["kind"]][i]),
+      text = .mm_chr(d[["text"]][i]), bibkeys = .arr(.mm_list(d[["bibkeys"]][i])),
+      source_url = .mm_chr(d[["source_url"]][i]), eov = .mm_chr(d[["eov"]][i]),
+      goos_doc = .mm_chr(d[["goos_doc"]][i])))
+  }
+
+  an <- if (isTRUE(anomaly))
+    .mm_anomaly(con, trend = anomaly_trend, min_cruises = anomaly_min_cruises) else NULL
 
   # split indexes, taken once ------------------------------------------------------
   pair <- function(dataset_key, measurement_type) paste(dataset_key, measurement_type, sep = "\r")
@@ -559,6 +948,7 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
          depth_bands = bands,
          qual = .mm_obj(sq[["qual"]][qu], sq[["n"]][qu]),
          qual_ok_n = .mm_int(ser[["qual_ok_n"]][i]),
+         n_flagged = .mm_int(ser[["n_values"]][i] - ser[["qual_ok_n"]][i]),
          observed = list(min = obs_min, p05 = .mm_num(ser[["v_p05"]][i]),
                          p50 = .mm_num(ser[["v_p50"]][i]), p95 = obs_p95,
                          max = obs_max),
@@ -594,33 +984,51 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
         if (!is.na(w)) rel[[length(rel) + 1]] <- list(key = o, why = w)
       }
     }
-    list(key   = k,
-         slug  = k,
-         label = lab,
-         description   = .mm_chr(reg(ct, "description")),
-         units         = .mm_chr(reg(ct, "units")),
-         units_nerc_p06 = .mm_chr(reg(ct, "units_nerc_p06")),
-         nerc_p01      = p,
-         category      = cat_of(.mm_chr(reg(ct, "category"))),
-         is_unified    = length(unique(ser[["measurement_type"]][rr])) > 1,
-         derivation    = .mm_chr(reg(ct, "derivation")),
-         climatology   = any(ser[["measurement_type"]][rr] %in% clim),
-         bounds = list(
-           valid_min = .mm_num(.mm_min(as.numeric(mt[["valid_min"]][mt_i[ser[["measurement_type"]][rr]]]))),
-           valid_max = .mm_num(.mm_max(as.numeric(mt[["valid_max"]][mt_i[ser[["measurement_type"]][rr]]]))),
-           declared_by = .arr(unique(ser[["measurement_type"]][bounded]))),
-         totals = list(
-           n_values   = .mm_int(tot[["n_values"]][ti]),
-           n_samples  = .mm_int(tot[["n_samples"]][ti]),
-           n_roots    = .mm_int(tot[["n_roots"]][ti]),
-           n_datasets = .mm_int(tot[["n_datasets"]][ti]),
-           year_min   = .mm_int(tot[["year_min"]][ti]),
-           year_max   = .mm_int(tot[["year_max"]][ti]),
-           depth_min_m = .mm_num(tot[["depth_min_m"]][ti]),
-           depth_max_m = .mm_num(tot[["depth_max_m"]][ti])),
-         series  = lapply(rr, build_series),
-         related = if (length(rel)) rel else list(),
-         flags   = .arr(m_flags))
+    out <- list(key   = k,
+                slug  = k,
+                label = lab,
+                description   = .mm_chr(reg(ct, "description")),
+                units         = .mm_chr(reg(ct, "units")),
+                units_nerc_p06 = .mm_chr(reg(ct, "units_nerc_p06")),
+                nerc_p01      = p,
+                category      = cat_of(.mm_chr(reg(ct, "category"))),
+                is_unified    = length(unique(ser[["measurement_type"]][rr])) > 1,
+                derivation    = .mm_chr(reg(ct, "derivation")),
+                climatology   = any(ser[["measurement_type"]][rr] %in% clim),
+                bounds = list(
+                  valid_min = .mm_num(.mm_min(as.numeric(mt[["valid_min"]][mt_i[ser[["measurement_type"]][rr]]]))),
+                  valid_max = .mm_num(.mm_max(as.numeric(mt[["valid_max"]][mt_i[ser[["measurement_type"]][rr]]]))),
+                  declared_by = .arr(unique(ser[["measurement_type"]][bounded]))),
+                totals = list(
+                  n_values   = .mm_int(tot[["n_values"]][ti]),
+                  n_samples  = .mm_int(tot[["n_samples"]][ti]),
+                  n_roots    = .mm_int(tot[["n_roots"]][ti]),
+                  n_datasets = .mm_int(tot[["n_datasets"]][ti]),
+                  year_min   = .mm_int(tot[["year_min"]][ti]),
+                  year_max   = .mm_int(tot[["year_max"]][ti]),
+                  depth_min_m = .mm_num(tot[["depth_min_m"]][ti]),
+                  depth_max_m = .mm_num(tot[["depth_max_m"]][ti]),
+                  qual_ok_n   = .mm_int(tot[["qual_ok_n"]][ti]),
+                  n_flagged   = .mm_int(tot[["n_values"]][ti] - tot[["qual_ok_n"]][ti])),
+                series  = lapply(rr, build_series),
+                related = if (length(rel)) rel else list(),
+                flags   = .arr(m_flags))
+    # schema 1.1 (additive): a field the registries or the climatology cannot
+    # supply is ABSENT, so a 1.0 consumer reads the record it always read
+    m_face   <- face_of_key(k)
+    m_chem   <- chem_of_key(k)
+    m_scale  <- scale_of_key(k)
+    m_why    <- why_of_key(k)
+    m_method <- Filter(Negate(is.null), lapply(rr, function(i)
+      method_of_series(ser[["dataset_key"]][i], ser[["measurement_type"]][i])))
+    m_anom   <- .mm_anomaly_of(an, k)
+    if (!is.null(m_face))          out[["face"]]    <- m_face
+    if (!is.null(m_chem))          out[["chem"]]    <- m_chem
+    if (length(m_method))          out[["method"]]  <- m_method
+    if (!is.null(m_scale))         out[["scale"]]   <- m_scale
+    if (!is.null(m_why))           out[["why"]]     <- m_why
+    if (!is.null(m_anom))          out[["anomaly"]] <- m_anom
+    out
   })
 
   # category order, then the biggest key first, then the key ------------------------

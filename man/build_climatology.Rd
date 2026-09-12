@@ -11,7 +11,7 @@ build_climatology(
   yr_max = 2013L,
   min_cruises = 3L,
   depth_bin_m = 10L,
-  depth_max_m = 500L,
+  depth_max_m = NULL,
   round_digits = 6L,
   tbl = "climatology",
   sample_tbl = "sample"
@@ -31,7 +31,15 @@ passed in so this package never carries a second copy of it.}
 
 \item{depth_bin_m}{bin width in metres (floor bins, labelled by the shallow edge).}
 
-\item{depth_max_m}{deepest bin kept (its shallow edge); the release's sections stop at 500 m.}
+\item{depth_max_m}{deepest bin kept (its shallow edge), or \code{NULL} — the default — for \strong{no
+depth ceiling at all}: the baseline then reaches the deepest bin the \code{min_cruises} rule
+itself passes, which is the only rule that ever decided whether a cell is a baseline
+(plan 2026-09-11 "Measurement faces" § D6/F7). Until calcofi4db 4.15.0 this defaulted to
+\code{500L}, the depth the Explorer's Sections lens draws to, and the cap silently travelled
+beyond that lens: 117,302 temperature, 105,689 salinity, 81,423 oxygen and 26,076 nitrate
+values below 500 m in v2026.09.10 had no normal to depart from, so a measurement page could
+not show a deep band's anomaly at all. Pass a number to cap it again (the release did so
+while a consumer needed it).}
 
 \item{round_digits}{decimal places \code{clim_mean}/\code{clim_sd} are rounded to — chosen to be far below
 sensor resolution but well above the parallel-aggregation floating-point noise floor (see

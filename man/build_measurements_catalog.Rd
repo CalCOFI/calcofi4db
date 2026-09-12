@@ -14,7 +14,11 @@ build_measurements_catalog(
   release_date = NULL,
   underway_datasets = "calcofi_mets",
   supplemental_tables = c(ctd_raw = "obs_ctd_full", mets_measurement = "obs_mets_full"),
-  supplemental_rows = NULL
+  supplemental_rows = NULL,
+  registries = NULL,
+  anomaly = TRUE,
+  anomaly_trend = CC_MEASUREMENT_ANOMALY_TREND,
+  anomaly_min_cruises = CC_MEASUREMENT_ANOMALY_MIN_CRUISES
 )
 }
 \arguments{
@@ -56,6 +60,32 @@ promoted release read through \code{cc_get_db()} does not attach them). Read it
 from that release's own \code{catalog.json}; never type it. \code{full_rows} is
 \code{counts$obs_env_rows} plus these, and is \code{NA} when a supplemental is neither
 on the connection nor supplied.}
+
+\item{registries}{the five face registries of \code{measurements.json} 1.1 (plan
+2026-09-11 "Measurement faces", Appendix A) — \code{NULL} (the default), a
+\verb{metadata/} directory holding \verb{measurement_\{chem,method,scale,why,face\}.csv},
+or a named list of any subset of \code{chem}, \code{method}, \code{scale}, \code{why}, \code{face} as
+data frames, which is how a caller passes
+\code{read_measurement_chem()} and its four siblings. Every field they add is
+\strong{additive}: a key with no row in a registry carries no such field, and a
+build with \code{registries = NULL} writes exactly the 1.0 record.
+\code{kind = "computed"} rows of the scale registry are recomputed here from
+their own \code{how} (\verb{gsw.<function>(<numbers>)}, resolved against TEOS-10's
+\pkg{gsw}) and never read as typed numbers; a mark whose \code{how} this package
+cannot evaluate — carbonate chemistry, which has no R equivalent installed —
+passes through with \code{computed_at_build: false}.}
+
+\item{anomaly}{compute the per-band \verb{anomaly\{\}} block (default \code{TRUE}) — the
+yearly departure from the release's own \code{climatology}, per depth band, for
+every key the climatology covers. \code{FALSE}, or a connection carrying no
+usable \code{climatology}, leaves the field out.}
+
+\item{anomaly_trend}{the two years the least-squares trend is fitted between,
+inclusive (default 1984-2021).}
+
+\item{anomaly_min_cruises}{the cruises a year needs before it may set the
+trend, the extremes or the shared \code{ymax} (default 2). Thinner years stay in
+the series — the page draws them faded — but never steer a fitted line.}
 }
 \value{
 A list ready for \code{\link[=write_measurements_catalog]{write_measurements_catalog()}} /

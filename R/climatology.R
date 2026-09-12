@@ -79,7 +79,15 @@
 #' @param yr_min,yr_max the baseline window, inclusive years.
 #' @param min_cruises a cell needs this many distinct cruises to be a baseline at all.
 #' @param depth_bin_m bin width in metres (floor bins, labelled by the shallow edge).
-#' @param depth_max_m deepest bin kept (its shallow edge); the release's sections stop at 500 m.
+#' @param depth_max_m deepest bin kept (its shallow edge), or `NULL` — the default — for **no
+#'   depth ceiling at all**: the baseline then reaches the deepest bin the `min_cruises` rule
+#'   itself passes, which is the only rule that ever decided whether a cell is a baseline
+#'   (plan 2026-09-11 "Measurement faces" § D6/F7). Until calcofi4db 4.15.0 this defaulted to
+#'   `500L`, the depth the Explorer's Sections lens draws to, and the cap silently travelled
+#'   beyond that lens: 117,302 temperature, 105,689 salinity, 81,423 oxygen and 26,076 nitrate
+#'   values below 500 m in v2026.09.10 had no normal to depart from, so a measurement page could
+#'   not show a deep band's anomaly at all. Pass a number to cap it again (the release did so
+#'   while a consumer needed it).
 #' @param round_digits decimal places `clim_mean`/`clim_sd` are rounded to — chosen to be far below
 #'   sensor resolution but well above the parallel-aggregation floating-point noise floor (see
 #'   above), so the table is byte-identical across re-exports of unchanged data.
@@ -95,13 +103,19 @@
 #' @importFrom DBI dbExecute dbGetQuery
 #' @importFrom glue glue
 build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, min_cruises = 3L,
-                              depth_bin_m = 10L, depth_max_m = 500L, round_digits = 6L,
+                              depth_bin_m = 10L, depth_max_m = NULL, round_digits = 6L,
                               tbl = "climatology", sample_tbl = "sample") {
   stopifnot(is.character(qual_ok_sql), length(qual_ok_sql) == 1, nzchar(qual_ok_sql),
             is.numeric(yr_min), is.numeric(yr_max), length(yr_min) == 1, length(yr_max) == 1,
             yr_min <= yr_max, is.numeric(min_cruises), min_cruises >= 1,
-            is.numeric(depth_bin_m), depth_bin_m > 0, is.numeric(depth_max_m), depth_max_m >= 0,
+            is.numeric(depth_bin_m), depth_bin_m > 0,
+            is.null(depth_max_m) || (is.numeric(depth_max_m) && length(depth_max_m) == 1 &&
+                                       depth_max_m >= 0),
             is.numeric(round_digits), length(round_digits) == 1, round_digits >= 0)
+  # no ceiling: the HAVING count(DISTINCT cruise_key) >= min_cruises rule is the only
+  # depth rule, so the baseline goes to the bottom
+  depth_sql <- if (is.null(depth_max_m)) "TRUE" else
+    glue("o.depth_min_m < {depth_max_m} + {depth_bin_m}")
   yr_min <- as.integer(yr_min); yr_max <- as.integer(yr_max)
   min_cruises  <- as.integer(min_cruises); depth_bin_m <- as.integer(depth_bin_m)
   round_digits <- as.integer(round_digits)
@@ -124,7 +138,7 @@ build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, 
     WHERE o.realm = 'env'
       AND s.site_key IS NOT NULL AND o.datetime IS NOT NULL
       AND o.depth_min_m IS NOT NULL AND o.depth_min_m >= 0
-      AND o.depth_min_m < {depth_max_m} + {depth_bin_m}
+      AND ({depth_sql})
       AND o.measurement_value IS NOT NULL AND isfinite(o.measurement_value)
       AND year(o.datetime) BETWEEN {yr_min} AND {yr_max}
       AND ({qual_ok_sql})
