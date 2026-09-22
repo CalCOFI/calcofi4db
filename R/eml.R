@@ -501,13 +501,46 @@ build_eml <- function(record, sidecar = NULL, meta = NULL, coverage = NULL, rele
     email = p[["email"]], role = p[["role"]] %||% "associatedParty")))
   if (length(ap)) ds$associatedParty <- ap
   ack <- .chr_or_null(att[["acknowledgement"]])
-  # intellectualRights: the licence name + URL the registry states, never a guess
+  # intellectualRights: the licence name + URL the registry states, never a guess.
+  #
+  # BUGFIX 2026-09-22: GBIF's EML parser (and most EML consumers, incl. IPT)
+  # only recognizes a licence when its URL is a real <ulink> CHILD ELEMENT of
+  # <para> -- a URL sitting in plain text is not machine-readable, however
+  # correct the text is. The old code below built `rights` with paste0("(",
+  # lic_url, ")") and handed it to `I()`, which writes it as a literal string
+  # -- i.e. always plain text, never a <ulink>. That is why every declared
+  # licence in the catalog failed GBIF's "can be indexed" check identically,
+  # including datasets with clean, standard CC-BY-4.0 / CC0-1.0 licences and a
+  # correct, registry-resolved license_url: the URL was present in the XML,
+  # just never in the one structural form GBIF's parser looks for.
+  # check_eml()'s `no_license` finding never caught this because it only
+  # asserts intellectualRights is non-null, not that it is structured.
+  #
+  # VERIFIED 2026-09-22 (betty, R 4.5.2 / EML 2.0.7 on Windows): a *nested
+  # R list* for the <ulink> (list(para = list(list(ulink = list(...))))) is
+  # the obvious way to try this and DOES NOT WORK -- EML::write_eml() errors
+  # with "Error in if (grepl("<\\w+>", x[[i]])) { : the condition has
+  # length > 1". That grepl is EML's own writer checking whether a *string*
+  # already contains literal tags, to decide whether to pass it through as
+  # raw markup instead of escaping it. So the fix is to build the whole
+  # <para> as one string with the <ulink> written directly into it (sprintf
+  # below) -- confirmed via EML::eml_validate() to round-trip clean and
+  # produce a real <ulink url="..."> element in the written XML.
   lic_id <- .chr_or_null(att[["license"]])
   lic_nm <- .chr_or_null(att[["license_name"]])
   lic_url <- .chr_or_null(att[["license_url"]])
   if (!is.null(lic_id) && !identical(lic_id, "unknown")) {
-    rights <- paste(c(lic_nm %||% lic_id, if (!is.null(lic_url)) paste0("(", lic_url, ")")), collapse = " ")
-    ds$intellectualRights <- list(para = I(rights))
+    rights_name <- lic_nm %||% lic_id
+    # a real <ulink> when a URL exists (every declared licence should have
+    # one via the registry join in .attribution_block()); plain text only for
+    # the rare case a URL is genuinely absent, so the release isn't blocked
+    # on this fix landing everywhere else first
+    ds$intellectualRights <- if (!is.null(lic_url))
+      list(para = sprintf(
+        'This work is licensed under a <ulink url="%s"><citetitle>%s</citetitle></ulink>.',
+        lic_url, rights_name))
+    else
+      list(para = I(rights_name))
     if (!is.null(lic_nm) && !is.null(lic_url) && !identical(lic_id, "custom"))
       ds$licensed <- list(licenseName = lic_nm, url = lic_url, identifier = lic_id)
   }
