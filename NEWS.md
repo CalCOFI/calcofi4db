@@ -1,3 +1,29 @@
+# calcofi4db 4.16.0
+
+## CTD derived hydrographic products (CalCOFI/workflows#98)
+
+The rules for the values Rasmus Swalethorp asked to see beside the measured CTD series
+(CTD-on-EDI meeting 2026-09-16; email 2026-09-22), each once, so the coming `calcofi_ctd-derived`
+ingest, a notebook and a test cannot disagree. Every function drops a value flagged 8/9 before it
+computes, and all of them take full-resolution 1 m bins, not the thinned `ctd_thin` series.
+
+- `ctd_sigma_theta_ave()` averages `sigma_theta_1` / `sigma_theta_2` by the `combine_sensor_pair()`
+  flag rule (#99).
+- `ctd_spice()` gives spiciness at 0 dbar (TEOS-10 `gsw_spiciness0()`, Rasmus's recipe; positive =
+  spicy, negative = minty) from temperature and practical salinity (#100).
+- `ctd_mld()` gives the threshold mixed-layer depth of one cast. `criterion` (`sigma_theta` |
+  `temperature`), `threshold` and `ref_depth` are arguments; the defaults (10 m, Delta sigma-theta
+  0.03 kg m^-3, de Boyer Montegut et al. 2004; 0.2 deg C for temperature) await Rasmus's
+  confirmation. Statuses: `ok`, `mixed_to_bottom`, `no_reference`, `no_data` (#101).
+- `ctd_chl_max()` gives the depth of the chlorophyll-a maximum after a 5 m running median (#102).
+- `ctd_integrate()` gives the trapezoidal depth integral to 200 m or the cast bottom, with the
+  shallowest sample carried to the surface only when it is no deeper than 5 m (#102).
+- `ctd_geostrophic()` gives the relative geostrophic velocity between adjacent stations
+  (`gsw_geo_strf_dyn_height()`, `p_ref = 500`; Rasmus's recipe). Pairs where a cast is shallower
+  than `p_ref` are flagged `shallow`, and a station closer than `min_dx_km` (default 10 km) to the
+  last one kept is skipped, since `1 / dx` turns the extra inshore stations into spurious flow (#103).
+- `gsw` and `stats` join Imports.
+
 # calcofi4db 4.15.0
 
 ## The measurement faces: five registries, `measurements.json` 1.1, the climatology to the bottom

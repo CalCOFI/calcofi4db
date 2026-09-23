@@ -130,7 +130,13 @@ export(create_gcs_manifest)
 export(create_lookup_table)
 export(create_redefinition_files)
 export(csv_to_parquet)
+export(ctd_chl_max)
+export(ctd_geostrophic)
+export(ctd_integrate)
 export(ctd_map_columns)
+export(ctd_mld)
+export(ctd_sigma_theta_ave)
+export(ctd_spice)
 export(ctd_upload_to_core)
 export(dataset_distributions)
 export(dataset_gear)
@@ -499,6 +505,12 @@ importFrom(googledrive,
   drive_auth,
   drive_ls
 )
+importFrom(gsw,
+  gsw_CT_from_t,
+  gsw_SA_from_SP,
+  gsw_geo_strf_dyn_height,
+  gsw_spiciness0
+)
 importFrom(here,here)
 importFrom(htmltools,HTML)
 importFrom(janitor,make_clean_names)
@@ -548,6 +560,11 @@ importFrom(rlang,
   parse_expr,
   sym
 )
+importFrom(stats,
+  aggregate,
+  approx,
+  runmed
+)
 importFrom(stringr,
   str_detect,
   str_extract,
@@ -563,6 +580,10 @@ importFrom(tibble,
   tibble
 )
 importFrom(tidyr,unnest)
+importFrom(utils,
+  head,
+  tail
+)
 importFrom(uuid,
   UUIDfromName,
   as.UUID
