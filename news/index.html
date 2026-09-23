@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.15.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.16.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,6 +77,27 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.16.0" id="calcofi4db-4160">calcofi4db 4.16.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4160"></a></h2>
+<div class="section level3">
+<h3 id="ctd-derived-hydrographic-products-calcofiworkflows98-4-16-0">CTD derived hydrographic products (CalCOFI/workflows#98)<a class="anchor" aria-label="anchor" href="#ctd-derived-hydrographic-products-calcofiworkflows98-4-16-0"></a></h3>
+<p>The rules for the values Rasmus Swalethorp asked to see beside the measured CTD series (CTD-on-EDI meeting 2026-09-16; email 2026-09-22), each once, so the coming <code>calcofi_ctd-derived</code> ingest, a notebook and a test cannot disagree. Every function drops a value flagged 8/9 before it computes, and all of them take full-resolution 1 m bins, not the thinned <code>ctd_thin</code> series.</p>
+<ul><li>
+<code><a href="../reference/ctd_sigma_theta_ave.html">ctd_sigma_theta_ave()</a></code> averages <code>sigma_theta_1</code> / <code>sigma_theta_2</code> by the <code><a href="../reference/combine_sensor_pair.html">combine_sensor_pair()</a></code> flag rule (<a href="https://github.com/calcofi/calcofi4db/issues/99" class="external-link">#99</a>).</li>
+<li>
+<code><a href="../reference/ctd_spice.html">ctd_spice()</a></code> gives spiciness at 0 dbar (TEOS-10 <code>gsw_spiciness0()</code>, Rasmus’s recipe; positive = spicy, negative = minty) from temperature and practical salinity (<a href="https://github.com/calcofi/calcofi4db/issues/100" class="external-link">#100</a>).</li>
+<li>
+<code><a href="../reference/ctd_mld.html">ctd_mld()</a></code> gives the threshold mixed-layer depth of one cast. <code>criterion</code> (<code>sigma_theta</code> | <code>temperature</code>), <code>threshold</code> and <code>ref_depth</code> are arguments; the defaults (10 m, Delta sigma-theta 0.03 kg m^-3, de Boyer Montegut et al. 2004; 0.2 deg C for temperature) await Rasmus’s confirmation. Statuses: <code>ok</code>, <code>mixed_to_bottom</code>, <code>no_reference</code>, <code>no_data</code> (<a href="https://github.com/calcofi/calcofi4db/issues/101" class="external-link">#101</a>).</li>
+<li>
+<code><a href="../reference/ctd_chl_max.html">ctd_chl_max()</a></code> gives the depth of the chlorophyll-a maximum after a 5 m running median (<a href="https://github.com/calcofi/calcofi4db/issues/102" class="external-link">#102</a>).</li>
+<li>
+<code><a href="../reference/ctd_integrate.html">ctd_integrate()</a></code> gives the trapezoidal depth integral to 200 m or the cast bottom, with the shallowest sample carried to the surface only when it is no deeper than 5 m (<a href="https://github.com/calcofi/calcofi4db/issues/102" class="external-link">#102</a>).</li>
+<li>
+<code><a href="../reference/ctd_geostrophic.html">ctd_geostrophic()</a></code> gives the relative geostrophic velocity between adjacent stations (<code>gsw_geo_strf_dyn_height()</code>, <code>p_ref = 500</code>; Rasmus’s recipe). Pairs where a cast is shallower than <code>p_ref</code> are flagged <code>shallow</code>, and a station closer than <code>min_dx_km</code> (default 10 km) to the last one kept is skipped, since <code>1 / dx</code> turns the extra inshore stations into spurious flow (<a href="https://github.com/calcofi/calcofi4db/issues/103" class="external-link">#103</a>).</li>
+<li>
+<code>gsw</code> and <code>stats</code> join Imports.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.15.0" id="calcofi4db-4150">calcofi4db 4.15.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4150"></a></h2>
 <div class="section level3">

@@ -786,8 +786,26 @@ check for other functions or datasets not captured by above categories
 - [`core_shard_paths()`](https://calcofi.io/calcofi4db/reference/core_shard_paths.md)
   : Find the per-dataset parquet shards for a core table
 
+- [`ctd_chl_max()`](https://calcofi.io/calcofi4db/reference/ctd_chl_max.md)
+  : Depth of the chlorophyll-a maximum of one CTD cast
+
+- [`ctd_geostrophic()`](https://calcofi.io/calcofi4db/reference/ctd_geostrophic.md)
+  : Relative geostrophic velocity between adjacent CTD stations
+
+- [`ctd_integrate()`](https://calcofi.io/calcofi4db/reference/ctd_integrate.md)
+  : Depth-integrate one CTD cast's profile
+
 - [`ctd_map_columns()`](https://calcofi.io/calcofi4db/reference/ctd_map_columns.md)
   : Map an uploaded file's columns onto measurement types
+
+- [`ctd_mld()`](https://calcofi.io/calcofi4db/reference/ctd_mld.md) :
+  Mixed-layer depth of one CTD cast (threshold criterion)
+
+- [`ctd_sigma_theta_ave()`](https://calcofi.io/calcofi4db/reference/ctd_sigma_theta_ave.md)
+  : Averaged sigma-theta from a CTD sensor pair
+
+- [`ctd_spice()`](https://calcofi.io/calcofi4db/reference/ctd_spice.md)
+  : Spice (spiciness at 0 dbar, TEOS-10) per CTD sample
 
 - [`ctd_upload_to_core()`](https://calcofi.io/calcofi4db/reference/ctd_upload_to_core.md)
   :

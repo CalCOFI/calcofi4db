@@ -131,7 +131,13 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/create_lookup_table.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/create_redefinition_files.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/csv_to_parquet.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/ctd_chl_max.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/ctd_geostrophic.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/ctd_integrate.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ctd_map_columns.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/ctd_mld.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/ctd_sigma_theta_ave.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/ctd_spice.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ctd_upload_to_core.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/dataset_distributions.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/dataset_meta_descriptive_keys.html</loc></url>
