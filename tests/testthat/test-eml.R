@@ -497,3 +497,45 @@ test_that("erddap_globals() renders the same record ERDDAP's globals must agree 
   r$attribution$creators <- list(list(name = "Ada Lovelace", organization = "ACME Institution"))
   expect_equal(erddap_globals(r)[["creator_email"]], eml_contact_address())
 })
+
+test_that("intellectualRights carries the licence as a <ulink> GBIF can read (calcofi4db#10)", {
+  skip_if_not_installed("EML")
+  r <- min_record(); r$coverage$realm <- "env"
+  sc <- list(methods_md = "Widgets were counted under a microscope by the ACME laboratory.")
+  d <- build_eml(r, sidecar = sc, meta = min_meta(), release = min_release())
+  para <- d$dataset$intellectualRights$para
+  expect_match(para, '<ulink url="https://creativecommons.org/licenses/by/4.0/">', fixed = TRUE)
+  expect_match(para, "<citetitle>Creative Commons Attribution 4.0 International</citetitle>", fixed = TRUE)
+  p <- write_eml_files(d, withr::local_tempdir())
+  expect_true(isTRUE(as.logical(EML::eml_validate(unname(p)))))
+  x <- xml2::read_xml(unname(p))
+  expect_equal(xml2::xml_attr(xml2::xml_find_first(x, "//intellectualRights/para/ulink"), "url"),
+               "https://creativecommons.org/licenses/by/4.0/")
+  expect_false("license_not_linked" %in% check_eml(d, path = unname(p), record = r)$finding)
+})
+
+test_that("licence markup escapes XML specials, so a '&' cannot break the document", {
+  skip_if_not_installed("EML")
+  r <- min_record(); r$coverage$realm <- "env"
+  r$attribution$license      <- "custom"
+  r$attribution$license_name <- "Terms of Use & <Data> Policy"
+  r$attribution$license_url  <- "https://acme.example/terms?a=1&b=2"
+  sc <- list(methods_md = "Widgets were counted under a microscope by the ACME laboratory.")
+  d <- build_eml(r, sidecar = sc, meta = min_meta(), release = min_release())
+  expect_match(d$dataset$intellectualRights$para, "a=1&amp;b=2", fixed = TRUE)
+  expect_match(d$dataset$intellectualRights$para, "Terms of Use &amp; &lt;Data&gt; Policy", fixed = TRUE)
+  p <- write_eml_files(d, withr::local_tempdir())
+  expect_true(isTRUE(as.logical(EML::eml_validate(unname(p)))))
+  x <- xml2::read_xml(unname(p))
+  expect_equal(xml2::xml_attr(xml2::xml_find_first(x, "//intellectualRights/para/ulink"), "url"),
+               "https://acme.example/terms?a=1&b=2")
+})
+
+test_that("license_not_linked: a licence with no URL is plain text and is reported", {
+  r <- min_record(); r$attribution$license_url <- NULL
+  d <- build_eml(r, meta = min_meta(), release = min_release())
+  expect_false(grepl("<ulink", d$dataset$intellectualRights$para, fixed = TRUE))
+  chk <- check_eml(d, record = r)
+  expect_true("license_not_linked" %in% chk$finding)
+  expect_equal(chk$level[chk$finding == "license_not_linked"], "warn")
+})
