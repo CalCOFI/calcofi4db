@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.16.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.16.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,6 +77,13 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.16.1" id="calcofi4db-4161">calcofi4db 4.16.1<a class="anchor" aria-label="anchor" href="#calcofi4db-4161"></a></h2>
+<ul><li>
+<code><a href="../reference/build_eml.html">build_eml()</a></code> writes the licence in <code>intellectualRights</code> as a <code>&lt;ulink url=…&gt;&lt;citetitle&gt;…&lt;/citetitle&gt;&lt;/ulink&gt;</code> inside <code>&lt;para&gt;</code>, the only form GBIF’s (and IPT’s) parser reads. It was plain text, so every declared licence failed GBIF’s “can be indexed” check, even a clean CC-BY-4.0 or CC0-1.0 (Betty Huang, <a href="https://github.com/calcofi/calcofi4db/issues/10" class="external-link">#10</a>). The URL and name are XML-escaped.</li>
+<li>
+<code><a href="../reference/check_eml.html">check_eml()</a></code> gains <code>license_not_linked</code> (warn): a licence stated as plain text with no <code>&lt;ulink&gt;</code>, which happens when the record has no <code>license_url</code>.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.16.0" id="calcofi4db-4160">calcofi4db 4.16.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4160"></a></h2>
 <div class="section level3">

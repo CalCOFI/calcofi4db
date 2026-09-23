@@ -1,5 +1,19 @@
 # Changelog
 
+## calcofi4db 4.16.1
+
+- [`build_eml()`](https://calcofi.io/calcofi4db/reference/build_eml.md)
+  writes the licence in `intellectualRights` as a
+  `<ulink url=…><citetitle>…</citetitle></ulink>` inside `<para>`, the
+  only form GBIF’s (and IPT’s) parser reads. It was plain text, so every
+  declared licence failed GBIF’s “can be indexed” check, even a clean
+  CC-BY-4.0 or CC0-1.0 (Betty Huang,
+  [\#10](https://github.com/calcofi/calcofi4db/issues/10)). The URL and
+  name are XML-escaped.
+- [`check_eml()`](https://calcofi.io/calcofi4db/reference/check_eml.md)
+  gains `license_not_linked` (warn): a licence stated as plain text with
+  no `<ulink>`, which happens when the record has no `license_url`.
+
 ## calcofi4db 4.16.0
 
 ### CTD derived hydrographic products (CalCOFI/workflows#98)

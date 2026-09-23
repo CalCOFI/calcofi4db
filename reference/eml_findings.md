@@ -33,6 +33,10 @@ A named character vector, finding -\> level.
 - `no_license` — no `license` on the record (exempt while a licence
   question is open).
 
+- `license_not_linked` (warn) — a licence stated as plain text with no
+  `<ulink url=…>`, which GBIF's parser cannot read (the record has no
+  `license_url`).
+
 - `short_abstract` — under 20 words (EDI's guidance; the record's own
   text, not a stub).
 

@@ -51,7 +51,7 @@ each one names a real gap in the record."><!-- calcofi.io brand contract v2 (htt
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.16.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.16.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -112,6 +112,8 @@ each one names a real gap in the record.</p>
 requires that the record could not supply.</p></li>
 <li><p><code>no_creator</code> — no <code>creators[]</code>, no <code>pi_names</code> and no registered provider.</p></li>
 <li><p><code>no_license</code> — no <code>license</code> on the record (exempt while a licence question is open).</p></li>
+<li><p><code>license_not_linked</code> (warn) — a licence stated as plain text with no <code>&lt;ulink url=…&gt;</code>, which
+GBIF's parser cannot read (the record has no <code>license_url</code>).</p></li>
 <li><p><code>short_abstract</code> — under 20 words (EDI's guidance; the record's own text, not a stub).</p></li>
 <li><p><code>creator_from_provider</code> — the creator is the provider organization, because
 the record names no person.</p></li>
