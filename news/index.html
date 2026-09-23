@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.16.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.17.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,6 +77,10 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.17.0" id="calcofi4db-4170">calcofi4db 4.17.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4170"></a></h2>
+<ul><li>New <code><a href="../reference/infer_ship_by_occupation.html">infer_ship_by_occupation()</a></code>: for an event with no ship but a CalCOFI <code>site_key</code> and a time, the ship of the one reference station occupation (default: the <code>swfsc_ichthyo</code> sites) at that station within <code>tolerance_hours</code> (default 24). It sets only <code>ship_key</code> (+ <code>ship_key_method = 'occupation'</code>); <code><a href="../reference/resolve_cruise_key.html">resolve_cruise_key()</a></code> then keys the row by span as usual. Two or more candidate cruises leave the row ship-less and list them in <code>cruise_key_candidates</code>, so a multi-ship month is reported, never guessed. A ship the source recorded is never overwritten. Motivated by CalCOFI/workflows#109: 97 of the CDFW Dungeness crab sorting log’s 216 examined tows shipped with no <code>cruise_key</code>, because the log names no ship and its designations (<code>CALCOFI 0404/0504/0604/0804</code>) fall in months with two or three ships at sea.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.16.1" id="calcofi4db-4161">calcofi4db 4.16.1<a class="anchor" aria-label="anchor" href="#calcofi4db-4161"></a></h2>
 <ul><li>

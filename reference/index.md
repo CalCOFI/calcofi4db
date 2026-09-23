@@ -988,6 +988,10 @@ check for other functions or datasets not captured by above categories
 
   The `holdings.csv` index, generated from the holding sidecars
 
+- [`infer_ship_by_occupation()`](https://calcofi.io/calcofi4db/reference/infer_ship_by_occupation.md)
+  : Infer a ship-less event's ship from the station occupation it
+  matches
+
 - [`license_statuses()`](https://calcofi.io/calcofi4db/reference/license_statuses.md)
   :
 
