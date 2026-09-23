@@ -1,3 +1,15 @@
+# calcofi4db 4.17.0
+
+- New `infer_ship_by_occupation()`: for an event with no ship but a CalCOFI `site_key` and a
+  time, the ship of the one reference station occupation (default: the `swfsc_ichthyo` sites) at
+  that station within `tolerance_hours` (default 24). It sets only `ship_key` (+
+  `ship_key_method = 'occupation'`); `resolve_cruise_key()` then keys the row by span as usual.
+  Two or more candidate cruises leave the row ship-less and list them in `cruise_key_candidates`,
+  so a multi-ship month is reported, never guessed. A ship the source recorded is never
+  overwritten. Motivated by CalCOFI/workflows#109: 97 of the CDFW Dungeness crab sorting log's
+  216 examined tows shipped with no `cruise_key`, because the log names no ship and its
+  designations (`CALCOFI 0404/0504/0604/0804`) fall in months with two or three ships at sea.
+
 # calcofi4db 4.16.1
 
 - `build_eml()` writes the licence in `intellectualRights` as a `<ulink url=…><citetitle>…</citetitle></ulink>`

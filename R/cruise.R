@@ -265,3 +265,159 @@ resolve_cruise_key <- function(con,
     paste(glue::glue("{out$method} {out$n}"), collapse = ", ")))
   tibble::as_tibble(out)
 }
+
+#' Infer a ship-less event's ship from the station occupation it matches
+#'
+#' [resolve_cruise_key()] needs a `ship_key`: span containment is only
+#' unambiguous within one ship (no two cruises of one ship overlap), and a month
+#' with two or three ships at sea is exactly where a bare `YYMM` designation
+#' cannot choose between them (April 2004–2006: 31JD + 32NM + 33LB/33OA). A
+#' source that records no ship but does record a CalCOFI station and a time —
+#' the CDFW Dungeness crab sorting log, whose archived jars ARE CalCOFI tows —
+#' still names its cruise, through the station occupation: at most one ship
+#' occupies a given `site_key` within a day.
+#'
+#' For every row whose `ship_key_col` is NULL, the candidate cruises are the
+#' distinct `cruise_key`s of the reference occupations (`occupation_sql`) at the
+#' same `site_key` whose `datetime` is within `tolerance_hours` of the event's.
+#' \itemize{
+#'   \item exactly one candidate, whose ship `cruise_tbl` knows: `ship_key_col`
+#'     is set to that cruise's ship and `method_col` to `"occupation"`;
+#'   \item two or more: nothing is set, and the candidates are written to
+#'     `candidates_col` (sorted, comma-separated) so the ambiguity can be
+#'     reported or asked about — never broken by a guess;
+#'   \item one candidate the reference cannot place on a ship: treated as
+#'     ambiguous (candidates written, no ship);
+#'   \item none: nothing is set.
+#' }
+#' Only the ship is inferred. Run [resolve_cruise_key()] next: its span step
+#' then keys the row to the matched cruise (the occupation lies inside that
+#' cruise's span by construction), and its designation/month steps still apply
+#' where the span does not. A row that already carries a ship is never touched,
+#' and a re-run first clears what an earlier run inferred.
+#'
+#' @param con DBI connection to DuckDB holding `table_name` and `cruise_tbl`.
+#' @param table_name Event table to annotate (updated in place, so it must not
+#'   carry a CRS-tagged `GEOMETRY` column yet).
+#' @param datetime_col Timestamp column on the event table.
+#' @param site_key_col Column holding the CalCOFI `site_key` (`"LLL.L SSS.S"`)
+#'   on the event table (default `"site_key"`).
+#' @param occupation_sql A `SELECT` returning `cruise_key`, `site_key` and
+#'   `datetime`, one row per reference station occupation. Default: the
+#'   `swfsc_ichthyo` site rows of `sample`.
+#' @param cruise_tbl Cruise reference table, with `cruise_key` + `ship_key`.
+#' @param tolerance_hours Hours an occupation's `datetime` may differ from the
+#'   event's and still count (default 24 — a sorting log's local clock can sit
+#'   8 h off the reference's UTC).
+#' @param ship_key_col Column to fill (created if absent; default `"ship_key"`).
+#' @param method_col Column recording `"occupation"` for inferred rows (created
+#'   if absent; default `"ship_key_method"`).
+#' @param candidates_col Column listing the candidate cruises of an ambiguous
+#'   row, or `NULL` to not write it (default `"cruise_key_candidates"`).
+#' @return A tibble with one row per outcome: `outcome` (`"source"` = already
+#'   had a ship, `"occupation"`, `"ambiguous"`, `"none"`) and `n`.
+#' @export
+#' @concept ship
+#' @importFrom DBI dbExecute dbGetQuery dbListFields dbListTables dbQuoteIdentifier
+#' @importFrom glue glue
+infer_ship_by_occupation <- function(
+    con,
+    table_name,
+    datetime_col,
+    site_key_col    = "site_key",
+    occupation_sql  = paste(
+      "SELECT cruise_key, site_key, datetime FROM sample",
+      "WHERE dataset_key = 'swfsc_ichthyo' AND sample_type = 'site'"),
+    cruise_tbl      = "cruise",
+    tolerance_hours = 24,
+    ship_key_col    = "ship_key",
+    method_col      = "ship_key_method",
+    candidates_col  = "cruise_key_candidates") {
+  tbls <- DBI::dbListTables(con)
+  stopifnot(
+    "target table required" = table_name %in% tbls,
+    "cruise table required" = cruise_tbl %in% tbls,
+    "occupation_sql must be a single SQL string" =
+      is.character(occupation_sql) && length(occupation_sql) == 1,
+    "tolerance_hours must be a single non-negative number" =
+      is.numeric(tolerance_hours) && length(tolerance_hours) == 1 &&
+      !is.na(tolerance_hours) && tolerance_hours >= 0)
+  flds <- DBI::dbListFields(con, table_name)
+  stopifnot(
+    "target table needs the datetime_col" = datetime_col %in% flds,
+    "target table needs the site_key_col" = site_key_col %in% flds,
+    "cruise table needs cruise_key + ship_key" =
+      all(c("cruise_key", "ship_key") %in% DBI::dbListFields(con, cruise_tbl)))
+
+  q   <- function(x) DBI::dbQuoteIdentifier(con, x)
+  tbl <- q(table_name); ct <- q(cruise_tbl)
+  dt  <- q(datetime_col); sk <- q(site_key_col)
+  shp <- q(ship_key_col); mc <- q(method_col)
+  cc  <- if (is.null(candidates_col)) NULL else q(candidates_col)
+  tol_sec <- as.numeric(tolerance_hours) * 3600
+
+  DBI::dbExecute(con, glue::glue(
+    "ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS {shp} TEXT"))
+  DBI::dbExecute(con, glue::glue(
+    "ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS {mc} TEXT"))
+  # a re-run starts from the source's own ships, not from a previous inference
+  DBI::dbExecute(con, glue::glue(
+    "UPDATE {tbl} SET {shp} = NULL, {mc} = NULL WHERE {mc} = 'occupation'"))
+  if (!is.null(cc)) {
+    DBI::dbExecute(con, glue::glue(
+      "ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS {cc} TEXT"))
+    DBI::dbExecute(con, glue::glue("UPDATE {tbl} SET {cc} = NULL"))
+  }
+  n_source <- DBI::dbGetQuery(con, glue::glue(
+    "SELECT COUNT(*) AS n FROM {tbl} WHERE {shp} IS NOT NULL"))$n
+
+  # candidate cruises per ship-less event: distinct cruise_keys of the
+  # occupations at its station within the window. Counted BEFORE the ship
+  # lookup, so a candidate cruise the reference cannot place on a ship still
+  # makes the row ambiguous rather than silently dropping out.
+  DBI::dbExecute(con, glue::glue("
+    CREATE OR REPLACE TEMP TABLE _ship_occ AS
+    WITH occ AS (
+      SELECT DISTINCT cruise_key, site_key, CAST(datetime AS TIMESTAMP) AS datetime
+      FROM ({occupation_sql}) o
+      WHERE cruise_key IS NOT NULL AND site_key IS NOT NULL AND datetime IS NOT NULL),
+    ev AS (
+      SELECT rowid AS rid, {sk} AS site_key, CAST({dt} AS TIMESTAMP) AS datetime
+      FROM {tbl}
+      WHERE {shp} IS NULL AND {sk} IS NOT NULL AND {dt} IS NOT NULL),
+    cand AS (
+      SELECT DISTINCT ev.rid, occ.cruise_key
+      FROM ev JOIN occ ON occ.site_key = ev.site_key
+       AND ABS(EXTRACT(EPOCH FROM (occ.datetime - ev.datetime))) <= {tol_sec})
+    SELECT c.rid, COUNT(*) AS n_cand,
+           string_agg(c.cruise_key, ',' ORDER BY c.cruise_key) AS candidates,
+           MIN(c.cruise_key) AS cruise_key,
+           MIN(cr.ship_key)  AS ship_key
+    FROM cand c LEFT JOIN {ct} cr ON cr.cruise_key = c.cruise_key
+    GROUP BY c.rid"))
+
+  DBI::dbExecute(con, glue::glue("
+    UPDATE {tbl} SET {shp} = m.ship_key, {mc} = 'occupation'
+    FROM _ship_occ m
+    WHERE {tbl}.rowid = m.rid AND m.n_cand = 1 AND m.ship_key IS NOT NULL"))
+  if (!is.null(cc))
+    DBI::dbExecute(con, glue::glue("
+      UPDATE {tbl} SET {cc} = m.candidates
+      FROM _ship_occ m
+      WHERE {tbl}.rowid = m.rid AND NOT (m.n_cand = 1 AND m.ship_key IS NOT NULL)"))
+
+  st <- DBI::dbGetQuery(con, "
+    SELECT COUNT(*) FILTER (WHERE n_cand = 1 AND ship_key IS NOT NULL) AS n_occ,
+           COUNT(*) FILTER (WHERE n_cand > 1 OR ship_key IS NULL)       AS n_amb
+    FROM _ship_occ")
+  n_all <- DBI::dbGetQuery(con, glue::glue("SELECT COUNT(*) AS n FROM {tbl}"))$n
+  DBI::dbExecute(con, "DROP TABLE IF EXISTS _ship_occ")
+
+  out <- tibble::tibble(
+    outcome = c("source", "occupation", "ambiguous", "none"),
+    n       = c(n_source, st$n_occ, st$n_amb,
+                n_all - n_source - st$n_occ - st$n_amb))
+  message(glue::glue("ship_key on {table_name}: ",
+    paste(glue::glue("{out$outcome} {out$n}"), collapse = ", ")))
+  out
+}
