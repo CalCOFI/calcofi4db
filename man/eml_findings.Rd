@@ -24,6 +24,8 @@ each one names a real gap in the record.
 requires that the record could not supply.
 \item \code{no_creator} — no \code{creators[]}, no \code{pi_names} and no registered provider.
 \item \code{no_license} — no \code{license} on the record (exempt while a licence question is open).
+\item \code{license_not_linked} (warn) — a licence stated as plain text with no \verb{<ulink url=…>}, which
+GBIF's parser cannot read (the record has no \code{license_url}).
 \item \code{short_abstract} — under 20 words (EDI's guidance; the record's own text, not a stub).
 \item \code{creator_from_provider} — the creator is the provider organization, because
 the record names no person.

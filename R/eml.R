@@ -501,13 +501,28 @@ build_eml <- function(record, sidecar = NULL, meta = NULL, coverage = NULL, rele
     email = p[["email"]], role = p[["role"]] %||% "associatedParty")))
   if (length(ap)) ds$associatedParty <- ap
   ack <- .chr_or_null(att[["acknowledgement"]])
-  # intellectualRights: the licence name + URL the registry states, never a guess
+  # intellectualRights: the licence name + URL the registry states, never a guess.
+  # GBIF (and IPT) read a licence only as a <ulink url=...> element inside <para>;
+  # a URL in plain text fails GBIF's "can be indexed" check. EML::write_eml()
+  # passes a string holding literal tags through as markup (a nested R list for
+  # the ulink errors in its writer), so the <para> is built as one escaped string.
   lic_id <- .chr_or_null(att[["license"]])
   lic_nm <- .chr_or_null(att[["license_name"]])
   lic_url <- .chr_or_null(att[["license_url"]])
   if (!is.null(lic_id) && !identical(lic_id, "unknown")) {
-    rights <- paste(c(lic_nm %||% lic_id, if (!is.null(lic_url)) paste0("(", lic_url, ")")), collapse = " ")
-    ds$intellectualRights <- list(para = I(rights))
+    rights_name <- lic_nm %||% lic_id
+    # a real <ulink> when a URL exists (every declared licence should have
+    # one via the registry join in .attribution_block()); plain text only for
+    # the rare case a URL is genuinely absent, so the release isn't blocked
+    # on this fix landing everywhere else first
+    # plain text only when the registry has no URL (flagged by check_eml() as
+    # license_not_linked)
+    ds$intellectualRights <- if (!is.null(lic_url))
+      list(para = sprintf(
+        'This work is licensed under a <ulink url="%s"><citetitle>%s</citetitle></ulink>.',
+        .xml_esc(lic_url), .xml_esc(rights_name)))
+    else
+      list(para = I(rights_name))
     if (!is.null(lic_nm) && !is.null(lic_url) && !identical(lic_id, "custom"))
       ds$licensed <- list(licenseName = lic_nm, url = lic_url, identifier = lic_id)
   }
@@ -625,6 +640,8 @@ write_eml_files <- function(docs, dir) {
 #'   requires that the record could not supply.
 #' * `no_creator` — no `creators[]`, no `pi_names` and no registered provider.
 #' * `no_license` — no `license` on the record (exempt while a licence question is open).
+#' * `license_not_linked` (warn) — a licence stated as plain text with no `<ulink url=…>`, which
+#'   GBIF's parser cannot read (the record has no `license_url`).
 #' * `short_abstract` — under 20 words (EDI's guidance; the record's own text, not a stub).
 #' * `creator_from_provider` — the creator is the provider organization, because
 #'   the record names no person.
@@ -645,6 +662,7 @@ eml_findings <- function() c(
   no_creator              = "error",
   no_pub_date             = "error",
   no_license              = "error",
+  license_not_linked      = "warn",
   no_geographic_coverage  = "error",
   no_temporal_coverage    = "error",
   no_data_table           = "error",
@@ -724,6 +742,8 @@ check_eml <- function(doc, path = NULL, record = NULL, validate = TRUE) {
     }
     if (!nzchar(.s(ds[["pubDate"]]))) row("no_pub_date", "dataset/pubDate is empty (no release_date)")
     if (is.null(ds[["intellectualRights"]])) row("no_license", "no intellectualRights (attribution.license is null)")
+    else if (!any(grepl("<ulink url=", unlist(ds[["intellectualRights"]]), fixed = TRUE)))
+      row("license_not_linked", "intellectualRights has no <ulink url=...> (GBIF cannot read the licence; attribution.license_url is null)")
     if (!length(ds[["keywordSet"]])) row("no_keywords", "no keywordSet")
     if (is.null(ds[["coverage"]]$geographicCoverage))
       row("no_geographic_coverage", "no geographicCoverage (coverage.bbox is null or incomplete)")
@@ -849,4 +869,13 @@ erddap_globals <- function(record) {
     id              = .s(record[["dataset_key"]]),
     naming_authority = CC_EML_SYSTEM)
   g[nzchar(g)]
+}
+
+# escape the five XML special characters for a string written as raw markup
+.xml_esc <- function(x) {
+  x <- gsub("&", "&amp;", x, fixed = TRUE)
+  x <- gsub("<", "&lt;", x, fixed = TRUE)
+  x <- gsub(">", "&gt;", x, fixed = TRUE)
+  x <- gsub('"', "&quot;", x, fixed = TRUE)
+  gsub("'", "&apos;", x, fixed = TRUE)
 }
