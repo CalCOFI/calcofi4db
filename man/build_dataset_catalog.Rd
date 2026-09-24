@@ -18,8 +18,7 @@ build_dataset_catalog(
   bathymetry = NULL,
   workflows_base = "https://calcofi.io/workflows/",
   release_prefix = "ducklake/releases",
-  stac_base = sprintf("https://storage.googleapis.com/calcofi-db/\%s", if
-    (grepl("staging", release_prefix)) "stac-staging" else "stac")
+  stac_base = release_stac_base(release_prefix)
 )
 }
 \arguments{

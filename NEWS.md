@@ -1,3 +1,19 @@
+# calcofi4db 4.17.1
+
+- **A URL this release has not written yet is no longer a dead link.** `check_dataset_catalog()`
+  probed every dataset's STAC collection URL before `release_database.qmd` uploaded the STAC tree,
+  so a dataset in its first release failed the gate (`url_dead`, HTTP 404). The existing datasets
+  passed only on the previous run's objects. It was first hit by `calcofi_ctd-derived` on
+  2026-09-24, the first new dataset since STAC landed on 2026-09-05. The new `pending_base`
+  argument makes a 404/410/451 under that root `url_pending` (level `pending`, which
+  `assert_dataset_catalog()` reports but never blocks on). The new `recheck_pending_urls()`
+  re-probes exactly those rows after the upload, and any still dead becomes `url_dead` for
+  `assert_dataset_catalog()` to stop on. Without `pending_base`, nothing changes.
+- New `release_stac_base(release_prefix)`: the one rule for a release's STAC root
+  (`stac-staging/` for a staging prefix, else `stac/`), now the default of
+  `build_dataset_catalog()`'s `stac_base` and what `release_database.qmd` passes as
+  `pending_base`.
+
 # calcofi4db 4.17.0
 
 - New `infer_ship_by_occupation()`: for an event with no ship but a CalCOFI `site_key` and a
