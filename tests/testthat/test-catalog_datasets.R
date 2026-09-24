@@ -731,3 +731,60 @@ test_that("CalCOFI's own ERDDAP is `erddap` everywhere in the record, and the ol
   utils::write.csv(d, f, row.names = FALSE, na = "")
   expect_error(read_distribution_registry(f), "erddap-calcofi")
 })
+
+# a URL this release writes after the check is pending, not dead (4.17.1) ---------------------------
+
+test_that("release_stac_base() is the one rule for the STAC root, and the builder uses it", {
+  expect_equal(release_stac_base("ducklake/releases"), "https://storage.googleapis.com/calcofi-db/stac")
+  expect_equal(release_stac_base("ducklake-staging/releases"), "https://storage.googleapis.com/calcofi-db/stac-staging")
+  rec <- fixture_record(release_prefix = "ducklake-staging/releases")
+  st <- dist_of(rec$datasets[[1]], "service", "stac")[[1]]$url
+  expect_true(startsWith(st, paste0(release_stac_base("ducklake-staging/releases"), "/collections/")))
+})
+
+test_that("a 404 under the release's own STAC root is url_pending before upload and url_dead if the upload did not write it", {
+  rec <- fixture_record(); reg <- fixture_registries()
+  base <- release_stac_base("ducklake/releases")
+  new_key <- rec$datasets[[2]]$dataset_key                         # the "new" dataset: no collection yet
+  new_url <- sprintf("%s/collections/%s/collection.json", base, new_key)
+  uploaded <- FALSE
+  probe <- function(u) {
+    if (identical(u, new_url)) return(if (uploaded) 404L else 404L)   # the upload below never writes it
+    if (grepl("erdCalCOFItows", u)) return(404L)                     # a dead URL outside the STAC root
+    206L
+  }
+  # before upload: the new collection is pending (not blocking); the dead non-STAC URL is still url_dead
+  d <- check_dataset_catalog(rec, reg, network = TRUE, probe = probe, pending_base = base)
+  expect_equal(d$finding[d$url %in% new_url], "url_pending")
+  expect_equal(d$level[d$url %in% new_url], "pending")
+  expect_equal(d$finding[grepl("erdCalCOFItows", d$url)], "url_dead")
+  expect_error(expect_message(assert_dataset_catalog(d), "pending this release's own upload"), "1 blocking finding")
+  # the pending row alone never blocks
+  d_ok <- check_dataset_catalog(rec, reg, network = TRUE, pending_base = base,
+                                probe = function(u) if (identical(u, new_url)) 404L else 206L)
+  expect_message(assert_dataset_catalog(d_ok), "1 URL\\(s\\) pending")
+  # after "upload": still 404 -> url_dead, and assert stops
+  uploaded <- TRUE
+  r <- recheck_pending_urls(d_ok, probe = probe)
+  expect_equal(nrow(r), 1); expect_equal(r$finding, "url_dead"); expect_equal(r$level, "error")
+  expect_match(r$detail, "did not write it")
+  expect_error(assert_dataset_catalog(r), "1 blocking finding")
+  # after an upload that DID write it -> ok, nothing blocks
+  r2 <- recheck_pending_urls(d_ok, probe = function(u) 200L)
+  expect_equal(r2$finding, "ok"); expect_silent(assert_dataset_catalog(r2))
+  # no pending rows -> an empty table, and no probe at all
+  asked <- 0L
+  r0 <- recheck_pending_urls(check_dataset_catalog(rec, reg, network = FALSE), probe = function(u) { asked <<- asked + 1L; 200L })
+  expect_equal(nrow(r0), 0); expect_equal(asked, 0L)
+})
+
+test_that("without pending_base a 404 on a STAC URL is still url_dead (the old contract)", {
+  rec <- fixture_record(); reg <- fixture_registries()
+  st <- sprintf("%s/collections/%s/collection.json", release_stac_base(), rec$datasets[[1]]$dataset_key)
+  d <- check_dataset_catalog(rec, reg, network = TRUE, probe = function(u) if (identical(u, st)) 404L else 206L)
+  expect_equal(d$finding[d$url %in% st], "url_dead")
+  # and a URL that only shares a prefix string with the base, not a path segment, is not pending
+  d2 <- check_dataset_catalog(rec, reg, network = TRUE, pending_base = sub("/stac$", "/sta", release_stac_base()),
+                              probe = function(u) if (identical(u, st)) 404L else 206L)
+  expect_equal(d2$finding[d2$url %in% st], "url_dead")
+})

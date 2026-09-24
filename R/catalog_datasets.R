@@ -180,6 +180,12 @@ dataset_meta_structural_keys <- function() c(
   stats::setNames(ds, keys)
 }
 
+# is `u` under the URL root `base` (NULL/empty: never)
+.under_base <- function(u, base) {
+  b <- .s(base)
+  nzchar(b) && startsWith(u, paste0(sub("/+$", "", b), "/"))
+}
+
 # one HTTP probe: a one-byte ranged GET (HEAD is refused by EDI's mapbrowse; a
 # ranged GET answers 200/206 everywhere we link and never pulls a parquet). Returns
 # the status, NA when the server did not answer.
@@ -190,6 +196,24 @@ dataset_meta_structural_keys <- function() c(
                         connecttimeout = 10, useragent = "calcofi4db dataset catalog check (https://calcofi.io)")
   r <- tryCatch(curl::curl_fetch_memory(url, handle = h), error = function(e) NULL)
   if (is.null(r)) NA_integer_ else as.integer(r[["status_code"]])
+}
+
+#' The STAC root a release writes
+#'
+#' One rule, so the catalog builder, the catalog check and `release_database.qmd`'s STAC upload
+#' cannot disagree: a staging release prefix writes `stac-staging/`, every other one `stac/`.
+#'
+#' @param release_prefix the bucket-relative releases prefix the run writes to
+#' @param bucket the GCS bucket
+#' @return the https root, e.g. `https://storage.googleapis.com/calcofi-db/stac`
+#' @export
+#' @concept catalog
+#' @examples
+#' release_stac_base("ducklake-staging/releases")
+release_stac_base <- function(release_prefix = "ducklake/releases", bucket = "calcofi-db") {
+  stopifnot(is.character(release_prefix), length(release_prefix) == 1)
+  sprintf("https://storage.googleapis.com/%s/%s", bucket,
+          if (grepl("staging", release_prefix)) "stac-staging" else "stac")
 }
 
 # registries -------------------------------------------------------------------------
@@ -988,8 +1012,7 @@ build_dataset_catalog <- function(meta, coverage, catalog, registries, version =
                                   spatial_layers = NULL, bathymetry = NULL,
                                   workflows_base = "https://calcofi.io/workflows/",
                                   release_prefix = "ducklake/releases",
-                                  stac_base = sprintf("https://storage.googleapis.com/calcofi-db/%s",
-                                                      if (grepl("staging", release_prefix)) "stac-staging" else "stac")) {
+                                  stac_base = release_stac_base(release_prefix)) {
   meta <- .read_json(meta); coverage <- .read_json(coverage); catalog <- .read_json(catalog)
   if (!is.null(spatial_layers)) spatial_layers <- .read_json(spatial_layers)
   if (!is.null(bathymetry)) bathymetry <- .read_json(bathymetry)
@@ -1249,6 +1272,7 @@ catalog_findings <- function() c(
   no_download           = "error",   # no `download` distribution
   no_citation           = "error",   # citation_main null (exemptible)
   url_dead              = "error",   # 404 / 410 / 451
+  url_pending           = "pending", # 404 under the release's own STAC root, uploaded later (4.17.1)
   url_unreachable       = "warn",    # 5xx, timeout, DNS
   invalid_visibility    = "error",   # not public | internal
   unregistered_license  = "error",   # license id not in metadata/license.csv
@@ -1267,18 +1291,31 @@ catalog_findings <- function() c(
 #' `superseded` rows are not probed (they are expected to be gone). Holdings
 #' are checked for name, category, provider and their links.
 #'
+#' **A URL this release has not written yet is `url_pending`, not `url_dead`.** The record lists
+#' each public dataset's STAC collection under the release's own STAC root, and
+#' `release_database.qmd` uploads that tree AFTER this check. A dataset in its first release has no
+#' collection there yet, so the check failed every new dataset (first seen with
+#' `calcofi_ctd-derived`, 2026-09-24, the first new dataset since STAC landed on 2026-09-05), while
+#' the existing ones passed only on the previous run's objects. With `pending_base`, a
+#' 404/410/451 under it is `url_pending` (level `pending`, never blocking here), and
+#' [recheck_pending_urls()] re-probes exactly those rows once the tree is uploaded, turning any
+#' that still fails into `url_dead`.
+#'
 #' @param record from [build_dataset_catalog()] (or a `datasets.json` path)
 #' @param registries from [read_catalog_registries()]; NULL trusts the record's
 #'   own `registered` flags
 #' @param network probe the URLs (default TRUE)
 #' @param probe the probe function `function(url) status`; the tests inject one
 #' @param timeout seconds per request
+#' @param pending_base a URL root this release writes after the check (its STAC root,
+#'   [release_stac_base()]); a dead URL under it is `url_pending`. NULL: none.
 #' @return A [tibble][tibble::tibble]: `dataset_key`, `finding`, `level`,
 #'   `detail`, `url`, `exempt`, `question`.
 #' @export
 #' @concept catalog
-#' @seealso [assert_dataset_catalog()]
-check_dataset_catalog <- function(record, registries = NULL, network = TRUE, probe = NULL, timeout = 30) {
+#' @seealso [assert_dataset_catalog()], [recheck_pending_urls()]
+check_dataset_catalog <- function(record, registries = NULL, network = TRUE, probe = NULL, timeout = 30,
+                                  pending_base = NULL) {
   record <- .read_json(record)
   if (is.null(probe)) probe <- function(url) .http_probe(url, timeout = timeout)
   levels <- catalog_findings()
@@ -1304,7 +1341,11 @@ check_dataset_catalog <- function(record, registries = NULL, network = TRUE, pro
       if (grepl("[[:space:]]", u)) { out[[length(out) + 1]] <- row(key, "url_dead", "not one URL (whitespace in the link field)", u); next }
       if (!isTRUE(network)) next
       st <- probe_once(u)
-      if (!is.na(st) && st %in% c(404L, 410L, 451L))
+      if (!is.na(st) && st %in% c(404L, 410L, 451L) && .under_base(u, pending_base))
+        out[[length(out) + 1]] <- row(key, "url_pending",
+          sprintf("HTTP %d (%s %s): under this release's own %s, re-probed after its upload", st, d[["kind"]],
+                  .s(d[["format"]]) %||% .s(d[["portal"]]), pending_base), u)
+      else if (!is.na(st) && st %in% c(404L, 410L, 451L))
         out[[length(out) + 1]] <- row(key, "url_dead", sprintf("HTTP %d (%s %s)", st, d[["kind"]], .s(d[["format"]]) %||% .s(d[["portal"]])), u)
       else if (is.na(st) || st >= 400L)
         out[[length(out) + 1]] <- row(key, "url_unreachable",
@@ -1408,6 +1449,10 @@ assert_dataset_catalog <- function(d, quiet = FALSE) {
   if (nrow(warn) && !quiet)
     message("dataset catalog check: ", nrow(warn), " warning(s) — an endpoint did not answer cleanly; ",
             "retry before treating it as gone:\n", fmt(warn))
+  pend <- d[d[["level"]] %in% "pending", , drop = FALSE]
+  if (nrow(pend) && !quiet)
+    message("dataset catalog check: ", nrow(pend), " URL(s) pending this release's own upload; ",
+            "recheck_pending_urls() must pass after it:\n", fmt(pend))
   ex <- d[d[["level"]] == "error" & d[["exempt"]], , drop = FALSE]
   if (nrow(ex) && !quiet)
     message("dataset catalog check: ", nrow(ex), " finding(s) exempt while a question is open/proposed: ",
@@ -1418,6 +1463,40 @@ assert_dataset_catalog <- function(d, quiet = FALSE) {
          "\n  Fix the registry / sidecar / notebook field, status the dead endpoint in metadata/distribution.csv,",
          " or file an open/proposed questions.csv row with related_table = dataset naming the field.", call. = FALSE)
   invisible(d)
+}
+
+#' Re-probe the URLs [check_dataset_catalog()] left pending, after their upload
+#'
+#' Takes the check's table, probes exactly its `url_pending` rows again and returns them
+#' re-classified: an answer is `ok`, a 404/410/451 is now `url_dead` (error), anything else
+#' `url_unreachable` (warn). Pass the result to [assert_dataset_catalog()], which stops on a dead
+#' one — so a new dataset's STAC collection that the upload did NOT write fails the release
+#' before anything is promoted, exactly as a dead URL did before 4.17.1.
+#'
+#' @param d the table from [check_dataset_catalog()]
+#' @param probe the probe function `function(url) status`; the tests inject one
+#' @param timeout seconds per request
+#' @return the `url_pending` rows of `d`, re-classified (0 rows when none were pending).
+#' @export
+#' @concept catalog
+#' @seealso [check_dataset_catalog()], [assert_dataset_catalog()]
+recheck_pending_urls <- function(d, probe = NULL, timeout = 30) {
+  stopifnot(is.data.frame(d), all(c("finding", "level", "url", "detail") %in% names(d)))
+  if (is.null(probe)) probe <- function(url) .http_probe(url, timeout = timeout)
+  levels <- catalog_findings()
+  p <- d[d[["finding"]] %in% "url_pending", , drop = FALSE]
+  for (i in seq_len(nrow(p))) {
+    st <- probe(p$url[i])
+    p$finding[i] <- if (!is.na(st) && st < 400L) "ok"
+                    else if (!is.na(st) && st %in% c(404L, 410L, 451L)) "url_dead"
+                    else "url_unreachable"
+    p$detail[i] <- switch(p$finding[i],
+      ok              = sprintf("HTTP %d after this release's upload", st),
+      url_dead        = sprintf("HTTP %d after this release's upload: the upload did not write it", st),
+      url_unreachable = sprintf("%s after this release's upload", if (is.na(st)) "no answer (timeout/DNS)" else paste("HTTP", st)))
+    p$level[i] <- unname(levels[p$finding[i]])
+  }
+  p
 }
 
 #' Validate a `datasets.json` against the package's JSON schema

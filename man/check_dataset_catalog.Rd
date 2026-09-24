@@ -9,7 +9,8 @@ check_dataset_catalog(
   registries = NULL,
   network = TRUE,
   probe = NULL,
-  timeout = 30
+  timeout = 30,
+  pending_base = NULL
 )
 }
 \arguments{
@@ -23,6 +24,9 @@ own \code{registered} flags}
 \item{probe}{the probe function \code{function(url) status}; the tests inject one}
 
 \item{timeout}{seconds per request}
+
+\item{pending_base}{a URL root this release writes after the check (its STAC root,
+\code{\link[=release_stac_base]{release_stac_base()}}); a dead URL under it is \code{url_pending}. NULL: none.}
 }
 \value{
 A \link[tibble:tibble]{tibble}: \code{dataset_key}, \code{finding}, \code{level},
@@ -37,7 +41,18 @@ distribution URL once with a one-byte ranged GET — 404/410/451 is \code{url_de
 \code{superseded} rows are not probed (they are expected to be gone). Holdings
 are checked for name, category, provider and their links.
 }
+\details{
+\strong{A URL this release has not written yet is \code{url_pending}, not \code{url_dead}.} The record lists
+each public dataset's STAC collection under the release's own STAC root, and
+\code{release_database.qmd} uploads that tree AFTER this check. A dataset in its first release has no
+collection there yet, so the check failed every new dataset (first seen with
+\code{calcofi_ctd-derived}, 2026-09-24, the first new dataset since STAC landed on 2026-09-05), while
+the existing ones passed only on the previous run's objects. With \code{pending_base}, a
+404/410/451 under it is \code{url_pending} (level \code{pending}, never blocking here), and
+\code{\link[=recheck_pending_urls]{recheck_pending_urls()}} re-probes exactly those rows once the tree is uploaded, turning any
+that still fails into \code{url_dead}.
+}
 \seealso{
-\code{\link[=assert_dataset_catalog]{assert_dataset_catalog()}}
+\code{\link[=assert_dataset_catalog]{assert_dataset_catalog()}}, \code{\link[=recheck_pending_urls]{recheck_pending_urls()}}
 }
 \concept{catalog}
