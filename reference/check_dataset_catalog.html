@@ -55,7 +55,7 @@ are checked for name, category, provider and their links."><!-- calcofi.io brand
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.17.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.17.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -107,7 +107,8 @@ are checked for name, category, provider and their links.</p>
 <span>  registries <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  network <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  probe <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  timeout <span class="op">=</span> <span class="fl">30</span></span>
+<span>  timeout <span class="op">=</span> <span class="fl">30</span>,</span>
+<span>  pending_base <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -135,6 +136,11 @@ own <code>registered</code> flags</p></dd>
 <dt id="arg-timeout">timeout<a class="anchor" aria-label="anchor" href="#arg-timeout"></a></dt>
 <dd><p>seconds per request</p></dd>
 
+
+<dt id="arg-pending-base">pending_base<a class="anchor" aria-label="anchor" href="#arg-pending-base"></a></dt>
+<dd><p>a URL root this release writes after the check (its STAC root,
+<code><a href="release_stac_base.html">release_stac_base()</a></code>); a dead URL under it is <code>url_pending</code>. NULL: none.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -142,8 +148,20 @@ own <code>registered</code> flags</p></dd>
 <code>detail</code>, <code>url</code>, <code>exempt</code>, <code>question</code>.</p>
     </div>
     <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p><strong>A URL this release has not written yet is <code>url_pending</code>, not <code>url_dead</code>.</strong> The record lists
+each public dataset's STAC collection under the release's own STAC root, and
+<code>release_database.qmd</code> uploads that tree AFTER this check. A dataset in its first release has no
+collection there yet, so the check failed every new dataset (first seen with
+<code>calcofi_ctd-derived</code>, 2026-09-24, the first new dataset since STAC landed on 2026-09-05), while
+the existing ones passed only on the previous run's objects. With <code>pending_base</code>, a
+404/410/451 under it is <code>url_pending</code> (level <code>pending</code>, never blocking here), and
+<code><a href="recheck_pending_urls.html">recheck_pending_urls()</a></code> re-probes exactly those rows once the tree is uploaded, turning any
+that still fails into <code>url_dead</code>.</p>
+    </div>
+    <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><code><a href="assert_dataset_catalog.html">assert_dataset_catalog()</a></code></p></div>
+    <div class="dont-index"><p><code><a href="assert_dataset_catalog.html">assert_dataset_catalog()</a></code>, <code><a href="recheck_pending_urls.html">recheck_pending_urls()</a></code></p></div>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

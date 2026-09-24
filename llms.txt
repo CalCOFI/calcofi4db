@@ -1609,6 +1609,13 @@ check for other functions or datasets not captured by above categories
 
   Read `metadata/variable.csv`, refusing a corrupted registry
 
+- [`recheck_pending_urls()`](https://calcofi.io/calcofi4db/reference/recheck_pending_urls.md)
+  :
+
+  Re-probe the URLs
+  [`check_dataset_catalog()`](https://calcofi.io/calcofi4db/reference/check_dataset_catalog.md)
+  left pending, after their upload
+
 - [`register_measurement_chem()`](https://calcofi.io/calcofi4db/reference/register_measurement_chem.md)
   :
 
@@ -1658,6 +1665,9 @@ check for other functions or datasets not captured by above categories
 
 - [`release_sort_keys()`](https://calcofi.io/calcofi4db/reference/release_sort_keys.md)
   : Sort keys (and partition column) for every released table
+
+- [`release_stac_base()`](https://calcofi.io/calcofi4db/reference/release_stac_base.md)
+  : The STAC root a release writes
 
 - [`release_view_tables()`](https://calcofi.io/calcofi4db/reference/release_view_tables.md)
   [`substitute_view_tables()`](https://calcofi.io/calcofi4db/reference/release_view_tables.md)

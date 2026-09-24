@@ -340,6 +340,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/read_taxon_common.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_taxon_group_rules.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_variable.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/recheck_pending_urls.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/record_schema_version.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/register_measurement_chem.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/register_measurement_face.html</loc></url>
@@ -354,6 +355,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/release_notes_sections.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/release_objects.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/release_sort_keys.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/release_stac_base.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/release_view_tables.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/release_views.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/render_integrity_message.html</loc></url>
