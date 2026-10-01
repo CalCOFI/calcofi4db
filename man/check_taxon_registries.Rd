@@ -9,6 +9,7 @@ check_taxon_registries(
   overrides = NULL,
   group_rules = NULL,
   measurement_taxon = NULL,
+  exclude = character(0),
   halt = TRUE
 )
 }
@@ -21,6 +22,14 @@ check_taxon_registries(
 
 \item{measurement_taxon}{the composite crosswalk (\code{metadata/measurement_taxon.csv}),
 whose \code{dataset_key}s count as supplied, or NULL}
+
+\item{exclude}{character vector of \code{dataset_key}s staged but held out of
+this release (\code{calcofi.in_release: false}), whose registry rows are
+therefore expected to match nothing in \code{con}. Pass
+\code{release_excluded_datasets()}, which returns the same
+\verb{\{provider\}_\{dataset\}} labels a \code{dataset_key} uses. A held-out dataset's
+rows are skipped, not validated; a typo outside this list still fails.
+Default \code{character(0)}.}
 
 \item{halt}{logical; \code{stop()} on an orphan (default \code{TRUE})}
 }

@@ -317,6 +317,44 @@ test_that("check_taxon_registries catches an override or group rule naming a dat
   expect_error(check_taxon_registries(con, group_rules = rules), "nope_ds")
 })
 
+test_that("check_taxon_registries skips a held-out dataset (in_release: false) but still fails a typo", {
+  # a dataset staged with `in_release: false` keeps its override rows for its own
+  # ingest, but its shard never reaches the release connection, so without
+  # `exclude` its rows read as orphans and halt the release (workflows#117:
+  # 13 override rows for sio_cetacean-sightings / sio_cetacean-edna)
+  con <- new_staged_con(); on.exit(close_duckdb(con))
+  append_dataset_taxon(con, "demo_ds", staged_df())
+  resolve_dataset_taxon(con)
+  ov <- data.frame(dataset_key  = c("demo_ds", "sio_cetacean-sightings"),
+                   match_column = "ds_taxa_code", match_value = "x",
+                   worms_id = 1L, itis_id = NA_integer_, stringsAsFactors = FALSE)
+  # without exclude: the held-out dataset is an orphan (the pre-4.17.2 behavior)
+  expect_error(check_taxon_registries(con, overrides = ov), "sio_cetacean-sightings")
+  # with exclude: passes, and reports no orphans
+  expect_no_error(res <- check_taxon_registries(
+    con, overrides = ov, exclude = c("sio_cetacean-sightings", "sio_cetacean-edna")))
+  expect_identical(res$overrides, character())
+  # an orphan for a dataset NOT excluded still fails, and the message lists the held-out set apart
+  ov_typo <- rbind(ov, data.frame(dataset_key = "sio_cetacean_edna",     # underscore typo
+                                  match_column = "ds_taxa_code", match_value = "y",
+                                  worms_id = 2L, itis_id = NA_integer_))
+  err <- expect_error(
+    check_taxon_registries(con, overrides = ov_typo,
+                           exclude = c("sio_cetacean-sightings", "sio_cetacean-edna")),
+    "overrides: `sio_cetacean_edna`")
+  expect_match(conditionMessage(err), "Held out (in_release: false): sio_cetacean-edna, sio_cetacean-sightings",
+               fixed = TRUE)
+  # group rules honour exclude too
+  rules <- data.frame(taxon_group_key = "x:y", description = "d", rule = "dataset_taxon",
+                      rule_value = NA, dataset_key = "sio_cetacean-edna",
+                      match_column = "ds_common_name", match_value = "v",
+                      stringsAsFactors = FALSE)
+  expect_error(check_taxon_registries(con, group_rules = rules), "sio_cetacean-edna")
+  expect_no_error(check_taxon_registries(con, group_rules = rules, exclude = "sio_cetacean-edna"))
+  # empty / NA exclude changes nothing
+  expect_error(check_taxon_registries(con, overrides = ov, exclude = c(NA, "")), "sio_cetacean-sightings")
+})
+
 # --- the override rule (Ben, 2026-09-04): an override never replaces an id the
 # source supplied. A row matched on a NON-code column (`ds_common_name`,
 # `ds_scientific_name`; the phyto arm's `taxa`) applies only where the source
