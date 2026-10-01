@@ -1,10 +1,10 @@
 # a derived series that does not vary with depth ------------------------------------
 #
 # A value that is physically possible and carries no flag can still not be a profile.
-# The CTD provider column `EstNO3_CruiseCorr` holds ONE value per cast over the full
-# 0-520 m on every cast of 2504SH (line 93.3: 14/14), 2204SH, 2307SR and the final
-# 9809NH, while `EstNO3_StaCorr` on the same casts rises ~1 -> 40 uM as nitrate
-# should (2026-10-01): an offset, not a profile. A bound cannot see it (the value is
+# The CTD provider column `EstNO3_CruiseCorr` holds ONE value over the whole cast on 441
+# of 5,066 judged casts (every judged cast of 2504SH, 2304SH, 2307SR and four more cruises;
+# census 2026-10-01), mostly exact 0, while `EstNO3_StaCorr` on the same casts rises
+# ~1 -> 40 uM as nitrate should: a fill or an offset, not a profile. A bound cannot see it (the value is
 # in range) and neither can a flag (the provider set none), so the test is on the
 # SHAPE of the series: many values over a real depth span that do not move.
 

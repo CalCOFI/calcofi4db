@@ -2,8 +2,9 @@
 
 - New `check_depth_constant_series()`: per (cast, measurement type), the series that hold one
   identical value at every depth. A derived series can be in bounds, unflagged and still not a
-  profile; the CTD provider's `EstNO3_CruiseCorr` is one value per cast over 0-520 m on every
-  cast of 2504SH, 2204SH, 2307SR and the final 9809NH (2026-10-01), which neither
+  profile; the CTD provider's `EstNO3_CruiseCorr` is one value over the whole cast on 441 of
+  5,066 judged casts (every judged cast of 2504SH, 2304SH, 2307SR and four more cruises;
+  census of 2026-10-01), mostly exact zeros, which neither
   `check_measurement_bounds()` nor a provider flag can see. A cast is judged only with at least
   `min_n` (6) finite values over at least `min_span_m` (50) m, and is constant when its range is
   below `tol` (1e-9); a short cast is never flagged. Takes a DBI connection (the long table) or a
