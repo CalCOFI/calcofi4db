@@ -616,18 +616,31 @@ check_dataset_taxon <- function(con, dataset_key, allow = character(), halt = TR
 #' @param group_rules the group registry ([read_taxon_group_rules()]), or NULL
 #' @param measurement_taxon the composite crosswalk (`metadata/measurement_taxon.csv`),
 #'   whose `dataset_key`s count as supplied, or NULL
+#' @param exclude character vector of `dataset_key`s staged but held out of
+#'   this release (`calcofi.in_release: false`), whose registry rows are
+#'   therefore expected to match nothing in `con`. Pass
+#'   `release_excluded_datasets()`, which returns the same
+#'   `{provider}_{dataset}` labels a `dataset_key` uses. A held-out dataset's
+#'   rows are skipped, not validated; a typo outside this list still fails.
+#'   Default `character(0)`.
 #' @param halt logical; `stop()` on an orphan (default `TRUE`)
 #' @return (invisibly) a named list of the orphan `dataset_key`s per registry
 #' @export
 #' @concept check
 check_taxon_registries <- function(con, overrides = NULL, group_rules = NULL,
-                                   measurement_taxon = NULL, halt = TRUE) {
+                                   measurement_taxon = NULL,
+                                   exclude = character(0), halt = TRUE) {
   if (!"dataset_taxon" %in% DBI::dbListTables(con))
     stop("check_taxon_registries(): needs `dataset_taxon` in `con`.")
   known <- DBI::dbGetQuery(con, "SELECT DISTINCT dataset_key FROM dataset_taxon")$dataset_key
   if (!is.null(measurement_taxon) && nrow(measurement_taxon))
     known <- union(known, as.character(measurement_taxon$dataset_key))
   known <- stats::na.omit(known)
+  # a held-out dataset (in_release: false) keeps its registry rows for its own
+  # ingest; at the release they match nothing by design, not by typo
+  supplied <- known
+  held_out <- setdiff(stats::na.omit(as.character(exclude)), "")
+  known    <- union(known, held_out)
 
   orphans <- function(reg) {
     if (is.null(reg) || !nrow(reg) || is.null(reg$dataset_key)) return(character())
@@ -641,7 +654,9 @@ check_taxon_registries <- function(con, overrides = NULL, group_rules = NULL,
       paste(sprintf("  %s: %s", names(bad),
                     vapply(bad, function(x) paste(sprintf("`%s`", x), collapse = ", "), "")),
             collapse = "\n"),
-      "\n  Known: ", paste(sort(known), collapse = ", "),
+      "\n  Known: ", paste(sort(supplied), collapse = ", "),
+      if (length(held_out)) paste0("\n  Held out (in_release: false): ",
+                                   paste(sort(held_out), collapse = ", ")),
       "\n  A registry row that matches no dataset is how a typo becomes a missing id.")
     if (halt) stop(msg, call. = FALSE) else warning(msg, call. = FALSE)
   }
