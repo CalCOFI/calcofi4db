@@ -1,5 +1,18 @@
 # Changelog
 
+## calcofi4db 4.17.2
+
+- **[`check_taxon_registries()`](https://calcofi.io/calcofi4db/reference/check_taxon_registries.md)
+  gains `exclude =`** (default `character(0)`): the `dataset_key`s
+  staged with `calcofi.in_release: false`, whose `taxon_override.csv` /
+  `taxon_group.csv` rows are expected to match nothing in the release
+  connection. Pass `release_excluded_datasets(here())`. Their rows are
+  skipped, while a typo for any other dataset still fails, and the error
+  lists the held-out set separately from the supplied one. Motivated by
+  CalCOFI/workflows#117: three held-out cetacean ingests
+  (`sio_cetacean-*`) added 13 override rows, which would otherwise have
+  halted the next release at `taxon_authority_coverage`.
+
 ## calcofi4db 4.17.1
 
 - **A URL this release has not written yet is no longer a dead link.**

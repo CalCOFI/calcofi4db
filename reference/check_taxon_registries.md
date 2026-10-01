@@ -19,6 +19,7 @@ check_taxon_registries(
   overrides = NULL,
   group_rules = NULL,
   measurement_taxon = NULL,
+  exclude = character(0),
   halt = TRUE
 )
 ```
@@ -43,6 +44,16 @@ check_taxon_registries(
 
   the composite crosswalk (`metadata/measurement_taxon.csv`), whose
   `dataset_key`s count as supplied, or NULL
+
+- exclude:
+
+  character vector of `dataset_key`s staged but held out of this release
+  (`calcofi.in_release: false`), whose registry rows are therefore
+  expected to match nothing in `con`. Pass
+  [`release_excluded_datasets()`](https://calcofi.io/calcofi4db/reference/release_excluded_datasets.md),
+  which returns the same `{provider}_{dataset}` labels a `dataset_key`
+  uses. A held-out dataset's rows are skipped, not validated; a typo
+  outside this list still fails. Default `character(0)`.
 
 - halt:
 

@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.17.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.17.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,6 +77,11 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.17.2" id="calcofi4db-4172">calcofi4db 4.17.2<a class="anchor" aria-label="anchor" href="#calcofi4db-4172"></a></h2>
+<ul><li>
+<strong><code><a href="../reference/check_taxon_registries.html">check_taxon_registries()</a></code> gains <code>exclude =</code></strong> (default <code>character(0)</code>): the <code>dataset_key</code>s staged with <code>calcofi.in_release: false</code>, whose <code>taxon_override.csv</code> / <code>taxon_group.csv</code> rows are expected to match nothing in the release connection. Pass <code>release_excluded_datasets(here())</code>. Their rows are skipped, while a typo for any other dataset still fails, and the error lists the held-out set separately from the supplied one. Motivated by CalCOFI/workflows#117: three held-out cetacean ingests (<code>sio_cetacean-*</code>) added 13 override rows, which would otherwise have halted the next release at <code>taxon_authority_coverage</code>.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.17.1" id="calcofi4db-4171">calcofi4db 4.17.1<a class="anchor" aria-label="anchor" href="#calcofi4db-4171"></a></h2>
 <ul><li>

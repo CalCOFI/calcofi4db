@@ -59,7 +59,7 @@ matches nothing is how a missing id hides."><!-- calcofi.io brand contract v2 (h
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.17.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.17.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -113,6 +113,7 @@ matches nothing is how a missing id hides.</p>
 <span>  overrides <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  group_rules <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  measurement_taxon <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  exclude <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span>,</span>
 <span>  halt <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -136,6 +137,16 @@ matches nothing is how a missing id hides.</p>
 <dt id="arg-measurement-taxon">measurement_taxon<a class="anchor" aria-label="anchor" href="#arg-measurement-taxon"></a></dt>
 <dd><p>the composite crosswalk (<code>metadata/measurement_taxon.csv</code>),
 whose <code>dataset_key</code>s count as supplied, or NULL</p></dd>
+
+
+<dt id="arg-exclude">exclude<a class="anchor" aria-label="anchor" href="#arg-exclude"></a></dt>
+<dd><p>character vector of <code>dataset_key</code>s staged but held out of
+this release (<code>calcofi.in_release: false</code>), whose registry rows are
+therefore expected to match nothing in <code>con</code>. Pass
+<code><a href="release_excluded_datasets.html">release_excluded_datasets()</a></code>, which returns the same
+<code>{provider}_{dataset}</code> labels a <code>dataset_key</code> uses. A held-out dataset's
+rows are skipped, not validated; a typo outside this list still fails.
+Default <code>character(0)</code>.</p></dd>
 
 
 <dt id="arg-halt">halt<a class="anchor" aria-label="anchor" href="#arg-halt"></a></dt>
