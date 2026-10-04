@@ -1,3 +1,17 @@
+# calcofi4db 4.21.0
+
+- **`check_depth_constant_series()` takes a composite cast key.** `cast_col` may name several
+  columns that together identify a cast, e.g. `c("cruise_key", "cast_key", "cast_dir")`, returned
+  as that many key columns. The CTD ingest called it with `ctd_cast_uuid`, which is unique per
+  depth scan, so a "cast" held one value and was almost never judged (32 cells withheld on the
+  2026-10-04 render against 441 constant casts in the census; CalCOFI/workflows#131).
+- **New `check_zero_runs()`.** Finds runs of exact zeros within a cast (at least `min_n` = 6 values
+  over `min_span_m` = 50 m, a depth step of at most `max_gap_m` = 5 m inside a run, a non-zero
+  value ends it), the part of a cast a failed regression clipped to 0 while the rest varies
+  (the CTD team's station-corrected oxygen: 0.0 from 322 to 517 m beside a sensor at 26 umol/kg).
+  A sibling of `check_depth_constant_series()`, which tests the whole cast; the caller chooses
+  the series, since an exact 0 can be a real estimate clipped at zero (surface nitrate).
+
 # calcofi4db 4.20.0
 
 - **`check_depth_vs_seafloor()` gains `nominal_datasets`.** A dataset named there publishes a

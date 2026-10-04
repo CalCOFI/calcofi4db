@@ -25,7 +25,11 @@ the long-format columns below.}
 
 \item{cast_col, type_col, value_col, depth_col}{column names: the cast key, the
 measurement type, the value and the depth in metres. The defaults are the
-CTD ingest's \code{ctd_measurement}.}
+CTD ingest's \code{ctd_measurement}. \code{cast_col} may name \strong{several} columns, which
+together identify a cast (e.g. \code{c("cruise_key", "cast_key", "cast_dir")}). Group
+by the real cast: a key that is unique per depth scan (the CTD ingest's
+\code{ctd_cast_uuid} hashes the scan's time) gives one value per group, so nothing is
+ever judged.}
 
 \item{types}{optional character vector of \code{measurement_type}s to judge; the
 default \code{NULL} judges every type present.}
@@ -38,7 +42,7 @@ default \code{NULL} judges every type present.}
 }
 \value{
 A \link[tibble:tibble]{tibble}, one row per constant (cast, type), ordered by
-type then cast: the \code{cast_col}, \code{measurement_type}, \code{n} (finite values),
+type then cast: the \code{cast_col} column(s), \code{measurement_type}, \code{n} (finite values),
 \code{depth_min_m}, \code{depth_max_m}, \code{span_m}, \code{value} (the one value it holds). Zero
 rows when nothing is constant. The \code{judged} attribute is a named integer vector: per
 type, how many (cast, type) pairs met \code{min_n} and \code{min_span_m}, so a caller can

@@ -102,6 +102,7 @@ export(check_taxon_ids)
 export(check_taxon_registries)
 export(check_ungridded_obs)
 export(check_variable_registry)
+export(check_zero_runs)
 export(citation_cff)
 export(citation_error_findings)
 export(citation_findings)
@@ -579,7 +580,8 @@ importFrom(rlang,
 )
 importFrom(stats,
   aggregate,
-  approx
+  approx,
+  ave
 )
 importFrom(stringr,
   str_detect,
