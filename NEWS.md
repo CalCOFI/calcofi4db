@@ -1,3 +1,11 @@
+# calcofi4db (development version)
+
+- **`check_depth_constant_series()` takes a composite cast key.** `cast_col` may name several
+  columns that together identify a cast, e.g. `c("cruise_key", "cast_key", "cast_dir")`, returned
+  as that many key columns. The CTD ingest called it with `ctd_cast_uuid`, which is unique per
+  depth scan, so a "cast" held one value and was almost never judged (32 cells withheld on the
+  2026-10-04 render against 441 constant casts in the census; CalCOFI/workflows#131).
+
 # calcofi4db 4.20.0
 
 - **`check_depth_vs_seafloor()` gains `nominal_datasets`.** A dataset named there publishes a
