@@ -4,7 +4,7 @@
 \alias{grid_crosswalk}
 \title{Area crosswalk between two grids}
 \usage{
-grid_crosswalk(prev, grid, key = "grid_key", crs_m = 3310, min_km2 = 1e-06)
+grid_crosswalk(prev, grid, key = "grid_key", crs_m = 3310, min_km2 = 1e-04)
 }
 \arguments{
 \item{prev, grid}{\code{sf} polygons in EPSG:4326, the previous and the current cells, each with the
@@ -15,7 +15,8 @@ key column}
 \item{crs_m}{equal-area CRS for the areas (default 3310)}
 
 \item{min_km2}{an overlap smaller than this is a numerical sliver and is dropped (default
-1e-6 km2, one square metre)}
+1e-4 km2, 100 square metres: cell vertices are rounded to 1e-9 degrees, which along a 200 km
+edge shared by an unchanged cell and its neighbour is some 20 square metres)}
 }
 \value{
 a tibble: \code{prev_grid_key}, \code{grid_key}, \code{overlap_km2} (rounded to the square metre),
@@ -26,8 +27,8 @@ the current cell), both rounded to 9 decimals; ordered by \code{prev_grid_key}, 
 Every pair of a previous and a current grid cell that overlap, with the area of the overlap and
 its share of each cell. This is the only way to carry a cell-keyed value from one grid to the
 other: when the grid was rebuilt from the official station positions (CalCOFI/workflows#130),
-84 of the 113 station cells kept a key whose polygon changed, so a key matched by name is
-usually a different piece of ocean.
+84 of the 113 station cells kept a key whose polygon changed, so a key matched by name can be
+a different piece of ocean. (The 112 previous cells kept as they were are identity rows.)
 }
 \details{
 Areas are planar in an equal-area projection (\code{crs_m}, default California Albers), after the

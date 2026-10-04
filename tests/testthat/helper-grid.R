@@ -49,3 +49,7 @@ key_in_r <- function(lon, lat, grid) {
 # a lon/lat rectangle
 ll_rect <- function(x0, x1, y0, y1)
   sf::st_polygon(list(rbind(c(x0, y0), c(x1, y0), c(x1, y1), c(x0, y1), c(x0, y0))))
+
+# the lon/lat of a (line, station) under +proj=calcofi
+from_calcofi <- function(line, station) sf::st_coordinates(sf::st_transform(
+  sf::st_sfc(sf::st_point(c(line, station)), crs = sf::st_crs("+proj=calcofi")), 4326))

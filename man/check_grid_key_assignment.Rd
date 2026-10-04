@@ -27,9 +27,11 @@ position), \code{n_keyed}, \code{n_same} (key equals the recomputed cell, both N
 \description{
 Recomputes the cell of every \code{sample} position against the grid of the connection, by the rule
 of \code{\link[=assign_grid_key]{assign_grid_key()}}, and compares it with the \code{grid_key} the row carries. This is the gate
-that a grid change needs: when the cells were rebuilt (CalCOFI/workflows#130), 196 of the 218
+that a grid change needs: when the cells were rebuilt (CalCOFI/workflows#130), 84 of the 218
 previous keys survived as \strong{names} over different polygons, so an ingest staged against the
 previous grid ships keys that pass every foreign-key check and name the wrong piece of ocean.
+It also means a row must be keyed by its own position: one that inherits its key from a parent
+event at another position can sit in a neighbouring cell, and fails.
 }
 \details{
 A row is \code{wrong} when it carries a key and its position falls in another cell or in none; that

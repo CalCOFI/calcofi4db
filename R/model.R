@@ -445,13 +445,14 @@ append_sample <- function(con, select_sql, sample_tbl = "sample") {
 #' native GEOMETRY (open via [get_duckdb_con()], which sets
 #' `storage_compatibility_version = 'latest'`).
 #'
-#' The grid is whatever `cc_grid` is: one cell per official station (a Voronoi tessellation
-#' of the official station positions, CalCOFI/workflows#130) from the calcofi4r that carries
-#' `cc_grid_v1`, the idealized lattice before it. The columns are the same either way:
+#' The grid is whatever `cc_grid` is: from calcofi4r 1.25.0, one cell per official station (a
+#' Voronoi tessellation of the official station positions, confined to the previous cells it
+#' replaces) beside the previous cells beyond the official pattern, kept as they were
+#' (CalCOFI/workflows#130); before it, the idealized lattice (`cc_grid_v1`). The columns are the same either way:
 #' `grid_key` (`st{station}-ln{line}`, `_hist` for the historical pattern), `station`,
-#' `line`, `shore`, `pattern`, `spacing`, `zone`, `area_km2`, `geom` and `geom_ctr` (the
-#' cell's site: the station itself in the rebuilt grid, the centroid of the cell's largest
-#' polygon before). Where `cc_grid` carries its own `grid_key`, the key derived here must
+#' `line`, `shore`, `pattern`, `spacing`, `zone`, `area_km2`, `geom` (a polygon, or a
+#' multipolygon for a cell in several pieces) and `geom_ctr` (the cell's site: the station
+#' itself in the rebuilt grid, the centroid of the cell's largest polygon before). Where `cc_grid` carries its own `grid_key`, the key derived here must
 #' equal it, and the build stops otherwise. The two grids share key names whose polygons
 #' differ; [build_grid_crosswalk()] maps one to the other.
 #'

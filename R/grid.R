@@ -17,8 +17,8 @@
 #' Every pair of a previous and a current grid cell that overlap, with the area of the overlap and
 #' its share of each cell. This is the only way to carry a cell-keyed value from one grid to the
 #' other: when the grid was rebuilt from the official station positions (CalCOFI/workflows#130),
-#' 84 of the 113 station cells kept a key whose polygon changed, so a key matched by name is
-#' usually a different piece of ocean.
+#' 84 of the 113 station cells kept a key whose polygon changed, so a key matched by name can be
+#' a different piece of ocean. (The 112 previous cells kept as they were are identity rows.)
 #'
 #' Areas are planar in an equal-area projection (`crs_m`, default California Albers), after the
 #' lon/lat edges of both grids are densified so the projection keeps them where positions are
@@ -32,7 +32,8 @@
 #' @param key name of the key column in both (default `"grid_key"`)
 #' @param crs_m equal-area CRS for the areas (default 3310)
 #' @param min_km2 an overlap smaller than this is a numerical sliver and is dropped (default
-#'   1e-6 km2, one square metre)
+#'   1e-4 km2, 100 square metres: cell vertices are rounded to 1e-9 degrees, which along a 200 km
+#'   edge shared by an unchanged cell and its neighbour is some 20 square metres)
 #' @return a tibble: `prev_grid_key`, `grid_key`, `overlap_km2` (rounded to the square metre),
 #'   `prev_frac` (the overlap as a fraction of the previous cell) and `grid_frac` (as a fraction of
 #'   the current cell), both rounded to 9 decimals; ordered by `prev_grid_key`, `grid_key`
@@ -44,7 +45,7 @@
 #' # where the previous cell st30-ln90 went, largest share first
 #' xw[xw$prev_grid_key == "st30-ln90", ] |> dplyr::arrange(dplyr::desc(prev_frac))
 #' }
-grid_crosswalk <- function(prev, grid, key = "grid_key", crs_m = 3310, min_km2 = 1e-6) {
+grid_crosswalk <- function(prev, grid, key = "grid_key", crs_m = 3310, min_km2 = 1e-4) {
   for (pkg in c("sf", "tibble"))
     if (!requireNamespace(pkg, quietly = TRUE))
       stop("grid_crosswalk() requires the '", pkg, "' package.", call. = FALSE)
@@ -78,7 +79,9 @@ grid_crosswalk <- function(prev, grid, key = "grid_key", crs_m = 3310, min_km2 =
 #' connection (the cells this release ships, as [build_grid_reference()] or the ichthyo ingest
 #' wrote them), so the published crosswalk describes the published polygons. One row per
 #' overlapping pair, primary key (`prev_grid_key`, `grid_key`); `grid_key` is a foreign key to
-#' `grid`, `prev_grid_key` names a cell of the grid releases through v2026.10.01 carried.
+#' `grid`, `prev_grid_key` names a cell of the grid releases through v2026.10.01 carried. A cell
+#' the rebuilt grid kept as it was (the 112 beyond the official pattern) is an identity row,
+#' with a `prev_frac` of one less the part of it that is land under the finer coastline.
 #'
 #' @param con a DuckDB connection holding `grid_tbl` with `grid_key` and a `geom` GEOMETRY
 #' @param grid_prev the previous grid: `sf` polygons in EPSG:4326 with `grid_key` (default
@@ -97,7 +100,7 @@ grid_crosswalk <- function(prev, grid, key = "grid_key", crs_m = 3310, min_km2 =
 #' check_grid_crosswalk(con)
 #' }
 build_grid_crosswalk <- function(con, grid_prev = calcofi4r::cc_grid_v1, grid_tbl = "grid",
-                                 tbl = "grid_crosswalk", crs_m = 3310, min_km2 = 1e-6) {
+                                 tbl = "grid_crosswalk", crs_m = 3310, min_km2 = 1e-4) {
   if (!requireNamespace("sf", quietly = TRUE))
     stop("build_grid_crosswalk() requires the 'sf' package.", call. = FALSE)
   .load_spatial(con)
@@ -127,7 +130,8 @@ build_grid_crosswalk <- function(con, grid_prev = calcofi4r::cc_grid_v1, grid_tb
 #' since a cell most of which has no counterpart is a hole. A **current** cell whose shares sum
 #' to more than one is `"overlapped"`: previous cells overlap each other there (the previous grid
 #' was assembled in `+proj=calcofi` and glued by hand along line 93.3, and is not an exact
-#' partition in longitude/latitude).
+#' partition in longitude/latitude; seven current cells either side of that boundary are covered
+#' twice over at most 1e-4 of their area).
 #'
 #' @param con a DuckDB connection holding `tbl` and `grid_tbl`
 #' @param grid_prev the previous grid (default `calcofi4r::cc_grid_v1`); only its keys are read
@@ -184,9 +188,11 @@ check_grid_crosswalk <- function(con, grid_prev = calcofi4r::cc_grid_v1, tbl = "
 #'
 #' Recomputes the cell of every `sample` position against the grid of the connection, by the rule
 #' of [assign_grid_key()], and compares it with the `grid_key` the row carries. This is the gate
-#' that a grid change needs: when the cells were rebuilt (CalCOFI/workflows#130), 196 of the 218
+#' that a grid change needs: when the cells were rebuilt (CalCOFI/workflows#130), 84 of the 218
 #' previous keys survived as **names** over different polygons, so an ingest staged against the
 #' previous grid ships keys that pass every foreign-key check and name the wrong piece of ocean.
+#' It also means a row must be keyed by its own position: one that inherits its key from a parent
+#' event at another position can sit in a neighbouring cell, and fails.
 #'
 #' A row is `wrong` when it carries a key and its position falls in another cell or in none; that
 #' fails. A row with a position inside a cell and no key (`n_unkeyed_in_cell`) is reported, not

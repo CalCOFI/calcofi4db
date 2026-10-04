@@ -10,7 +10,7 @@ build_grid_crosswalk(
   grid_tbl = "grid",
   tbl = "grid_crosswalk",
   crs_m = 3310,
-  min_km2 = 1e-06
+  min_km2 = 1e-04
 )
 }
 \arguments{
@@ -33,7 +33,9 @@ Materializes \code{\link[=grid_crosswalk]{grid_crosswalk()}} between the previou
 connection (the cells this release ships, as \code{\link[=build_grid_reference]{build_grid_reference()}} or the ichthyo ingest
 wrote them), so the published crosswalk describes the published polygons. One row per
 overlapping pair, primary key (\code{prev_grid_key}, \code{grid_key}); \code{grid_key} is a foreign key to
-\code{grid}, \code{prev_grid_key} names a cell of the grid releases through v2026.10.01 carried.
+\code{grid}, \code{prev_grid_key} names a cell of the grid releases through v2026.10.01 carried. A cell
+the rebuilt grid kept as it was (the 112 beyond the official pattern) is an identity row,
+with a \code{prev_frac} of one less the part of it that is land under the finer coastline.
 }
 \examples{
 \dontrun{

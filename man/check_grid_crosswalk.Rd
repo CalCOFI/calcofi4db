@@ -48,6 +48,7 @@ clipped by a coarser coastline, so part of one can be land now). Below \code{min
 since a cell most of which has no counterpart is a hole. A \strong{current} cell whose shares sum
 to more than one is \code{"overlapped"}: previous cells overlap each other there (the previous grid
 was assembled in \code{+proj=calcofi} and glued by hand along line 93.3, and is not an exact
-partition in longitude/latitude).
+partition in longitude/latitude; seven current cells either side of that boundary are covered
+twice over at most 1e-4 of their area).
 }
 \concept{grid}

@@ -55,7 +55,7 @@ test_that("assign_grid_key: DuckDB and R agree on interiors, edges and vertices 
 
 # the released grid: build_grid_reference() on the rebuilt cells ----
 
-test_that("build_grid_reference: the rebuilt grid is one polygon per key, with the columns consumers read", {
+test_that("build_grid_reference: the rebuilt grid is one cell per key, with the columns consumers read", {
   skip_if_not_installed("duckdb"); skip_if_not_installed("sf"); skip_if_not_installed("units")
   g <- rebuilt_grid()
   con <- get_duckdb_con(":memory:")
@@ -72,7 +72,11 @@ test_that("build_grid_reference: the rebuilt grid is one polygon per key, with t
     FROM grid")
   expect_false(anyDuplicated(d$grid_key) > 0)
   expect_setequal(d$grid_key, g$cc_grid$grid_key)                 # the key the package states is the key derived
-  expect_true(all(d$gtype == "POLYGON"))                          # no multi-part cell
+  # a station cell is one polygon, but for the one the build reports (21 km2 of Tomales Bay that
+  # no station cell reaches by water); a kept cell is the previous cell, in as many pieces as it was
+  src <- g$cc_grid$sta_source[match(d$grid_key, g$cc_grid$grid_key)]
+  expect_identical(d$grid_key[src == "official" & d$gtype != "POLYGON"], "st53-ln60")
+  expect_identical(sum(src == "previous" & d$gtype == "MULTIPOLYGON"), 13L)
   expect_true(all(d$valid))
   expect_true(all(d$site_in_cell))                                # every site (station) lies in its own cell
   expect_identical(d$zone, paste0(d$shore, "-", d$pattern))
@@ -120,8 +124,6 @@ rebuilt_con <- function(g, env = parent.frame()) {
   build_grid_reference(con, cc_grid = g$cc_grid, cc_grid_ctrs = g$cc_grid_ctrs)
   con
 }
-from_calcofi <- function(line, station) sf::st_coordinates(sf::st_transform(
-  sf::st_sfc(sf::st_point(c(line, station)), crs = sf::st_crs("+proj=calcofi")), 4326))
 
 test_that("rebuilt grid: an official station keys to its own cell", {
   skip_if_not_installed("duckdb"); skip_if_not_installed("sf"); skip_if_not_installed("units")
@@ -161,15 +163,38 @@ test_that("rebuilt grid: a historical position beyond 20 nmi keeps its historica
 test_that("rebuilt grid: a point in a former water pocket keys to the cell it shares water with", {
   skip_if_not_installed("duckdb"); skip_if_not_installed("sf"); skip_if_not_installed("units")
   g <- rebuilt_grid(); con <- rebuilt_con(g)
-  # off Imperial Beach, south of Point Loma: the nearest station is the SCCOOS station 93.4 26.4,
-  # but Point Loma cuts that water off from it, so the pocket joined 93.3 28.0's cell
-  lon <- -117.1601; lat <- 32.57779
+  # the mouth of San Diego Bay: the nearest station is the SCCOOS station 93.4 26.4, but Point
+  # Loma cuts that water off from it, so the pocket joined 93.3 28.0's cell
+  lon <- -117.2067; lat <- 32.66724
   sites <- sf::st_transform(g$cc_grid_ctrs, 3310)
   here  <- sf::st_transform(sf::st_sfc(sf::st_point(c(lon, lat)), crs = 4326), 3310)
   expect_identical(sites$grid_key[sf::st_nearest_feature(here, sites)], "st26.4-ln93.4")
   expect_identical(key_in_duckdb(con, lon, lat), "st28-ln93.3")
-  # no cell is left in pieces
-  expect_true(all(sf::st_geometry_type(g$cc_grid) == "POLYGON"))
+  # and the cell it joined is still one polygon
+  expect_true(sf::st_geometry_type(g$cc_grid[g$cc_grid$grid_key == "st28-ln93.3", ]) == "POLYGON")
+})
+
+test_that("rebuilt grid: the station cells stop where the previous grid stopped; beyond, a position keeps its kept cell", {
+  skip_if_not_installed("duckdb"); skip_if_not_installed("sf"); skip_if_not_installed("units")
+  g <- rebuilt_grid(); con <- rebuilt_con(g)
+  # line 93.3 is the southern edge of the official pattern, and the previous grid ended its cells
+  # 20 nmi beyond it (line 95.0; a line unit is 12 nmi). 15 nmi south of 93.3 60 is still that
+  # station's cell; 25 nmi south is the kept line-100 cell, not an official one
+  p15 <- from_calcofi(93.3 + 15 / 12, 60); p25 <- from_calcofi(93.3 + 25 / 12, 60)
+  expect_identical(key_in_duckdb(con, c(p15[1], p25[1]), c(p15[2], p25[2])), c("st60-ln93.3", "st60-ln100_hist"))
+  expect_identical(key_in_r(p25[1], p25[2], g$cc_grid_v1), "st60-ln100_hist")     # as before
+  # regression (2026-10-04): a free Voronoi cell of 93.3 60 reached 40 nmi, to line 96.65, so
+  # historical line 96.7 sat on a cell edge and 18,795 of its sample rows left their line-100 cells
+  ln967 <- do.call(rbind, lapply(seq(30, 120, by = 10), function(s) from_calcofi(96.7, s)))
+  k <- key_in_duckdb(con, ln967[, 1], ln967[, 2])
+  expect_true(all(grepl("-ln100_hist$", k)))
+  expect_identical(k, key_in_r(ln967[, 1], ln967[, 2], g$cc_grid_v1))
+  # every kept cell holds the positions it held: its previous site keys to it, now as then
+  v1   <- g$cc_grid_v1[g$cc_grid_v1$grid_key %in% g$cc_grid$grid_key[g$cc_grid$sta_source == "previous"], ]
+  was  <- key_in_r(v1$lon_ctr, v1$lat_ctr, g$cc_grid_v1)
+  here <- !is.na(was) & was == v1$grid_key          # the centre of an odd-shaped cell can lie outside it
+  expect_gt(sum(here), 100)
+  expect_identical(key_in_duckdb(con, v1$lon_ctr[here], v1$lat_ctr[here]), v1$grid_key[here])
 })
 
 test_that("rebuilt grid: a point on land, or outside the hull, has no cell", {
@@ -187,7 +212,7 @@ test_that("rebuilt grid: DuckDB and R give the same key on every vertex of every
   skip_if_not_installed("duckdb"); skip_if_not_installed("sf"); skip_if_not_installed("units")
   g <- rebuilt_grid(); con <- rebuilt_con(g)
   # a vertex is on an edge two cells share, or a junction of three: the hardest positions there are
-  v <- unique(sf::st_coordinates(g$cc_grid)[, 1:2])
+  v <- unique(sf::st_coordinates(sf::st_cast(sf::st_geometry(g$cc_grid), "MULTIPOLYGON"))[, 1:2])
   r <- key_in_r(v[, 1], v[, 2], g$cc_grid)
   expect_identical(key_in_duckdb(con, v[, 1], v[, 2]), r)
   expect_false(anyNA(r))
@@ -348,12 +373,24 @@ test_that("grid_crosswalk: the real grids: every previous key is covered, and no
   expect_gte(min(p$frac), 0.977)
   expect_gte(sum(abs(p$frac - 1) <= 1e-6), 180)
   expect_setequal(unique(p$status), c("ok", "partial"))
-  # a current cell is covered once, except where previous cells overlap each other (five cells
-  # along line 93.3, by at most 1.2e-4 of the cell)
+  # a current cell is covered once, except where previous cells overlap each other (seven cells
+  # along the line 93.3 / line 100 boundary, by at most 1e-4 of the cell)
   q <- r[r$side == "grid", ]
   expect_gte(min(q$frac), 0.982)
   expect_lte(max(q$frac), 1 + 2e-4)
-  expect_true(all(grepl("-ln93\\.3$", q$grid_key[q$status == "overlapped"])))
+  expect_true(all(grepl("-ln93\\.3$|-ln100_hist$", q$grid_key[q$status == "overlapped"])))
+  # a kept cell is the previous cell: its row is the identity, with the whole of the previous
+  # cell but the part that is land under the finer coastline (82 of the 112 exactly; least 0.9828)
+  kept <- g$cc_grid$grid_key[g$cc_grid$sta_source == "previous"]
+  id   <- xw[xw$prev_grid_key == xw$grid_key & xw$grid_key %in% kept, ]
+  expect_identical(nrow(id), 112L)
+  expect_gte(min(id$prev_frac), 0.98)
+  expect_gte(sum(abs(id$prev_frac - 1) <= 1e-6), 82)
+  # what else a kept previous cell overlaps is only where the previous cells overlapped each
+  # other: under 1 km2 in all
+  oth <- xw[xw$prev_grid_key %in% kept & xw$prev_grid_key != xw$grid_key, ]
+  expect_lt(sum(oth$overlap_km2), 1)
+  expect_lt(max(oth$prev_frac), 1e-4)
   # the name is not the cell: st30-ln90 keeps its name and about half of its previous water;
   # the rest went to four new inshore cells
   s <- xw[xw$prev_grid_key == "st30-ln90", ]
@@ -416,7 +453,8 @@ test_that("check_grid_key_assignment: a key that names another cell, or a cell f
 test_that("check_grid_key_assignment: keys assigned by assign_grid_key() on the rebuilt grid all pass", {
   skip_if_not_installed("duckdb"); skip_if_not_installed("sf"); skip_if_not_installed("units")
   g <- rebuilt_grid(); con <- rebuilt_con(g)
-  xy <- rbind(sf::st_coordinates(g$cc_grid_ctrs), unique(sf::st_coordinates(g$cc_grid)[, 1:2])[1:2000, ],
+  xy <- rbind(sf::st_coordinates(g$cc_grid_ctrs),
+              unique(sf::st_coordinates(sf::st_cast(sf::st_geometry(g$cc_grid), "MULTIPOLYGON"))[, 1:2])[1:2000, ],
               c(-118.25, 34.05))
   DBI::dbWriteTable(con, "sample", data.frame(
     sample_key = paste0("t:", seq_len(nrow(xy))), dataset_key = "t", longitude = xy[, 1], latitude = xy[, 2]))
