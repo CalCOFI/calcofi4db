@@ -1,3 +1,31 @@
+# calcofi4db (development version)
+
+- **The CTD team's definitions are the defaults of the derived products** (Rasmus Swalethorp,
+  2026-09-23, `calcofi_ctd-derived` questions.csv Q01/Q02, adopted 2026-10-01;
+  CalCOFI/workflows#101, #102). Every value these produce for a cast changes:
+  - `ctd_mld()`: the sigma-theta threshold defaults to **0.02 kg m^-3** from the 10 m reference
+    (was 0.03). The criterion stays an argument (`threshold = 0.125`, `criterion = "temperature"`),
+    and the edge cases are unchanged: `no_reference` when the cast does not bracket 10 m,
+    `mixed_to_bottom` when it never crosses.
+  - `ctd_chl_max()`: the depth of the highest value of a **3 m running mean** (was a 5-sample
+    running median). The window is in metres of depth, not samples, so an uneven grid or a gap
+    averages what is there, and it is truncated at the ends of the profile. `window_m` defaults
+    to 3; `window_m = 0` takes the raw maximum. `chl_max_value` is the running mean at that depth.
+  - `ctd_integrate()` gains `method = c("sum", "trapezoid")` and `bin_m = 1`. The default `"sum"`
+    adds up the 1 m bins from the surface to `z_max`, the provider's rule for the CTD;
+    `"trapezoid"` is the old integral, for bottle data. A bin missing inside the profile is
+    interpolated, never counted as zero. The result gains a `method` column.
+- **`build_measurements_catalog()` reads the per-cast types.** The new
+  `sample_measurement_datasets` (default `"calcofi_ctd-derived"`) projects those datasets'
+  `sample_measurement` rows through `sample` (and `sample_root`) onto the `obs_env` columns. The
+  mixed-layer depth, chlorophyll-a maximum and integrated chlorophyll-a now each get a
+  `measurements.json` entry: series and measurement carry `grain: "sample"`, there are no depth
+  bands and no anomaly, and `counts$sample_measurement_rows` counts the rows. A per-cast row with
+  a `measurement_qual` needs the new `sample_qual_ok_sql` predicate, so a flag is never read as
+  good. `check_measurements_catalog()` gains the `sample_measurement_rows` check, and its
+  `series_total` gate is now `obs_env_rows + sample_measurement_rows`. The schema stays 1.1;
+  the additions are optional fields.
+
 # calcofi4db 4.17.2
 
 - **`check_taxon_registries()` gains `exclude =`** (default `character(0)`): the `dataset_key`s

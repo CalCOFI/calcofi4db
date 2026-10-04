@@ -74,24 +74,29 @@ ctd_spice <- function(temperature, salinity, pressure, longitude, latitude,
 #'
 #' The first depth below `ref_depth` where the profile departs from its value at `ref_depth` by
 #' `threshold`, linearly interpolated between the two bracketing samples (CalCOFI/workflows#101).
-#' The criterion is an argument because the choice is Rasmus Swalethorp's to confirm; the defaults
-#' are de Boyer Montegut et al. (2004, *JGR* 109, C12003): reference 10 m, sigma-theta increase of
-#' 0.03 kg m^-3. The classic alternative is 0.125 kg m^-3 (Levitus 1982; Monterey & Levitus 1997);
-#' the temperature criterion (|Delta T| >= 0.2 deg C) needs no salinity, so it is the only one a
-#' `preliminary_without_bottle` cast can have.
+#' The default is the provider's definition, the CalCOFI legacy one (Rasmus Swalethorp, 2026-09-23,
+#' questions.csv Q01, adopted 2026-10-01): "MLD is the depth at which sigma-theta is 0.02 kg/m3
+#' greater [than at] a reference depth of 10 m". The criterion stays an argument: the
+#' alternatives published beside it are the classic 0.125 kg m^-3 (Levitus 1982; Monterey &
+#' Levitus 1997) and the temperature criterion (|Delta T| >= 0.2 deg C, de Boyer Montegut et al.
+#' 2004), which needs no salinity, so it is the only one a `preliminary_without_bottle` cast can
+#' have. The 0.03 kg m^-3 default of calcofi4db 4.16.0-4.17.x (de Boyer Montegut et al. 2004) is
+#' superseded and only reachable as `threshold = 0.03`.
 #'
-#' The value at `ref_depth` is interpolated from the samples either side of it (it is `NA`, status
-#' `no_reference`, when the cast does not bracket it); a cast that never crosses the threshold has
-#' `mld_m = NA` and status `mixed_to_bottom` (its deepest sample is reported, so a consumer can say
-#' "deeper than"). Flagged samples (8/9) are dropped first.
+#' The provider's answer is silent on the edge cases, so these are unchanged from 4.16.0: the
+#' value at `ref_depth` is interpolated from the samples either side of it (it is `NA`, status
+#' `no_reference`, when the cast does not bracket it, e.g. a cast starting below 10 m); a cast
+#' that never crosses the threshold has `mld_m = NA` and status `mixed_to_bottom` (its deepest
+#' sample is reported, so a consumer can say "deeper than"). Flagged (8/9), missing and
+#' non-finite samples are dropped first, so a `NaN` bin is a gap the interpolation spans.
 #'
 #' @param depth depth (m), positive down; one cast.
 #' @param value sigma-theta (kg m^-3) or temperature (deg C), per `criterion`.
 #' @param qual quality codes of `value` (`NA` = good).
 #' @param criterion `"sigma_theta"` (value must increase by `threshold`) or `"temperature"`
 #'   (absolute departure of `threshold`).
-#' @param threshold the departure that ends the mixed layer; default 0.03 for sigma-theta, 0.2
-#'   for temperature.
+#' @param threshold the departure that ends the mixed layer; default 0.02 for sigma-theta (the
+#'   provider's definition), 0.2 for temperature.
 #' @param ref_depth reference depth (m), default 10.
 #' @return one-row tibble: `mld_m`, `ref_value`, `depth_max_m` (deepest good sample), `status`
 #'   (`ok`, `mixed_to_bottom`, `no_reference`, `no_data`), `criterion`, `threshold`, `ref_depth`.
@@ -101,12 +106,12 @@ ctd_spice <- function(temperature, salinity, pressure, longitude, latitude,
 #' @importFrom stats approx aggregate
 #' @examples
 #' z <- 0:100
-#' ctd_mld(z, ifelse(z < 40, 25, 25.5))           # step at 40 m
+#' ctd_mld(z, ifelse(z < 40, 25, 25.5))           # step at 40 m, the provider's 0.02
 #' ctd_mld(z, ifelse(z < 40, 25, 25.5), threshold = 0.125)
 ctd_mld <- function(depth, value, qual = NA, criterion = c("sigma_theta", "temperature"),
                     threshold = NULL, ref_depth = 10) {
   criterion <- match.arg(criterion)
-  if (is.null(threshold)) threshold <- if (criterion == "sigma_theta") 0.03 else 0.2
+  if (is.null(threshold)) threshold <- if (criterion == "sigma_theta") 0.02 else 0.2
   stopifnot(is.numeric(depth), length(depth) == length(value),
             is.numeric(threshold), length(threshold) == 1, threshold > 0,
             is.numeric(ref_depth), length(ref_depth) == 1, ref_depth >= 0)
@@ -132,35 +137,42 @@ ctd_mld <- function(depth, value, qual = NA, criterion = c("sigma_theta", "tempe
   res(mld = mld, ref = ref, status = "ok")
 }
 
-#' Depth of the chlorophyll-a maximum of one CTD cast
+#' Depth of the chlorophyll-a maximum (DCM) of one CTD cast
 #'
-#' The depth of the maximum of a running median of the profile (default 5 m window), so a single
-#' spiking bin cannot be "the max" (CalCOFI/workflows#102). Use the bottle-fitted sensor estimate
-#' `est_chlorophyll_a_sta_corr` (Rasmus Swalethorp, 2026-09-09). The window is in samples of the
-#' 1 m bins (`window_m` bins, forced odd); on irregular spacing it is a window of that many samples.
-#' Flagged samples are dropped first. Where the median flattens the peak into a plateau, the
-#' plateau depth with the highest raw value wins (then the shallowest).
+#' The provider's definition (Rasmus Swalethorp, 2026-09-23, questions.csv Q02, adopted
+#' 2026-10-01): "To avoid a potential narrow spike being adopted as the max I suggest we do a 3 m
+#' running mean (I was considering 5m but sometimes the layers can be pretty narrow), and call the
+#' depth of the highest value within that running mean the DCM" (CalCOFI/workflows#102). Use the
+#' bottle-fitted sensor estimate `est_chlorophyll_a_sta_corr` (Rasmus Swalethorp, 2026-09-09).
+#' This replaces the 5-sample running median of calcofi4db 4.16.0-4.17.x.
+#'
+#' The window is in metres of depth, not in samples: each good sample's smoothed value is the mean
+#' of the good samples within `window_m / 2` of it (on the 1 m bins, the bin and its two
+#' neighbours), so an uneven grid or a gap is averaged over what the water column actually has.
+#' The answer is silent on the ends of the profile and on ties, so: the window is truncated at the
+#' top and bottom (the shallowest bin averages itself and the bin below), and among depths tied at
+#' the smoothed maximum the one whose raw value is highest wins, then the shallowest (the 4.16.0
+#' tie rule; a flat profile's DCM is its shallowest bin). Flagged (8/9), missing and non-finite
+#' samples are dropped first.
 #'
 #' @param depth depth (m), one cast.
 #' @param chl chlorophyll-a (mg m^-3).
 #' @param qual quality codes of `chl` (`NA` = good).
-#' @param window_m running-median window (1 m bins), default 5.
-#' @return one-row tibble: `chl_max_depth_m`, `chl_max_value` (the smoothed value there), `n`.
+#' @param window_m running-mean window (m), default 3; `0` takes the raw maximum.
+#' @return one-row tibble: `chl_max_depth_m`, `chl_max_value` (the running mean there), `n`.
 #' @export
 #' @concept ctd_derived
-#' @importFrom stats runmed
 #' @examples
 #' z <- 0:150
 #' ctd_chl_max(z, 0.2 + 2 * exp(-((z - 40) / 10)^2))
-ctd_chl_max <- function(depth, chl, qual = NA, window_m = 5) {
+ctd_chl_max <- function(depth, chl, qual = NA, window_m = 3) {
   stopifnot(is.numeric(depth), length(depth) == length(chl),
-            is.numeric(window_m), length(window_m) == 1, window_m >= 1)
+            is.numeric(window_m), length(window_m) == 1, window_m >= 0)
   prof <- .clean_profile(depth, chl, qual)
   if (!nrow(prof)) return(tibble::tibble(chl_max_depth_m = NA_real_, chl_max_value = NA_real_, n = 0L))
-  k <- as.integer(window_m); if (k %% 2 == 0) k <- k + 1L
-  sm <- if (nrow(prof) >= k && k > 1) as.numeric(stats::runmed(prof$value, k, endrule = "median")) else prof$value
-  # a running median flattens a peak into a plateau: among the depths tied at the smoothed
-  # maximum, take the one whose raw value is highest (then the shallowest)
+  sm <- .running_mean_m(prof$depth, prof$value, window_m)
+  # among the depths tied at the smoothed maximum, take the one whose raw value is highest
+  # (then the shallowest)
   top <- which(sm == max(sm))
   i <- top[which.max(prof$value[top])]
   tibble::tibble(chl_max_depth_m = prof$depth[i], chl_max_value = sm[i], n = nrow(prof))
@@ -168,45 +180,72 @@ ctd_chl_max <- function(depth, chl, qual = NA, window_m = 5) {
 
 #' Depth-integrate one CTD cast's profile
 #'
-#' Trapezoidal integral of `value` from the surface to `z_max` (default 200 m) or to the deepest
-#' good sample if shallower, which is recorded (CalCOFI/workflows#102; Rasmus Swalethorp,
-#' 2026-09-16: integrated chlorophyll "is just summing up all the 1 m bins" — on 1 m bins the
-#' trapezoid and the sum differ only by half the two end bins). The shallowest good sample is
-#' carried up to the surface when it is no deeper than `z_top_max` (default 5 m); a cast that
-#' starts deeper is `NA` (status `no_surface`), so a missing surface is never silently skipped.
-#' Flagged samples are dropped first. For chlorophyll-a in mg m^-3 the result is mg m^-2.
+#' The provider's definition for the CTD (Rasmus Swalethorp, 2026-09-23, questions.csv Q02,
+#' adopted 2026-10-01): "For the CTD data here we should just sum up all the 1m bins within the top
+#' 200m or as deep as the station was on shallower stations. For the bottle data we will need to
+#' integrate between points. I believe trapezoidal integration was used in the past"
+#' (CalCOFI/workflows#102). So `method = "sum"` (the default) sums the `bin_m` bins from the
+#' surface to `z_max` (default 200 m), or to the deepest good sample if shallower, which is
+#' recorded; `method = "trapezoid"` is the trapezoidal integral between points, for bottle data
+#' (and the CTD rule of calcofi4db 4.16.0-4.17.x). For chlorophyll-a in mg m^-3 the result is
+#' mg m^-2.
+#'
+#' The sum runs over the bins centred at `bin_m, 2 * bin_m, ..., bottom` (200 bins of 1 m in the
+#' top 200 m). The answer is silent on missing bins, so the 4.16.0 behaviour is kept for both
+#' methods: the shallowest good sample is carried up to the surface when it is no deeper than
+#' `z_top_max` (default 5 m), a cast that starts deeper is `NA` (status `no_surface`, so a missing
+#' surface is never silently skipped), and a bin missing inside the profile (a flagged or `NaN`
+#' bin) is filled by linear interpolation between its neighbours rather than counted as zero.
+#' Flagged (8/9), missing and non-finite samples are dropped first.
 #'
 #' @param depth depth (m), one cast.
 #' @param value the quantity per unit volume.
 #' @param qual quality codes of `value` (`NA` = good).
 #' @param z_max integration floor (m), default 200.
 #' @param z_top_max deepest acceptable first sample (m), default 5.
+#' @param method `"sum"` (the provider's CTD rule: the sum of the `bin_m` bins) or `"trapezoid"`
+#'   (between points, for bottle data).
+#' @param bin_m the bin thickness `"sum"` adds up (m), default 1.
 #' @return one-row tibble: `integrated`, `depth_reached_m`, `status` (`ok`, `shallow`, `no_surface`,
-#'   `no_data`), `z_max`.
+#'   `no_data`), `z_max`, `method`.
 #' @export
 #' @concept ctd_derived
 #' @examples
-#' ctd_integrate(0:300, rep(1, 301))   # 200 over 0-200 m
+#' ctd_integrate(0:300, rep(1, 301))                       # 200 over 0-200 m
+#' ctd_integrate(c(0, 100, 300), c(1, 1, 3), method = "trapezoid")
 #' @importFrom utils head tail
-ctd_integrate <- function(depth, value, qual = NA, z_max = 200, z_top_max = 5) {
+ctd_integrate <- function(depth, value, qual = NA, z_max = 200, z_top_max = 5,
+                          method = c("sum", "trapezoid"), bin_m = 1) {
+  method <- match.arg(method)
   stopifnot(is.numeric(depth), length(depth) == length(value),
             is.numeric(z_max), length(z_max) == 1, z_max > 0,
-            is.numeric(z_top_max), length(z_top_max) == 1, z_top_max >= 0)
+            is.numeric(z_top_max), length(z_top_max) == 1, z_top_max >= 0,
+            is.numeric(bin_m), length(bin_m) == 1, bin_m > 0)
   prof <- .clean_profile(depth, value, qual)
   res <- function(x = NA_real_, reached = NA_real_, status) tibble::tibble(
-    integrated = as.numeric(x), depth_reached_m = as.numeric(reached), status = status, z_max = z_max)
+    integrated = as.numeric(x), depth_reached_m = as.numeric(reached), status = status,
+    z_max = z_max, method = method)
   if (!nrow(prof)) return(res(status = "no_data"))
   if (min(prof$depth) > z_top_max) return(res(status = "no_surface"))
   z <- prof$depth; v <- prof$value
-  if (z[1] > 0) { z <- c(0, z); v <- c(v[1], v) }
   bottom <- min(z_max, max(z))
+  status <- if (bottom < z_max) "shallow" else "ok"
+  if (method == "sum") {
+    zb <- seq(bin_m, bottom + 1e-9, by = bin_m)
+    if (!length(zb)) return(res(0, bottom, status))
+    # rule = 2 carries the shallowest good sample up to the surface (checked <= z_top_max above)
+    vb <- if (length(z) == 1) rep(v, length(zb)) else
+      stats::approx(z, v, xout = zb, rule = 2, ties = mean)$y
+    return(res(sum(vb) * bin_m, bottom, status))
+  }
+  if (z[1] > 0) { z <- c(0, z); v <- c(v[1], v) }
   if (max(z) > bottom) {
     vb <- stats::approx(z, v, xout = bottom, ties = mean)$y
     keep <- z < bottom
     z <- c(z[keep], bottom); v <- c(v[keep], vb)
   }
   x <- if (length(z) < 2) 0 else sum(diff(z) * (utils::head(v, -1) + utils::tail(v, -1)) / 2)
-  res(x, bottom, if (bottom < z_max) "shallow" else "ok")
+  res(x, bottom, status)
 }
 
 #' Relative geostrophic velocity between adjacent CTD stations
@@ -315,6 +354,18 @@ ctd_geostrophic <- function(casts, p_ref = 500, dp = 1, min_dx_km = 10) {
   d <- stats::aggregate(v[ok], by = list(depth = as.numeric(depth[ok])), FUN = mean)
   names(d) <- c("depth", "value")
   d[order(d$depth), , drop = FALSE]
+}
+
+# a centred running mean over a window in metres of depth (not samples): each sample's value is
+# the mean of the samples within half the window of it, so the window is truncated at the ends
+# of the profile and an uneven grid or a gap averages what is there. `depth` sorted, no NA.
+.running_mean_m <- function(depth, value, window_m) {
+  if (window_m <= 0 || length(value) < 2) return(as.numeric(value))
+  h  <- window_m / 2 + 1e-9
+  # the window's first and last sample, by binary search: linear in the profile, not quadratic
+  lo <- findInterval(depth - h, depth, left.open = TRUE) + 1L
+  hi <- findInterval(depth + h, depth)
+  vapply(seq_along(depth), function(i) mean(value[lo[i]:hi[i]]), numeric(1))
 }
 
 .haversine_km <- function(lat1, lon1, lat2, lon2) {
