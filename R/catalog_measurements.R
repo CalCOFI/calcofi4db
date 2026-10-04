@@ -495,7 +495,8 @@ CC_MEASUREMENT_REGISTRY_FILES <- c(
 
 #' Build the measurements catalog record (`measurements.json`)
 #'
-#' One entry per measurement key the release's `obs_env` carries — the registry's
+#' One entry per measurement key the release's `obs_env` carries (and, per
+#' `sample_measurement_datasets`, the per-cast types of `sample_measurement`) — the registry's
 #' `variable` where set, else the `measurement_type` — with its series (one per
 #' `measurement_type × dataset`), each series' counts by year, calendar month,
 #' depth band and quality code, its observed quantiles, the registry's declared
@@ -569,6 +570,20 @@ CC_MEASUREMENT_REGISTRY_FILES <- c(
 #' @param anomaly_min_cruises the cruises a year needs before it may set the
 #'   trend, the extremes or the shared `ymax` (default 2). Thinner years stay in
 #'   the series — the page draws them faded — but never steer a fitted line.
+#' @param sample_measurement_datasets dataset keys whose **per-cast** types in
+#'   `sample_measurement` also get a catalog entry (default `"calcofi_ctd-derived"`:
+#'   the mixed-layer depth, the chlorophyll-a maximum and integrated chlorophyll-a,
+#'   which have no depth and so never reach `obs_env`). Their rows are read from
+#'   `sample_measurement` joined to `sample` (time, cell, cruise) and, when present,
+#'   `sample_root` (`root_id`); their series carry `grain: "sample"`, no depth
+#'   bands and no anomaly. Used only when the connection carries `sample_measurement`
+#'   and `sample`; `NULL` or `character(0)` reads `obs_env` alone. The per-sample
+#'   types of other datasets (a bottle cast's weather, a tow's effort) are not
+#'   listed by default.
+#' @param sample_qual_ok_sql the quality predicate over alias `sm` (the
+#'   `sample_measurement` row) that stamps `qual_ok` on those per-cast rows, e.g.
+#'   `calcofi4r::cc_qual_ok_sql("sm")`. May be `NULL` only while every included row's
+#'   `measurement_qual` is empty: a flag is never read as good by default.
 #' @return A list ready for [write_measurements_catalog()] /
 #'   `jsonlite::write_json(auto_unbox = TRUE)`, validating against
 #'   `inst/schema/measurements.schema.json`.
@@ -585,7 +600,9 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
                                        supplemental_rows = NULL,
                                        registries = NULL, anomaly = TRUE,
                                        anomaly_trend = CC_MEASUREMENT_ANOMALY_TREND,
-                                       anomaly_min_cruises = CC_MEASUREMENT_ANOMALY_MIN_CRUISES) {
+                                       anomaly_min_cruises = CC_MEASUREMENT_ANOMALY_MIN_CRUISES,
+                                       sample_measurement_datasets = "calcofi_ctd-derived",
+                                       sample_qual_ok_sql = NULL) {
   stopifnot(
     "build_measurements_catalog(): `con` must be an open DBI connection to the release tables" =
       inherits(con, "DBIConnection"),
@@ -609,6 +626,47 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
   if (length(miss))
     stop("build_measurements_catalog(): obs_env is missing ", paste(miss, collapse = ", "),
          call. = FALSE)
+
+  # the rows counted: obs_env, plus the per-cast rows of `sample_measurement_datasets` --------
+  # A per-cast value (a mixed-layer depth) has no depth, so the release keeps it in
+  # sample_measurement and never in obs_env; without this it has no catalog entry at all.
+  # It is projected onto obs_env's columns through its `sample` (time, cell, cruise), with
+  # `grain` saying which table a row came from, so every count below reads one relation.
+  tbls0 <- DBI::dbListTables(con)
+  pc_ds <- unique(as.character(stats::na.omit(sample_measurement_datasets %||% character())))
+  use_pc <- length(pc_ds) > 0 && all(c("sample_measurement", "sample") %in% tbls0)
+  q_obs <- paste0("SELECT dataset_key, measurement_type, sample_key, root_id, grid_key, cruise_key, ",
+                  "datetime, CAST(year AS INTEGER) AS year, depth_min_m, depth_max_m, ",
+                  "CAST(value AS DOUBLE) AS value, CAST(measurement_qual AS VARCHAR) AS measurement_qual, ",
+                  "qual_ok, 'obs' AS grain FROM obs_env")
+  if (use_pc) {
+    ds_in <- paste0("'", gsub("'", "''", pc_ds), "'", collapse = ", ")
+    n_q <- as.numeric(DBI::dbGetQuery(con, paste0(
+      "SELECT count(*) AS n FROM sample_measurement WHERE dataset_key IN (", ds_in, ") ",
+      "AND measurement_qual IS NOT NULL AND trim(CAST(measurement_qual AS VARCHAR)) <> ''"))$n)
+    if (n_q > 0 && is.null(sample_qual_ok_sql))
+      stop("build_measurements_catalog(): ", n_q, " sample_measurement row(s) of ",
+           paste(pc_ds, collapse = ", "), " carry a measurement_qual; pass `sample_qual_ok_sql` ",
+           "(e.g. calcofi4r::cc_qual_ok_sql(\"sm\")) so a flag is never read as good",
+           call. = FALSE)
+    qok <- if (is.null(sample_qual_ok_sql)) "TRUE" else sample_qual_ok_sql
+    has_root <- "sample_root" %in% tbls0 &&
+      all(c("root_id", "root_sample_key") %in% DBI::dbListFields(con, "sample_root")) &&
+      "root_sample_key" %in% DBI::dbListFields(con, "sample")
+    q_obs <- paste0(q_obs, " UNION ALL ",
+      "SELECT sm.dataset_key, sm.measurement_type, sm.sample_key, ",
+      if (has_root) "r.root_id" else "CAST(NULL AS INTEGER)", " AS root_id, ",
+      "s.grid_key, s.cruise_key, s.datetime, CAST(year(s.datetime) AS INTEGER) AS year, ",
+      "CAST(NULL AS DOUBLE) AS depth_min_m, CAST(NULL AS DOUBLE) AS depth_max_m, ",
+      "CAST(sm.measurement_value AS DOUBLE) AS value, ",
+      "CAST(sm.measurement_qual AS VARCHAR) AS measurement_qual, ",
+      "COALESCE((", qok, "), TRUE) AS qual_ok, 'sample' AS grain ",
+      "FROM sample_measurement sm LEFT JOIN sample s ON s.sample_key = sm.sample_key ",
+      if (has_root) "LEFT JOIN sample_root r ON r.root_sample_key = s.root_sample_key " else "",
+      "WHERE sm.dataset_key IN (", ds_in, ")")
+  }
+  DBI::dbExecute(con, paste0("CREATE OR REPLACE TEMP VIEW _mm_obs AS ", q_obs))
+  on.exit(try(DBI::dbExecute(con, "DROP VIEW IF EXISTS _mm_obs"), silent = TRUE), add = TRUE)
 
   # the registry, with every column the builder reads present ---------------------
   mt <- as.data.frame(measurement_type, stringsAsFactors = FALSE)
@@ -665,35 +723,37 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
            max(o.value)                 FILTER (WHERE isfinite(o.value) AND {ok_b}) AS v_max,
            CAST(count(*) FILTER (WHERE isfinite(o.value) AND NOT ({in_b})) AS INTEGER) AS ob_n,
            min(o.value) FILTER (WHERE isfinite(o.value) AND NOT ({in_b})) AS ob_min,
-           max(o.value) FILTER (WHERE isfinite(o.value) AND NOT ({in_b})) AS ob_max
-    FROM obs_env o LEFT JOIN _mm_map m USING (measurement_type)
+           max(o.value) FILTER (WHERE isfinite(o.value) AND NOT ({in_b})) AS ob_max,
+           CAST(count(*) FILTER (WHERE o.grain = 'sample') AS INTEGER) AS n_sample_rows
+    FROM _mm_obs o LEFT JOIN _mm_map m USING (measurement_type)
     GROUP BY 1, 2 ORDER BY 1, 2"))
   stopifnot("build_measurements_catalog(): obs_env carries no rows" = nrow(ser) > 0)
   sy <- DBI::dbGetQuery(con, "
     SELECT dataset_key, measurement_type, CAST(year AS INTEGER) AS year,
            CAST(count(*) AS INTEGER) AS n
-    FROM obs_env WHERE year IS NOT NULL GROUP BY 1, 2, 3 ORDER BY 1, 2, 3")
+    FROM _mm_obs WHERE year IS NOT NULL GROUP BY 1, 2, 3 ORDER BY 1, 2, 3")
   sm <- DBI::dbGetQuery(con, "
     SELECT dataset_key, measurement_type,
            CAST(EXTRACT(month FROM datetime) AS INTEGER) AS month,
            CAST(count(*) AS INTEGER) AS n
-    FROM obs_env WHERE datetime IS NOT NULL GROUP BY 1, 2, 3 ORDER BY 1, 2, 3")
+    FROM _mm_obs WHERE datetime IS NOT NULL GROUP BY 1, 2, 3 ORDER BY 1, 2, 3")
   sd <- DBI::dbGetQuery(con, glue::glue("
     SELECT dataset_key, measurement_type, {.mm_band_sql('depth_min_m')} AS band,
            CAST(count(*) AS INTEGER) AS n
-    FROM obs_env WHERE depth_min_m IS NOT NULL AND isfinite(depth_min_m)
+    FROM _mm_obs WHERE depth_min_m IS NOT NULL AND isfinite(depth_min_m)
     GROUP BY 1, 2, 3 ORDER BY 1, 2, 3"))
   sq <- DBI::dbGetQuery(con, "
     SELECT dataset_key, measurement_type,
            COALESCE(CAST(measurement_qual AS VARCHAR), 'none') AS qual,
            CAST(count(*) AS INTEGER) AS n
-    FROM obs_env GROUP BY 1, 2, 3 ORDER BY 1, 2, 3")
+    FROM _mm_obs GROUP BY 1, 2, 3 ORDER BY 1, 2, 3")
   n_obs_env <- as.numeric(DBI::dbGetQuery(con, "SELECT count(*) AS n FROM obs_env")$n)
+  n_pc      <- sum(as.numeric(ser[["n_sample_rows"]]))
 
   # the keys ----------------------------------------------------------------------
   unknown <- setdiff(ser[["measurement_type"]], mt[["measurement_type"]])
   if (length(unknown))
-    stop("build_measurements_catalog(): obs_env carries measurement_type(s) absent from the registry: ",
+    stop("build_measurements_catalog(): obs_env / sample_measurement carry measurement_type(s) absent from the registry: ",
          paste(utils::head(unknown, 8), collapse = ", "), call. = FALSE)
   ser[["key"]] <- map[["mkey"]][match(ser[["measurement_type"]], map[["measurement_type"]])]
 
@@ -709,7 +769,7 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
            CAST(count(*) FILTER (WHERE o.qual_ok) AS INTEGER) AS qual_ok_n,
            CAST(min(o.year) AS INTEGER) AS year_min, CAST(max(o.year) AS INTEGER) AS year_max,
            min(o.depth_min_m) AS depth_min_m, max(o.depth_max_m) AS depth_max_m
-    FROM obs_env o JOIN _mm_map m USING (measurement_type)
+    FROM _mm_obs o JOIN _mm_map m USING (measurement_type)
     GROUP BY 1 ORDER BY 1")
   tot_i <- stats::setNames(seq_len(nrow(tot)), tot[["key"]])
 
@@ -926,7 +986,7 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
     obs_max <- .mm_num(ser[["v_max"]][i])
     obs_p95 <- .mm_num(ser[["v_p95"]][i])
     has_bound <- !is.na(.mm_num(ser[["valid_min"]][i])) || !is.na(.mm_num(ser[["valid_max"]][i]))
-    list(measurement_type = tp,
+    s_out <- list(measurement_type = tp,
          dataset_key      = dk,
          source_column    = .mm_chr(reg(tp, "_source_column")),
          qual_column      = .mm_chr(reg(tp, "_qual_column")),
@@ -958,6 +1018,10 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
            max = .mm_num(ser[["ob_max"]][i])) else NULL,
          flags = .arr(.mm_series_flags(tp, mt, mt_i, obs_min, obs_max, obs_p95,
                                        .mm_int(ser[["ob_n"]][i]), .mm_num(ser[["v_p05"]][i]))))
+    # additive: a per-cast series (sample_measurement, no depth) says so; an obs_env one
+    # carries no `grain`, so a 1.1 reader reads the series it always read
+    if (isTRUE(ser[["n_sample_rows"]][i] > 0)) s_out[["grain"]] <- "sample"
+    s_out
   }
 
   measurements <- lapply(keys, function(k) {
@@ -1028,6 +1092,7 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
     if (!is.null(m_scale))         out[["scale"]]   <- m_scale
     if (!is.null(m_why))           out[["why"]]     <- m_why
     if (!is.null(m_anom))          out[["anomaly"]] <- m_anom
+    if (all(ser[["n_sample_rows"]][rr] > 0)) out[["grain"]] <- "sample"
     out
   })
 
@@ -1080,7 +1145,8 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
          datasets     = length(ds_keys),
          obs_env_rows = .mm_int(n_obs_env),
          full_rows    = if (is.na(full_rows)) NA_integer_ else .mm_int(full_rows),
-         pages        = length(measurements)),
+         pages        = length(measurements),
+         sample_measurement_rows = .mm_int(n_pc)),
        datasets     = datasets,
        measurements = measurements,
        flags        = .arr(measurement_series_flags()))
@@ -1216,7 +1282,8 @@ validate_measurements_catalog <- function(
 #' @concept release
 measurements_catalog_checks <- function() c(
   obs_env_rows   = "error",   # counts$obs_env_rows == obs_env rows
-  series_total   = "error",   # sum of series[].n_values over keys == counts$obs_env_rows
+  sample_measurement_rows = "error",  # counts$sample_measurement_rows == the per-cast datasets' sample_measurement rows
+  series_total   = "error",   # sum of series[].n_values over keys == obs_env_rows + sample_measurement_rows
   series_count   = "error",   # counts$series == the number of series[] entries
   measurements   = "error",   # counts$measurements == length(measurements) == counts$pages
   totals_agree   = "error",   # each key's totals$n_values == the sum of its series
@@ -1275,8 +1342,24 @@ check_measurements_catalog <- function(record, con = NULL, dataset_record = NULL
     add("obs_env_rows", TRUE, counts[["obs_env_rows"]], counts[["obs_env_rows"]],
         "not re-measured (no connection)")
   }
-  add("series_total", isTRUE(ser_n == num(counts[["obs_env_rows"]])),
-      counts[["obs_env_rows"]], ser_n, "sum of series[].n_values over every key")
+  # the per-cast series (grain "sample") are counted from sample_measurement, so the arithmetic
+  # gate is obs_env + those rows; re-measured over the datasets those series name
+  n_pc_rec <- num(counts[["sample_measurement_rows"]])
+  pc_ds <- unique(unlist(lapply(series, function(ss) vapply(Filter(function(s)
+    identical(.s(s[["grain"]]), "sample"), ss), function(s) .s(s[["dataset_key"]]), ""))))
+  if (!is.null(con) && length(pc_ds)) {
+    n_pc <- as.numeric(DBI::dbGetQuery(con, paste0(
+      "SELECT count(*) AS n FROM sample_measurement WHERE dataset_key IN (",
+      paste0("'", gsub("'", "''", pc_ds), "'", collapse = ", "), ")"))$n)
+    add("sample_measurement_rows", isTRUE(n_pc_rec == n_pc), n_pc, n_pc_rec,
+        paste("sample_measurement rows of", paste(pc_ds, collapse = ", ")))
+  } else {
+    add("sample_measurement_rows", isTRUE(length(pc_ds) > 0 || n_pc_rec == 0), n_pc_rec, n_pc_rec,
+        if (length(pc_ds)) "not re-measured (no connection)" else "no per-cast series")
+  }
+  add("series_total", isTRUE(ser_n == num(counts[["obs_env_rows"]]) + n_pc_rec),
+      num(counts[["obs_env_rows"]]) + n_pc_rec, ser_n,
+      "sum of series[].n_values over every key == obs_env_rows + sample_measurement_rows")
   add("series_count", isTRUE(num(counts[["series"]]) == n_ser),
       n_ser, counts[["series"]], "counts$series is the number of series[] entries")
   add("measurements", isTRUE(num(counts[["measurements"]]) == length(ms) &&

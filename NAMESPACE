@@ -574,8 +574,7 @@ importFrom(rlang,
 )
 importFrom(stats,
   aggregate,
-  approx,
-  runmed
+  approx
 )
 importFrom(stringr,
   str_detect,

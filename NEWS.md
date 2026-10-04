@@ -1,4 +1,4 @@
-# calcofi4db (development version)
+# calcofi4db 4.18.0
 
 - **`hex7` on `sample` and `sample_root`** (Ben, 2026-10-02), so a per-sample value in
   `sample_measurement` (a cast's mixed-layer depth) can be drawn in a hexagon lens, on non-root
@@ -20,6 +20,43 @@
   than one resolution-7 cell).
 - The position-to-cell fragment behind `append_obs()` now refuses a `NaN` or infinite coordinate
   itself. `append_obs()` output is unchanged (it normalised its input already).
+- New `diff_stage_vs_release()` (+ `diff_stage_vs_release_rows()`): the dry run behind the rule
+  "a data fix is diffed against the release before it is re-staged". It compares an ingest's
+  staged `obs` / `obs_ctd_full` / `sample_measurement` with a release (a local release
+  directory, a `calcofi4r::cc_catalog()` list or a version resolved through calcofi4r) and
+  returns one row per table x `measurement_type`: rows on each side, unchanged, added,
+  removed, filled, blanked, NaN <-> NULL, changed beyond `tolerance`, qual changed, the
+  largest absolute change and the duplicate keys on each side. Every type on either side
+  (and every type named in `measurement_type =`) gets a row. The differing rows, largest
+  change first, are in `attr(, "rows")`. Optional `cruise_key =` / `measurement_type =`
+  filters; big tables are diffed in batches of whole cruises inside a 3 GB, 2-thread DuckDB.
+  `calcofi4r` joins Suggests.
+- **The CTD team's definitions are the defaults of the derived products** (Rasmus Swalethorp,
+  2026-09-23, `calcofi_ctd-derived` questions.csv Q01/Q02, adopted 2026-10-01;
+  CalCOFI/workflows#101, #102). Every value these produce for a cast changes:
+  - `ctd_mld()`: the sigma-theta threshold defaults to **0.02 kg m^-3** from the 10 m reference
+    (was 0.03). The criterion stays an argument (`threshold = 0.125`, `criterion = "temperature"`),
+    and the edge cases are unchanged: `no_reference` when the cast does not bracket 10 m,
+    `mixed_to_bottom` when it never crosses.
+  - `ctd_chl_max()`: the depth of the highest value of a **3 m running mean** (was a 5-sample
+    running median). The window is in metres of depth, not samples, so an uneven grid or a gap
+    averages what is there, and it is truncated at the ends of the profile. `window_m` defaults
+    to 3; `window_m = 0` takes the raw maximum. `chl_max_value` is the running mean at that depth.
+  - `ctd_integrate()` gains `method = c("sum", "trapezoid")` and `bin_m = 1`. The default `"sum"`
+    adds up the 1 m bins from the surface to `z_max`, the provider's rule for the CTD;
+    `"trapezoid"` is the old integral, for bottle data. A bin missing inside the profile is
+    interpolated, never counted as zero. The result gains a `method` column.
+- **`build_measurements_catalog()` reads the per-cast types.** The new
+  `sample_measurement_datasets` (default `"calcofi_ctd-derived"`) projects those datasets'
+  `sample_measurement` rows through `sample` (and `sample_root`) onto the `obs_env` columns. The
+  mixed-layer depth, chlorophyll-a maximum and integrated chlorophyll-a now each get a
+  `measurements.json` entry: series and measurement carry `grain: "sample"`, there are no depth
+  bands and no anomaly, and `counts$sample_measurement_rows` counts the rows. A per-cast row with
+  a `measurement_qual` needs the new `sample_qual_ok_sql` predicate, so a flag is never read as
+  good. `check_measurements_catalog()` gains the `sample_measurement_rows` check, and its
+  `series_total` gate is now `obs_env_rows + sample_measurement_rows`. The schema stays 1.1;
+  the additions are optional fields.
+>>>>>>> origin/ws-1004d
 
 # calcofi4db 4.17.3
 
@@ -32,18 +69,6 @@
   `min_n` (6) finite values over at least `min_span_m` (50) m, and is constant when its range is
   below `tol` (1e-9); a short cast is never flagged. Takes a DBI connection (the long table) or a
   data frame; the result's `judged` attribute gives the denominator per type.
-
-- New `diff_stage_vs_release()` (+ `diff_stage_vs_release_rows()`): the dry run behind the rule
-  "a data fix is diffed against the release before it is re-staged". It compares an ingest's
-  staged `obs` / `obs_ctd_full` / `sample_measurement` with a release (a local release
-  directory, a `calcofi4r::cc_catalog()` list or a version resolved through calcofi4r) and
-  returns one row per table x `measurement_type`: rows on each side, unchanged, added,
-  removed, filled, blanked, NaN <-> NULL, changed beyond `tolerance`, qual changed, the
-  largest absolute change and the duplicate keys on each side. Every type on either side
-  (and every type named in `measurement_type =`) gets a row. The differing rows, largest
-  change first, are in `attr(, "rows")`. Optional `cruise_key =` / `measurement_type =`
-  filters; big tables are diffed in batches of whole cruises inside a 3 GB, 2-thread DuckDB.
-  `calcofi4r` joins Suggests.
 
 # calcofi4db 4.17.2
 
