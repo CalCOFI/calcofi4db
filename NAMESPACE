@@ -152,6 +152,8 @@ export(derive_measurement_type_datasets)
 export(derive_registration_id)
 export(detect_csv_changes)
 export(determine_field_types)
+export(diff_stage_vs_release)
+export(diff_stage_vs_release_rows)
 export(discover_sample_levels)
 export(display_csv_changes)
 export(distribution_changes)
@@ -475,6 +477,8 @@ importFrom(dm,
   dm_set_colors
 )
 importFrom(dplyr,
+  across,
+  all_of,
   anti_join,
   arrange,
   bind_rows,
@@ -493,6 +497,7 @@ importFrom(dplyr,
   row_number,
   select,
   slice,
+  summarise,
   tbl,
   ungroup
 )
@@ -559,6 +564,7 @@ importFrom(readr,
 )
 importFrom(rlang,
   "%||%",
+  .data,
   hash,
   parse_expr,
   sym
@@ -584,6 +590,7 @@ importFrom(tibble,
 )
 importFrom(tidyr,unnest)
 importFrom(utils,
+  URLdecode,
   head,
   tail
 )
