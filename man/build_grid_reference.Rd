@@ -4,24 +4,43 @@
 \alias{build_grid_reference}
 \title{Build the shared \code{grid} reference table (deterministic, dataset-independent)}
 \usage{
-build_grid_reference(con, grid_tbl = "grid")
+build_grid_reference(
+  con,
+  grid_tbl = "grid",
+  cc_grid = calcofi4r::cc_grid,
+  cc_grid_ctrs = calcofi4r::cc_grid_ctrs
+)
 }
 \arguments{
 \item{con}{a DuckDB connection}
 
 \item{grid_tbl}{target table name (default \code{"grid"})}
+
+\item{cc_grid, cc_grid_ctrs}{the cells and their sites (defaults: the datasets bundled in
+calcofi4r); arguments so a test or a variant can pass its own}
 }
 \value{
 (invisibly) the row count of the created \code{grid} table
 }
 \description{
 Materializes the CalCOFI station grid from \code{calcofi4r::cc_grid} +
-\code{calcofi4r::cc_grid_ctrs} — the exact build previously embedded in
-\code{ingest_swfsc_ichthyo.qmd} (\code{mk_grid_v2} + \code{grid_to_db}). Because it is a pure
-deterministic function of the bundled \code{cc_grid}/\code{cc_grid_ctrs}, \code{grid_key} values
-are byte-identical wherever it runs, so promoting the build out of the ichthyo
-ingest into a shared reference is non-destructive. Requires the DuckDB connection
-to allow native GEOMETRY (open via \code{\link[=get_duckdb_con]{get_duckdb_con()}}, which sets
+\code{calcofi4r::cc_grid_ctrs} — the exact build embedded in \code{ingest_swfsc_ichthyo.qmd}
+(\code{mk_grid_v2} + \code{grid_to_db}), which is what writes the released \code{grid}. Because it
+is a pure deterministic function of the bundled \code{cc_grid}/\code{cc_grid_ctrs}, \code{grid_key}
+values are byte-identical wherever it runs. Requires the DuckDB connection to allow
+native GEOMETRY (open via \code{\link[=get_duckdb_con]{get_duckdb_con()}}, which sets
 \code{storage_compatibility_version = 'latest'}).
+}
+\details{
+The grid is whatever \code{cc_grid} is: from calcofi4r 1.25.0, one cell per official station (a
+Voronoi tessellation of the official station positions, confined to the previous cells it
+replaces) beside the previous cells beyond the official pattern, kept as they were
+(CalCOFI/workflows#130); before it, the idealized lattice (\code{cc_grid_v1}). The columns are the same either way:
+\code{grid_key} (\verb{st\{station\}-ln\{line\}}, \verb{_hist} for the historical pattern), \code{station},
+\code{line}, \code{shore}, \code{pattern}, \code{spacing}, \code{zone}, \code{area_km2}, \code{geom} (a polygon, or a
+multipolygon for a cell in several pieces) and \code{geom_ctr} (the cell's site: the station
+itself in the rebuilt grid, the centroid of the cell's largest polygon before). Where \code{cc_grid} carries its own \code{grid_key}, the key derived here must
+equal it, and the build stops otherwise. The two grids share key names whose polygons
+differ; \code{\link[=build_grid_crosswalk]{build_grid_crosswalk()}} maps one to the other.
 }
 \concept{model}

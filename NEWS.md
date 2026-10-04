@@ -1,3 +1,45 @@
+# calcofi4db 4.19.0
+
+## The rebuilt CalCOFI grid, and a crosswalk from the previous one (CalCOFI/workflows#130)
+
+- **`assign_grid_key()` is deterministic on a shared edge.** The rule was
+  `SELECT g.grid_key ... WHERE ST_Intersects(...) LIMIT 1` with no order, so a position on an edge
+  two cells share keyed to whichever the join met first. It is now `min(g.grid_key)`: the key that
+  sorts first in byte order, NULL when the position is in no cell. `calcofi4r::cc_grid_key()` is
+  the same rule in R. Measured on the rebuilt grid: the two agree on all 226,762 distinct `sample`
+  positions of v2026.10.01 and on all 20,848 cell vertices (10,027 of them on an edge two or more
+  cells share), where the old rule gave another key on about 5,000 (a different count each run,
+  being unordered).
+- **`build_grid_reference()` ships whatever `calcofi4r::cc_grid` is**, which from calcofi4r 1.25.0
+  is one cell per official station (the Voronoi tessellation of the 113 official positions,
+  confined to the previous cells it replaces) beside the 112 previous cells beyond the official
+  pattern, kept as they were: 225 cells. The table's columns are unchanged. New arguments
+  `cc_grid =` and `cc_grid_ctrs =` (defaults: the bundled datasets) let a test or a variant pass
+  its own cells; where `cc_grid` carries its own `grid_key` the key derived from `sta_key` must
+  equal it, and a duplicated key stops the build. `grid.geom_ctr` is the cell's station, no longer
+  the centroid of its largest polygon.
+- **New `grid_crosswalk()`, `build_grid_crosswalk()` and `check_grid_crosswalk()`.** 84 of the 113
+  station cells keep a key whose polygon changed, so nothing may map between the grids by name.
+  `build_grid_crosswalk(con)` writes the release table `grid_crosswalk` from the connection's
+  `grid` and `calcofi4r::cc_grid_v1`: one row per overlapping pair, `prev_grid_key`, `grid_key`,
+  `overlap_km2`, `prev_frac` (share of the previous cell) and `grid_frac` (share of the current
+  cell), areas in EPSG:3310; a pair that overlaps by under 100 m² is numerical and left out.
+  Shares are of the whole cell and are never rescaled: a previous cell's shares sum to one less
+  the part of it that is land under the finer coastline (180 of 218 sum to one within 1e-6; the
+  smallest sum is 0.978). A kept cell is an identity row. `check_grid_crosswalk()` is the gate:
+  every cell of both grids present, no repeated pair, no key of neither grid, no previous cell
+  over one, none under `min_cover` (0.95); a current cell over one is reported as `overlapped`,
+  because the previous cells overlap each other slightly along the line 93.3 / line 100 boundary.
+- **New `check_grid_key_assignment()`**: recomputes the cell of every `sample` position against
+  the connection's `grid` and stops when a row's `grid_key` is not that cell. 84 of the previous
+  keys survive as names over polygons that changed, so an ingest staged against the previous grid
+  passes the foreign-key check on `grid_key` while naming the wrong water: of v2026.10.01's keys,
+  185,761 are not the row's cell in the rebuilt grid and 59,688 of those are still valid keys. A
+  position inside a cell on a row with no key is reported, not failed. A row that inherits its
+  key from a parent event at another position (a cast-matched `calcofi_dic` sample) fails it.
+- `core_relationships()` declares `grid_crosswalk`'s primary key (`prev_grid_key`, `grid_key`) and
+  `release_sort_keys()` its export order, so `release_database.qmd` can freeze it.
+
 # calcofi4db 4.18.0
 
 - **`hex7` on `sample` and `sample_root`** (Ben, 2026-10-02), so a per-sample value in
@@ -56,7 +98,6 @@
   good. `check_measurements_catalog()` gains the `sample_measurement_rows` check, and its
   `series_total` gate is now `obs_env_rows + sample_measurement_rows`. The schema stays 1.1;
   the additions are optional fields.
->>>>>>> origin/ws-1004d
 
 # calcofi4db 4.17.3
 

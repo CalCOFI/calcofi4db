@@ -438,26 +438,41 @@ append_sample <- function(con, select_sql, sample_tbl = "sample") {
 #' Build the shared `grid` reference table (deterministic, dataset-independent)
 #'
 #' Materializes the CalCOFI station grid from `calcofi4r::cc_grid` +
-#' `calcofi4r::cc_grid_ctrs` — the exact build previously embedded in
-#' `ingest_swfsc_ichthyo.qmd` (`mk_grid_v2` + `grid_to_db`). Because it is a pure
-#' deterministic function of the bundled `cc_grid`/`cc_grid_ctrs`, `grid_key` values
-#' are byte-identical wherever it runs, so promoting the build out of the ichthyo
-#' ingest into a shared reference is non-destructive. Requires the DuckDB connection
-#' to allow native GEOMETRY (open via [get_duckdb_con()], which sets
+#' `calcofi4r::cc_grid_ctrs` — the exact build embedded in `ingest_swfsc_ichthyo.qmd`
+#' (`mk_grid_v2` + `grid_to_db`), which is what writes the released `grid`. Because it
+#' is a pure deterministic function of the bundled `cc_grid`/`cc_grid_ctrs`, `grid_key`
+#' values are byte-identical wherever it runs. Requires the DuckDB connection to allow
+#' native GEOMETRY (open via [get_duckdb_con()], which sets
 #' `storage_compatibility_version = 'latest'`).
+#'
+#' The grid is whatever `cc_grid` is: from calcofi4r 1.25.0, one cell per official station (a
+#' Voronoi tessellation of the official station positions, confined to the previous cells it
+#' replaces) beside the previous cells beyond the official pattern, kept as they were
+#' (CalCOFI/workflows#130); before it, the idealized lattice (`cc_grid_v1`). The columns are the same either way:
+#' `grid_key` (`st{station}-ln{line}`, `_hist` for the historical pattern), `station`,
+#' `line`, `shore`, `pattern`, `spacing`, `zone`, `area_km2`, `geom` (a polygon, or a
+#' multipolygon for a cell in several pieces) and `geom_ctr` (the cell's site: the station
+#' itself in the rebuilt grid, the centroid of the cell's largest polygon before). Where `cc_grid` carries its own `grid_key`, the key derived here must
+#' equal it, and the build stops otherwise. The two grids share key names whose polygons
+#' differ; [build_grid_crosswalk()] maps one to the other.
 #'
 #' @param con a DuckDB connection
 #' @param grid_tbl target table name (default `"grid"`)
+#' @param cc_grid,cc_grid_ctrs the cells and their sites (defaults: the datasets bundled in
+#'   calcofi4r); arguments so a test or a variant can pass its own
 #' @return (invisibly) the row count of the created `grid` table
 #' @export
 #' @concept model
-build_grid_reference <- function(con, grid_tbl = "grid") {
+build_grid_reference <- function(con, grid_tbl = "grid",
+                                 cc_grid      = calcofi4r::cc_grid,
+                                 cc_grid_ctrs = calcofi4r::cc_grid_ctrs) {
   for (pkg in c("calcofi4r", "sf", "units", "dplyr", "tidyr"))
     if (!requireNamespace(pkg, quietly = TRUE))
       stop("build_grid_reference() requires the '", pkg, "' package.", call. = FALSE)
   .load_spatial(con)  # ST_GeomFromHEXWKB / native GEOMETRY
+  key_given <- if ("grid_key" %in% names(cc_grid)) as.character(cc_grid$grid_key) else NULL
 
-  cc_grid_v2 <- calcofi4r::cc_grid |>
+  cc_grid_v2 <- cc_grid |>
     dplyr::rename(dplyr::any_of(c(site_key = "sta_key"))) |>
     dplyr::select(
       "site_key",
@@ -479,7 +494,17 @@ build_grid_reference <- function(con, grid_tbl = "grid") {
     dplyr::mutate(
       area_km2 = as.numeric(units::set_units(sf::st_area(.data$geom), "km^2")))
 
-  cc_grid_ctrs_v2 <- calcofi4r::cc_grid_ctrs |>
+  # one key per cell, and the key the bundled grid states for itself: a key is the contract
+  # sample.grid_key and the crosswalk rest on, so a drift between the two derivations stops here
+  if (anyDuplicated(cc_grid_v2$grid_key))
+    stop("build_grid_reference(): duplicated grid_key: ",
+         paste(unique(cc_grid_v2$grid_key[duplicated(cc_grid_v2$grid_key)]), collapse = ", "), call. = FALSE)
+  if (!is.null(key_given) && !identical(as.character(cc_grid_v2$grid_key), key_given))
+    stop("build_grid_reference(): the key derived from sta_key differs from cc_grid$grid_key for ",
+         paste(utils::head(key_given[as.character(cc_grid_v2$grid_key) != key_given], 5), collapse = ", "),
+         call. = FALSE)
+
+  cc_grid_ctrs_v2 <- cc_grid_ctrs |>
     dplyr::rename(dplyr::any_of(c(site_key = "sta_key"))) |>
     dplyr::select("site_key", pattern = "sta_pattern") |>
     dplyr::left_join(sf::st_drop_geometry(cc_grid_v2), by = c("site_key", "pattern")) |>
@@ -747,6 +772,7 @@ core_relationships <- function(tables) {
     spatial            = "spatial_key",
     spatial_attribute  = c("spatial_key", "fld"),
     climatology        = c("dataset_key", "site_key", "month", "depth_bin", "measurement_type"),
+    grid_crosswalk     = c("prev_grid_key", "grid_key"),
     dataset            = "dataset_key",
     lookup             = "lookup_id",
     taxon_group        = c("taxon_group_key", "taxon_key"))
