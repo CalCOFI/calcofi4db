@@ -4,7 +4,9 @@
 # aggregate it to any grain in milliseconds — what it cannot do is chase footers over the 200 MB `obs`
 # twin or join `sample`, `sample_measurement` and `taxon` on every query. So the release cuts, once:
 #   sample_root     one row per root sampling event with a dense integer `root_id` (the join key the
-#                   browser objects share; `root_sample_key` is the string it stands for)
+#                   browser objects share; `root_sample_key` is the string it stands for) and, since
+#                   2026-10, the root's own `hex7` carried from `sample` (add_sample_hex7()), so a
+#                   per-sample value in `sample_measurement` can be drawn in a hexagon
 #   obs_bio         the bio realm, slim: root_id, hex7 (one UBIGINT H3 cell at res 7; coarser parents
 #                   are bit arithmetic, see h3_parent_sql()), depth_bin, qual_ok, the gear and effort
 #                   of the observation's own sample, and the D8 densities + effort_class
@@ -38,11 +40,99 @@ h3_parent_sql <- function(hex, res) {
           hex, res, 3L * (15L - res))
 }
 
+# `hex7` from a res-10 H3 cell: the ONE fragment behind obs_bio.hex7 / obs_env.hex7
+# (build_obs_slim()) and sample.hex7 / sample_root.hex7 (add_sample_hex7()). The cell it is given
+# comes from .hex_expr() (R/model.R) on both sides, so `hex7` has a single definition everywhere:
+# the resolution-7 PARENT of the resolution-10 cell of the position — which is not the resolution-7
+# cell the position falls in (H3 cells do not nest exactly; the two differ for 7 % of the sample
+# positions of v2026.10.01).
+.hex7_sql <- function(hex) paste0("CASE WHEN ", hex, " IS NULL THEN NULL ELSE ", h3_parent_sql(hex, 7), " END")
+
+# a finite position: both coordinates present and neither NaN nor infinite. NaN is not NULL.
+.finite_position_sql <- function(lat = "latitude", lng = "longitude")
+  paste0("COALESCE(isfinite(", lat, ") AND isfinite(", lng, "), FALSE)")
+
+#' Stamp `hex7` on `sample` (or any table with a position)
+#'
+#' Rebuilds `tbl` with a trailing `hex7` column: the resolution-7 H3 cell (`UBIGINT`) that is the
+#' **parent of the resolution-10 cell** of the row's `latitude` / `longitude` — the same two SQL
+#' fragments that give an observation its `hex_id` ([append_obs()]) and `obs_bio` / `obs_env` their
+#' `hex7` ([build_obs_slim()]), so a sampling event and an observation at the same position are in
+#' the same hexagon by construction. It is deliberately **not** the resolution-7 cell the position
+#' falls in: H3 cells do not nest exactly, and the two disagree near every cell edge.
+#'
+#' `hex7` is `NULL` where the row has no finite position — either coordinate `NULL`, `NaN` or
+#' infinite. The coordinates themselves are left as they are: this function stamps, it does not
+#' clean.
+#'
+#' The table is recreated by `SELECT` rather than `UPDATE`d or `ALTER`ed, because DuckDB cannot
+#' update a table carrying a CRS-tagged `GEOMETRY` column (the `geom` on `sample`); every other
+#' column keeps its name, position and type, and the row count is asserted unchanged. A `hex7`
+#' already on the table is recomputed, never trusted. A view becomes a table.
+#'
+#' Why the release needs it: a per-sample value in `sample_measurement` (a cast's mixed-layer depth)
+#' has no observation row to borrow a cell from, so without `hex7` on its sample it cannot be drawn
+#' in a hexagon lens. [build_sample_root()] carries the column onto `sample_root`, and
+#' [check_sample_hex7()] is the gate.
+#'
+#' @param con DuckDB connection holding `tbl`; the community `h3` extension is loaded.
+#' @param tbl table (or view) to stamp, with `lat` and `lng` columns.
+#' @param lat,lng names of the position columns.
+#' @param res_max the resolution of the cell `hex7` is the parent of (the resolution of
+#'   `obs.hex_id`); change it only together with [append_obs()]'s.
+#' @return Invisibly, the number of rows carrying a `hex7`.
+#' @seealso [h3_parent_sql()] for the coarser parents of a `hex7`.
+#' @export
+#' @concept release
+#' @importFrom DBI dbExecute dbGetQuery dbListFields dbQuoteIdentifier
+#' @importFrom glue glue
+add_sample_hex7 <- function(con, tbl = "sample", lat = "latitude", lng = "longitude",
+                            res_max = CC_H3_RES_MAX) {
+  stopifnot(is.character(tbl), length(tbl) == 1, res_max >= 7)
+  .load_h3(con)
+  cols_q <- "SELECT column_name, data_type FROM information_schema.columns
+             WHERE table_schema = current_schema() AND table_name = '{tb}' AND column_name <> 'hex7'
+             ORDER BY ordinal_position"
+  before <- dbGetQuery(con, glue(cols_q, tb = tbl))
+  miss <- setdiff(c(lat, lng), before$column_name)
+  if (length(miss))
+    stop("add_sample_hex7(): `", tbl, "` has no column(s) ", paste(miss, collapse = ", "),
+         " to take a position from", call. = FALSE)
+  kind <- dbGetQuery(con, glue(
+    "SELECT table_type FROM information_schema.tables
+     WHERE table_schema = current_schema() AND table_name = '{tbl}'"))$table_type
+  n0   <- dbGetQuery(con, glue('SELECT count(*) AS n FROM "{tbl}"'))$n
+  cols <- paste(dbQuoteIdentifier(con, before$column_name), collapse = ", ")
+  tmp  <- paste0("_hex7_", tbl)
+  # the res-10 cell once, in an inner query, then its parent: the two fragments obs uses, in order
+  dbExecute(con, glue('
+    CREATE OR REPLACE TABLE "{tmp}" AS
+    SELECT {cols}, {.hex7_sql("_hex_id")} AS hex7
+    FROM (SELECT *, {.hex_expr(res_max, lat, lng)} AS _hex_id FROM "{tbl}")'))
+  n <- dbGetQuery(con, glue('SELECT count(*) AS n, count(hex7) AS n_hex7 FROM "{tmp}"'))
+  after <- dbGetQuery(con, glue(cols_q, tb = tmp))
+  if (n$n != n0 || !identical(after, before)) {
+    dbExecute(con, glue('DROP TABLE "{tmp}"'))
+    stop("add_sample_hex7(): rebuilding `", tbl, "` changed its rows or the type of a column; ",
+         "nothing was replaced", call. = FALSE)
+  }
+  dbExecute(con, glue('DROP {if (grepl("VIEW", kind)) "VIEW" else "TABLE"} "{tbl}"'))
+  dbExecute(con, glue('ALTER TABLE "{tmp}" RENAME TO "{tbl}"'))
+  message(glue("hex7 on {tbl}: {n$n_hex7} of {n$n} rows (NULL = no finite position)"))
+  invisible(n$n_hex7)
+}
+
 #' Root sampling events with a dense integer id
 #'
 #' One row per `sample` with no parent, numbered by `dense_rank()` over `sample_key` so the id is
-#' deterministic across runs; carries the root's position, time, cruise, gear and seafloor depth.
-#' Every browser object joins on `root_id`; `root_sample_key` is what it stands for.
+#' deterministic across runs; carries the root's position, time, cruise, gear, seafloor depth and —
+#' last — `hex7`, the root's own H3 cell exactly as `sample` holds it. Every browser object joins on
+#' `root_id`; `root_sample_key` is what it stands for.
+#'
+#' `hex7` is **carried**, never recomputed here, so `sample.hex7` and `sample_root.hex7` cannot
+#' disagree for a root: stamp `sample` with [add_sample_hex7()] first. On a `sample` without the
+#' column `hex7` is `NULL` (like `seafloor_depth_m`) and a message says so; [check_sample_hex7()]
+#' fails such a release.
 #'
 #' @param con DuckDB connection holding `sample`.
 #' @param tbl name of the table to (re)create.
@@ -52,16 +142,102 @@ h3_parent_sql <- function(hex, res) {
 #' @importFrom DBI dbExecute dbGetQuery dbListFields
 #' @importFrom glue glue
 build_sample_root <- function(con, tbl = "sample_root") {
-  seafloor <- if ("seafloor_depth_m" %in% dbListFields(con, "sample")) "seafloor_depth_m" else "NULL::DOUBLE AS seafloor_depth_m"
+  flds     <- dbListFields(con, "sample")
+  seafloor <- if ("seafloor_depth_m" %in% flds) "seafloor_depth_m" else "NULL::DOUBLE AS seafloor_depth_m"
+  hex7     <- if ("hex7" %in% flds) "hex7::UBIGINT AS hex7" else "NULL::UBIGINT AS hex7"
+  if (!"hex7" %in% flds)
+    message("build_sample_root(): `sample` has no hex7, so ", tbl, ".hex7 is NULL - run add_sample_hex7() first")
   dbExecute(con, glue("
     CREATE OR REPLACE TABLE {tbl} AS
     SELECT dense_rank() OVER (ORDER BY sample_key)::INTEGER AS root_id, sample_key AS root_sample_key,
            dataset_key, sample_type, grid_key, cruise_key, order_occ, latitude, longitude, datetime,
-           depth_min_m, depth_max_m, tow_type, {seafloor}
+           depth_min_m, depth_max_m, tow_type, {seafloor}, {hex7}
     FROM sample WHERE parent_sample_key IS NULL ORDER BY sample_key"))
   n <- dbGetQuery(con, glue("SELECT count(*) AS n, count(DISTINCT root_id) AS n_id FROM {tbl}"))
   stopifnot(n$n == n$n_id)
   invisible(n$n)
+}
+
+#' Check `hex7` on `sample` and `sample_root` against the positions and against the observations
+#'
+#' The release gate for [add_sample_hex7()]. One row per rule and table:
+#'
+#' - `position_has_hex7` — `n` rows with a finite position, `n_bad` of them without a `hex7`;
+#' - `hex7_has_position` — `n` rows with a `hex7`, `n_bad` of them without a finite position.
+#'   Together these two say `count(hex7)` equals the count of finite positions, row for row;
+#' - `hex7_is_res7` — `n` rows with a `hex7`, `n_bad` whose H3 resolution field is not 7;
+#' - `root_equals_sample` — `n` root samples (no parent), `n_bad` roots whose `hex7` differs
+#'   between the two tables, plus roots missing from `root_tbl`, plus `root_tbl` rows that are not
+#'   a root sample;
+#' - `obs_same_position` (per table of `obs_tbls` present) — `n` observations sitting at exactly
+#'   their own sample's position, `n_bad` of them in another cell than their sample. This is the
+#'   proof, on the data, that the sample side and the observation side share one definition;
+#' - `obs_other_cell` — `n` observations where both the row and its sample carry a cell, `n_bad` in
+#'   another cell than their sample. **Reported, never a failure**: an observation carries its own
+#'   position (each scan of a CTD cast, a DIC draw), the sample carries the event's, and a cast that
+#'   drifts across a cell edge puts some of its scans in the neighbouring hexagon.
+#'
+#' A finite position is both coordinates present and neither `NaN` nor infinite. Needs no
+#' extension: the resolution is read from the cell's own bits.
+#'
+#' @param con DuckDB connection.
+#' @param sample_tbl,root_tbl the stamped `sample` and the [build_sample_root()] table.
+#' @param obs_tbls observation tables carrying `sample_key`, `latitude`, `longitude`, `hex7`; those
+#'   absent from `con` are skipped.
+#' @return A tibble `check`, `table`, `n`, `n_bad`, `status` (`ok` | `fail` | `report`). Assert
+#'   `all(status != "fail")`.
+#' @export
+#' @concept validation
+#' @importFrom DBI dbGetQuery dbListFields dbListTables
+#' @importFrom glue glue
+check_sample_hex7 <- function(con, sample_tbl = "sample", root_tbl = "sample_root",
+                              obs_tbls = c("obs_bio", "obs_env")) {
+  have <- dbListTables(con)
+  for (tb in c(sample_tbl, root_tbl)) {
+    if (!tb %in% have)
+      stop("check_sample_hex7(): no table `", tb, "`", call. = FALSE)
+    if (!"hex7" %in% dbListFields(con, tb))
+      stop("check_sample_hex7(): `", tb, "` has no hex7 column - run add_sample_hex7() on `",
+           sample_tbl, "`, then build_sample_root()", call. = FALSE)
+  }
+  pos <- .finite_position_sql()
+  row <- function(check, table, n, n_bad, report = FALSE) tibble::tibble(
+    check = check, table = table, n = as.numeric(n), n_bad = as.numeric(n_bad),
+    status = if (report) "report" else if (as.numeric(n_bad) > 0) "fail" else "ok")
+  per_tbl <- function(tb) {
+    d <- dbGetQuery(con, glue('
+      SELECT count(*) FILTER (WHERE {pos})                              AS n_position,
+             count(*) FILTER (WHERE {pos} AND hex7 IS NULL)             AS n_missing,
+             count(hex7)                                                AS n_hex7,
+             count(*) FILTER (WHERE hex7 IS NOT NULL AND NOT ({pos}))   AS n_orphan,
+             count(*) FILTER (WHERE ((hex7 >> 52) & 15) <> 7)           AS n_not_res7
+      FROM "{tb}"'))
+    dplyr::bind_rows(
+      row("position_has_hex7", tb, d$n_position, d$n_missing),
+      row("hex7_has_position", tb, d$n_hex7,     d$n_orphan),
+      row("hex7_is_res7",      tb, d$n_hex7,     d$n_not_res7))
+  }
+  r <- dbGetQuery(con, glue('
+    WITH s AS (SELECT sample_key, hex7 FROM "{sample_tbl}" WHERE parent_sample_key IS NULL)
+    SELECT count(s.sample_key) AS n_root,
+           count(*) FILTER (WHERE s.sample_key IS NULL OR r.root_sample_key IS NULL
+                               OR s.hex7 IS DISTINCT FROM r.hex7) AS n_bad
+    FROM s FULL JOIN "{root_tbl}" r ON r.root_sample_key = s.sample_key'))
+  out <- dplyr::bind_rows(per_tbl(sample_tbl), per_tbl(root_tbl),
+                          row("root_equals_sample", root_tbl, r$n_root, r$n_bad))
+  for (tb in intersect(obs_tbls, have)) {
+    o <- dbGetQuery(con, glue('
+      SELECT count(*) FILTER (WHERE o.latitude = s.latitude AND o.longitude = s.longitude) AS n_same_pos,
+             count(*) FILTER (WHERE o.latitude = s.latitude AND o.longitude = s.longitude
+                                AND o.hex7 IS DISTINCT FROM s.hex7)                        AS n_same_pos_bad,
+             count(*) FILTER (WHERE o.hex7 IS NOT NULL AND s.hex7 IS NOT NULL)             AS n_both,
+             count(*) FILTER (WHERE o.hex7 <> s.hex7)                                      AS n_other
+      FROM "{tb}" o JOIN "{sample_tbl}" s USING (sample_key)'))
+    out <- dplyr::bind_rows(out,
+      row("obs_same_position", tb, o$n_same_pos, o$n_same_pos_bad),
+      row("obs_other_cell",    tb, o$n_both,     o$n_other, report = TRUE))
+  }
+  out
 }
 
 #' The bio or env realm of `obs`, browser-shaped — and, since 3.31.0, its physical store
@@ -117,7 +293,7 @@ build_obs_slim <- function(con, realm = c("bio", "env"), qual_ok_sql, density_sq
              o.measurement_qual, o.measurement_prec, ({qual_ok_sql}) AS qual_ok,
              s.tow_type, e.std_haul_factor, e.prop_sorted, e.volume_sampled_m3,
              o.hex_id,
-             CASE WHEN o.hex_id IS NULL THEN NULL ELSE {h3_parent_sql('o.hex_id', 7)} END AS hex7
+             {.hex7_sql('o.hex_id')} AS hex7
       FROM obs o
       LEFT JOIN sample s USING (sample_key)
       LEFT JOIN sample_root r ON r.root_sample_key = COALESCE(s.root_sample_key, s.sample_key)

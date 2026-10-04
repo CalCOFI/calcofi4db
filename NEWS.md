@@ -1,3 +1,26 @@
+# calcofi4db (development version)
+
+- **`hex7` on `sample` and `sample_root`** (Ben, 2026-10-02), so a per-sample value in
+  `sample_measurement` (a cast's mixed-layer depth) can be drawn in a hexagon lens, on non-root
+  samples too. New `add_sample_hex7()` rebuilds `sample` (by `SELECT`, never `UPDATE`: the table
+  holds a CRS-tagged `geom`) with a trailing `UBIGINT` `hex7`: the resolution-7 **parent of the
+  resolution-10 cell** of the row's position, `NULL` where either coordinate is `NULL`, `NaN` or
+  infinite. It is built from the same two SQL fragments as `obs.hex_id` (`append_obs()`) and
+  `obs_bio.hex7` / `obs_env.hex7` (`build_obs_slim()`), so the two sides cannot drift. It is not
+  the resolution-7 cell the position falls in: H3 cells do not nest exactly, and on v2026.10.01
+  the two differ for 101,770 of 1,463,329 positioned samples.
+- **`build_sample_root()` carries `hex7`** as its last column, copied from `sample` and never
+  recomputed, so the two tables agree for every root. On a `sample` that was not stamped the
+  column is `NULL` and a message says so.
+- New `check_sample_hex7()`, the release gate: `hex7` is present exactly where the position is
+  finite, is a resolution-7 cell, is equal on `sample` and `sample_root` for every root, and an
+  observation sitting at its own sample's position is in its sample's cell. An observation in
+  another cell than its sample is reported, not failed: a CTD scan carries its own position, the
+  cast carries one (893 of the 9,275 `calcofi_ctd-derived` casts of v2026.10.01 have scans in more
+  than one resolution-7 cell).
+- The position-to-cell fragment behind `append_obs()` now refuses a `NaN` or infinite coordinate
+  itself. `append_obs()` output is unchanged (it normalised its input already).
+
 # calcofi4db 4.17.3
 
 - New `check_depth_constant_series()`: per (cast, measurement type), the series that hold one
