@@ -1,3 +1,14 @@
+# calcofi4db 4.19.1
+
+- **A failed `check_data_integrity()` now stops a non-interactive render.** It used to set knitr
+  `eval = FALSE` on the remaining chunks and return, so `quarto render` exited 0 and `targets`
+  recorded the target as built with nothing written: `ingest_swfsc_ichthyo.qmd` halted at this
+  checkpoint on the provider's 2026-09 exports (30 table-level mismatches by 2026-10-04) while
+  v2026.09.11 to v2026.10.01 shipped its 2026-09-04 shard. New argument `stop_on_fail`, default
+  `!rlang::is_interactive()`: `stop()` with the mismatch summary in a render or `tar_make()`; the
+  old `eval = FALSE` behaviour interactively, or with `stop_on_fail = FALSE` to render the failure
+  report on purpose. `check_multiple_datasets()` gains the same argument.
+
 # calcofi4db 4.19.0
 
 ## The rebuilt CalCOFI grid, and a crosswalk from the previous one (CalCOFI/workflows#130)

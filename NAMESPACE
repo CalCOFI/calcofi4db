@@ -573,6 +573,7 @@ importFrom(rlang,
   "%||%",
   .data,
   hash,
+  is_interactive,
   parse_expr,
   sym
 )
