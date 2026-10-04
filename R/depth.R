@@ -221,6 +221,14 @@ check_depth_bounds <- function(con, tbls = c("sample", "obs"),
 #' position plus `tolerance_m`. Positions outside the raster are `unknown`, not
 #' violations.
 #'
+#' A dataset named in `nominal_datasets` publishes a NOMINAL depth: the maximum a
+#' gear could reach, not where it went (SWFSC ichthyoplankton `Net.NetDepth`, the
+#' maximum possible depth of the net). Where the sea floor is shallower the net
+#' simply did not get there, so that is not a finding of the same kind. Those
+#' datasets' sample and observation depths are left out of the main measure and
+#' measured on their own: attribute `nominal` (same columns as the result) and
+#' `n_over_nominal` in `summary`, so a release can ratchet each separately.
+#'
 #' @param con DBI connection holding `sample_tbl` (with `parent_sample_key`,
 #'   `root_sample_key`) and optionally `obs_tbl`.
 #' @param seafloor Result of [sample_seafloor()] (or a GEBCO tif path, in which
@@ -228,59 +236,93 @@ check_depth_bounds <- function(con, tbls = c("sample", "obs"),
 #' @param sample_tbl,obs_tbl Table names; `obs_tbl` may be absent.
 #' @param tolerance_m Metres a sample may exceed the neighbourhood-deepest cell
 #'   before it is a finding (default 10).
+#' @param nominal_datasets `dataset_key`s whose depths are nominal maxima, measured
+#'   apart from the rest (default none: every depth is in the main measure).
 #' @return A tibble of violators — `sample_key`, `dataset_key`, `sample_type`,
 #'   `cruise_key`, `longitude`, `latitude`, `depth_m`, `seafloor_depth_m`,
-#'   `seafloor_max3x3_m`, `excess_m`, `on_land` — worst first, with attribute
-#'   `summary`: per-dataset `n_root`, `n_unknown`, `n_over` and `max_excess_m`.
+#'   `seafloor_max3x3_m`, `excess_m`, `on_land` — worst first, with attributes
+#'   `summary` (per-dataset `n_root`, `n_unknown`, `n_over`, `max_excess_m`,
+#'   `n_over_nominal`) and `nominal` (the violators by a nominal depth alone, same
+#'   columns).
 #' @export
 #' @concept validation
 #' @importFrom DBI dbGetQuery dbListTables dbWriteTable dbExecute
 #' @importFrom glue glue
 check_depth_vs_seafloor <- function(con, seafloor, sample_tbl = "sample",
-                                    obs_tbl = "obs", tolerance_m = 10) {
+                                    obs_tbl = "obs", tolerance_m = 10,
+                                    nominal_datasets = character()) {
   if (is.character(seafloor)) seafloor <- sample_seafloor(con, seafloor, sample_tbl)
-  stopifnot(all(c("sample_key", "seafloor_depth_m", "seafloor_max3x3_m") %in% names(seafloor)))
+  stopifnot(all(c("sample_key", "seafloor_depth_m", "seafloor_max3x3_m") %in% names(seafloor)),
+            is.character(nominal_datasets))
   DBI::dbWriteTable(con, "_sf", seafloor, overwrite = TRUE)
   has_obs <- !is.null(obs_tbl) && obs_tbl %in% DBI::dbListTables(con)
+  # each row's depth counts toward the measured (m_) or the nominal (n_) depth by its OWN
+  # dataset: a nominal dataset's depths never enter the main measure
+  nom_in <- if (length(nominal_datasets))
+    paste0("(", paste(DBI::dbQuoteString(con, nominal_datasets), collapse = ", "), ")") else
+    "(NULL)"
+  dep  <- function(a) glue::glue("GREATEST(COALESCE({a}.depth_max_m, 0), COALESCE({a}.depth_min_m, 0))")
+  isn  <- function(a) glue::glue("COALESCE({a}.dataset_key IN {nom_in}, FALSE)")
+  m_of <- function(a) glue::glue("CASE WHEN {isn(a)} THEN 0 ELSE {dep(a)} END")
+  n_of <- function(a) glue::glue("CASE WHEN {isn(a)} THEN {dep(a)} ELSE 0 END")
   obs_cte <- if (has_obs) glue::glue("
     ob AS (
-      SELECT s.root_sample_key AS sample_key, MAX(GREATEST(COALESCE(o.depth_max_m, 0), COALESCE(o.depth_min_m, 0))) AS d_obs
+      SELECT s.root_sample_key AS sample_key, MAX({m_of('o')}) AS m_obs, MAX({n_of('o')}) AS n_obs
       FROM {obs_tbl} o JOIN {sample_tbl} s USING (sample_key) GROUP BY 1),") else
-    "ob AS (SELECT NULL::VARCHAR AS sample_key, NULL::DOUBLE AS d_obs WHERE FALSE),"
+    "ob AS (SELECT NULL::VARCHAR AS sample_key, NULL::DOUBLE AS m_obs, NULL::DOUBLE AS n_obs WHERE FALSE),"
   d <- DBI::dbGetQuery(con, glue::glue("
     WITH root AS (
-      SELECT sample_key, dataset_key, sample_type, cruise_key, longitude, latitude,
-             GREATEST(COALESCE(depth_max_m, 0), COALESCE(depth_min_m, 0)) AS d_self
-      FROM {sample_tbl} WHERE parent_sample_key IS NULL),
+      SELECT r.sample_key, r.dataset_key, r.sample_type, r.cruise_key, r.longitude, r.latitude,
+             {m_of('r')} AS m_self, {n_of('r')} AS n_self
+      FROM {sample_tbl} r WHERE r.parent_sample_key IS NULL),
     kid AS (
-      SELECT root_sample_key AS sample_key,
-             MAX(GREATEST(COALESCE(depth_max_m, 0), COALESCE(depth_min_m, 0))) AS d_kid
-      FROM {sample_tbl} WHERE parent_sample_key IS NOT NULL GROUP BY 1),
+      SELECT k.root_sample_key AS sample_key, MAX({m_of('k')}) AS m_kid, MAX({n_of('k')}) AS n_kid
+      FROM {sample_tbl} k WHERE k.parent_sample_key IS NOT NULL GROUP BY 1),
     {obs_cte}
     all_d AS (
-      SELECT r.*, GREATEST(r.d_self, COALESCE(k.d_kid, 0), COALESCE(o.d_obs, 0)) AS depth_m
+      SELECT r.*,
+             GREATEST(r.m_self, COALESCE(k.m_kid, 0), COALESCE(o.m_obs, 0)) AS depth_m,
+             GREATEST(r.n_self, COALESCE(k.n_kid, 0), COALESCE(o.n_obs, 0)) AS depth_nominal_m
       FROM root r LEFT JOIN kid k USING (sample_key) LEFT JOIN ob o USING (sample_key))
     SELECT a.sample_key, a.dataset_key, a.sample_type, a.cruise_key, a.longitude, a.latitude,
-           a.depth_m, f.seafloor_depth_m, f.seafloor_max3x3_m,
+           a.depth_m, a.depth_nominal_m, f.seafloor_depth_m, f.seafloor_max3x3_m,
            a.depth_m - f.seafloor_max3x3_m AS excess_m,
+           a.depth_nominal_m - f.seafloor_max3x3_m AS excess_nominal_m,
            f.seafloor_max3x3_m = 0 AS on_land
     FROM all_d a LEFT JOIN _sf f USING (sample_key)"))
   DBI::dbExecute(con, "DROP TABLE _sf")
-  unknown <- is.na(d$seafloor_max3x3_m)
-  over    <- !unknown & d$depth_m > 0 & d$excess_m > tolerance_m
+  unknown  <- is.na(d$seafloor_max3x3_m)
+  over     <- !unknown & d$depth_m > 0 & d$excess_m > tolerance_m
+  over_nom <- !unknown & d$depth_nominal_m > 0 & d$excess_nominal_m > tolerance_m
   smry <- stats::aggregate(
-    cbind(n_root = 1, n_unknown = unknown, n_over = over) ~ dataset_key, data = d, FUN = sum)
-  mx <- stats::aggregate(excess_m ~ dataset_key, data = d[over, , drop = FALSE], FUN = max)
+    cbind(n_root = 1, n_unknown = unknown, n_over = over, n_over_nominal = over_nom) ~ dataset_key,
+    data = d, FUN = sum)
+  # aggregate() errors on zero rows, so the max excess is taken only where there is one
+  mx <- if (any(over))
+    stats::aggregate(excess_m ~ dataset_key, data = d[over, , drop = FALSE], FUN = max) else
+    data.frame(dataset_key = character(), excess_m = numeric())
   names(mx)[2] <- "max_excess_m"
   smry <- merge(smry, mx, by = "dataset_key", all.x = TRUE)
-  smry <- smry[order(-smry$n_over, smry$dataset_key), ]
-  out <- d[over, , drop = FALSE]
+  smry <- smry[order(-smry$n_over, smry$dataset_key),
+               c("dataset_key", "n_root", "n_unknown", "n_over", "max_excess_m", "n_over_nominal")]
+  cols <- c("sample_key", "dataset_key", "sample_type", "cruise_key", "longitude", "latitude",
+            "depth_m", "seafloor_depth_m", "seafloor_max3x3_m", "excess_m", "on_land")
+  out <- d[over, cols, drop = FALSE]
   out <- out[order(-out$excess_m), , drop = FALSE]
+  nom <- d[over_nom, , drop = FALSE]
+  nom$depth_m  <- nom$depth_nominal_m
+  nom$excess_m <- nom$excess_nominal_m
+  nom <- nom[order(-nom$excess_m), cols, drop = FALSE]
+  nom_msg <- if (length(nominal_datasets))
+    paste0("; ", sum(over_nom), " by a nominal maximum depth (",
+           paste(nominal_datasets, collapse = ", "), "), counted apart") else ""
   message(glue::glue(
     "depth vs seafloor (+{tolerance_m} m over the deepest 3x3 cell): ",
-    "{sum(over)} of {nrow(d)} root samples exceed it, {sum(unknown)} outside the raster"))
+    "{sum(over)} of {nrow(d)} root samples exceed it, {sum(unknown)} outside the raster",
+    "{nom_msg}"))
   out <- tibble::as_tibble(out)
   attr(out, "summary") <- tibble::as_tibble(smry)
+  attr(out, "nominal") <- tibble::as_tibble(nom)
   out
 }
 

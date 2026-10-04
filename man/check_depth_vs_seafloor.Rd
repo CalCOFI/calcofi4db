@@ -9,7 +9,8 @@ check_depth_vs_seafloor(
   seafloor,
   sample_tbl = "sample",
   obs_tbl = "obs",
-  tolerance_m = 10
+  tolerance_m = 10,
+  nominal_datasets = character()
 )
 }
 \arguments{
@@ -23,12 +24,17 @@ case it is computed).}
 
 \item{tolerance_m}{Metres a sample may exceed the neighbourhood-deepest cell
 before it is a finding (default 10).}
+
+\item{nominal_datasets}{\code{dataset_key}s whose depths are nominal maxima, measured
+apart from the rest (default none: every depth is in the main measure).}
 }
 \value{
 A tibble of violators — \code{sample_key}, \code{dataset_key}, \code{sample_type},
 \code{cruise_key}, \code{longitude}, \code{latitude}, \code{depth_m}, \code{seafloor_depth_m},
-\code{seafloor_max3x3_m}, \code{excess_m}, \code{on_land} — worst first, with attribute
-\code{summary}: per-dataset \code{n_root}, \code{n_unknown}, \code{n_over} and \code{max_excess_m}.
+\code{seafloor_max3x3_m}, \code{excess_m}, \code{on_land} — worst first, with attributes
+\code{summary} (per-dataset \code{n_root}, \code{n_unknown}, \code{n_over}, \code{max_excess_m},
+\code{n_over_nominal}) and \code{nominal} (the violators by a nominal depth alone, same
+columns).
 }
 \description{
 For every root sample (no parent) takes the deepest depth attributed to it —
@@ -36,5 +42,14 @@ its own \code{depth_max_m}/\code{depth_min_m}, its descendants' and its observat
 and compares it with the deepest GEBCO cell in the 3x3 neighbourhood of its
 position plus \code{tolerance_m}. Positions outside the raster are \code{unknown}, not
 violations.
+}
+\details{
+A dataset named in \code{nominal_datasets} publishes a NOMINAL depth: the maximum a
+gear could reach, not where it went (SWFSC ichthyoplankton \code{Net.NetDepth}, the
+maximum possible depth of the net). Where the sea floor is shallower the net
+simply did not get there, so that is not a finding of the same kind. Those
+datasets' sample and observation depths are left out of the main measure and
+measured on their own: attribute \code{nominal} (same columns as the result) and
+\code{n_over_nominal} in \code{summary}, so a release can ratchet each separately.
 }
 \concept{validation}

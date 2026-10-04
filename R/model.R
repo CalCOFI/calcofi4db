@@ -759,6 +759,9 @@ core_relationships <- function(tables) {
     ship               = "ship_key",
     measurement_type   = "measurement_type",
     region             = "region_key",
+    # swfsc_ichthyo's own table (SWFSC Fish, from the 2026-09-26 export): fish grown
+    # past the larval stage, per net and CalCOFI species code
+    fish               = c("sample_key", "species_id"),
     # the release-built tables (release_database.qmd), so every released table
     # declares a key and check_release_relationships() can measure it. Every
     # candidate below was measured unique on v2026.09.06 (2026-09-08); a
@@ -791,6 +794,8 @@ core_relationships <- function(tables) {
     list(table = "obs_attribute",      column = "measurement_type",  ref_table = "measurement_type", ref_column = "measurement_type"),
     list(table = "sample_measurement", column = "sample_key",        ref_table = "sample",           ref_column = "sample_key"),
     list(table = "sample_measurement", column = "measurement_type",  ref_table = "measurement_type", ref_column = "measurement_type"),
+    list(table = "fish",               column = "sample_key",        ref_table = "sample",           ref_column = "sample_key"),
+    list(table = "fish",               column = "taxon_key",         ref_table = "taxon",            ref_column = "taxon_key"),
     list(table = "dataset_taxon",      column = "taxon_key",         ref_table = "taxon",            ref_column = "taxon_key"),
     list(table = "taxon_group",        column = "taxon_key",         ref_table = "taxon",            ref_column = "taxon_key"),
     list(table = "taxon",              column = "parent_taxon_key",  ref_table = "taxon",            ref_column = "taxon_key"))
