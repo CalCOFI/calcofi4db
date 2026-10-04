@@ -18,7 +18,9 @@ build_measurements_catalog(
   registries = NULL,
   anomaly = TRUE,
   anomaly_trend = CC_MEASUREMENT_ANOMALY_TREND,
-  anomaly_min_cruises = CC_MEASUREMENT_ANOMALY_MIN_CRUISES
+  anomaly_min_cruises = CC_MEASUREMENT_ANOMALY_MIN_CRUISES,
+  sample_measurement_datasets = "calcofi_ctd-derived",
+  sample_qual_ok_sql = NULL
 )
 }
 \arguments{
@@ -86,6 +88,22 @@ inclusive (default 1984-2021).}
 \item{anomaly_min_cruises}{the cruises a year needs before it may set the
 trend, the extremes or the shared \code{ymax} (default 2). Thinner years stay in
 the series — the page draws them faded — but never steer a fitted line.}
+
+\item{sample_measurement_datasets}{dataset keys whose \strong{per-cast} types in
+\code{sample_measurement} also get a catalog entry (default \code{"calcofi_ctd-derived"}:
+the mixed-layer depth, the chlorophyll-a maximum and integrated chlorophyll-a,
+which have no depth and so never reach \code{obs_env}). Their rows are read from
+\code{sample_measurement} joined to \code{sample} (time, cell, cruise) and, when present,
+\code{sample_root} (\code{root_id}); their series carry \code{grain: "sample"}, no depth
+bands and no anomaly. Used only when the connection carries \code{sample_measurement}
+and \code{sample}; \code{NULL} or \code{character(0)} reads \code{obs_env} alone. The per-sample
+types of other datasets (a bottle cast's weather, a tow's effort) are not
+listed by default.}
+
+\item{sample_qual_ok_sql}{the quality predicate over alias \code{sm} (the
+\code{sample_measurement} row) that stamps \code{qual_ok} on those per-cast rows, e.g.
+\code{calcofi4r::cc_qual_ok_sql("sm")}. May be \code{NULL} only while every included row's
+\code{measurement_qual} is empty: a flag is never read as good by default.}
 }
 \value{
 A list ready for \code{\link[=write_measurements_catalog]{write_measurements_catalog()}} /
@@ -93,7 +111,8 @@ A list ready for \code{\link[=write_measurements_catalog]{write_measurements_cat
 \code{inst/schema/measurements.schema.json}.
 }
 \description{
-One entry per measurement key the release's \code{obs_env} carries — the registry's
+One entry per measurement key the release's \code{obs_env} carries (and, per
+\code{sample_measurement_datasets}, the per-cast types of \code{sample_measurement}) — the registry's
 \code{variable} where set, else the \code{measurement_type} — with its series (one per
 \verb{measurement_type × dataset}), each series' counts by year, calendar month,
 depth band and quality code, its observed quantiles, the registry's declared

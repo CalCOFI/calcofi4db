@@ -23,8 +23,8 @@ ctd_mld(
 \item{criterion}{\code{"sigma_theta"} (value must increase by \code{threshold}) or \code{"temperature"}
 (absolute departure of \code{threshold}).}
 
-\item{threshold}{the departure that ends the mixed layer; default 0.03 for sigma-theta, 0.2
-for temperature.}
+\item{threshold}{the departure that ends the mixed layer; default 0.02 for sigma-theta (the
+provider's definition), 0.2 for temperature.}
 
 \item{ref_depth}{reference depth (m), default 10.}
 }
@@ -35,21 +35,26 @@ one-row tibble: \code{mld_m}, \code{ref_value}, \code{depth_max_m} (deepest good
 \description{
 The first depth below \code{ref_depth} where the profile departs from its value at \code{ref_depth} by
 \code{threshold}, linearly interpolated between the two bracketing samples (CalCOFI/workflows#101).
-The criterion is an argument because the choice is Rasmus Swalethorp's to confirm; the defaults
-are de Boyer Montegut et al. (2004, \emph{JGR} 109, C12003): reference 10 m, sigma-theta increase of
-0.03 kg m^-3. The classic alternative is 0.125 kg m^-3 (Levitus 1982; Monterey & Levitus 1997);
-the temperature criterion (|Delta T| >= 0.2 deg C) needs no salinity, so it is the only one a
-\code{preliminary_without_bottle} cast can have.
+The default is the provider's definition, the CalCOFI legacy one (Rasmus Swalethorp, 2026-09-23,
+questions.csv Q01, adopted 2026-10-01): "MLD is the depth at which sigma-theta is 0.02 kg/m3
+greater \link{than at} a reference depth of 10 m". The criterion stays an argument: the
+alternatives published beside it are the classic 0.125 kg m^-3 (Levitus 1982; Monterey &
+Levitus 1997) and the temperature criterion (|Delta T| >= 0.2 deg C, de Boyer Montegut et al.
+2004), which needs no salinity, so it is the only one a \code{preliminary_without_bottle} cast can
+have. The 0.03 kg m^-3 default of calcofi4db 4.16.0-4.17.x (de Boyer Montegut et al. 2004) is
+superseded and only reachable as \code{threshold = 0.03}.
 }
 \details{
-The value at \code{ref_depth} is interpolated from the samples either side of it (it is \code{NA}, status
-\code{no_reference}, when the cast does not bracket it); a cast that never crosses the threshold has
-\code{mld_m = NA} and status \code{mixed_to_bottom} (its deepest sample is reported, so a consumer can say
-"deeper than"). Flagged samples (8/9) are dropped first.
+The provider's answer is silent on the edge cases, so these are unchanged from 4.16.0: the
+value at \code{ref_depth} is interpolated from the samples either side of it (it is \code{NA}, status
+\code{no_reference}, when the cast does not bracket it, e.g. a cast starting below 10 m); a cast
+that never crosses the threshold has \code{mld_m = NA} and status \code{mixed_to_bottom} (its deepest
+sample is reported, so a consumer can say "deeper than"). Flagged (8/9), missing and
+non-finite samples are dropped first, so a \code{NaN} bin is a gap the interpolation spans.
 }
 \examples{
 z <- 0:100
-ctd_mld(z, ifelse(z < 40, 25, 25.5))           # step at 40 m
+ctd_mld(z, ifelse(z < 40, 25, 25.5))           # step at 40 m, the provider's 0.02
 ctd_mld(z, ifelse(z < 40, 25, 25.5), threshold = 0.125)
 }
 \concept{ctd_derived}

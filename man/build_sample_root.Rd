@@ -16,7 +16,14 @@ Invisibly, the row count.
 }
 \description{
 One row per \code{sample} with no parent, numbered by \code{dense_rank()} over \code{sample_key} so the id is
-deterministic across runs; carries the root's position, time, cruise, gear and seafloor depth.
-Every browser object joins on \code{root_id}; \code{root_sample_key} is what it stands for.
+deterministic across runs; carries the root's position, time, cruise, gear, seafloor depth and —
+last — \code{hex7}, the root's own H3 cell exactly as \code{sample} holds it. Every browser object joins on
+\code{root_id}; \code{root_sample_key} is what it stands for.
+}
+\details{
+\code{hex7} is \strong{carried}, never recomputed here, so \code{sample.hex7} and \code{sample_root.hex7} cannot
+disagree for a root: stamp \code{sample} with \code{\link[=add_sample_hex7]{add_sample_hex7()}} first. On a \code{sample} without the
+column \code{hex7} is \code{NULL} (like \code{seafloor_depth_m}) and a message says so; \code{\link[=check_sample_hex7]{check_sample_hex7()}}
+fails such a release.
 }
 \concept{release}

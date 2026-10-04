@@ -11,6 +11,7 @@ export(add_parquet_metadata)
 export(add_point_geom)
 export(add_provenance_columns)
 export(add_release_citation)
+export(add_sample_hex7)
 export(add_sample_seafloor)
 export(append_dataset_taxon)
 export(append_obs)
@@ -78,6 +79,7 @@ export(check_dataset_citation)
 export(check_dataset_meta_split)
 export(check_dataset_taxon)
 export(check_depth_bounds)
+export(check_depth_constant_series)
 export(check_depth_vs_seafloor)
 export(check_eml)
 export(check_eml_catalog)
@@ -90,6 +92,7 @@ export(check_obs_pair_parity)
 export(check_registry_na_strings)
 export(check_release_complete)
 export(check_release_relationships)
+export(check_sample_hex7)
 export(check_seafloor_nulls)
 export(check_site_key_format)
 export(check_sitemap)
@@ -155,6 +158,8 @@ export(derive_measurement_type_datasets)
 export(derive_registration_id)
 export(detect_csv_changes)
 export(determine_field_types)
+export(diff_stage_vs_release)
+export(diff_stage_vs_release_rows)
 export(discover_sample_levels)
 export(display_csv_changes)
 export(distribution_changes)
@@ -479,6 +484,8 @@ importFrom(dm,
   dm_set_colors
 )
 importFrom(dplyr,
+  across,
+  all_of,
   anti_join,
   arrange,
   bind_rows,
@@ -497,6 +504,7 @@ importFrom(dplyr,
   row_number,
   select,
   slice,
+  summarise,
   tbl,
   ungroup
 )
@@ -563,14 +571,14 @@ importFrom(readr,
 )
 importFrom(rlang,
   "%||%",
+  .data,
   hash,
   parse_expr,
   sym
 )
 importFrom(stats,
   aggregate,
-  approx,
-  runmed
+  approx
 )
 importFrom(stringr,
   str_detect,
@@ -588,6 +596,7 @@ importFrom(tibble,
 )
 importFrom(tidyr,unnest)
 importFrom(utils,
+  URLdecode,
   head,
   tail
 )
