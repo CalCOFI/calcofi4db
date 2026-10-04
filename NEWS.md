@@ -1,3 +1,12 @@
+# calcofi4db (development version)
+
+- **`check_depth_vs_seafloor()` gains `nominal_datasets`.** A dataset named there publishes a
+  nominal depth, the most a gear could reach rather than where it went (SWFSC ichthyoplankton
+  `Net.NetDepth`, the maximum possible depth of the net). Its depths leave the main measure and
+  are measured on their own: attribute `nominal` and column `n_over_nominal` in `summary`, so a
+  release ratchets the two separately. Default `character()`: behaviour unchanged. Also fixed:
+  with no finding at all the function errored in `aggregate()` ("no rows to aggregate").
+
 # calcofi4db 4.19.1
 
 - **A failed `check_data_integrity()` now stops a non-interactive render.** It used to set knitr
