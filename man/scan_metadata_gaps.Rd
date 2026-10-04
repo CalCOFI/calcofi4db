@@ -32,7 +32,7 @@ call it.
 \description{
 Empty table/column descriptions and missing units are invisible until a
 consumer hits them: they travel from an ingest's \code{metadata.json} into the
-release sidecar and out through \link{calcofi4r} \code{cc_describe_table()} /
+release sidecar and out through \link[calcofi4r:calcofi4r]{calcofi4r} \code{cc_describe_table()} /
 \code{cc_db_catalog()}, where they render as blank documentation. \code{\link[=build_metadata_json]{build_metadata_json()}}
 calls this on every write.
 }
