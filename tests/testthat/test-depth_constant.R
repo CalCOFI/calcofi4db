@@ -87,3 +87,43 @@ test_that("it reads a DBI connection by table name with the CTD defaults", {
   expect_error(check_depth_constant_series(con, tbl = "ctd_measurement", cast_col = "nope"),
                "no column")
 })
+
+test_that("a cast keyed on several columns is judged whole, not per scan (CalCOFI/workflows#131)", {
+  # the CTD ingest's ctd_cast_uuid hashes each scan's time, so one cast holds as many ids
+  # as scans: grouped by it, every group has one value and nothing is ever judged
+  z <- seq(0, 350, by = 50)
+  d <- rbind(
+    data.frame(cruise_key = "2504SH", cast_key = "2504_001d", cast_dir = "D",
+               ctd_cast_uuid = paste0("scan", 1:8), measurement_type = "est_nitrate",
+               depth_m = z, measurement_value = 0),
+    # the upcast of the same occupation, constant too: judged as its own cast
+    data.frame(cruise_key = "2504SH", cast_key = "2504_001u", cast_dir = "U",
+               ctd_cast_uuid = paste0("scanu", 1:8), measurement_type = "est_nitrate",
+               depth_m = z, measurement_value = 0),
+    # the same cast number on another cruise varies: never pooled with the first
+    data.frame(cruise_key = "2304SH", cast_key = "2504_001d", cast_dir = "D",
+               ctd_cast_uuid = paste0("other", 1:8), measurement_type = "est_nitrate",
+               depth_m = z, measurement_value = seq(1, 40, length.out = 8)))
+
+  per_scan <- check_depth_constant_series(d)
+  expect_equal(nrow(per_scan), 0)
+  expect_equal(length(attr(per_scan, "judged")), 0)
+
+  r <- check_depth_constant_series(d, cast_col = c("cruise_key", "cast_key", "cast_dir"))
+  expect_equal(names(r)[1:4], c("cruise_key", "cast_key", "cast_dir", "measurement_type"))
+  expect_equal(nrow(r), 2)
+  expect_true(all(r$cruise_key == "2504SH"))
+  expect_setequal(r$cast_dir, c("D", "U"))
+  expect_equal(r$n, c(8, 8))
+  expect_equal(unname(attr(r, "judged")["est_nitrate"]), 3L)
+
+  # the same through a connection, by a table that carries the cast columns
+  con <- get_duckdb_con(":memory:")
+  withr::defer(DBI::dbDisconnect(con, shutdown = TRUE))
+  DBI::dbWriteTable(con, "m", d)
+  rc <- check_depth_constant_series(con, tbl = "m",
+                                    cast_col = c("cruise_key", "cast_key", "cast_dir"))
+  expect_equal(as.data.frame(rc), as.data.frame(r))
+  expect_error(check_depth_constant_series(d, cast_col = c("cruise_key", "depth_m")),
+               "may not repeat")
+})

@@ -27,7 +27,11 @@
 #' @param tbl table name on `con`; ignored when `x` is a data frame.
 #' @param cast_col,type_col,value_col,depth_col column names: the cast key, the
 #'   measurement type, the value and the depth in metres. The defaults are the
-#'   CTD ingest's `ctd_measurement`.
+#'   CTD ingest's `ctd_measurement`. `cast_col` may name **several** columns, which
+#'   together identify a cast (e.g. `c("cruise_key", "cast_key", "cast_dir")`). Group
+#'   by the real cast: a key that is unique per depth scan (the CTD ingest's
+#'   `ctd_cast_uuid` hashes the scan's time) gives one value per group, so nothing is
+#'   ever judged.
 #' @param types optional character vector of `measurement_type`s to judge; the
 #'   default `NULL` judges every type present.
 #' @param min_n minimum finite values on a cast for it to be judged (default 6).
@@ -35,7 +39,7 @@
 #' @param tol the series is constant when `max - min` is below this (default 1e-9).
 #'
 #' @return A [tibble][tibble::tibble], one row per constant (cast, type), ordered by
-#'   type then cast: the `cast_col`, `measurement_type`, `n` (finite values),
+#'   type then cast: the `cast_col` column(s), `measurement_type`, `n` (finite values),
 #'   `depth_min_m`, `depth_max_m`, `span_m`, `value` (the one value it holds). Zero
 #'   rows when nothing is constant. The `judged` attribute is a named integer vector: per
 #'   type, how many (cast, type) pairs met `min_n` and `min_span_m`, so a caller can
@@ -66,7 +70,11 @@ check_depth_constant_series <- function(x,
     "`min_n` must be one number >= 2" = is.numeric(min_n) && length(min_n) == 1 && min_n >= 2,
     "`min_span_m` must be one number >= 0" =
       is.numeric(min_span_m) && length(min_span_m) == 1 && min_span_m >= 0,
-    "`tol` must be one number >= 0" = is.numeric(tol) && length(tol) == 1 && tol >= 0)
+    "`tol` must be one number >= 0" = is.numeric(tol) && length(tol) == 1 && tol >= 0,
+    "`cast_col` must name one or more columns" =
+      is.character(cast_col) && length(cast_col) >= 1 && !anyNA(cast_col),
+    "`cast_col` may not repeat `type_col`, `value_col` or `depth_col`" =
+      !any(cast_col %in% c(type_col, value_col, depth_col)))
 
   con <- x
   if (is.data.frame(x)) {
@@ -87,7 +95,10 @@ check_depth_constant_series <- function(x,
 
   # quote the column names: `cast` is a reserved word, and a caller's key may be anything
   qi <- function(v) paste0('"', gsub('"', '""', v, fixed = TRUE), '"')
-  cc <- qi(cast_col); tc <- qi(type_col); vc <- qi(value_col); dc <- qi(depth_col)
+  tc <- qi(type_col); vc <- qi(value_col); dc <- qi(depth_col)
+  # the cast key, one or several columns, aliased k1..kn so no name can collide
+  k_as  <- paste0(qi(cast_col), " AS k", seq_along(cast_col), collapse = ", ")
+  k_grp <- paste0("k", seq_along(cast_col), collapse = ", ")
 
   where_t <- ""
   if (length(types)) {
@@ -99,30 +110,33 @@ check_depth_constant_series <- function(x,
   # NaN / +-Inf are not values (isnan() survives IS NOT NULL, see the release rules)
   g <- DBI::dbGetQuery(con, glue::glue("
     WITH v AS (
-      SELECT {cc} AS cast_id, {tc} AS measurement_type,
+      SELECT {k_as}, {tc} AS measurement_type,
              CAST({dc} AS DOUBLE) AS depth_m, CAST({vc} AS DOUBLE) AS value
       FROM {tbl}
       WHERE {vc} IS NOT NULL AND {dc} IS NOT NULL
         AND isfinite(CAST({vc} AS DOUBLE)) AND isfinite(CAST({dc} AS DOUBLE))
         {where_t})
-    SELECT cast_id, measurement_type,
+    SELECT {k_grp}, measurement_type,
            COUNT(*)            AS n,
            MIN(depth_m)        AS depth_min_m,
            MAX(depth_m)        AS depth_max_m,
            MAX(depth_m) - MIN(depth_m) AS span_m,
            MIN(value)          AS v_min,
            MAX(value)          AS v_max
-    FROM v GROUP BY 1, 2"))
+    FROM v GROUP BY ALL"))
 
   judged <- g[g$n >= min_n & g$span_m >= min_span_m, , drop = FALSE]
   const  <- judged[(judged$v_max - judged$v_min) < tol, , drop = FALSE]
 
-  out <- data.frame(const$cast_id, const$measurement_type, as.numeric(const$n),
-                    const$depth_min_m, const$depth_max_m, const$span_m,
-                    const$v_min, stringsAsFactors = FALSE)
-  names(out) <- c(cast_col, "measurement_type", "n", "depth_min_m", "depth_max_m",
-                  "span_m", "value")
-  out <- out[order(out$measurement_type, out[[cast_col]]), , drop = FALSE]
+  keys <- const[paste0("k", seq_along(cast_col))]
+  names(keys) <- cast_col
+  out <- data.frame(keys, measurement_type = const$measurement_type, n = as.numeric(const$n),
+                    depth_min_m = const$depth_min_m, depth_max_m = const$depth_max_m,
+                    span_m = const$span_m, value = const$v_min,
+                    stringsAsFactors = FALSE, check.names = FALSE)
+  out <- out[do.call(order, c(list(out$measurement_type), unname(as.list(out[cast_col])))), ,
+             drop = FALSE]
+  rownames(out) <- NULL
 
   out <- tibble::as_tibble(out)
   attr(out, "judged") <- vapply(split(judged$n, judged$measurement_type), length, integer(1))
