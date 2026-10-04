@@ -241,3 +241,15 @@ test_that("thin_plan() keeps consolidated + newest two, retires the rest to the 
   expect_equal(p3$reason[p3$version == "v2026.08.25"], "newer than promoted (unpromoted candidate)")
   expect_equal(p3$version[p3$keep & p3$reason == "promoted or predecessor"], c("v2026.08.14", "v2026.08.11"))
 })
+
+test_that("fish (swfsc_ichthyo's own table) is a keyed, sortable released table", {
+  # without a PK the deterministic export refuses to write it (release_sort_keys)
+  r <- core_relationships(c("fish", "sample", "taxon"))
+  expect_identical(r$primary_keys$fish, c("sample_key", "species_id"))
+  fk <- Filter(function(e) e$table == "fish", r$foreign_keys)
+  expect_setequal(vapply(fk, `[[`, "", "ref_table"), c("sample", "taxon"))
+  expect_identical(release_sort_keys()$fish,
+                   list(partition_by = NULL, order_by = c("sample_key", "species_id")))
+  # an edge is kept only when both ends ship
+  expect_length(Filter(function(e) e$table == "fish", core_relationships("fish")$foreign_keys), 0)
+})

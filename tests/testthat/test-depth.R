@@ -105,6 +105,39 @@ test_that("check_depth_vs_seafloor() reports the deepest attributed depth over t
   expect_equal(v2$sample_key, "a:cast:2")
 })
 
+test_that("check_depth_vs_seafloor() measures a nominal-depth dataset apart from the rest", {
+  # SWFSC ichthyo Net.NetDepth is the maximum possible depth of the net: a tow over a
+  # shallower floor did not reach it. Dataset b (the 200 m tow over 100 m) is nominal.
+  con <- dp_con(); dp_fixture(con)
+  v <- check_depth_vs_seafloor(con, dp_tif(), tolerance_m = 10, nominal_datasets = "b")
+  # main measure: dataset a's two findings only
+  expect_setequal(v$sample_key, c("a:cast:2", "a:cast:3"))
+  nom <- attr(v, "nominal")
+  expect_equal(nom$sample_key, "b:tow:1")
+  expect_equal(nom$depth_m, 200)
+  expect_equal(nom$excess_m, 100)
+  s <- attr(v, "summary")
+  expect_equal(s$n_over[s$dataset_key == "b"], 0)
+  expect_equal(s$n_over_nominal[s$dataset_key == "b"], 1)
+  expect_equal(s$n_over_nominal[s$dataset_key == "a"], 0)
+  expect_true(is.na(s$max_excess_m[s$dataset_key == "b"]))
+  # default: nothing is nominal, the same tow is a main finding and `nominal` is empty
+  v0 <- check_depth_vs_seafloor(con, dp_tif(), tolerance_m = 10)
+  expect_true("b:tow:1" %in% v0$sample_key)
+  expect_equal(nrow(attr(v0, "nominal")), 0)
+  expect_equal(sum(attr(v0, "summary")$n_over_nominal), 0)
+})
+
+test_that("check_depth_vs_seafloor() returns an empty finding set when nothing is over", {
+  # regression: aggregate() on zero rows errored ("no rows to aggregate")
+  con <- dp_con(); dp_fixture(con)
+  DBI::dbExecute(con, "DELETE FROM obs")
+  DBI::dbExecute(con, "UPDATE sample SET depth_min_m = NULL, depth_max_m = NULL")
+  v <- check_depth_vs_seafloor(con, dp_tif(), tolerance_m = 10)
+  expect_equal(nrow(v), 0)
+  expect_true(all(is.na(attr(v, "summary")$max_excess_m)))
+})
+
 test_that("add_sample_seafloor() appends seafloor_depth_m without disturbing other columns", {
   con <- dp_con(); dp_fixture(con)
   before <- DBI::dbListFields(con, "sample")
