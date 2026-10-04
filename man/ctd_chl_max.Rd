@@ -2,9 +2,9 @@
 % Please edit documentation in R/ctd_derived.R
 \name{ctd_chl_max}
 \alias{ctd_chl_max}
-\title{Depth of the chlorophyll-a maximum of one CTD cast}
+\title{Depth of the chlorophyll-a maximum (DCM) of one CTD cast}
 \usage{
-ctd_chl_max(depth, chl, qual = NA, window_m = 5)
+ctd_chl_max(depth, chl, qual = NA, window_m = 3)
 }
 \arguments{
 \item{depth}{depth (m), one cast.}
@@ -13,18 +13,28 @@ ctd_chl_max(depth, chl, qual = NA, window_m = 5)
 
 \item{qual}{quality codes of \code{chl} (\code{NA} = good).}
 
-\item{window_m}{running-median window (1 m bins), default 5.}
+\item{window_m}{running-mean window (m), default 3; \code{0} takes the raw maximum.}
 }
 \value{
-one-row tibble: \code{chl_max_depth_m}, \code{chl_max_value} (the smoothed value there), \code{n}.
+one-row tibble: \code{chl_max_depth_m}, \code{chl_max_value} (the running mean there), \code{n}.
 }
 \description{
-The depth of the maximum of a running median of the profile (default 5 m window), so a single
-spiking bin cannot be "the max" (CalCOFI/workflows#102). Use the bottle-fitted sensor estimate
-\code{est_chlorophyll_a_sta_corr} (Rasmus Swalethorp, 2026-09-09). The window is in samples of the
-1 m bins (\code{window_m} bins, forced odd); on irregular spacing it is a window of that many samples.
-Flagged samples are dropped first. Where the median flattens the peak into a plateau, the
-plateau depth with the highest raw value wins (then the shallowest).
+The provider's definition (Rasmus Swalethorp, 2026-09-23, questions.csv Q02, adopted
+2026-10-01): "To avoid a potential narrow spike being adopted as the max I suggest we do a 3 m
+running mean (I was considering 5m but sometimes the layers can be pretty narrow), and call the
+depth of the highest value within that running mean the DCM" (CalCOFI/workflows#102). Use the
+bottle-fitted sensor estimate \code{est_chlorophyll_a_sta_corr} (Rasmus Swalethorp, 2026-09-09).
+This replaces the 5-sample running median of calcofi4db 4.16.0-4.17.x.
+}
+\details{
+The window is in metres of depth, not in samples: each good sample's smoothed value is the mean
+of the good samples within \code{window_m / 2} of it (on the 1 m bins, the bin and its two
+neighbours), so an uneven grid or a gap is averaged over what the water column actually has.
+The answer is silent on the ends of the profile and on ties, so: the window is truncated at the
+top and bottom (the shallowest bin averages itself and the bin below), and among depths tied at
+the smoothed maximum the one whose raw value is highest wins, then the shallowest (the 4.16.0
+tie rule; a flat profile's DCM is its shallowest bin). Flagged (8/9), missing and non-finite
+samples are dropped first.
 }
 \examples{
 z <- 0:150

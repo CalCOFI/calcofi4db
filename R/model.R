@@ -44,10 +44,19 @@ CC_H3_RES_MAX <- 10L
   invisible(con)
 }
 
-# SQL fragment computing hex_id from lat/lng columns of the wrapped SELECT
+# SQL fragment computing hex_id from lat/lng columns of the wrapped SELECT.
+# The ONE place a position becomes an H3 cell: append_obs() uses it for `hex_id`,
+# add_sample_hex7() (R/explore.R) for the cell `hex7` is the parent of, so the
+# observation side and the sample side cannot drift. A position is a PAIR of
+# finite numbers; anything else — a NULL, a NaN or an infinity in either
+# component — is no place and yields NULL. append_obs() normalises its input
+# before this runs, so the non-finite guard is a no-op there; `sample` can carry
+# one coordinate without the other (append_sample() normalises each component on
+# its own), which is why the guard is here and not left to the caller.
 .hex_expr <- function(res = CC_H3_RES_MAX, lat = "latitude", lng = "longitude") {
   glue::glue(
-    "CASE WHEN {lat} IS NULL OR {lng} IS NULL THEN NULL::UBIGINT
+    "CASE WHEN {lat} IS NULL OR {lng} IS NULL
+            OR isnan({lat}) OR isinf({lat}) OR isnan({lng}) OR isinf({lng}) THEN NULL::UBIGINT
           ELSE h3_latlng_to_cell({lat}, {lng}, {res})::UBIGINT END")
 }
 

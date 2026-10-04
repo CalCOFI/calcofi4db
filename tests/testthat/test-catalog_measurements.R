@@ -438,3 +438,107 @@ test_that("an unregistered measurement_type stops the build", {
                                variable = mfx_variable(), category = mfx_categories()),
     "absent from the registry")
 })
+
+# per-cast types (sample_measurement) -------------------------------------------------
+# A per-cast value (the mixed-layer depth of calcofi_ctd-derived) has no depth, so it never
+# reaches obs_env; the catalog reads it from sample_measurement through its sample. Fixture:
+# ds_b's casts b1 (2010-02) and b2 (2011-05) each carry one `mld`; ds_x's per-sample `weather`
+# is in a dataset that is not named, so it must not be listed.
+
+add_per_cast <- function(con, qual = c(NA, NA)) {
+  DBI::dbWriteTable(con, "sample", data.frame(
+    sample_key = c("b1", "b2", "x1"), root_sample_key = c("b1", "b2", "x1"),
+    grid_key = c("g3", "g3", "g9"), cruise_key = c("cr3", "cr4", "cr9"),
+    datetime = as.POSIXct(c("2010-02-15 12:00:00", "2011-05-15 12:00:00", "2012-01-01 00:00:00"),
+                          tz = "UTC"),
+    stringsAsFactors = FALSE), overwrite = TRUE)
+  DBI::dbWriteTable(con, "sample_root", data.frame(
+    root_id = c(3L, 4L, 99L), root_sample_key = c("b1", "b2", "x1"), stringsAsFactors = FALSE),
+    overwrite = TRUE)
+  DBI::dbWriteTable(con, "sample_measurement", data.frame(
+    sample_key = c("b1", "b2", "x1"), dataset_key = c("ds_b", "ds_b", "ds_x"),
+    measurement_type = c("mld", "mld", "weather"), measurement_value = c(21.5, 34, 3),
+    measurement_qual = c(qual, "9"), stringsAsFactors = FALSE), overwrite = TRUE)
+}
+mfx_mt_pc <- function() {
+  mt  <- mfx_measurement_type()
+  mld <- mt[mt$measurement_type == "count_x", ]
+  mld$measurement_type <- "mld"; mld$description <- "Mixed-layer depth"; mld$units <- "m"
+  mld$valid_min <- 0; mld$valid_max <- 6500; mld$`_source_datasets` <- "ds_b"
+  mld$category <- "Physical Oceanography"
+  rbind(mt, mld)
+}
+
+test_that("per-cast types of the named datasets get an entry, counted from sample_measurement", {
+  con <- new_measurements_fixture()
+  on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
+  add_per_cast(con)
+  build <- function(...) build_measurements_catalog(
+    con, mfx_record(), measurement_type = mfx_mt_pc(), variable = mfx_variable(),
+    category = mfx_categories(), underway_datasets = "ds_c", ...)
+  rec <- build(sample_measurement_datasets = "ds_b")
+  expect_identical(rec$counts$measurements, 11L)
+  expect_identical(rec$counts$obs_env_rows, 26L)              # obs_env is untouched
+  expect_identical(rec$counts$sample_measurement_rows, 2L)
+  m <- mm_of(rec, "mld")
+  expect_identical(m$grain, "sample")
+  s <- mm_ser(m, "ds_b")
+  expect_identical(s$grain, "sample")
+  expect_identical(s$n_values, 2L)
+  expect_identical(s$n_samples, 2L)
+  expect_identical(s$n_roots, 2L)                             # through sample_root
+  expect_identical(s$n_cruises, 2L)
+  expect_identical(s$year_min, 2010L)
+  expect_identical(s$year_max, 2011L)
+  expect_identical(as.integer(s$months), c(0L, 1L, 0L, 0L, 1L, rep(0L, 7)))
+  expect_true(all(unlist(s$depth_bands) == 0L))               # no depth: no band
+  expect_true(is.na(s$depth_min_m))
+  expect_equal(s$observed$min, 21.5)
+  expect_equal(s$observed$max, 34)
+  expect_null(m$anomaly)
+  # an obs_env key carries no grain; ds_x's per-sample type is not listed
+  expect_null(mm_of(rec, "temperature")$grain)
+  expect_null(mm_ser(mm_of(rec, "temperature"), "ds_b")$grain)
+  expect_false("weather" %in% vapply(rec$measurements, function(x) x$key, ""))
+  # the dataset's totals include its per-cast values
+  expect_identical(mm_ds(rec, "ds_b")$n_values, 11L + 2L)   # 11 in obs_env
+
+  expect_true(validate_measurements_catalog(rec))
+  d <- check_measurements_catalog(rec, con, mfx_record(), mfx_mt_pc())
+  expect_true(all(d$ok))
+  expect_setequal(d$check, names(measurements_catalog_checks()))
+  # a per-cast row counted twice is caught by the arithmetic gate
+  bad <- rec
+  i <- which(vapply(bad$measurements, function(x) x$key, "") == "mld")
+  bad$measurements[[i]]$series[[1]]$n_values <- 3L
+  db <- check_measurements_catalog(bad, con)
+  expect_false(db$ok[db$check == "series_total"])
+  # the record's per-cast count disagreeing with the table is caught on its own
+  bad2 <- rec
+  bad2$counts$sample_measurement_rows <- 5L
+  db2 <- check_measurements_catalog(bad2, con)
+  expect_false(db2$ok[db2$check == "sample_measurement_rows"])
+
+  # off: obs_env alone, exactly as before
+  rec0 <- build(sample_measurement_datasets = NULL)
+  expect_identical(rec0$counts$measurements, 10L)
+  expect_identical(rec0$counts$sample_measurement_rows, 0L)
+  expect_true(all(check_measurements_catalog(rec0, con)$ok))
+})
+
+test_that("a flagged per-cast row needs a qual predicate, and the predicate is applied", {
+  con <- new_measurements_fixture()
+  on.exit(DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
+  add_per_cast(con, qual = c("9", NA))
+  build <- function(...) build_measurements_catalog(
+    con, mfx_record(), measurement_type = mfx_mt_pc(), variable = mfx_variable(),
+    category = mfx_categories(), underway_datasets = "ds_c",
+    sample_measurement_datasets = "ds_b", ...)
+  expect_error(build(), "sample_qual_ok_sql")
+  rec <- build(sample_qual_ok_sql = "sm.measurement_qual IS NULL OR sm.measurement_qual NOT IN ('8', '9')")
+  s <- mm_ser(mm_of(rec, "mld"), "ds_b")
+  expect_identical(s$n_values, 2L)
+  expect_identical(s$qual_ok_n, 1L)
+  expect_identical(s$n_flagged, 1L)
+  expect_equal(s$observed$min, 34)                            # the flagged 21.5 is out of the range
+})
