@@ -23,6 +23,14 @@ Uses DuckDB spatial SQL to add a \code{grid_key} column to a table by
 intersecting its geometry with a grid table. Returns a summary of
 how many rows fell inside vs outside the grid.
 }
+\details{
+The rule, which \code{calcofi4r::cc_grid_key()} applies identically in R: a position takes
+the cell whose polygon it intersects, on longitude/latitude as planar coordinates; a
+position on an edge shared by several cells takes the key that sorts first in byte
+order (\code{min(grid_key)}); a position in no cell (on land, outside the grid, a NULL
+geometry) gets NULL. Through calcofi4db 4.17.2 the tie was \verb{LIMIT 1} with no order, so a
+position on a shared edge could key to either cell from one run to the next.
+}
 \examples{
 \dontrun{
 grid_stats <- assign_grid_key(con, "casts")

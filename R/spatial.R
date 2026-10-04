@@ -43,6 +43,13 @@ add_point_geom <- function(
 #' intersecting its geometry with a grid table. Returns a summary of
 #' how many rows fell inside vs outside the grid.
 #'
+#' The rule, which `calcofi4r::cc_grid_key()` applies identically in R: a position takes
+#' the cell whose polygon it intersects, on longitude/latitude as planar coordinates; a
+#' position on an edge shared by several cells takes the key that sorts first in byte
+#' order (`min(grid_key)`); a position in no cell (on land, outside the grid, a NULL
+#' geometry) gets NULL. Through calcofi4db 4.17.2 the tie was `LIMIT 1` with no order, so a
+#' position on a shared edge could key to either cell from one run to the next.
+#'
 #' @param con DBI connection to DuckDB
 #' @param table Character. Table name to update.
 #' @param geom_col Character. Geometry column in `table` (default: "geom").
@@ -68,10 +75,11 @@ assign_grid_key <- function(
   DBI::dbExecute(con, paste0(
     'ALTER TABLE "', table, '" ADD COLUMN IF NOT EXISTS grid_key TEXT'))
 
+  # min() makes the tie on a shared edge deterministic (byte order), and is NULL over no cell
   DBI::dbExecute(con, paste0(
     'UPDATE "', table, '" SET grid_key = (',
-    'SELECT g.grid_key FROM ', grid_table, ' g',
-    ' WHERE ST_Intersects("', table, '".', geom_col, ', g.geom) LIMIT 1)'))
+    'SELECT min(g.grid_key) FROM ', grid_table, ' g',
+    ' WHERE ST_Intersects("', table, '".', geom_col, ', g.geom))'))
 
   grid_stats <- DBI::dbGetQuery(con, paste0(
     "SELECT CASE WHEN grid_key IS NULL THEN 'not_in_grid' ELSE 'in_grid' END AS status,",
