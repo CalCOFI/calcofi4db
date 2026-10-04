@@ -16,7 +16,18 @@
 #'
 #' @param d List output from read_csv_files() containing CSV and redefinition data
 #' @param dataset_name Name of dataset for display purposes (e.g., "NOAA CalCOFI Database")
-#' @param halt_on_fail Logical, whether to set knitr eval=FALSE on failure (default: TRUE)
+#' @param halt_on_fail Logical, whether to halt the notebook on failure
+#'   (default: TRUE). How it halts depends on `stop_on_fail`.
+#' @param stop_on_fail Logical, whether a halting failure raises an error
+#'   (`stop()`) instead of only setting knitr `eval = FALSE` on the remaining
+#'   chunks. Default: `!rlang::is_interactive()`, so a non-interactive render
+#'   (`quarto render`, `targets::tar_make()`) FAILS -- the render exits non-zero
+#'   and its target errors -- rather than finishing "successfully" having
+#'   written nothing. Until calcofi4db 4.20.0 a failed check only disabled the
+#'   remaining chunks, so `ingest_swfsc_ichthyo.qmd` halted at this checkpoint
+#'   from 2026-09 to 2026-10-04 while every `tar_make()` reported it completed
+#'   and the release shipped its stale shard. Pass `FALSE` only to render the
+#'   failure report on purpose, never inside the pipeline.
 #' @param type_exceptions Character vector of known acceptable type mismatches.
 #'   Use `"all"` to accept all type mismatches, or specific `"table.field"`
 #'   patterns (e.g., `c("casts.time", "bottle.t_qual")`). Default: NULL (no exceptions).
@@ -58,6 +69,7 @@
 #' @importFrom dplyr filter
 #' @importFrom knitr opts_chunk
 #' @importFrom glue glue
+#' @importFrom rlang is_interactive
 check_data_integrity <- function(
     d,
     dataset_name    = "Dataset",
@@ -65,7 +77,8 @@ check_data_integrity <- function(
     type_exceptions = NULL,
     display_format  = "DT",
     verbose         = TRUE,
-    header_level    = 3) {
+    header_level    = 3,
+    stop_on_fail    = !rlang::is_interactive()) {
 
   # detect changes between csv files and redefinitions
   changes <- detect_csv_changes(d)
@@ -260,7 +273,18 @@ data integrity issues.*
 
   # control notebook execution via knitr options
   if (halt_on_fail && !passed) {
-    # disable evaluation of remaining chunks
+    # a non-interactive render must FAIL, not finish with the remaining chunks
+    # skipped: eval = FALSE alone exits 0, so targets records the target as
+    # built while nothing was written (ichthyo, 2026-09 to 2026-10-04)
+    if (isTRUE(stop_on_fail)) {
+      stop(glue::glue(
+        "Data integrity check failed for {dataset_name}: {n_changes} ",
+        "mismatch(es) between the source CSVs and the redefinition files ",
+        "(tables_redefine: {d$paths$tbls_rd_csv %||% 'NA'}; ",
+        "flds_redefine: {d$paths$flds_rd_csv %||% 'NA'}).\n",
+        "{detail_section}"), call. = FALSE)
+    }
+    # interactive: disable evaluation of remaining chunks
     knitr::opts_chunk$set(eval = FALSE)
   } else if (passed) {
     # ensure evaluation is enabled
@@ -308,6 +332,9 @@ render_integrity_message <- function(integrity_check) {
 #'   outputs from read_csv_files()
 #' @param halt_on_first_fail Logical, stop checking after first failure (default: FALSE)
 #' @param display_format Format for displaying changes (default: "DT")
+#' @param stop_on_fail Logical, raise an error when any dataset fails instead
+#'   of only setting knitr `eval = FALSE` (default: `!rlang::is_interactive()`;
+#'   see [check_data_integrity()]).
 #'
 #' @return List with:
 #'   - all_passed: Logical indicating if all checks passed
@@ -333,7 +360,8 @@ render_integrity_message <- function(integrity_check) {
 check_multiple_datasets <- function(
     datasets,
     halt_on_first_fail = FALSE,
-    display_format = "DT") {
+    display_format = "DT",
+    stop_on_fail = !rlang::is_interactive()) {
 
   results <- list()
   failed_datasets <- character()
@@ -368,8 +396,13 @@ check_multiple_datasets <- function(
 
   all_passed <- length(failed_datasets) == 0
 
-  # halt execution if any failed
+  # halt execution if any failed: an error in a non-interactive render (see
+  # check_data_integrity()'s `stop_on_fail`), eval = FALSE interactively
   if (!all_passed) {
+    if (isTRUE(stop_on_fail))
+      stop(glue::glue(
+        "Data integrity check failed for {length(failed_datasets)} dataset(s): ",
+        "{paste(failed_datasets, collapse = ', ')}"), call. = FALSE)
     knitr::opts_chunk$set(eval = FALSE)
   }
 

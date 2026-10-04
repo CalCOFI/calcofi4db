@@ -11,7 +11,8 @@ check_data_integrity(
   type_exceptions = NULL,
   display_format = "DT",
   verbose = TRUE,
-  header_level = 3
+  header_level = 3,
+  stop_on_fail = !rlang::is_interactive()
 )
 }
 \arguments{
@@ -19,7 +20,8 @@ check_data_integrity(
 
 \item{dataset_name}{Name of dataset for display purposes (e.g., "NOAA CalCOFI Database")}
 
-\item{halt_on_fail}{Logical, whether to set knitr eval=FALSE on failure (default: TRUE)}
+\item{halt_on_fail}{Logical, whether to halt the notebook on failure
+(default: TRUE). How it halts depends on \code{stop_on_fail}.}
 
 \item{type_exceptions}{Character vector of known acceptable type mismatches.
 Use \code{"all"} to accept all type mismatches, or specific \code{"table.field"}
@@ -33,6 +35,17 @@ patterns (e.g., \code{c("casts.time", "bottle.t_qual")}). Default: NULL (no exce
 Controls the top-level header depth; sub-headers use header_level + 1.
 Set to match the parent section level in your Quarto document to keep
 the Table of Contents hierarchy correct.}
+
+\item{stop_on_fail}{Logical, whether a halting failure raises an error
+(\code{stop()}) instead of only setting knitr \code{eval = FALSE} on the remaining
+chunks. Default: \code{!rlang::is_interactive()}, so a non-interactive render
+(\verb{quarto render}, \code{targets::tar_make()}) FAILS -- the render exits non-zero
+and its target errors -- rather than finishing "successfully" having
+written nothing. Until calcofi4db 4.20.0 a failed check only disabled the
+remaining chunks, so \code{ingest_swfsc_ichthyo.qmd} halted at this checkpoint
+from 2026-09 to 2026-10-04 while every \code{tar_make()} reported it completed
+and the release shipped its stale shard. Pass \code{FALSE} only to render the
+failure report on purpose, never inside the pipeline.}
 }
 \value{
 List with:
