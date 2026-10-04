@@ -454,6 +454,8 @@ functions for data validation and integrity checking
   : Check Data Integrity for Ingestion
 - [`check_dataset_taxon()`](https://calcofi.io/calcofi4db/reference/check_dataset_taxon.md)
   : The ingest asserts its own taxon crosswalk (taxon plan D6)
+- [`check_depth_constant_series()`](https://calcofi.io/calcofi4db/reference/check_depth_constant_series.md)
+  : Casts whose series is constant over depth
 - [`check_multiple_datasets()`](https://calcofi.io/calcofi4db/reference/check_multiple_datasets.md)
   : Check Multiple Datasets for Integrity
 - [`check_taxon_ids()`](https://calcofi.io/calcofi4db/reference/check_taxon_ids.md)

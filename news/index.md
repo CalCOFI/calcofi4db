@@ -1,5 +1,22 @@
 # Changelog
 
+## calcofi4db 4.17.3
+
+- New
+  [`check_depth_constant_series()`](https://calcofi.io/calcofi4db/reference/check_depth_constant_series.md):
+  per (cast, measurement type), the series that hold one identical value
+  at every depth. A derived series can be in bounds, unflagged and still
+  not a profile; the CTD provider’s `EstNO3_CruiseCorr` is one value
+  over the whole cast on 441 of 5,066 judged casts (every judged cast of
+  2504SH, 2304SH, 2307SR and four more cruises; census of 2026-10-01),
+  mostly exact zeros, which neither
+  [`check_measurement_bounds()`](https://calcofi.io/calcofi4db/reference/check_measurement_bounds.md)
+  nor a provider flag can see. A cast is judged only with at least
+  `min_n` (6) finite values over at least `min_span_m` (50) m, and is
+  constant when its range is below `tol` (1e-9); a short cast is never
+  flagged. Takes a DBI connection (the long table) or a data frame; the
+  result’s `judged` attribute gives the denominator per type.
+
 ## calcofi4db 4.17.2
 
 - **[`check_taxon_registries()`](https://calcofi.io/calcofi4db/reference/check_taxon_registries.md)

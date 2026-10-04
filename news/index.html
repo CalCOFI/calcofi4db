@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.17.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.17.3</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,6 +77,10 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.17.3" id="calcofi4db-4173">calcofi4db 4.17.3<a class="anchor" aria-label="anchor" href="#calcofi4db-4173"></a></h2>
+<ul><li>New <code><a href="../reference/check_depth_constant_series.html">check_depth_constant_series()</a></code>: per (cast, measurement type), the series that hold one identical value at every depth. A derived series can be in bounds, unflagged and still not a profile; the CTD provider’s <code>EstNO3_CruiseCorr</code> is one value over the whole cast on 441 of 5,066 judged casts (every judged cast of 2504SH, 2304SH, 2307SR and four more cruises; census of 2026-10-01), mostly exact zeros, which neither <code><a href="../reference/check_measurement_bounds.html">check_measurement_bounds()</a></code> nor a provider flag can see. A cast is judged only with at least <code>min_n</code> (6) finite values over at least <code>min_span_m</code> (50) m, and is constant when its range is below <code>tol</code> (1e-9); a short cast is never flagged. Takes a DBI connection (the long table) or a data frame; the result’s <code>judged</code> attribute gives the denominator per type.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.17.2" id="calcofi4db-4172">calcofi4db 4.17.2<a class="anchor" aria-label="anchor" href="#calcofi4db-4172"></a></h2>
 <ul><li>
