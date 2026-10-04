@@ -6,6 +6,10 @@
   are measured on their own: attribute `nominal` and column `n_over_nominal` in `summary`, so a
   release ratchets the two separately. Default `character()`: behaviour unchanged. Also fixed:
   with no finding at all the function errored in `aggregate()` ("no rows to aggregate").
+- **`fish` is a released table.** `core_relationships()` declares swfsc_ichthyo's `fish` (SWFSC's
+  Fish table: fish grown past the larval stage, per net and species code) with key
+  `(sample_key, species_id)` and FKs to `sample` and `taxon`; `release_sort_keys()` orders it by
+  that key, so the deterministic export writes it.
 
 # calcofi4db 4.19.1
 
