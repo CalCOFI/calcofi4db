@@ -33,6 +33,18 @@
   below `tol` (1e-9); a short cast is never flagged. Takes a DBI connection (the long table) or a
   data frame; the result's `judged` attribute gives the denominator per type.
 
+- New `diff_stage_vs_release()` (+ `diff_stage_vs_release_rows()`): the dry run behind the rule
+  "a data fix is diffed against the release before it is re-staged". It compares an ingest's
+  staged `obs` / `obs_ctd_full` / `sample_measurement` with a release (a local release
+  directory, a `calcofi4r::cc_catalog()` list or a version resolved through calcofi4r) and
+  returns one row per table x `measurement_type`: rows on each side, unchanged, added,
+  removed, filled, blanked, NaN <-> NULL, changed beyond `tolerance`, qual changed, the
+  largest absolute change and the duplicate keys on each side. Every type on either side
+  (and every type named in `measurement_type =`) gets a row. The differing rows, largest
+  change first, are in `attr(, "rows")`. Optional `cruise_key =` / `measurement_type =`
+  filters; big tables are diffed in batches of whole cruises inside a 3 GB, 2-thread DuckDB.
+  `calcofi4r` joins Suggests.
+
 # calcofi4db 4.17.2
 
 - **`check_taxon_registries()` gains `exclude =`** (default `character(0)`): the `dataset_key`s
