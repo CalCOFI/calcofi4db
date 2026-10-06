@@ -98,7 +98,7 @@ sync_to_gcs(
 
 # mirror mode: full GD backup with stale cleanup
 sync_to_gcs(
-  local_dir    = "~/My Drive/projects/calcofi/data-public",
+  local_dir    = "~/My Drive/projects/calcofi/CalCOFI Data Folder/data-public",
   gcs_prefix   = "_sync",
   bucket       = "calcofi-files-public",
   delete_stale = TRUE,

@@ -861,7 +861,7 @@ save_working_ducklake <- function(
 #' d <- read_csv_files(
 #'   provider     = "swfsc",
 #'   dataset      = "ichthyo",
-#'   dir_data     = "~/My Drive/projects/calcofi/data-public",
+#'   dir_data     = "~/My Drive/projects/calcofi/CalCOFI Data Folder/data-public",
 #'   metadata_dir = "metadata")
 #'
 #' con <- get_working_ducklake()
