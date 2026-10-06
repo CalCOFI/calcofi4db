@@ -400,9 +400,12 @@ CC_MEASUREMENT_REGISTRY_FILES <- c(
   if (length(setdiff(need_c, DBI::dbListFields(con, "climatology"))) ||
       length(setdiff(need_o, DBI::dbListFields(con, "obs_env")))) return(NULL)
   band <- .mm_band_sql("o.depth_min_m")
+  # the cruise's month, as build_climatology() files the baseline (a cast worked in the last days
+  # of the month before its cruise's month departs from its cruise's season)
+  cr_month <- .cruise_month_sql("o")
   base_sql <- glue::glue("
     SELECT o.dataset_key, o.measurement_type, o.site_key, o.cruise_key,
-           CAST(o.year AS INTEGER) AS year, month(o.datetime)::TINYINT AS month,
+           CAST(o.year AS INTEGER) AS year, {cr_month} AS month,
            o.depth_bin, o.value, m.mkey AS key, {band} AS band
     FROM obs_env o JOIN {map_tbl} m USING (measurement_type)
     WHERE o.qual_ok AND o.value IS NOT NULL AND isfinite(o.value)

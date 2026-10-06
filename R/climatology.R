@@ -10,13 +10,13 @@
 
 #' Build the release's `climatology` table
 #'
-#' A plain mean per **dataset, station (`site_key`), calendar month, 10 m depth bin and measurement type** over
+#' A plain mean per **dataset, station (`site_key`), the cruise's month, 10 m depth bin and measurement type** over
 #' the env realm of `obs` across a fixed window of years — the baseline every CalCOFI anomaly
 #' (ctd-transects, the CalCOFI Explorer's Sections lens, [calcofi4r::cc_climatology()]) is a
 #' departure from. Written once at release time so the products cannot disagree.
 #'
 #' Why each part of the grain:
-#' - **Calendar month.** Quarterly-ish cruises over decades give many *years* per calendar month at
+#' - **Month.** Quarterly-ish cruises over decades give many *years* per calendar month at
 #'   a station but only a handful of days, so month is the finest season CalCOFI supports — and the
 #'   coarsest that works: a baseline pooled over all months is a map of the seasonal cycle, not an
 #'   anomaly (line 90 surface: January 15.2, July 18.3, annual mean 16.8 degC; at 50–100 m the
@@ -28,6 +28,18 @@
 #'   inflection points plus bottle depths), so at 5 m the off-grid bins hold about a third of the
 #'   casts, sampled exactly where the profile bends, and their means sit visibly off their
 #'   neighbours'. Every 10 m bin holds every cast.
+#' - **The cruise's month, not the cast's.** A cast is filed under the month and year its
+#'   `cruise_key` designates (`YYYY-MM-NODC`, the month SWFSC assigns the cruise), never the
+#'   calendar date it was occupied. A cruise sails for two to three weeks and often starts in the
+#'   last days of the month before: CalCOFI 2607 (`2026-07-3322`) worked line 93.3 inshore of
+#'   station 50 on 30 June, so its anomaly looked up a June baseline that does not exist and
+#'   ctd-transects drew nothing inshore (Rasmus Swalethorp, 2026-10-06). Within 1993-2013, 9.9 % of
+#'   CTD casts (35 cruises) and 9.3 % of bottle samples fall in another calendar month than their
+#'   cruise's; by event month they were both missing from their season's baseline and stranded in
+#'   a month no cruise samples, where they mostly failed the cruise floor. The cruise month is the
+#'   season the cruise samples, so it is the season both sides of an anomaly are matched on; a
+#'   consumer reads it as `substr(cruise_key, 6, 2)`. A row whose `cruise_key` does not parse falls
+#'   back to its calendar date.
 #' - **The window** (`yr_min`–`yr_max`, default 1993–2013: Rasmus Swalethorp's CCIEA request; the
 #'   Wilkinson archive fills 1993–2002 so it does not quietly mean "1998 plus 2003–2013"). 21 years
 #'   with both phases of the 1997–99 ENSO inside it, ending before the 2014–16 marine heatwave so
@@ -119,12 +131,14 @@ build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, 
   yr_min <- as.integer(yr_min); yr_max <- as.integer(yr_max)
   min_cruises  <- as.integer(min_cruises); depth_bin_m <- as.integer(depth_bin_m)
   round_digits <- as.integer(round_digits)
+  cr_month <- .cruise_month_sql("o")
+  cr_year  <- .cruise_year_sql("o")
   dbExecute(con, glue("
     CREATE OR REPLACE TABLE {tbl} AS
     SELECT o.dataset_key,
            s.site_key,
            mode(o.grid_key)                                            AS grid_key,
-           month(o.datetime)::TINYINT                                  AS month,
+           {cr_month}                                                  AS month,
            (floor(o.depth_min_m / {depth_bin_m}) * {depth_bin_m})::INTEGER AS depth_bin,
            o.measurement_type,
            round(avg(o.measurement_value), {round_digits})             AS clim_mean,
@@ -140,10 +154,22 @@ build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, 
       AND o.depth_min_m IS NOT NULL AND o.depth_min_m >= 0
       AND ({depth_sql})
       AND o.measurement_value IS NOT NULL AND isfinite(o.measurement_value)
-      AND year(o.datetime) BETWEEN {yr_min} AND {yr_max}
+      AND {cr_year} BETWEEN {yr_min} AND {yr_max}
       AND ({qual_ok_sql})
     GROUP BY o.dataset_key, s.site_key, month, depth_bin, o.measurement_type
     HAVING count(DISTINCT o.cruise_key) >= {min_cruises}"))
   n <- dbGetQuery(con, glue("SELECT count(*) AS n FROM {tbl}"))$n
   invisible(n)
 }
+
+# the cruise's designated month and year as SQL over `alias` (cruise_key is YYYY-MM-NODC, the month
+# SWFSC assigns the cruise), the event datetime only when the key does not parse. The month every
+# anomaly is matched on, on both sides: build_climatology() and the measurement pages' series.
+.cruise_key_ok_sql <- function(alias = "o")
+  glue("regexp_matches({alias}.cruise_key, '^[0-9]{{4}}-(0[1-9]|1[0-2])-')")
+.cruise_month_sql <- function(alias = "o")
+  glue("CASE WHEN {.cruise_key_ok_sql(alias)} THEN substr({alias}.cruise_key, 6, 2)::TINYINT ",
+       "ELSE month({alias}.datetime)::TINYINT END")
+.cruise_year_sql <- function(alias = "o")
+  glue("CASE WHEN {.cruise_key_ok_sql(alias)} THEN substr({alias}.cruise_key, 1, 4)::INTEGER ",
+       "ELSE year({alias}.datetime) END")
