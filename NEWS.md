@@ -1,3 +1,15 @@
+# calcofi4db 4.22.0
+
+- **The climatology files a cast under its cruise's month, not its calendar date.**
+  `build_climatology()` groups by the month (and tests the window on the year) that `cruise_key`
+  designates (`YYYY-MM-NODC`), falling back to `datetime` only when the key does not parse. A
+  cruise often starts in the last days of the month before: CalCOFI 2607 (`2026-07-3322`) worked
+  line 93.3 inshore of station 50 on 30 June, so its anomaly looked up a June baseline that does
+  not exist and ctd-transects drew nothing there (Rasmus Swalethorp, 2026-10-06). In 1993–2013
+  9.9 % of CTD casts and 9.3 % of bottle samples are dated in another month than their cruise's.
+  Consumers match on `substr(cruise_key, 6, 2)`. The measurement pages' anomaly series
+  (`build_measurements_catalog()`) matches the same month.
+
 # calcofi4db 4.21.0
 
 - **`check_depth_constant_series()` takes a composite cast key.** `cast_col` may name several

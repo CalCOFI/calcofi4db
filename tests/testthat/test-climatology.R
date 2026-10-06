@@ -240,3 +240,31 @@ test_that("build_climatology(): clim_mean/clim_sd are stable under DuckDB's para
   expect_equal(a$clim_mean, ref$clim_mean)
   expect_equal(a$clim_sd,   ref$clim_sd)
 })
+
+# regression (2026-10-06, Rasmus Swalethorp): CalCOFI 2607 (2026-07-3322) worked line 93.3 inshore of
+# station 50 on 30 June. The baseline and the anomaly were both keyed on the cast's calendar month, so
+# those casts looked up a June baseline no cruise samples and ctd-transects drew nothing inshore. A
+# cast belongs to its cruise's month and year, read from cruise_key; the event date only when the key
+# does not parse.
+test_that("build_climatology(): a cast is filed under its cruise's month and year, not its calendar date", {
+  con <- clim_con()
+  DBI::dbExecute(con, "CREATE TABLE obs AS SELECT * FROM (VALUES
+    -- three July cruises; two worked this station in the last days of June
+    ('env', 'st30-ln93.3', '2001-07-33XX', TIMESTAMP '2001-06-30 04:00', 2.0, 'temperature_ave', 15.0, NULL::VARCHAR, 'calcofi_ctd-cast', 'j1'),
+    ('env', 'st30-ln93.3', '2002-07-33XX', TIMESTAMP '2002-06-29 22:00', 2.0, 'temperature_ave', 16.0, NULL, 'calcofi_ctd-cast', 'j2'),
+    ('env', 'st30-ln93.3', '2003-07-33XX', TIMESTAMP '2003-07-02 10:00', 2.0, 'temperature_ave', 17.0, NULL, 'calcofi_ctd-cast', 'j3'),
+    -- a January cruise that sailed in December of the year before the window opens: inside the window
+    ('env', 'st30-ln93.3', '1993-01-33XX', TIMESTAMP '1992-12-30 08:00', 2.0, 'temperature_ave', 13.0, NULL, 'calcofi_ctd-cast', 'w1'),
+    ('env', 'st30-ln93.3', '1994-01-33XX', TIMESTAMP '1994-01-05 08:00', 2.0, 'temperature_ave', 13.0, NULL, 'calcofi_ctd-cast', 'w2'),
+    -- a cruise key that does not parse falls back to the calendar date (January)
+    ('env', 'st30-ln93.3', 'unknown',      TIMESTAMP '1995-01-05 08:00', 2.0, 'temperature_ave', 13.0, NULL, 'calcofi_ctd-cast', 'w3')
+    ) t(realm, grid_key, cruise_key, datetime, depth_min_m, measurement_type, measurement_value, measurement_qual, dataset_key, sample_key)")
+  DBI::dbExecute(con, "CREATE TABLE sample AS SELECT sample_key, '093.3 030.0' AS site_key
+    FROM (VALUES ('j1'), ('j2'), ('j3'), ('w1'), ('w2'), ('w3')) t(sample_key)")
+  build_climatology(con, qual_ok_sql = CLIM_QUAL_OK)
+  cl <- DBI::dbGetQuery(con, "SELECT month, clim_mean, clim_n, n_cruises FROM climatology ORDER BY month")
+  expect_equal(cl$month, c(1L, 7L), info = "no June and no December cell")
+  expect_equal(cl$clim_mean, c(13, 16))
+  expect_equal(cl$n_cruises, c(3L, 3L),
+               info = "July holds the two casts dated in June; January holds 1993-01 (sailed 1992) and the unparsed key")
+})
