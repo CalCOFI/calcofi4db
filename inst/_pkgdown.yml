@@ -14,6 +14,9 @@ template:
     link-color-dark:          "#4fb6e6"
     link-hover-color-dark:    "#8ad0f0"
     navbar-dark-bg:           "#182b49"
+    # the brand face (brand/v2/fonts.css + theme.css --sans); Bootstrap's own system stack
+    # otherwise wins on body, so Source Sans 3 is never requested
+    font-family-sans-serif:   '"Source Sans 3", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
   includes:
     # the "CalCOFI.io" lockup far left -> calcofi.io, then pkgdown's own brand (the package
     # name -> this site) and version beside it: the brand contract's lockup + title, in the
