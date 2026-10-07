@@ -96,7 +96,7 @@ d <- data.frame(
   measurement_value = c(rep(12.5, 8), seq(1, 40, length.out = 8)))
 check_depth_constant_series(d, cast_col = "cast")
 #> duckdb keeps downloaded extensions and secrets in a temporary directory:
-#> ℹ /tmp/RtmpDrCW28/duckdb
+#> ℹ /tmp/Rtmp9Va2l7/duckdb
 #> This is removed when the R session ends.
 #> • Extensions are re-downloaded each session.
 #> • Secrets are lost.
