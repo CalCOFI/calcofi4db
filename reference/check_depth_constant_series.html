@@ -53,7 +53,7 @@ because the value is physically possible and unflagged."><!-- calcofi.io brand c
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.17.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.22.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -129,7 +129,11 @@ the long-format columns below.</p></dd>
 <dt id="arg-cast-col-type-col-value-col-depth-col">cast_col, type_col, value_col, depth_col<a class="anchor" aria-label="anchor" href="#arg-cast-col-type-col-value-col-depth-col"></a></dt>
 <dd><p>column names: the cast key, the
 measurement type, the value and the depth in metres. The defaults are the
-CTD ingest's <code>ctd_measurement</code>.</p></dd>
+CTD ingest's <code>ctd_measurement</code>. <code>cast_col</code> may name <strong>several</strong> columns, which
+together identify a cast (e.g. <code>c("cruise_key", "cast_key", "cast_dir")</code>). Group
+by the real cast: a key that is unique per depth scan (the CTD ingest's
+<code>ctd_cast_uuid</code> hashes the scan's time) gives one value per group, so nothing is
+ever judged.</p></dd>
 
 
 <dt id="arg-types">types<a class="anchor" aria-label="anchor" href="#arg-types"></a></dt>
@@ -152,7 +156,7 @@ default <code>NULL</code> judges every type present.</p></dd>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A <a href="https://tibble.tidyverse.org/reference/tibble.html" class="external-link">tibble</a>, one row per constant (cast, type), ordered by
-type then cast: the <code>cast_col</code>, <code>measurement_type</code>, <code>n</code> (finite values),
+type then cast: the <code>cast_col</code> column(s), <code>measurement_type</code>, <code>n</code> (finite values),
 <code>depth_min_m</code>, <code>depth_max_m</code>, <code>span_m</code>, <code>value</code> (the one value it holds). Zero
 rows when nothing is constant. The <code>judged</code> attribute is a named integer vector: per
 type, how many (cast, type) pairs met <code>min_n</code> and <code>min_span_m</code>, so a caller can
@@ -178,7 +182,7 @@ nothing. A judged cast is <strong>constant</strong> when its values' range is be
 <span class="r-in"><span>  measurement_value <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">12.5</span>, <span class="fl">8</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">40</span>, length.out <span class="op">=</span> <span class="fl">8</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu">check_depth_constant_series</span><span class="op">(</span><span class="va">d</span>, cast_col <span class="op">=</span> <span class="st">"cast"</span><span class="op">)</span></span></span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> duckdb keeps downloaded extensions and secrets in a temporary directory:</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #0000BB;">ℹ</span> /tmp/Rtmp2cCyyj/duckdb</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #0000BB;">ℹ</span> /tmp/RtmpDrCW28/duckdb</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> This is removed when the R session ends.</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BBBB;">•</span> Extensions are re-downloaded each session.</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BBBB;">•</span> Secrets are lost.</span>

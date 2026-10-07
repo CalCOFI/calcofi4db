@@ -49,7 +49,7 @@ partition_value) and, for the canonical layout, compat_path."><!-- calcofi.io br
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.17.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.22.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -140,7 +140,7 @@ partition_value) and, for the canonical layout, compat_path."><!-- calcofi.io br
     <p>Since 3.31.0 the catalog also carries a top-level <strong><code>views</code></strong> map — view name → SQL over
 <code>{{table}}</code> tokens — for every entry of <code>views</code> whose source tables are all in <code>tables_df</code>, and
 the table a view <code>replaces</code> gains <code>deprecated: true</code>, <code>replaced_by: [...]</code> and <code>removed_in</code> while
-it still ships. A resolver (<code>calcofi4r::cc_get_db()</code>, <code>calcofi4py.cc_get_db()</code>, db-query) creates
+it still ships. A resolver (<code><a href="https://calcofi.io/calcofi4r/reference/cc_get_db.html" class="external-link">calcofi4r::cc_get_db()</a></code>, <code>calcofi4py.cc_get_db()</code>, db-query) creates
 the views after the tables; a deprecated table's objects are read only when the view's sources
 were not loaded.</p>
     </div>

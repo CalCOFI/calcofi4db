@@ -49,7 +49,7 @@ baked into each publish_*_to-netcdf.qmd."><!-- calcofi.io brand contract v2 (htt
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.17.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.22.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -191,7 +191,7 @@ was silently dropped from a file advertised as full resolution.</p>
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="va">con</span> <span class="op">&lt;-</span> <span class="fu">cc_get_db</span><span class="op">(</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">con</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://calcofi.io/calcofi4r/reference/cc_get_db.html" class="external-link">cc_get_db</a></span><span class="op">(</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu">plan_dataset_netcdf</span><span class="op">(</span><span class="va">con</span>, <span class="st">"calcofi_ctd-cast"</span><span class="op">)</span><span class="op">$</span><span class="va">shape</span>   <span class="co"># "profile"</span></span></span>
 <span class="r-in"><span><span class="fu">plan_dataset_netcdf</span><span class="op">(</span><span class="va">con</span>, <span class="st">"calcofi_mets"</span><span class="op">)</span><span class="op">$</span><span class="va">shape</span>       <span class="co"># "trajectory"</span></span></span>
 <span class="r-in"><span><span class="fu">plan_dataset_netcdf</span><span class="op">(</span><span class="va">con</span>, <span class="st">"cce-lter_zooscan"</span><span class="op">)</span><span class="op">$</span><span class="va">shape</span>   <span class="co"># "point"</span></span></span>

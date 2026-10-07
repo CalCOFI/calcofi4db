@@ -45,7 +45,7 @@ if any fail. Useful for master ingestion scripts with multiple datasets."><!-- c
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.17.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.22.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -90,7 +90,8 @@ if any fail. Useful for master ingestion scripts with multiple datasets.</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">check_multiple_datasets</span><span class="op">(</span></span>
 <span>  <span class="va">datasets</span>,</span>
 <span>  halt_on_first_fail <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  display_format <span class="op">=</span> <span class="st">"DT"</span></span>
+<span>  display_format <span class="op">=</span> <span class="st">"DT"</span>,</span>
+<span>  stop_on_fail <span class="op">=</span> <span class="op">!</span><span class="fu">rlang</span><span class="fu">::</span><span class="fu"><a href="https://rlang.r-lib.org/reference/is_interactive.html" class="external-link">is_interactive</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -109,6 +110,12 @@ outputs from read_csv_files()</p></dd>
 
 <dt id="arg-display-format">display_format<a class="anchor" aria-label="anchor" href="#arg-display-format"></a></dt>
 <dd><p>Format for displaying changes (default: "DT")</p></dd>
+
+
+<dt id="arg-stop-on-fail">stop_on_fail<a class="anchor" aria-label="anchor" href="#arg-stop-on-fail"></a></dt>
+<dd><p>Logical, raise an error when any dataset fails instead
+of only setting knitr <code>eval = FALSE</code> (default: <code>!rlang::is_interactive()</code>;
+see <code><a href="check_data_integrity.html">check_data_integrity()</a></code>).</p></dd>
 
 </dl></div>
     <div class="section level2">

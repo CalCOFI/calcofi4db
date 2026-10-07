@@ -51,7 +51,7 @@ violations."><!-- calcofi.io brand contract v2 (https://calcofi.io/brand/v2/; li
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.17.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.22.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -101,7 +101,8 @@ violations.</p>
 <span>  <span class="va">seafloor</span>,</span>
 <span>  sample_tbl <span class="op">=</span> <span class="st">"sample"</span>,</span>
 <span>  obs_tbl <span class="op">=</span> <span class="st">"obs"</span>,</span>
-<span>  tolerance_m <span class="op">=</span> <span class="fl">10</span></span>
+<span>  tolerance_m <span class="op">=</span> <span class="fl">10</span>,</span>
+<span>  nominal_datasets <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -127,13 +128,30 @@ case it is computed).</p></dd>
 <dd><p>Metres a sample may exceed the neighbourhood-deepest cell
 before it is a finding (default 10).</p></dd>
 
+
+<dt id="arg-nominal-datasets">nominal_datasets<a class="anchor" aria-label="anchor" href="#arg-nominal-datasets"></a></dt>
+<dd><p><code>dataset_key</code>s whose depths are nominal maxima, measured
+apart from the rest (default none: every depth is in the main measure).</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A tibble of violators — <code>sample_key</code>, <code>dataset_key</code>, <code>sample_type</code>,
 <code>cruise_key</code>, <code>longitude</code>, <code>latitude</code>, <code>depth_m</code>, <code>seafloor_depth_m</code>,
-<code>seafloor_max3x3_m</code>, <code>excess_m</code>, <code>on_land</code> — worst first, with attribute
-<code>summary</code>: per-dataset <code>n_root</code>, <code>n_unknown</code>, <code>n_over</code> and <code>max_excess_m</code>.</p>
+<code>seafloor_max3x3_m</code>, <code>excess_m</code>, <code>on_land</code> — worst first, with attributes
+<code>summary</code> (per-dataset <code>n_root</code>, <code>n_unknown</code>, <code>n_over</code>, <code>max_excess_m</code>,
+<code>n_over_nominal</code>) and <code>nominal</code> (the violators by a nominal depth alone, same
+columns).</p>
+    </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>A dataset named in <code>nominal_datasets</code> publishes a NOMINAL depth: the maximum a
+gear could reach, not where it went (SWFSC ichthyoplankton <code>Net.NetDepth</code>, the
+maximum possible depth of the net). Where the sea floor is shallower the net
+simply did not get there, so that is not a finding of the same kind. Those
+datasets' sample and observation depths are left out of the main measure and
+measured on their own: attribute <code>nominal</code> (same columns as the result) and
+<code>n_over_nominal</code> in <code>summary</code>, so a release can ratchet each separately.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

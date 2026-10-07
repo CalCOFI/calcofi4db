@@ -43,7 +43,7 @@ build_obs_slim(
 - density_sql:
 
   the density select-list over the unaliased effort columns —
-  `calcofi4r::cc_density_sql()`.
+  [`calcofi4r::cc_density_sql()`](https://calcofi.io/calcofi4r/reference/cc_density_sql.html).
 
 - tbl:
 

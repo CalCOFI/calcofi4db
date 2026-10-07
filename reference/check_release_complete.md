@@ -5,8 +5,10 @@ nothing about whether the release is **readable**, and those are
 different questions — `test_release.qmd` asked only the first until
 2026-08-14, when it passed 28/28 against genuinely-good parquet and
 promoted `latest.txt` to a release with no `catalog.json`. That is the
-file `cc_get_db()` opens, so every consumer resolving through `latest`
-got a 404 while the tests were green.
+file
+[`cc_get_db()`](https://calcofi.io/calcofi4r/reference/cc_get_db.html)
+opens, so every consumer resolving through `latest` got a 404 while the
+tests were green.
 
 ## Usage
 

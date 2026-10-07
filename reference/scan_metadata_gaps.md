@@ -2,8 +2,12 @@
 
 Empty table/column descriptions and missing units are invisible until a
 consumer hits them: they travel from an ingest's `metadata.json` into
-the release sidecar and out through calcofi4r `cc_describe_table()` /
-`cc_db_catalog()`, where they render as blank documentation.
+the release sidecar and out through
+[calcofi4r](https://calcofi.io/calcofi4r/reference/calcofi4r-package.html)
+[`cc_describe_table()`](https://calcofi.io/calcofi4r/reference/cc_describe_table.html)
+/
+[`cc_db_catalog()`](https://calcofi.io/calcofi4r/reference/cc_db_catalog.html),
+where they render as blank documentation.
 [`build_metadata_json()`](https://calcofi.io/calcofi4db/reference/build_metadata_json.md)
 calls this on every write.
 

@@ -7,8 +7,9 @@ order, under their original names — from the bifurcated pair
 contributes, `value` becomes `measurement_value`. The default sources
 are the **tokens** `{{obs_bio}}` / `{{obs_env}}`, which is how the SQL
 is stored in a release's `catalog.json` (`views.obs`): every resolver —
-`calcofi4r::cc_get_db()`, `calcofi4py.cc_get_db()`, db-query's
-`__TBL:obs__` — substitutes its own way of reading each table
+[`calcofi4r::cc_get_db()`](https://calcofi.io/calcofi4r/reference/cc_get_db.html),
+`calcofi4py.cc_get_db()`, db-query's `__TBL:obs__` — substitutes its own
+way of reading each table
 ([`substitute_view_tables()`](https://calcofi.io/calcofi4db/reference/release_view_tables.md)),
 a quoted table name inside a connection or a `read_parquet(...)` over
 the catalog's objects.

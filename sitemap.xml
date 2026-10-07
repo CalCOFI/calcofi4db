@@ -15,6 +15,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/add_point_geom.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/add_provenance_columns.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/add_release_citation.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/add_sample_hex7.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/add_sample_seafloor.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/append_dataset_taxon.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/append_obs.html</loc></url>
@@ -45,6 +46,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/build_datasets_sitemap.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_eml.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_eml_catalog.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/build_grid_crosswalk.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_grid_reference.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_measurements_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_metadata_json.html</loc></url>
@@ -85,6 +87,8 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/check_depth_vs_seafloor.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_eml.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_eml_catalog.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/check_grid_crosswalk.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/check_grid_key_assignment.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_measurement_bounds.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_measurements_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_multiple_datasets.html</loc></url>
@@ -92,6 +96,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/check_registry_na_strings.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_release_complete.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_release_relationships.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/check_sample_hex7.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_seafloor_nulls.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_site_key_format.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_sitemap.html</loc></url>
@@ -101,6 +106,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/check_taxon_registries.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_ungridded_obs.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_variable_registry.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/check_zero_runs.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/citation_findings.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/classify_portal.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/clean_taxon_name.html</loc></url>
@@ -153,6 +159,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/derive_registration_id.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/detect_csv_changes.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/determine_field_types.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/diff_stage_vs_release.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/discover_sample_levels.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/display_csv_changes.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/distribution_changes.html</loc></url>
@@ -218,6 +225,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/get_schema_versions.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/get_working_ducklake.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/github_file_link.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/grid_crosswalk.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/h3_parent_sql.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/holdings_from_sidecars.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/index.html</loc></url>

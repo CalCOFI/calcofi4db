@@ -41,6 +41,11 @@ check_depth_constant_series(
 
   column names: the cast key, the measurement type, the value and the
   depth in metres. The defaults are the CTD ingest's `ctd_measurement`.
+  `cast_col` may name **several** columns, which together identify a
+  cast (e.g. `c("cruise_key", "cast_key", "cast_dir")`). Group by the
+  real cast: a key that is unique per depth scan (the CTD ingest's
+  `ctd_cast_uuid` hashes the scan's time) gives one value per group, so
+  nothing is ever judged.
 
 - types:
 
@@ -62,12 +67,12 @@ check_depth_constant_series(
 ## Value
 
 A [tibble](https://tibble.tidyverse.org/reference/tibble.html), one row
-per constant (cast, type), ordered by type then cast: the `cast_col`,
-`measurement_type`, `n` (finite values), `depth_min_m`, `depth_max_m`,
-`span_m`, `value` (the one value it holds). Zero rows when nothing is
-constant. The `judged` attribute is a named integer vector: per type,
-how many (cast, type) pairs met `min_n` and `min_span_m`, so a caller
-can report "constant on 14 of 14".
+per constant (cast, type), ordered by type then cast: the `cast_col`
+column(s), `measurement_type`, `n` (finite values), `depth_min_m`,
+`depth_max_m`, `span_m`, `value` (the one value it holds). Zero rows
+when nothing is constant. The `judged` attribute is a named integer
+vector: per type, how many (cast, type) pairs met `min_n` and
+`min_span_m`, so a caller can report "constant on 14 of 14".
 
 ## Details
 
@@ -91,7 +96,7 @@ d <- data.frame(
   measurement_value = c(rep(12.5, 8), seq(1, 40, length.out = 8)))
 check_depth_constant_series(d, cast_col = "cast")
 #> duckdb keeps downloaded extensions and secrets in a temporary directory:
-#> ℹ /tmp/Rtmp2cCyyj/duckdb
+#> ℹ /tmp/RtmpDrCW28/duckdb
 #> This is removed when the R session ends.
 #> • Extensions are re-downloaded each session.
 #> • Secrets are lost.

@@ -9,7 +9,8 @@ any fail. Useful for master ingestion scripts with multiple datasets.
 check_multiple_datasets(
   datasets,
   halt_on_first_fail = FALSE,
-  display_format = "DT"
+  display_format = "DT",
+  stop_on_fail = !rlang::is_interactive()
 )
 ```
 
@@ -27,6 +28,12 @@ check_multiple_datasets(
 - display_format:
 
   Format for displaying changes (default: "DT")
+
+- stop_on_fail:
+
+  Logical, raise an error when any dataset fails instead of only setting
+  knitr `eval = FALSE` (default: `!rlang::is_interactive()`; see
+  [`check_data_integrity()`](https://calcofi.io/calcofi4db/reference/check_data_integrity.md)).
 
 ## Value
 

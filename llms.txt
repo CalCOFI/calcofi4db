@@ -467,6 +467,8 @@ functions for data validation and integrity checking
 - [`check_ungridded_obs()`](https://calcofi.io/calcofi4db/reference/check_ungridded_obs.md)
   : Observations that resolve no CalCOFI grid cell — reported, never
   dropped
+- [`check_zero_runs()`](https://calcofi.io/calcofi4db/reference/check_zero_runs.md)
+  : Runs of exact zeros within a cast
 - [`render_integrity_message()`](https://calcofi.io/calcofi4db/reference/render_integrity_message.md)
   : Render Data Integrity Check Message
 
@@ -738,6 +740,11 @@ check for other functions or datasets not captured by above categories
 
   Write the release citation into a `catalog.json` list
 
+- [`add_sample_hex7()`](https://calcofi.io/calcofi4db/reference/add_sample_hex7.md)
+  :
+
+  Stamp `hex7` on `sample` (or any table with a position)
+
 - [`add_sample_seafloor()`](https://calcofi.io/calcofi4db/reference/add_sample_seafloor.md)
   :
 
@@ -859,6 +866,11 @@ check for other functions or datasets not captured by above categories
 - [`build_eml_catalog()`](https://calcofi.io/calcofi4db/reference/build_eml_catalog.md)
   : Build an EML document for every dataset in the catalog record
 
+- [`build_grid_crosswalk()`](https://calcofi.io/calcofi4db/reference/build_grid_crosswalk.md)
+  :
+
+  Build the `grid_crosswalk` release table
+
 - [`build_grid_reference()`](https://calcofi.io/calcofi4db/reference/build_grid_reference.md)
   :
 
@@ -972,6 +984,12 @@ check for other functions or datasets not captured by above categories
 - [`check_eml_catalog()`](https://calcofi.io/calcofi4db/reference/check_eml_catalog.md)
   : Check every dataset's EML document
 
+- [`check_grid_crosswalk()`](https://calcofi.io/calcofi4db/reference/check_grid_crosswalk.md)
+  : Gate the grid crosswalk
+
+- [`check_grid_key_assignment()`](https://calcofi.io/calcofi4db/reference/check_grid_key_assignment.md)
+  : Check that every keyed sample sits in the cell its key names
+
 - [`check_measurements_catalog()`](https://calcofi.io/calcofi4db/reference/check_measurements_catalog.md)
   :
 
@@ -987,6 +1005,12 @@ check for other functions or datasets not captured by above categories
 
 - [`check_release_relationships()`](https://calcofi.io/calcofi4db/reference/check_release_relationships.md)
   : Measure every declared primary and foreign key on the frozen tables
+
+- [`check_sample_hex7()`](https://calcofi.io/calcofi4db/reference/check_sample_hex7.md)
+  :
+
+  Check `hex7` on `sample` and `sample_root` against the positions and
+  against the observations
 
 - [`check_seafloor_nulls()`](https://calcofi.io/calcofi4db/reference/check_seafloor_nulls.md)
   :
@@ -1057,7 +1081,7 @@ check for other functions or datasets not captured by above categories
   : Find the per-dataset parquet shards for a core table
 
 - [`ctd_chl_max()`](https://calcofi.io/calcofi4db/reference/ctd_chl_max.md)
-  : Depth of the chlorophyll-a maximum of one CTD cast
+  : Depth of the chlorophyll-a maximum (DCM) of one CTD cast
 
 - [`ctd_geostrophic()`](https://calcofi.io/calcofi4db/reference/ctd_geostrophic.md)
   : Relative geostrophic velocity between adjacent CTD stations
@@ -1112,6 +1136,10 @@ check for other functions or datasets not captured by above categories
 
 - [`derive_registration_id()`](https://calcofi.io/calcofi4db/reference/derive_registration_id.md)
   : The identifier a portal knows a dataset by, read off its own URL
+
+- [`diff_stage_vs_release()`](https://calcofi.io/calcofi4db/reference/diff_stage_vs_release.md)
+  [`diff_stage_vs_release_rows()`](https://calcofi.io/calcofi4db/reference/diff_stage_vs_release.md)
+  : Diff an ingest's staged output against a published release
 
 - [`discover_sample_levels()`](https://calcofi.io/calcofi4db/reference/discover_sample_levels.md)
   :
@@ -1248,6 +1276,9 @@ check for other functions or datasets not captured by above categories
 
 - [`freeze_plan()`](https://calcofi.io/calcofi4db/reference/freeze_plan.md)
   : Decide, per object, whether to upload or reuse
+
+- [`grid_crosswalk()`](https://calcofi.io/calcofi4db/reference/grid_crosswalk.md)
+  : Area crosswalk between two grids
 
 - [`h3_parent_sql()`](https://calcofi.io/calcofi4db/reference/h3_parent_sql.md)
   : H3 parent of a cell as plain SQL (no extension)

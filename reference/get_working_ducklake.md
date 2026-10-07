@@ -45,8 +45,9 @@ The Working DuckLake is stored at `gs://calcofi-db/ducklake/working/`.
 It includes provenance columns and supports time travel queries via
 DuckLake.
 
-For read-only access to stable data, use `cc_get_db()` from the
-`calcofi4r` package to access frozen releases instead.
+For read-only access to stable data, use
+[`cc_get_db()`](https://calcofi.io/calcofi4r/reference/cc_get_db.html)
+from the `calcofi4r` package to access frozen releases instead.
 
 ## Examples
 

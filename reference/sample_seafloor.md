@@ -2,10 +2,11 @@
 
 Extracts, for every distinct position in `sample_tbl`, the bilinear
 seafloor depth (positive down, land clamped to 0 — the same convention
-as `calcofi4r::cc_bathy_depth()`) and the deepest cell in the 3x3
-neighbourhood around it, which is what a plausibility check should
-compare against: on a slope the neighbourhood is deeper than the cell,
-and by the amount the slope warrants.
+as
+[`calcofi4r::cc_bathy_depth()`](https://calcofi.io/calcofi4r/reference/cc_bathy_depth.html))
+and the deepest cell in the 3x3 neighbourhood around it, which is what a
+plausibility check should compare against: on a slope the neighbourhood
+is deeper than the cell, and by the amount the slope warrants.
 
 ## Usage
 

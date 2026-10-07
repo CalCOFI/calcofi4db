@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.17.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.22.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -610,6 +610,13 @@
 
         </dt>
         <dd>Observations that resolve no CalCOFI grid cell — reported, never dropped</dd>
+
+        <dt>
+
+          <code><a href="check_zero_runs.html">check_zero_runs()</a></code>
+
+        </dt>
+        <dd>Runs of exact zeros within a cast</dd>
 
         <dt>
 
@@ -1307,6 +1314,13 @@
 
         <dt>
 
+          <code><a href="add_sample_hex7.html">add_sample_hex7()</a></code>
+
+        </dt>
+        <dd>Stamp <code>hex7</code> on <code>sample</code> (or any table with a position)</dd>
+
+        <dt>
+
           <code><a href="add_sample_seafloor.html">add_sample_seafloor()</a></code>
 
         </dt>
@@ -1479,6 +1493,13 @@
 
         </dt>
         <dd>Build an EML document for every dataset in the catalog record</dd>
+
+        <dt>
+
+          <code><a href="build_grid_crosswalk.html">build_grid_crosswalk()</a></code>
+
+        </dt>
+        <dd>Build the <code>grid_crosswalk</code> release table</dd>
 
         <dt>
 
@@ -1678,6 +1699,20 @@
 
         <dt>
 
+          <code><a href="check_grid_crosswalk.html">check_grid_crosswalk()</a></code>
+
+        </dt>
+        <dd>Gate the grid crosswalk</dd>
+
+        <dt>
+
+          <code><a href="check_grid_key_assignment.html">check_grid_key_assignment()</a></code>
+
+        </dt>
+        <dd>Check that every keyed sample sits in the cell its key names</dd>
+
+        <dt>
+
           <code><a href="check_measurements_catalog.html">check_measurements_catalog()</a></code>
 
         </dt>
@@ -1703,6 +1738,13 @@
 
         </dt>
         <dd>Measure every declared primary and foreign key on the frozen tables</dd>
+
+        <dt>
+
+          <code><a href="check_sample_hex7.html">check_sample_hex7()</a></code>
+
+        </dt>
+        <dd>Check <code>hex7</code> on <code>sample</code> and <code>sample_root</code> against the positions and against the observations</dd>
 
         <dt>
 
@@ -1821,7 +1863,7 @@
           <code><a href="ctd_chl_max.html">ctd_chl_max()</a></code>
 
         </dt>
-        <dd>Depth of the chlorophyll-a maximum of one CTD cast</dd>
+        <dd>Depth of the chlorophyll-a maximum (DCM) of one CTD cast</dd>
 
         <dt>
 
@@ -1920,6 +1962,13 @@
 
         </dt>
         <dd>The identifier a portal knows a dataset by, read off its own URL</dd>
+
+        <dt>
+
+          <code><a href="diff_stage_vs_release.html">diff_stage_vs_release()</a></code> <code><a href="diff_stage_vs_release.html">diff_stage_vs_release_rows()</a></code>
+
+        </dt>
+        <dd>Diff an ingest's staged output against a published release</dd>
 
         <dt>
 
@@ -2151,6 +2200,13 @@
 
         </dt>
         <dd>Decide, per object, whether to upload or reuse</dd>
+
+        <dt>
+
+          <code><a href="grid_crosswalk.html">grid_crosswalk()</a></code>
+
+        </dt>
+        <dd>Area crosswalk between two grids</dd>
 
         <dt>
 

@@ -1,5 +1,249 @@
 # Changelog
 
+## calcofi4db 4.22.0
+
+- **The climatology files a cast under its cruise’s month, not its
+  calendar date.**
+  [`build_climatology()`](https://calcofi.io/calcofi4db/reference/build_climatology.md)
+  groups by the month (and tests the window on the year) that
+  `cruise_key` designates (`YYYY-MM-NODC`), falling back to `datetime`
+  only when the key does not parse. A cruise often starts in the last
+  days of the month before: CalCOFI 2607 (`2026-07-3322`) worked line
+  93.3 inshore of station 50 on 30 June, so its anomaly looked up a June
+  baseline that does not exist and ctd-transects drew nothing there
+  (Rasmus Swalethorp, 2026-10-06). In 1993–2013 9.9 % of CTD casts and
+  9.3 % of bottle samples are dated in another month than their
+  cruise’s. Consumers match on `substr(cruise_key, 6, 2)`. The
+  measurement pages’ anomaly series
+  ([`build_measurements_catalog()`](https://calcofi.io/calcofi4db/reference/build_measurements_catalog.md))
+  matches the same month.
+
+## calcofi4db 4.21.0
+
+- **[`check_depth_constant_series()`](https://calcofi.io/calcofi4db/reference/check_depth_constant_series.md)
+  takes a composite cast key.** `cast_col` may name several columns that
+  together identify a cast,
+  e.g. `c("cruise_key", "cast_key", "cast_dir")`, returned as that many
+  key columns. The CTD ingest called it with `ctd_cast_uuid`, which is
+  unique per depth scan, so a “cast” held one value and was almost never
+  judged (32 cells withheld on the 2026-10-04 render against 441
+  constant casts in the census; CalCOFI/workflows#131).
+- **New
+  [`check_zero_runs()`](https://calcofi.io/calcofi4db/reference/check_zero_runs.md).**
+  Finds runs of exact zeros within a cast (at least `min_n` = 6 values
+  over `min_span_m` = 50 m, a depth step of at most `max_gap_m` = 5 m
+  inside a run, a non-zero value ends it), the part of a cast a failed
+  regression clipped to 0 while the rest varies (the CTD team’s
+  station-corrected oxygen: 0.0 from 322 to 517 m beside a sensor at 26
+  umol/kg). A sibling of
+  [`check_depth_constant_series()`](https://calcofi.io/calcofi4db/reference/check_depth_constant_series.md),
+  which tests the whole cast; the caller chooses the series, since an
+  exact 0 can be a real estimate clipped at zero (surface nitrate).
+
+## calcofi4db 4.20.0
+
+- **[`check_depth_vs_seafloor()`](https://calcofi.io/calcofi4db/reference/check_depth_vs_seafloor.md)
+  gains `nominal_datasets`.** A dataset named there publishes a nominal
+  depth, the most a gear could reach rather than where it went (SWFSC
+  ichthyoplankton `Net.NetDepth`, the maximum possible depth of the
+  net). Its depths leave the main measure and are measured on their own:
+  attribute `nominal` and column `n_over_nominal` in `summary`, so a
+  release ratchets the two separately. Default
+  [`character()`](https://rdrr.io/r/base/character.html): behaviour
+  unchanged. Also fixed: with no finding at all the function errored in
+  [`aggregate()`](https://rdrr.io/r/stats/aggregate.html) (“no rows to
+  aggregate”).
+- **`fish` is a released table.**
+  [`core_relationships()`](https://calcofi.io/calcofi4db/reference/core_relationships.md)
+  declares swfsc_ichthyo’s `fish` (SWFSC’s Fish table: fish grown past
+  the larval stage, per net and species code) with key
+  `(sample_key, species_id)` and FKs to `sample` and `taxon`;
+  [`release_sort_keys()`](https://calcofi.io/calcofi4db/reference/release_sort_keys.md)
+  orders it by that key, so the deterministic export writes it.
+
+## calcofi4db 4.19.1
+
+- **A failed
+  [`check_data_integrity()`](https://calcofi.io/calcofi4db/reference/check_data_integrity.md)
+  now stops a non-interactive render.** It used to set knitr
+  `eval = FALSE` on the remaining chunks and return, so `quarto render`
+  exited 0 and `targets` recorded the target as built with nothing
+  written: `ingest_swfsc_ichthyo.qmd` halted at this checkpoint on the
+  provider’s 2026-09 exports (30 table-level mismatches by 2026-10-04)
+  while v2026.09.11 to v2026.10.01 shipped its 2026-09-04 shard. New
+  argument `stop_on_fail`, default `!rlang::is_interactive()`:
+  [`stop()`](https://rdrr.io/r/base/stop.html) with the mismatch summary
+  in a render or
+  [`tar_make()`](https://docs.ropensci.org/targets/reference/tar_make.html);
+  the old `eval = FALSE` behaviour interactively, or with
+  `stop_on_fail = FALSE` to render the failure report on purpose.
+  [`check_multiple_datasets()`](https://calcofi.io/calcofi4db/reference/check_multiple_datasets.md)
+  gains the same argument.
+
+## calcofi4db 4.19.0
+
+### The rebuilt CalCOFI grid, and a crosswalk from the previous one (CalCOFI/workflows#130)
+
+- **[`assign_grid_key()`](https://calcofi.io/calcofi4db/reference/assign_grid_key.md)
+  is deterministic on a shared edge.** The rule was
+  `SELECT g.grid_key ... WHERE ST_Intersects(...) LIMIT 1` with no
+  order, so a position on an edge two cells share keyed to whichever the
+  join met first. It is now `min(g.grid_key)`: the key that sorts first
+  in byte order, NULL when the position is in no cell.
+  [`calcofi4r::cc_grid_key()`](https://calcofi.io/calcofi4r/reference/cc_grid_key.html)
+  is the same rule in R. Measured on the rebuilt grid: the two agree on
+  all 226,762 distinct `sample` positions of v2026.10.01 and on all
+  20,848 cell vertices (10,027 of them on an edge two or more cells
+  share), where the old rule gave another key on about 5,000 (a
+  different count each run, being unordered).
+- **[`build_grid_reference()`](https://calcofi.io/calcofi4db/reference/build_grid_reference.md)
+  ships whatever
+  [`calcofi4r::cc_grid`](https://calcofi.io/calcofi4r/reference/cc_grid.html)
+  is**, which from calcofi4r 1.25.0 is one cell per official station
+  (the Voronoi tessellation of the 113 official positions, confined to
+  the previous cells it replaces) beside the 112 previous cells beyond
+  the official pattern, kept as they were: 225 cells. The table’s
+  columns are unchanged. New arguments `cc_grid =` and `cc_grid_ctrs =`
+  (defaults: the bundled datasets) let a test or a variant pass its own
+  cells; where `cc_grid` carries its own `grid_key` the key derived from
+  `sta_key` must equal it, and a duplicated key stops the build.
+  `grid.geom_ctr` is the cell’s station, no longer the centroid of its
+  largest polygon.
+- **New
+  [`grid_crosswalk()`](https://calcofi.io/calcofi4db/reference/grid_crosswalk.md),
+  [`build_grid_crosswalk()`](https://calcofi.io/calcofi4db/reference/build_grid_crosswalk.md)
+  and
+  [`check_grid_crosswalk()`](https://calcofi.io/calcofi4db/reference/check_grid_crosswalk.md).**
+  84 of the 113 station cells keep a key whose polygon changed, so
+  nothing may map between the grids by name. `build_grid_crosswalk(con)`
+  writes the release table `grid_crosswalk` from the connection’s `grid`
+  and
+  [`calcofi4r::cc_grid_v1`](https://calcofi.io/calcofi4r/reference/cc_grid_v1.html):
+  one row per overlapping pair, `prev_grid_key`, `grid_key`,
+  `overlap_km2`, `prev_frac` (share of the previous cell) and
+  `grid_frac` (share of the current cell), areas in EPSG:3310; a pair
+  that overlaps by under 100 m² is numerical and left out. Shares are of
+  the whole cell and are never rescaled: a previous cell’s shares sum to
+  one less the part of it that is land under the finer coastline (180 of
+  218 sum to one within 1e-6; the smallest sum is 0.978). A kept cell is
+  an identity row.
+  [`check_grid_crosswalk()`](https://calcofi.io/calcofi4db/reference/check_grid_crosswalk.md)
+  is the gate: every cell of both grids present, no repeated pair, no
+  key of neither grid, no previous cell over one, none under `min_cover`
+  (0.95); a current cell over one is reported as `overlapped`, because
+  the previous cells overlap each other slightly along the line 93.3 /
+  line 100 boundary.
+- **New
+  [`check_grid_key_assignment()`](https://calcofi.io/calcofi4db/reference/check_grid_key_assignment.md)**:
+  recomputes the cell of every `sample` position against the
+  connection’s `grid` and stops when a row’s `grid_key` is not that
+  cell. 84 of the previous keys survive as names over polygons that
+  changed, so an ingest staged against the previous grid passes the
+  foreign-key check on `grid_key` while naming the wrong water: of
+  v2026.10.01’s keys, 185,761 are not the row’s cell in the rebuilt grid
+  and 59,688 of those are still valid keys. A position inside a cell on
+  a row with no key is reported, not failed. A row that inherits its key
+  from a parent event at another position (a cast-matched `calcofi_dic`
+  sample) fails it.
+- [`core_relationships()`](https://calcofi.io/calcofi4db/reference/core_relationships.md)
+  declares `grid_crosswalk`’s primary key (`prev_grid_key`, `grid_key`)
+  and
+  [`release_sort_keys()`](https://calcofi.io/calcofi4db/reference/release_sort_keys.md)
+  its export order, so `release_database.qmd` can freeze it.
+
+## calcofi4db 4.18.0
+
+- **`hex7` on `sample` and `sample_root`** (Ben, 2026-10-02), so a
+  per-sample value in `sample_measurement` (a cast’s mixed-layer depth)
+  can be drawn in a hexagon lens, on non-root samples too. New
+  [`add_sample_hex7()`](https://calcofi.io/calcofi4db/reference/add_sample_hex7.md)
+  rebuilds `sample` (by `SELECT`, never `UPDATE`: the table holds a
+  CRS-tagged `geom`) with a trailing `UBIGINT` `hex7`: the resolution-7
+  **parent of the resolution-10 cell** of the row’s position, `NULL`
+  where either coordinate is `NULL`, `NaN` or infinite. It is built from
+  the same two SQL fragments as `obs.hex_id`
+  ([`append_obs()`](https://calcofi.io/calcofi4db/reference/append_obs.md))
+  and `obs_bio.hex7` / `obs_env.hex7`
+  ([`build_obs_slim()`](https://calcofi.io/calcofi4db/reference/build_obs_slim.md)),
+  so the two sides cannot drift. It is not the resolution-7 cell the
+  position falls in: H3 cells do not nest exactly, and on v2026.10.01
+  the two differ for 101,770 of 1,463,329 positioned samples.
+- **[`build_sample_root()`](https://calcofi.io/calcofi4db/reference/build_sample_root.md)
+  carries `hex7`** as its last column, copied from `sample` and never
+  recomputed, so the two tables agree for every root. On a `sample` that
+  was not stamped the column is `NULL` and a message says so.
+- New
+  [`check_sample_hex7()`](https://calcofi.io/calcofi4db/reference/check_sample_hex7.md),
+  the release gate: `hex7` is present exactly where the position is
+  finite, is a resolution-7 cell, is equal on `sample` and `sample_root`
+  for every root, and an observation sitting at its own sample’s
+  position is in its sample’s cell. An observation in another cell than
+  its sample is reported, not failed: a CTD scan carries its own
+  position, the cast carries one (893 of the 9,275 `calcofi_ctd-derived`
+  casts of v2026.10.01 have scans in more than one resolution-7 cell).
+- The position-to-cell fragment behind
+  [`append_obs()`](https://calcofi.io/calcofi4db/reference/append_obs.md)
+  now refuses a `NaN` or infinite coordinate itself.
+  [`append_obs()`](https://calcofi.io/calcofi4db/reference/append_obs.md)
+  output is unchanged (it normalised its input already).
+- New
+  [`diff_stage_vs_release()`](https://calcofi.io/calcofi4db/reference/diff_stage_vs_release.md)
+  (+
+  [`diff_stage_vs_release_rows()`](https://calcofi.io/calcofi4db/reference/diff_stage_vs_release.md)):
+  the dry run behind the rule “a data fix is diffed against the release
+  before it is re-staged”. It compares an ingest’s staged `obs` /
+  `obs_ctd_full` / `sample_measurement` with a release (a local release
+  directory, a
+  [`calcofi4r::cc_catalog()`](https://calcofi.io/calcofi4r/reference/cc_catalog.html)
+  list or a version resolved through calcofi4r) and returns one row per
+  table x `measurement_type`: rows on each side, unchanged, added,
+  removed, filled, blanked, NaN \<-\> NULL, changed beyond `tolerance`,
+  qual changed, the largest absolute change and the duplicate keys on
+  each side. Every type on either side (and every type named in
+  `measurement_type =`) gets a row. The differing rows, largest change
+  first, are in `attr(, "rows")`. Optional `cruise_key =` /
+  `measurement_type =` filters; big tables are diffed in batches of
+  whole cruises inside a 3 GB, 2-thread DuckDB. `calcofi4r` joins
+  Suggests.
+- **The CTD team’s definitions are the defaults of the derived
+  products** (Rasmus Swalethorp, 2026-09-23, `calcofi_ctd-derived`
+  questions.csv Q01/Q02, adopted 2026-10-01; CalCOFI/workflows#101,
+  [\#102](https://github.com/calcofi/calcofi4db/issues/102)). Every
+  value these produce for a cast changes:
+  - [`ctd_mld()`](https://calcofi.io/calcofi4db/reference/ctd_mld.md):
+    the sigma-theta threshold defaults to **0.02 kg m^-3** from the 10 m
+    reference (was 0.03). The criterion stays an argument
+    (`threshold = 0.125`, `criterion = "temperature"`), and the edge
+    cases are unchanged: `no_reference` when the cast does not bracket
+    10 m, `mixed_to_bottom` when it never crosses.
+  - [`ctd_chl_max()`](https://calcofi.io/calcofi4db/reference/ctd_chl_max.md):
+    the depth of the highest value of a **3 m running mean** (was a
+    5-sample running median). The window is in metres of depth, not
+    samples, so an uneven grid or a gap averages what is there, and it
+    is truncated at the ends of the profile. `window_m` defaults to 3;
+    `window_m = 0` takes the raw maximum. `chl_max_value` is the running
+    mean at that depth.
+  - [`ctd_integrate()`](https://calcofi.io/calcofi4db/reference/ctd_integrate.md)
+    gains `method = c("sum", "trapezoid")` and `bin_m = 1`. The default
+    `"sum"` adds up the 1 m bins from the surface to `z_max`, the
+    provider’s rule for the CTD; `"trapezoid"` is the old integral, for
+    bottle data. A bin missing inside the profile is interpolated, never
+    counted as zero. The result gains a `method` column.
+- **[`build_measurements_catalog()`](https://calcofi.io/calcofi4db/reference/build_measurements_catalog.md)
+  reads the per-cast types.** The new `sample_measurement_datasets`
+  (default `"calcofi_ctd-derived"`) projects those datasets’
+  `sample_measurement` rows through `sample` (and `sample_root`) onto
+  the `obs_env` columns. The mixed-layer depth, chlorophyll-a maximum
+  and integrated chlorophyll-a now each get a `measurements.json` entry:
+  series and measurement carry `grain: "sample"`, there are no depth
+  bands and no anomaly, and `counts$sample_measurement_rows` counts the
+  rows. A per-cast row with a `measurement_qual` needs the new
+  `sample_qual_ok_sql` predicate, so a flag is never read as good.
+  [`check_measurements_catalog()`](https://calcofi.io/calcofi4db/reference/check_measurements_catalog.md)
+  gains the `sample_measurement_rows` check, and its `series_total` gate
+  is now `obs_env_rows + sample_measurement_rows`. The schema stays 1.1;
+  the additions are optional fields.
+
 ## calcofi4db 4.17.3
 
 - New
@@ -398,8 +642,9 @@ computes, and all of them take full-resolution 1 m bins, not the thinned
   [`core_relationships()`](https://calcofi.io/calcofi4db/reference/core_relationships.md)
   follows (`dataset_key, site_key, month, depth_bin, measurement_type`).
   **Consumers:** ctd-transects, the Explorer’s `section_clim.sql` and
-  `calcofi4r::cc_climatology()` join on `site_key`; a cell-level
-  consumer aggregates the rows by `grid_key` weighted by `clim_n`.
+  [`calcofi4r::cc_climatology()`](https://calcofi.io/calcofi4r/reference/cc_climatology.html)
+  join on `site_key`; a cell-level consumer aggregates the rows by
+  `grid_key` weighted by `clim_n`.
 - [`site_key_sql()`](https://calcofi.io/calcofi4db/reference/site_key_sql.md)
   /
   [`normalize_site_key()`](https://calcofi.io/calcofi4db/reference/normalize_site_key.md):
@@ -1636,12 +1881,13 @@ Until 2026-09-03 nothing validated a dataset’s citation or license: 8 of
   distinct cruises** contribute (`n_cruises`; `clim_n` and `clim_sd`
   ship too). Partitioned by `measurement_type` like `obs_env`, so a
   browser fetches one variable’s baseline. ctd-transects, the Explorer’s
-  Sections lens and `calcofi4r::cc_climatology()` now subtract this
-  table instead of each computing their own — three implementations had
-  drifted (all-months pooling, 5 m bins over a thinned 10 m series, one
-  arbitrary cast per grid cell), and the same July 2026 section read
-  +1.4 °C in one product and ~0 in another for reasons unrelated to the
-  ocean.
+  Sections lens and
+  [`calcofi4r::cc_climatology()`](https://calcofi.io/calcofi4r/reference/cc_climatology.html)
+  now subtract this table instead of each computing their own — three
+  implementations had drifted (all-months pooling, 5 m bins over a
+  thinned 10 m series, one arbitrary cast per grid cell), and the same
+  July 2026 section read +1.4 °C in one product and ~0 in another for
+  reasons unrelated to the ocean.
   [`release_sort_keys()`](https://calcofi.io/calcofi4db/reference/release_sort_keys.md)
   registers it. Tested rule by rule (window, month, floor bins, cruise
   floor, quality predicate, per-dataset rows, n-weighted pooling ≡ the
@@ -1686,8 +1932,9 @@ Until 2026-09-03 nothing validated a dataset’s citation or license: 8 of
   the D8 `density_per_10m2` / `density_per_1000m3` / `effort_class`, and
   `hex7` — one `UBIGINT` H3 cell at res 7. The quality predicate and the
   density expression are passed in from calcofi4r
-  (`cc_qual_ok_sql("o")`, `cc_density_sql()`) so there is one copy of
-  each.
+  (`cc_qual_ok_sql("o")`,
+  [`cc_density_sql()`](https://calcofi.io/calcofi4r/reference/cc_density_sql.html))
+  so there is one copy of each.
 - [`h3_parent_sql()`](https://calcofi.io/calcofi4db/reference/h3_parent_sql.md)
   — an H3 parent as plain bit arithmetic, so a browser without the `h3`
   extension aggregates to res 3–6 from `hex7`; tested against
@@ -1901,7 +2148,8 @@ it, because a coordinate column is invisible to it.
   over the ceiling per (table, dataset, column). A non-`ok` row is an
   error.
 - **`sample_seafloor(con, gebco_tif)`** — bilinear GEBCO depth (positive
-  down, land 0, off-raster NA — the `calcofi4r::cc_bathy_depth()`
+  down, land 0, off-raster NA — the
+  [`calcofi4r::cc_bathy_depth()`](https://calcofi.io/calcofi4r/reference/cc_bathy_depth.html)
   convention) plus the deepest cell in the 3x3 neighbourhood, at every
   sample position.
 - **`add_sample_seafloor(con, gebco_tif)`** — stamps `seafloor_depth_m`
@@ -2825,7 +3073,8 @@ which is how `ingest_spatial.qmd` builds the polygon layers — tags
 answer.
 
 `ST_SetCRS` relabels without transforming; nothing is reprojected.
-EPSG:4326 is the conventional label, is what `calcofi4r::cc_tbl()`
+EPSG:4326 is the conventional label, is what
+[`calcofi4r::cc_tbl()`](https://calcofi.io/calcofi4r/reference/cc_tbl.html)
 assigns to consumers, and is what the ingests already document.
 
 `release_database.qmd` additionally normalises **every** geometry column
@@ -3295,11 +3544,13 @@ cases in `test-taxa.R`. 375 tests, all passing.
   [`build_metadata_json()`](https://calcofi.io/calcofi4db/reference/build_metadata_json.md).**
   Empty table/column descriptions and missing units travel from an
   ingest’s `metadata.json` into the release sidecar and out through
-  `calcofi4r::cc_describe_table()` / `cc_db_catalog()`, where they
-  render as blank documentation — and nothing surfaced them. The check
-  existed only as a snippet in the `ingest-new` skill that a human was
-  expected to run once, by hand, after the first render; it appeared in
-  **no** notebook. Running it inside
+  [`calcofi4r::cc_describe_table()`](https://calcofi.io/calcofi4r/reference/cc_describe_table.html)
+  /
+  [`cc_db_catalog()`](https://calcofi.io/calcofi4r/reference/cc_db_catalog.html),
+  where they render as blank documentation — and nothing surfaced them.
+  The check existed only as a snippet in the `ingest-new` skill that a
+  human was expected to run once, by hand, after the first render; it
+  appeared in **no** notebook. Running it inside
   [`build_metadata_json()`](https://calcofi.io/calcofi4db/reference/build_metadata_json.md)
   (rather than
   [`finalize_ingest()`](https://calcofi.io/calcofi4db/reference/finalize_ingest.md))

@@ -19,7 +19,8 @@ dwc_datasets(con)
 
 - con:
 
-  a DBI connection to the release (`calcofi4r::cc_get_db()`)
+  a DBI connection to the release
+  ([`calcofi4r::cc_get_db()`](https://calcofi.io/calcofi4r/reference/cc_get_db.html))
 
 ## Value
 

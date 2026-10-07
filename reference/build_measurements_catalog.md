@@ -1,12 +1,14 @@
 # Build the measurements catalog record (`measurements.json`)
 
-One entry per measurement key the release's `obs_env` carries — the
-registry's `variable` where set, else the `measurement_type` — with its
-series (one per `measurement_type × dataset`), each series' counts by
-year, calendar month, depth band and quality code, its observed
-quantiles, the registry's declared bounds, the source and flag columns,
-the NERC ids, and the other keys sharing its P01 concept that are
-deliberately kept apart.
+One entry per measurement key the release's `obs_env` carries (and, per
+`sample_measurement_datasets`, the per-cast types of
+`sample_measurement`) — the registry's `variable` where set, else the
+`measurement_type` — with its series (one per
+`measurement_type × dataset`), each series' counts by year, calendar
+month, depth band and quality code, its observed quantiles, the
+registry's declared bounds, the source and flag columns, the NERC ids,
+and the other keys sharing its P01 concept that are deliberately kept
+apart.
 
 ## Usage
 
@@ -25,7 +27,9 @@ build_measurements_catalog(
   registries = NULL,
   anomaly = TRUE,
   anomaly_trend = CC_MEASUREMENT_ANOMALY_TREND,
-  anomaly_min_cruises = CC_MEASUREMENT_ANOMALY_MIN_CRUISES
+  anomaly_min_cruises = CC_MEASUREMENT_ANOMALY_MIN_CRUISES,
+  sample_measurement_datasets = "calcofi_ctd-derived",
+  sample_qual_ok_sql = NULL
 )
 ```
 
@@ -87,10 +91,11 @@ build_measurements_catalog(
 
   named numeric vector, release table -\> row count, used for any
   `supplemental_tables` entry the connection does not carry (a promoted
-  release read through `cc_get_db()` does not attach them). Read it from
-  that release's own `catalog.json`; never type it. `full_rows` is
-  `counts$obs_env_rows` plus these, and is `NA` when a supplemental is
-  neither on the connection nor supplied.
+  release read through
+  [`cc_get_db()`](https://calcofi.io/calcofi4r/reference/cc_get_db.html)
+  does not attach them). Read it from that release's own `catalog.json`;
+  never type it. `full_rows` is `counts$obs_env_rows` plus these, and is
+  `NA` when a supplemental is neither on the connection nor supplied.
 
 - registries:
 
@@ -126,6 +131,28 @@ build_measurements_catalog(
   the cruises a year needs before it may set the trend, the extremes or
   the shared `ymax` (default 2). Thinner years stay in the series — the
   page draws them faded — but never steer a fitted line.
+
+- sample_measurement_datasets:
+
+  dataset keys whose **per-cast** types in `sample_measurement` also get
+  a catalog entry (default `"calcofi_ctd-derived"`: the mixed-layer
+  depth, the chlorophyll-a maximum and integrated chlorophyll-a, which
+  have no depth and so never reach `obs_env`). Their rows are read from
+  `sample_measurement` joined to `sample` (time, cell, cruise) and, when
+  present, `sample_root` (`root_id`); their series carry
+  `grain: "sample"`, no depth bands and no anomaly. Used only when the
+  connection carries `sample_measurement` and `sample`; `NULL` or
+  `character(0)` reads `obs_env` alone. The per-sample types of other
+  datasets (a bottle cast's weather, a tow's effort) are not listed by
+  default.
+
+- sample_qual_ok_sql:
+
+  the quality predicate over alias `sm` (the `sample_measurement` row)
+  that stamps `qual_ok` on those per-cast rows, e.g.
+  `calcofi4r::cc_qual_ok_sql("sm")`. May be `NULL` only while every
+  included row's `measurement_qual` is empty: a flag is never read as
+  good by default.
 
 ## Value
 

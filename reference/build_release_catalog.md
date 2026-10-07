@@ -58,7 +58,8 @@ Since 3.31.0 the catalog also carries a top-level **`views`** map — view
 name → SQL over `{{table}}` tokens — for every entry of `views` whose
 source tables are all in `tables_df`, and the table a view `replaces`
 gains `deprecated: true`, `replaced_by: [...]` and `removed_in` while it
-still ships. A resolver (`calcofi4r::cc_get_db()`,
+still ships. A resolver
+([`calcofi4r::cc_get_db()`](https://calcofi.io/calcofi4r/reference/cc_get_db.html),
 `calcofi4py.cc_get_db()`, db-query) creates the views after the tables;
 a deprecated table's objects are read only when the view's sources were
 not loaded.

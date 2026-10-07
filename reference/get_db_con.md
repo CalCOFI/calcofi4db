@@ -11,7 +11,8 @@ alternatives:
 - [`get_duckdb_con`](https://calcofi.io/calcofi4db/reference/get_duckdb_con.md):
   For DuckDB connections to frozen releases
 
-- `calcofi4r::cc_get_db`: For end-users accessing frozen CalCOFI data
+- [`calcofi4r::cc_get_db`](https://calcofi.io/calcofi4r/reference/cc_get_db.html):
+  For end-users accessing frozen CalCOFI data
 
 ## Usage
 

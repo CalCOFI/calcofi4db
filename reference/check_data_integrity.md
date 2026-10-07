@@ -14,7 +14,8 @@ check_data_integrity(
   type_exceptions = NULL,
   display_format = "DT",
   verbose = TRUE,
-  header_level = 3
+  header_level = 3,
+  stop_on_fail = !rlang::is_interactive()
 )
 ```
 
@@ -30,7 +31,8 @@ check_data_integrity(
 
 - halt_on_fail:
 
-  Logical, whether to set knitr eval=FALSE on failure (default: TRUE)
+  Logical, whether to halt the notebook on failure (default: TRUE). How
+  it halts depends on `stop_on_fail`.
 
 - type_exceptions:
 
@@ -54,6 +56,24 @@ check_data_integrity(
   Controls the top-level header depth; sub-headers use header_level + 1.
   Set to match the parent section level in your Quarto document to keep
   the Table of Contents hierarchy correct.
+
+- stop_on_fail:
+
+  Logical, whether a halting failure raises an error
+  ([`stop()`](https://rdrr.io/r/base/stop.html)) instead of only setting
+  knitr `eval = FALSE` on the remaining chunks. Default:
+  `!rlang::is_interactive()`, so a non-interactive render
+  (`quarto render`,
+  [`targets::tar_make()`](https://docs.ropensci.org/targets/reference/tar_make.html))
+  FAILS – the render exits non-zero and its target errors – rather than
+  finishing "successfully" having written nothing. Until calcofi4db
+  4.20.0 a failed check only disabled the remaining chunks, so
+  `ingest_swfsc_ichthyo.qmd` halted at this checkpoint from 2026-09 to
+  2026-10-04 while every
+  [`tar_make()`](https://docs.ropensci.org/targets/reference/tar_make.html)
+  reported it completed and the release shipped its stale shard. Pass
+  `FALSE` only to render the failure report on purpose, never inside the
+  pipeline.
 
 ## Value
 

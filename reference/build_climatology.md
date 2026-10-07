@@ -4,8 +4,9 @@ A plain mean per **dataset, station (`site_key`), calendar month, 10 m
 depth bin and measurement type** over the env realm of `obs` across a
 fixed window of years — the baseline every CalCOFI anomaly
 (ctd-transects, the CalCOFI Explorer's Sections lens,
-`calcofi4r::cc_climatology()`) is a departure from. Written once at
-release time so the products cannot disagree.
+[`calcofi4r::cc_climatology()`](https://calcofi.io/calcofi4r/reference/cc_climatology.html))
+is a departure from. Written once at release time so the products cannot
+disagree.
 
 ## Usage
 

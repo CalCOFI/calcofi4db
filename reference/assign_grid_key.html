@@ -47,7 +47,7 @@ how many rows fell inside vs outside the grid."><!-- calcofi.io brand contract v
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.17.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.22.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -116,6 +116,15 @@ how many rows fell inside vs outside the grid.</p>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>Data frame with columns <code>status</code> (in_grid / not_in_grid) and <code>n</code>.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>The rule, which <code><a href="https://calcofi.io/calcofi4r/reference/cc_grid_key.html" class="external-link">calcofi4r::cc_grid_key()</a></code> applies identically in R: a position takes
+the cell whose polygon it intersects, on longitude/latitude as planar coordinates; a
+position on an edge shared by several cells takes the key that sorts first in byte
+order (<code>min(grid_key)</code>); a position in no cell (on land, outside the grid, a NULL
+geometry) gets NULL. Through calcofi4db 4.17.2 the tie was <code>LIMIT 1</code> with no order, so a
+position on a shared edge could key to either cell from one run to the next.</p>
     </div>
 
     <div class="section level2">
