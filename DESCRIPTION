@@ -67,6 +67,7 @@ Suggests:
     taxize,
     gsw
 Remotes:
+    calcofi/calcofi4r,
     iobis/obistools
 VignetteBuilder: knitr
 Config/testthat/edition: 3
