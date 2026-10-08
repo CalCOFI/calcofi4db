@@ -53,7 +53,7 @@ above), so the table is byte-identical across re-exports of unchanged data.}
 Invisibly, the row count.
 }
 \description{
-A plain mean per \strong{dataset, station (\code{site_key}), calendar month, 10 m depth bin and measurement type} over
+A plain mean per \strong{dataset, station (\code{site_key}), the cruise's month, 10 m depth bin and measurement type} over
 the env realm of \code{obs} across a fixed window of years — the baseline every CalCOFI anomaly
 (ctd-transects, the CalCOFI Explorer's Sections lens, \code{\link[calcofi4r:cc_climatology]{calcofi4r::cc_climatology()}}) is a
 departure from. Written once at release time so the products cannot disagree.
@@ -61,7 +61,7 @@ departure from. Written once at release time so the products cannot disagree.
 \details{
 Why each part of the grain:
 \itemize{
-\item \strong{Calendar month.} Quarterly-ish cruises over decades give many \emph{years} per calendar month at
+\item \strong{Month.} Quarterly-ish cruises over decades give many \emph{years} per calendar month at
 a station but only a handful of days, so month is the finest season CalCOFI supports — and the
 coarsest that works: a baseline pooled over all months is a map of the seasonal cycle, not an
 anomaly (line 90 surface: January 15.2, July 18.3, annual mean 16.8 degC; at 50–100 m the
@@ -73,6 +73,18 @@ labelled by the shallow edge. \code{obs} carries the \emph{thinned} CTD series (
 inflection points plus bottle depths), so at 5 m the off-grid bins hold about a third of the
 casts, sampled exactly where the profile bends, and their means sit visibly off their
 neighbours'. Every 10 m bin holds every cast.
+\item \strong{The cruise's month, not the cast's.} A cast is filed under the month and year its
+\code{cruise_key} designates (\code{YYYY-MM-NODC}, the month SWFSC assigns the cruise), never the
+calendar date it was occupied. A cruise sails for two to three weeks and often starts in the
+last days of the month before: CalCOFI 2607 (\code{2026-07-3322}) worked line 93.3 inshore of
+station 50 on 30 June, so its anomaly looked up a June baseline that does not exist and
+ctd-transects drew nothing inshore (Rasmus Swalethorp, 2026-10-06). Within 1993-2013, 9.9 \% of
+CTD casts (35 cruises) and 9.3 \% of bottle samples fall in another calendar month than their
+cruise's; by event month they were both missing from their season's baseline and stranded in
+a month no cruise samples, where they mostly failed the cruise floor. The cruise month is the
+season the cruise samples, so it is the season both sides of an anomaly are matched on; a
+consumer reads it as \code{substr(cruise_key, 6, 2)}. A row whose \code{cruise_key} does not parse falls
+back to its calendar date.
 \item \strong{The window} (\code{yr_min}–\code{yr_max}, default 1993–2013: Rasmus Swalethorp's CCIEA request; the
 Wilkinson archive fills 1993–2002 so it does not quietly mean "1998 plus 2003–2013"). 21 years
 with both phases of the 1997–99 ENSO inside it, ending before the 2014–16 marine heatwave so

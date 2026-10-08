@@ -1,3 +1,16 @@
+# calcofi4db 4.23.0
+
+- **`build_spatial_layers()` carries the gazetteer-backed rows of the explore registry.** Two new
+  optional registry columns, `source_layer` (the vector layer name inside the row's own archive) and
+  `popup_fields` (`|`-separated popup properties, emitted as a JSON array), pass through to
+  `spatial_layers.json` beside `source_url`. A `pmtiles` row with a `source_url` is served from the
+  oceanmetrics gazetteer, so it no longer triggers the "no features in `spatial`" warning, and its
+  `n_features`/`bbox` come from the gazetteer manifest (new argument `gazetteer_manifest`, default
+  `https://storage.oceanmetrics.io/gazetteer/index/layers.json`, rows matched on `pmtiles` =
+  `source_url`). When the manifest cannot be read (the bucket answers 403 today) a message is
+  printed and those rows keep zero features and no bbox. Registries without the new columns build
+  exactly as before. (CalCOFI/explore#16)
+
 # calcofi4db 4.22.0
 
 - **The climatology files a cast under its cruise's month, not its calendar date.**

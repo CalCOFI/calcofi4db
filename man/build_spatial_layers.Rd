@@ -11,7 +11,8 @@ build_spatial_layers(
   pmtiles_base,
   built = NULL,
   names_max = 200,
-  reference_json = NULL
+  reference_json = NULL,
+  gazetteer_manifest = "https://storage.oceanmetrics.io/gazetteer/index/layers.json"
 )
 }
 \arguments{
@@ -30,13 +31,17 @@ skew between releases and archives is accepted but must be visible.}
 
 \item{reference_json}{Path to the reference-layer manifest (\verb{layers.<dataset_id>.n_features} /
 \code{.bbox}); \code{NULL} (default) leaves a reference row at zero features.}
+
+\item{gazetteer_manifest}{URL or local path of the gazetteer's \code{index/layers.json} (\code{layers[]} with
+\code{pmtiles}, \code{n}, \code{bbox}); read only when the registry has a \code{pmtiles} row with a \code{source_url}.
+\code{NULL} skips it. Unreachable or unparseable: a message, and those rows keep zero features.}
 }
 \value{
 A list ready for \code{jsonlite::write_json(auto_unbox = TRUE)}: \code{version}, \code{pmtiles_base},
 \code{built}, and \code{layers[]} with \code{id} (the registry \code{dataset_id}), \code{group}, \code{name} (the human
 layer name), \code{source}, \code{geom}, \code{role}, \code{source_type}, \code{source_url}, \code{filter} (the registry
 expression verbatim, as parsed JSON), the symbology defaults, \code{name_field}, \code{description},
-\code{attribution}, \code{n_features}, \code{bbox}, \code{names}, \code{n_memberships}.
+\code{attribution}, \code{source_layer} and \code{popup_fields} (gazetteer rows; \code{NULL} otherwise), \code{n_features}, \code{bbox}, \code{names}, \code{n_memberships}.
 }
 \description{
 \code{metadata/spatial_layers.csv} is the registry of the boundary layers (Erin's sheet: one row per
@@ -58,5 +63,14 @@ Reference layers section) and its absence from \code{spatial} is not a warning. 
 columns \code{role} (default \code{boundary}), \code{source_type} (\code{pmtiles} | \code{raster}, default \code{pmtiles}) and
 \code{source_url} (raster tiles only) ride through to the sidecar; \code{geom_type} may also be \code{label}
 (a symbol layer) or \code{raster}.
+
+\strong{Gazetteer rows} (oceanmetrics gazetteer, explore PR #16): a \code{pmtiles} row that carries its own
+\code{source_url} (absolute PMTiles URL) is served from that archive, not from \code{pmtiles_base}, so it has
+no rows in \code{spatial} either and its absence is not a warning. Two more optional registry columns
+ride through for such rows: \code{source_layer} (the vector layer name inside the archive) and
+\code{popup_fields} (\code{|}-separated property names for the popup, emitted as a JSON array). Their
+\code{n_features} and \code{bbox} come from the gazetteer manifest (\code{gazetteer_manifest}, rows matched on
+\code{pmtiles} = \code{source_url}, field \code{n}); when the manifest is unreachable (the bucket has answered 403)
+they stay \code{0} / \code{NULL} with a message, never an error.
 }
 \concept{explore}
