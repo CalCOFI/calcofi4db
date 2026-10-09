@@ -1,7 +1,7 @@
 # Build the release's `climatology` table
 
-A plain mean per **dataset, station (`site_key`), calendar month, 10 m
-depth bin and measurement type** over the env realm of `obs` across a
+A plain mean per **dataset, station (`site_key`), the cruise's month, 10
+m depth bin and measurement type** over the env realm of `obs` across a
 fixed window of years — the baseline every CalCOFI anomaly
 (ctd-transects, the CalCOFI Explorer's Sections lens,
 [`calcofi4r::cc_climatology()`](https://calcofi.io/calcofi4r/reference/cc_climatology.html))
@@ -89,16 +89,16 @@ Invisibly, the row count.
 
 Why each part of the grain:
 
-- **Calendar month.** Quarterly-ish cruises over decades give many
-  *years* per calendar month at a station but only a handful of days, so
-  month is the finest season CalCOFI supports — and the coarsest that
-  works: a baseline pooled over all months is a map of the seasonal
-  cycle, not an anomaly (line 90 surface: January 15.2, July 18.3,
-  annual mean 16.8 degC; at 50–100 m the sign flips). A plain mean
-  rather than harmonics: Rudnick et al. (2017) fit annual and semiannual
-  harmonics for the CUGN glider climatology, which suits continuous
-  glider sampling; CalCOFI's is episodic, and a monthly mean is
-  something a reader can state exactly.
+- **Month.** Quarterly-ish cruises over decades give many *years* per
+  calendar month at a station but only a handful of days, so month is
+  the finest season CalCOFI supports — and the coarsest that works: a
+  baseline pooled over all months is a map of the seasonal cycle, not an
+  anomaly (line 90 surface: January 15.2, July 18.3, annual mean 16.8
+  degC; at 50–100 m the sign flips). A plain mean rather than harmonics:
+  Rudnick et al. (2017) fit annual and semiannual harmonics for the CUGN
+  glider climatology, which suits continuous glider sampling; CalCOFI's
+  is episodic, and a monthly mean is something a reader can state
+  exactly.
 
 - **10 m floor bins** — `floor(depth_min_m / 10) * 10`, the
   `obs_env.depth_bin` convention, labelled by the shallow edge. `obs`
@@ -107,6 +107,23 @@ Why each part of the grain:
   third of the casts, sampled exactly where the profile bends, and their
   means sit visibly off their neighbours'. Every 10 m bin holds every
   cast.
+
+- **The cruise's month, not the cast's.** A cast is filed under the
+  month and year its `cruise_key` designates (`YYYY-MM-NODC`, the month
+  SWFSC assigns the cruise), never the calendar date it was occupied. A
+  cruise sails for two to three weeks and often starts in the last days
+  of the month before: CalCOFI 2607 (`2026-07-3322`) worked line 93.3
+  inshore of station 50 on 30 June, so its anomaly looked up a June
+  baseline that does not exist and ctd-transects drew nothing inshore
+  (Rasmus Swalethorp, 2026-10-06). Within 1993-2013, 9.9 % of CTD casts
+  (35 cruises) and 9.3 % of bottle samples fall in another calendar
+  month than their cruise's; by event month they were both missing from
+  their season's baseline and stranded in a month no cruise samples,
+  where they mostly failed the cruise floor. The cruise month is the
+  season the cruise samples, so it is the season both sides of an
+  anomaly are matched on; a consumer reads it as
+  `substr(cruise_key, 6, 2)`. A row whose `cruise_key` does not parse
+  falls back to its calendar date.
 
 - **The window** (`yr_min`–`yr_max`, default 1993–2013: Rasmus
   Swalethorp's CCIEA request; the Wilkinson archive fills 1993–2002 so

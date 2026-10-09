@@ -59,7 +59,7 @@ the layers that can summarize something)."><!-- calcofi.io brand contract v2 (ht
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.22.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.23.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -115,7 +115,8 @@ the layers that can summarize something).</p>
 <span>  <span class="va">pmtiles_base</span>,</span>
 <span>  built <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  names_max <span class="op">=</span> <span class="fl">200</span>,</span>
-<span>  reference_json <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  reference_json <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  gazetteer_manifest <span class="op">=</span> <span class="st">"https://storage.oceanmetrics.io/gazetteer/index/layers.json"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -152,6 +153,12 @@ skew between releases and archives is accepted but must be visible.</p></dd>
 <dd><p>Path to the reference-layer manifest (<code>layers.&lt;dataset_id&gt;.n_features</code> /
 <code>.bbox</code>); <code>NULL</code> (default) leaves a reference row at zero features.</p></dd>
 
+
+<dt id="arg-gazetteer-manifest">gazetteer_manifest<a class="anchor" aria-label="anchor" href="#arg-gazetteer-manifest"></a></dt>
+<dd><p>URL or local path of the gazetteer's <code>index/layers.json</code> (<code>layers[]</code> with
+<code>pmtiles</code>, <code>n</code>, <code>bbox</code>); read only when the registry has a <code>pmtiles</code> row with a <code>source_url</code>.
+<code>NULL</code> skips it. Unreachable or unparseable: a message, and those rows keep zero features.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -159,7 +166,7 @@ skew between releases and archives is accepted but must be visible.</p></dd>
 <code>built</code>, and <code>layers[]</code> with <code>id</code> (the registry <code>dataset_id</code>), <code>group</code>, <code>name</code> (the human
 layer name), <code>source</code>, <code>geom</code>, <code>role</code>, <code>source_type</code>, <code>source_url</code>, <code>filter</code> (the registry
 expression verbatim, as parsed JSON), the symbology defaults, <code>name_field</code>, <code>description</code>,
-<code>attribution</code>, <code>n_features</code>, <code>bbox</code>, <code>names</code>, <code>n_memberships</code>.</p>
+<code>attribution</code>, <code>source_layer</code> and <code>popup_fields</code> (gazetteer rows; <code>NULL</code> otherwise), <code>n_features</code>, <code>bbox</code>, <code>names</code>, <code>n_memberships</code>.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -171,6 +178,14 @@ Reference layers section) and its absence from <code>spatial</code> is not a war
 columns <code>role</code> (default <code>boundary</code>), <code>source_type</code> (<code>pmtiles</code> | <code>raster</code>, default <code>pmtiles</code>) and
 <code>source_url</code> (raster tiles only) ride through to the sidecar; <code>geom_type</code> may also be <code>label</code>
 (a symbol layer) or <code>raster</code>.</p>
+<p><strong>Gazetteer rows</strong> (oceanmetrics gazetteer, explore PR #16): a <code>pmtiles</code> row that carries its own
+<code>source_url</code> (absolute PMTiles URL) is served from that archive, not from <code>pmtiles_base</code>, so it has
+no rows in <code>spatial</code> either and its absence is not a warning. Two more optional registry columns
+ride through for such rows: <code>source_layer</code> (the vector layer name inside the archive) and
+<code>popup_fields</code> (<code>|</code>-separated property names for the popup, emitted as a JSON array). Their
+<code>n_features</code> and <code>bbox</code> come from the gazetteer manifest (<code>gazetteer_manifest</code>, rows matched on
+<code>pmtiles</code> = <code>source_url</code>, field <code>n</code>); when the manifest is unreachable (the bucket has answered 403)
+they stay <code>0</code> / <code>NULL</code> with a message, never an error.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

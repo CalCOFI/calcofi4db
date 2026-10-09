@@ -99,7 +99,7 @@ d <- data.frame(cast = "a", measurement_type = "oxygen_sta_corr",
   depth_m = 0:120, measurement_value = c(seq(250, 30, length.out = 60), rep(0, 61)))
 check_zero_runs(d, cast_col = "cast")
 #> duckdb keeps downloaded extensions and secrets in a temporary directory:
-#> ℹ /tmp/Rtmp9Va2l7/duckdb
+#> ℹ /tmp/Rtmpol8BKY/duckdb
 #> This is removed when the R session ends.
 #> • Extensions are re-downloaded each session.
 #> • Secrets are lost.

@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.22.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.23.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,6 +77,11 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.23.0" id="calcofi4db-4230">calcofi4db 4.23.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4230"></a></h2>
+<ul><li>
+<strong><code><a href="../reference/build_spatial_layers.html">build_spatial_layers()</a></code> carries the gazetteer-backed rows of the explore registry.</strong> Two new optional registry columns, <code>source_layer</code> (the vector layer name inside the row’s own archive) and <code>popup_fields</code> (<code>|</code>-separated popup properties, emitted as a JSON array), pass through to <code>spatial_layers.json</code> beside <code>source_url</code>. A <code>pmtiles</code> row with a <code>source_url</code> is served from the oceanmetrics gazetteer, so it no longer triggers the “no features in <code>spatial</code>” warning, and its <code>n_features</code>/<code>bbox</code> come from the gazetteer manifest (new argument <code>gazetteer_manifest</code>, default <code>https://storage.oceanmetrics.io/gazetteer/index/layers.json</code>, rows matched on <code>pmtiles</code> = <code>source_url</code>). When the manifest cannot be read (the bucket answers 403 today) a message is printed and those rows keep zero features and no bbox. Registries without the new columns build exactly as before. (CalCOFI/explore#16)</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.22.0" id="calcofi4db-4220">calcofi4db 4.22.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4220"></a></h2>
 <ul><li>

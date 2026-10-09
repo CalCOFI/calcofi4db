@@ -23,7 +23,8 @@ build_spatial_layers(
   pmtiles_base,
   built = NULL,
   names_max = 200,
-  reference_json = NULL
+  reference_json = NULL,
+  gazetteer_manifest = "https://storage.oceanmetrics.io/gazetteer/index/layers.json"
 )
 ```
 
@@ -60,6 +61,13 @@ build_spatial_layers(
   Path to the reference-layer manifest (`layers.<dataset_id>.n_features`
   / `.bbox`); `NULL` (default) leaves a reference row at zero features.
 
+- gazetteer_manifest:
+
+  URL or local path of the gazetteer's `index/layers.json` (`layers[]`
+  with `pmtiles`, `n`, `bbox`); read only when the registry has a
+  `pmtiles` row with a `source_url`. `NULL` skips it. Unreachable or
+  unparseable: a message, and those rows keep zero features.
+
 ## Value
 
 A list ready for `jsonlite::write_json(auto_unbox = TRUE)`: `version`,
@@ -67,7 +75,8 @@ A list ready for `jsonlite::write_json(auto_unbox = TRUE)`: `version`,
 `dataset_id`), `group`, `name` (the human layer name), `source`, `geom`,
 `role`, `source_type`, `source_url`, `filter` (the registry expression
 verbatim, as parsed JSON), the symbology defaults, `name_field`,
-`description`, `attribution`, `n_features`, `bbox`, `names`,
+`description`, `attribution`, `source_layer` and `popup_fields`
+(gazetteer rows; `NULL` otherwise), `n_features`, `bbox`, `names`,
 `n_memberships`.
 
 ## Details
@@ -82,3 +91,15 @@ by `ingest_spatial.qmd`'s Reference layers section) and its absence from
 (default `boundary`), `source_type` (`pmtiles` \| `raster`, default
 `pmtiles`) and `source_url` (raster tiles only) ride through to the
 sidecar; `geom_type` may also be `label` (a symbol layer) or `raster`.
+
+**Gazetteer rows** (oceanmetrics gazetteer, explore PR \#16): a
+`pmtiles` row that carries its own `source_url` (absolute PMTiles URL)
+is served from that archive, not from `pmtiles_base`, so it has no rows
+in `spatial` either and its absence is not a warning. Two more optional
+registry columns ride through for such rows: `source_layer` (the vector
+layer name inside the archive) and `popup_fields` (`|`-separated
+property names for the popup, emitted as a JSON array). Their
+`n_features` and `bbox` come from the gazetteer manifest
+(`gazetteer_manifest`, rows matched on `pmtiles` = `source_url`, field
+`n`); when the manifest is unreachable (the bucket has answered 403)
+they stay `0` / `NULL` with a message, never an error.
