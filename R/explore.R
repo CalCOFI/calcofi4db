@@ -682,6 +682,15 @@ build_coverage_stations <- function(con, version) {
 #' `source_url` (raster tiles only) ride through to the sidecar; `geom_type` may also be `label`
 #' (a symbol layer) or `raster`.
 #'
+#' **Gazetteer rows** (oceanmetrics gazetteer, explore PR #16): a `pmtiles` row that carries its own
+#' `source_url` (absolute PMTiles URL) is served from that archive, not from `pmtiles_base`, so it has
+#' no rows in `spatial` either and its absence is not a warning. Two more optional registry columns
+#' ride through for such rows: `source_layer` (the vector layer name inside the archive) and
+#' `popup_fields` (`|`-separated property names for the popup, emitted as a JSON array). Their
+#' `n_features` and `bbox` come from the gazetteer manifest (`gazetteer_manifest`, rows matched on
+#' `pmtiles` = `source_url`, field `n`); when the manifest is unreachable (the bucket has answered 403)
+#' they stay `0` / `NULL` with a message, never an error.
+#'
 #' @param con DuckDB connection holding `spatial` (and, if built, `sample_spatial`).
 #' @param registry_csv Path to `metadata/spatial_layers.csv`.
 #' @param version Release version string, stamped into the sidecar.
@@ -691,20 +700,27 @@ build_coverage_stations <- function(con, version) {
 #' @param names_max Above this many distinct names a layer's `names` is `NULL`.
 #' @param reference_json Path to the reference-layer manifest (`layers.<dataset_id>.n_features` /
 #'   `.bbox`); `NULL` (default) leaves a reference row at zero features.
+#' @param gazetteer_manifest URL or local path of the gazetteer's `index/layers.json` (`layers[]` with
+#'   `pmtiles`, `n`, `bbox`); read only when the registry has a `pmtiles` row with a `source_url`.
+#'   `NULL` skips it. Unreachable or unparseable: a message, and those rows keep zero features.
 #' @return A list ready for `jsonlite::write_json(auto_unbox = TRUE)`: `version`, `pmtiles_base`,
 #'   `built`, and `layers[]` with `id` (the registry `dataset_id`), `group`, `name` (the human
 #'   layer name), `source`, `geom`, `role`, `source_type`, `source_url`, `filter` (the registry
 #'   expression verbatim, as parsed JSON), the symbology defaults, `name_field`, `description`,
-#'   `attribution`, `n_features`, `bbox`, `names`, `n_memberships`.
+#'   `attribution`, `source_layer` and `popup_fields` (gazetteer rows; `NULL` otherwise), `n_features`, `bbox`, `names`, `n_memberships`.
 #' @export
 #' @concept explore
 build_spatial_layers <- function(con, registry_csv, version, pmtiles_base,
-                                 built = NULL, names_max = 200, reference_json = NULL) {
+                                 built = NULL, names_max = 200, reference_json = NULL,
+                                 gazetteer_manifest = "https://storage.oceanmetrics.io/gazetteer/index/layers.json") {
   reg <- readr::read_csv(registry_csv, show_col_types = FALSE, na = c("", "NA"))
   # the optional columns (D52): absent = every row a PMTiles boundary layer
   if (!"role" %in% names(reg)) reg$role <- "boundary"
   if (!"source_type" %in% names(reg)) reg$source_type <- "pmtiles"
   if (!"source_url" %in% names(reg)) reg$source_url <- NA_character_
+  if (!"source_layer" %in% names(reg)) reg$source_layer <- NA_character_
+  if (!"popup_fields" %in% names(reg)) reg$popup_fields <- NA_character_
+  reg$source_layer <- as.character(reg$source_layer); reg$popup_fields <- as.character(reg$popup_fields)
   reg$role <- ifelse(is.na(reg$role) | reg$role == "", "boundary", reg$role)
   reg$source_type <- ifelse(is.na(reg$source_type) | reg$source_type == "", "pmtiles", reg$source_type)
   stopifnot("role must be boundary | reference" = all(reg$role %in% c("boundary", "reference")),
@@ -724,7 +740,10 @@ build_spatial_layers <- function(con, registry_csv, version, pmtiles_base,
   mem <- if ("sample_spatial" %in% DBI::dbListTables(con))
     DBI::dbGetQuery(con, "SELECT layer, count(DISTINCT root_id) AS n FROM sample_spatial GROUP BY 1")
   else data.frame(layer = character(), n = integer())
-  missing <- setdiff(reg$layer[reg$role == "boundary"], sp$layer)
+  # a pmtiles row with its own source_url lives on the gazetteer: not in `spatial`, so no warning
+  gaz <- reg$source_type == "pmtiles" & !is.na(reg$source_url) & reg$source_url != ""
+  gz  <- if (any(gaz) && !is.null(gazetteer_manifest)) .read_gazetteer_manifest(gazetteer_manifest) else list()
+  missing <- setdiff(reg$layer[reg$role == "boundary" & !gaz], sp$layer)
   if (length(missing))
     warning("spatial_layers registry rows with no features in `spatial`: ",
             paste(missing, collapse = ", "), call. = FALSE)
@@ -736,10 +755,16 @@ build_spatial_layers <- function(con, registry_csv, version, pmtiles_base,
     j <- match(r$layer, sp$layer)
     nms <- nm$name[nm$layer == r$layer]
     rj <- if (r$role == "reference") ref[[r$dataset_id]] else NULL # a reference row counts from its manifest, never from `spatial`
+    if (is.null(rj) && gaz[i]) { # a gazetteer row counts from the gazetteer manifest, matched on its archive URL
+      gj <- Filter(function(g) identical(g$pmtiles, r$source_url), gz)
+      if (length(gj)) rj <- list(n_features = gj[[1]]$n, bbox = gj[[1]]$bbox)
+    }
+    pf <- if (blank(r$popup_fields)) NULL else as.list(trimws(strsplit(r$popup_fields, "|", fixed = TRUE)[[1]]))
     list(
       id = r$dataset_id, group = r$group, name = r$layer,
       source = r$dataset_group, geom = r$geom_type,
       role = r$role, source_type = r$source_type, source_url = chr(r$source_url),
+      source_layer = chr(r$source_layer), popup_fields = pf,
       # the filter expression reaches the style verbatim (a MapLibre expression the registry owns)
       filter = if (blank(r$filter_expr)) NULL else jsonlite::fromJSON(r$filter_expr, simplifyVector = FALSE),
       line_color = chr(r$line_color), fill_color = chr(r$fill_color),
@@ -753,4 +778,21 @@ build_spatial_layers <- function(con, registry_csv, version, pmtiles_base,
   })
   list(version = version, pmtiles_base = pmtiles_base,
        built = if (is.null(built)) NULL else as.character(built), layers = layers)
+}
+
+# the gazetteer manifest's `layers[]` (a list of rows), or `list()` with a message when the file or
+# URL cannot be read (the storage host has answered 403): counts for gazetteer rows are optional
+.read_gazetteer_manifest <- function(x, timeout = 15) {
+  txt <- tryCatch({
+    if (file.exists(x)) readLines(x, warn = FALSE, encoding = "UTF-8")
+    else {
+      h <- curl::new_handle(timeout = timeout, followlocation = TRUE)
+      r <- curl::curl_fetch_memory(x, handle = h)
+      if (r$status_code != 200) stop("HTTP ", r$status_code)
+      rawToChar(r$content)
+    }
+  }, error = function(e) { message("gazetteer manifest unreachable (", x, "): ", conditionMessage(e)); NULL })
+  if (is.null(txt)) return(list())
+  tryCatch(jsonlite::fromJSON(paste(txt, collapse = "\n"), simplifyVector = FALSE)$layers %||% list(),
+           error = function(e) { message("gazetteer manifest unparseable (", x, "): ", conditionMessage(e)); list() })
 }

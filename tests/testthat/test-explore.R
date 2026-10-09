@@ -325,3 +325,67 @@ test_that("build_spatial_layers passes reference rows through from their manifes
   writeLines(c(readLines(csv)[1], "bad,bad,Bad,Reference,raster,,,,,1,FALSE,,,,reference,raster,"), csv2)
   expect_error(build_spatial_layers(con, csv2, "vTEST", "u/"), "source_url")
 })
+
+test_that("build_spatial_layers passes source_layer and popup_fields through for gazetteer rows", {
+  con <- ex_con(); ex_fixture(con)
+  hdr <- "dataset_id,dataset_group,layer,group,geom_type,filter_expr,line_color,fill_color,line_width,fill_opacity,default_visible,name_field,description,attribution,source_url,source_layer,popup_fields"
+  csv <- withr::local_tempfile(fileext = ".csv")
+  writeLines(c(hdr,
+    "ca_mpas,ca_marine_protected_areas,Marine Protected Areas,Protected Areas,polygon,,#388e3c,#a5d6a7,1,0.2,FALSE,fullname,MPAs,CDFW,,,",
+    "boem_wind_planning,boem_wind_leases,BOEM Wind Leases,Energy,polygon,,#7b1fa2,#ce93d8,1,0.25,FALSE,name,leases,BOEM,https://example.org/g/boem_wind_leases/places.pmtiles,boem_wind_leases,status|status_date",
+    "one_field,one_field,One,Energy,polygon,,,,,,FALSE,name,one,BOEM,https://example.org/g/one/places.pmtiles,one,status"), csv)
+  x <- suppressMessages(build_spatial_layers(con, csv, "vTEST", "u/", gazetteer_manifest = NULL))
+  ids <- vapply(x$layers, function(l) l$id, "")
+  mpa <- x$layers[[match("ca_mpas", ids)]]; w <- x$layers[[match("boem_wind_planning", ids)]]
+  one <- x$layers[[match("one_field", ids)]]
+  expect_identical(w$source_url, "https://example.org/g/boem_wind_leases/places.pmtiles")
+  expect_identical(w$source_layer, "boem_wind_leases")
+  expect_identical(w$popup_fields, list("status", "status_date"))
+  # a single field still serialises as a JSON array
+  expect_identical(as.character(jsonlite::toJSON(one$popup_fields, auto_unbox = TRUE)), '["status"]')
+  # a plain boundary row carries neither
+  expect_null(mpa$source_layer); expect_null(mpa$popup_fields)
+  # a registry without the new columns still builds
+  csv0 <- withr::local_tempfile(fileext = ".csv")
+  writeLines(c("dataset_id,dataset_group,layer,group,geom_type,filter_expr,line_color,fill_color,line_width,fill_opacity,default_visible,name_field,description,attribution",
+               "ca_mpas,ca_marine_protected_areas,Marine Protected Areas,Protected Areas,polygon,,#388e3c,#a5d6a7,1,0.2,FALSE,fullname,MPAs,CDFW"), csv0)
+  y <- build_spatial_layers(con, csv0, "vTEST", "u/")
+  expect_null(y$layers[[1]]$source_layer); expect_null(y$layers[[1]]$popup_fields)
+})
+
+test_that("build_spatial_layers does not warn for a row with a source_url, but still for a plain boundary row", {
+  con <- ex_con(); ex_fixture(con)
+  hdr <- "dataset_id,dataset_group,layer,group,geom_type,filter_expr,line_color,fill_color,line_width,fill_opacity,default_visible,name_field,description,attribution,source_url,source_layer,popup_fields"
+  gz  <- "boem_wind_planning,boem_wind_leases,BOEM Wind Leases,Energy,polygon,,#7b1fa2,#ce93d8,1,0.25,FALSE,name,leases,BOEM,https://example.org/g/boem_wind_leases/places.pmtiles,boem_wind_leases,status"
+  csv <- withr::local_tempfile(fileext = ".csv"); writeLines(c(hdr, gz), csv)
+  expect_no_warning(suppressMessages(build_spatial_layers(con, csv, "vTEST", "u/", gazetteer_manifest = NULL)))
+  csv2 <- withr::local_tempfile(fileext = ".csv")
+  writeLines(c(hdr, gz, "ghost,ghost,Ghost,Energy,polygon,,,,,,FALSE,name,ghost,X,,,"), csv2)
+  expect_warning(suppressMessages(build_spatial_layers(con, csv2, "vTEST", "u/", gazetteer_manifest = NULL)), "Ghost")
+})
+
+test_that("build_spatial_layers takes gazetteer counts from the manifest and degrades when it is unreachable", {
+  con <- ex_con(); ex_fixture(con)
+  hdr <- "dataset_id,dataset_group,layer,group,geom_type,filter_expr,line_color,fill_color,line_width,fill_opacity,default_visible,name_field,description,attribution,source_url,source_layer,popup_fields"
+  u   <- "https://example.org/g/boem_wind_leases/places.pmtiles"
+  csv <- withr::local_tempfile(fileext = ".csv")
+  writeLines(c(hdr, paste0("boem_wind_planning,boem_wind_leases,BOEM Wind Leases,Energy,polygon,,#7b1fa2,#ce93d8,1,0.25,FALSE,name,leases,BOEM,", u, ",boem_wind_leases,status|status_date"),
+                    "other,other,Other,Energy,polygon,,,,,,FALSE,name,other,X,https://example.org/g/other/places.pmtiles,other,status"), csv)
+  man <- withr::local_tempfile(fileext = ".json")
+  jsonlite::write_json(list(schema = 1, layers = list(
+    list(slug = "boem_wind_leases", pmtiles = u, n = 37L, bbox = c(-125.1, 33.2, -70.5, 42.3)))), man, auto_unbox = TRUE, digits = NA)
+  x <- build_spatial_layers(con, csv, "vTEST", "u/", gazetteer_manifest = man)
+  w <- x$layers[[1]]; o <- x$layers[[2]]
+  expect_identical(w$n_features, 37L); expect_identical(w$bbox, c(-125.1, 33.2, -70.5, 42.3))
+  # a row the manifest does not list stays at zero / NULL
+  expect_identical(o$n_features, 0L); expect_null(o$bbox)
+  # an unreachable manifest (missing path, refused URL): a message, zero features, no error, no warning
+  gone <- file.path(tempdir(), "no-such-layers.json")
+  expect_message(y <- build_spatial_layers(con, csv, "vTEST", "u/", gazetteer_manifest = gone), "unreachable|unparseable")
+  expect_identical(y$layers[[1]]$n_features, 0L); expect_null(y$layers[[1]]$bbox)
+  expect_identical(y$layers[[1]]$source_layer, "boem_wind_leases")
+  # a manifest that is not JSON degrades the same way
+  bad <- withr::local_tempfile(fileext = ".json"); writeLines("<html>403</html>", bad)
+  expect_message(z <- build_spatial_layers(con, csv, "vTEST", "u/", gazetteer_manifest = bad), "unparseable")
+  expect_identical(z$layers[[1]]$n_features, 0L)
+})
