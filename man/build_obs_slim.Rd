@@ -32,6 +32,9 @@ Invisibly, the row count.
 Slims \code{obs} to the columns a lens needs, joins the gear and effort of the observation's own sample
 (\code{sample.tow_type}; \code{std_haul_factor}, \code{prop_sorted}, \code{volume_sampled} from \code{sample_measurement}),
 stamps \code{root_id}, \code{year}, \code{quarter}, \code{depth_bin} (10 m), \code{hex7}, \code{qual_ok} (from \code{qual_ok_sql})
+(\code{year} and \code{quarter} are the \strong{cruise's} — the year and month its \code{cruise_key} designates, as
+\code{\link[=build_climatology]{build_climatology()}} files the baseline — and the calendar date only where the key does not
+parse; since 4.24.0)
 and the D8 densities + \code{effort_class} (from \code{density_sql}). Depth is the observation's, falling back
 to its sample's and then its root's, so a net tow carries its integrated span. Both realms get the
 same schema (effort and taxon columns are NULL for env — a NULL column costs nothing in parquet), so

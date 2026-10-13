@@ -389,3 +389,21 @@ test_that("build_spatial_layers takes gazetteer counts from the manifest and deg
   expect_message(z <- build_spatial_layers(con, csv, "vTEST", "u/", gazetteer_manifest = bad), "unparseable")
   expect_identical(z$layers[[1]]$n_features, 0L)
 })
+
+# regression (2026-10-13, Rasmus Swalethorp 2026-10-07): the Explorer's season filter cut the inshore
+# line 93.3 stations of 2607 (2026-07-3322) out of Q3 because they were worked on 30 June. year and
+# quarter are the cruise's, as the climatology files the baseline; the date only when the key does
+# not parse.
+test_that("build_obs_slim(): year and quarter are the cruise's, not the cast's calendar date", {
+  con <- ex_con(); ex_fixture(con); build_sample_root(con)
+  DBI::dbExecute(con, "UPDATE obs SET cruise_key = '2026-07-3322', datetime = TIMESTAMP '2026-06-30 04:00' WHERE obs_id = 2")
+  DBI::dbExecute(con, "UPDATE obs SET cruise_key = '1993-01-33XX', datetime = TIMESTAMP '1992-12-30 08:00' WHERE obs_id = 3")
+  build_obs_slim(con, "env", QUAL_OK, DENSITY)
+  e <- DBI::dbGetQuery(con, "SELECT obs_id, year, quarter FROM obs_env ORDER BY obs_id")
+  expect_equal(e$quarter, c(3L, 1L), info = "a June cast of a July cruise is Q3; a December cast of a January cruise is Q1")
+  expect_equal(e$year, c(2026L, 1993L))
+  # a key that does not parse falls back to the date
+  DBI::dbExecute(con, "UPDATE obs SET cruise_key = 'unknown' WHERE obs_id = 2")
+  build_obs_slim(con, "env", QUAL_OK, DENSITY)
+  expect_equal(DBI::dbGetQuery(con, "SELECT quarter FROM obs_env WHERE obs_id = 2")$quarter, 2L)
+})

@@ -743,7 +743,7 @@ compat_measurement_sql <- function(dataset_key, sample_type, fk_col, id_col) {
 #'
 #' @param tables character vector of tables the ingest writes (typically the
 #'   result of [core_output_tables()])
-#' @return a list with `primary_keys` and `foreign_keys`
+#' @return a list with `primary_keys`, `nullable_key_columns` (key columns where NULL is a value) and `foreign_keys`
 #' @export
 #' @concept model
 core_relationships <- function(tables) {
@@ -800,8 +800,15 @@ core_relationships <- function(tables) {
     list(table = "taxon_group",        column = "taxon_key",         ref_table = "taxon",            ref_column = "taxon_key"),
     list(table = "taxon",              column = "parent_taxon_key",  ref_table = "taxon",            ref_column = "taxon_key"))
 
+  # key columns where NULL is a value, not a gap: climatology's per-cast cells (sample_measurement
+  # types: a mixed-layer depth, an integrated chlorophyll) have no depth, so their depth_bin is NULL
+  # by design (build_climatology(cast_types =), 4.24.0). check_release_relationships() counts a NULL
+  # in any OTHER key column as a failure, and compares these as part of the tuple.
+  pk_nullable <- list(climatology = "depth_bin")
+
   list(
     primary_keys = pk[intersect(names(pk), tables)],
+    nullable_key_columns = pk_nullable[intersect(names(pk_nullable), tables)],
     # keep an edge only when BOTH ends ship from this ingest; cross-ingest edges
     # (obs.grid_key -> grid when grid comes from ichthyo) belong in
     # metadata/relationships_cross.csv, which the release merges.

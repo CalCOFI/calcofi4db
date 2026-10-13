@@ -16,7 +16,9 @@
 #                                     and ds_a 39 on c1, FLAGGED: in bounds, excluded
 #   10-50      20         8           1990: c1, ds_a 9 -> 1 · 2000: c3, ds_a 12 -> 4
 #                                     (one cruise each: no trend, no extremes, no ymax)
-#   500-1000   600        none        1990: c1, ds_a 5 -> a band with values and no
+#   500-1000   600        none (a     1990: c1, ds_a 5 -> a band with values and no
+#                         season-only
+#                         NULL row)
 #                                     normal: `deeper[]`, never a silent drop
 #
 # So: the trend is fitted over 1990 and 2010 (the years with >= 2 cruises inside
@@ -89,16 +91,19 @@ new_faces_fixture <- function() {
   o$depth_bin  <- as.integer(floor(o$depth_min_m / 10) * 10)
   o$depth_max_m <- o$depth_min_m
   o$datetime   <- as.POSIXct(sprintf("%04d-01-15 12:00:00", o$year), tz = "UTC")
+  # the fourth row is a SEASON-ONLY cell at 600 m (build_climatology(season = TRUE), 4.24.0): the row
+  # exists, its monthly clim_mean is NULL -- so 500-1000 must still read as "values and no normal"
   clim <- data.frame(
-    dataset_key = c("ds_a", "ds_b", "ds_a"),
+    dataset_key = c("ds_a", "ds_b", "ds_a", "ds_a"),
     site_key    = "090.0 060.0",
     grid_key    = "g1",
     month       = 1L,
-    depth_bin   = c(0L, 0L, 20L),
-    measurement_type = c("temp", "temp_ave", "temp"),
-    clim_mean   = c(10, 10, 8), clim_sd = c(1, 1, 1),
-    clim_n      = 30L, n_cruises = 10L,
-    clim_yr_min = 1993L, clim_yr_max = 2013L, stringsAsFactors = FALSE)
+    depth_bin   = c(0L, 0L, 20L, 600L),
+    measurement_type = c("temp", "temp_ave", "temp", "temp"),
+    clim_mean   = c(10, 10, 8, NA), clim_sd = c(1, 1, 1, NA),
+    clim_n      = c(30L, 30L, 30L, NA), n_cruises = c(10L, 10L, 10L, NA),
+    clim_yr_min = 1993L, clim_yr_max = 2013L,
+    quarter     = 1L, season_mean = c(10, 10, 8, 4), stringsAsFactors = FALSE)
   DBI::dbWriteTable(con, "obs_env", o)
   DBI::dbWriteTable(con, "climatology", clim)
   con

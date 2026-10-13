@@ -78,9 +78,30 @@
 #'   scientifically meaningful precision. Applied to the finished aggregate, so it is a pure function
 #'   of the (order-independent) value, not of how it was summed.
 #'
+#' - **Per-cast values too** (`cast_types`, calcofi4db 4.24.0). A cast's mixed-layer depth, the
+#'   depth and value of its chlorophyll maximum and its integrated chlorophyll have no depth: they are
+#'   one value per cast in `sample_measurement`, so `obs` never sees them and until 4.24.0 they had no
+#'   baseline (Rasmus Swalethorp, 2026-10-07: "anomalies for the derived products"). The types named
+#'   in `cast_types` are pooled by the same rules (station, cruise month, window, quality, cruise
+#'   floor) with **`depth_bin` NULL** — "a per-cast value", never a depth. A NULL never matches `=`,
+#'   so no per-bin join can pick one up by accident; a per-cast consumer matches `depth_bin IS NULL`.
+#'   The caller names the types (the release passes the registry's per-cast physical and pigment
+#'   types), so this package carries no list of datasets.
+#' - **A seasonal baseline beside the monthly one** (`season = TRUE`, the release's setting; calcofi4db 4.24.0; Rasmus
+#'   Swalethorp, 2026-10-06: let the user toggle between a monthly and a seasonal baseline). The
+#'   quarter is that of the **cruise's month** — Q1 Jan–Mar, Q2 Apr–Jun, Q3 Jul–Sep, Q4 Oct–Dec, the
+#'   Explorer's season filter — so 2607 (`2026-07-3322`) is Q3 even where it worked 93.3 on 30 June.
+#'   It ships as columns, not rows: `quarter` and `season_mean`, `season_sd`, `season_n`,
+#'   `season_n_cruises` sit on **every month of a quarter that passes the cruise floor**, so a
+#'   consumer still looks a baseline up by (station, month, bin, type) and nothing that sums the table
+#'   counts a cell twice. A station whose months are each below the floor but whose quarter is not
+#'   (the northern lines 60–73.3, where winter and spring are split across Jan–Apr) gets rows whose
+#'   monthly `clim_mean` is NULL: **a NULL `clim_mean` is "no monthly baseline"** exactly as an absent
+#'   row is.
+#'
 #' Rows without a station (`site_key`), a time or a depth, non-finite values, and values the quality
-#' predicate rejects are left out; nothing is interpolated. A cell that is absent has no baseline —
-#' a consumer must leave its anomaly blank, never 0.
+#' predicate rejects are left out; nothing is interpolated. A cell that is absent, or whose mean is
+#' NULL, has no baseline — a consumer must leave its anomaly blank, never 0.
 #'
 #' @param con DuckDB connection holding `obs` (with `realm`, `sample_key`, `grid_key`, `datetime`,
 #'   `depth_min_m`, `measurement_value`, `measurement_qual`, `cruise_key`, `dataset_key`,
@@ -103,8 +124,15 @@
 #' @param round_digits decimal places `clim_mean`/`clim_sd` are rounded to — chosen to be far below
 #'   sensor resolution but well above the parallel-aggregation floating-point noise floor (see
 #'   above), so the table is byte-identical across re-exports of unchanged data.
+#' @param cast_types per-cast measurement types (in `sample_measurement_tbl`) to give a baseline
+#'   too, with `depth_bin` NULL; `NULL` (the default) for the per-bin arm alone.
+#' @param season also compute the seasonal baseline (`quarter`, `season_*` columns); `FALSE` leaves
+#'   those columns NULL and keeps only cells that pass the monthly floor.
+#' @param sample_measurement_tbl the per-cast table read for `cast_types`.
 #' @param tbl output table (default `climatology`).
-#' @return Invisibly, the row count.
+#' @return Invisibly, the row count. Columns: `dataset_key`, `site_key`, `grid_key`, `month`,
+#'   `depth_bin`, `measurement_type`, `clim_mean`, `clim_sd`, `clim_n`, `n_cruises`, `clim_yr_min`,
+#'   `clim_yr_max`, `quarter`, `season_mean`, `season_sd`, `season_n`, `season_n_cruises`.
 #' @examples
 #' \dontrun{
 #' n <- build_climatology(con, qual_ok_sql = calcofi4r::cc_qual_ok_sql("o"))
@@ -116,14 +144,18 @@
 #' @importFrom glue glue
 build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, min_cruises = 3L,
                               depth_bin_m = 10L, depth_max_m = NULL, round_digits = 6L,
-                              tbl = "climatology", sample_tbl = "sample") {
+                              cast_types = NULL, season = FALSE,
+                              tbl = "climatology", sample_tbl = "sample",
+                              sample_measurement_tbl = "sample_measurement") {
   stopifnot(is.character(qual_ok_sql), length(qual_ok_sql) == 1, nzchar(qual_ok_sql),
             is.numeric(yr_min), is.numeric(yr_max), length(yr_min) == 1, length(yr_max) == 1,
             yr_min <= yr_max, is.numeric(min_cruises), min_cruises >= 1,
             is.numeric(depth_bin_m), depth_bin_m > 0,
             is.null(depth_max_m) || (is.numeric(depth_max_m) && length(depth_max_m) == 1 &&
                                        depth_max_m >= 0),
-            is.numeric(round_digits), length(round_digits) == 1, round_digits >= 0)
+            is.numeric(round_digits), length(round_digits) == 1, round_digits >= 0,
+            is.null(cast_types) || (is.character(cast_types) && !anyNA(cast_types)),
+            is.logical(season), length(season) == 1, !is.na(season))
   # no ceiling: the HAVING count(DISTINCT cruise_key) >= min_cruises rule is the only
   # depth rule, so the baseline goes to the bottom
   depth_sql <- if (is.null(depth_max_m)) "TRUE" else
@@ -131,22 +163,13 @@ build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, 
   yr_min <- as.integer(yr_min); yr_max <- as.integer(yr_max)
   min_cruises  <- as.integer(min_cruises); depth_bin_m <- as.integer(depth_bin_m)
   round_digits <- as.integer(round_digits)
-  cr_month <- .cruise_month_sql("o")
-  cr_year  <- .cruise_year_sql("o")
-  dbExecute(con, glue("
-    CREATE OR REPLACE TABLE {tbl} AS
-    SELECT o.dataset_key,
-           s.site_key,
-           mode(o.grid_key)                                            AS grid_key,
-           {cr_month}                                                  AS month,
+
+  # the per-bin arm: obs (env realm), its station from `sample`
+  src_bin <- glue("
+    SELECT o.dataset_key, s.site_key, o.grid_key, o.cruise_key, o.measurement_type,
+           {.cruise_month_sql('o')} AS month,
            (floor(o.depth_min_m / {depth_bin_m}) * {depth_bin_m})::INTEGER AS depth_bin,
-           o.measurement_type,
-           round(avg(o.measurement_value), {round_digits})             AS clim_mean,
-           round(stddev_samp(o.measurement_value), {round_digits})     AS clim_sd,
-           count(*)::INTEGER                                           AS clim_n,
-           count(DISTINCT o.cruise_key)::INTEGER                       AS n_cruises,
-           {yr_min}::SMALLINT                                          AS clim_yr_min,
-           {yr_max}::SMALLINT                                          AS clim_yr_max
+           o.measurement_value AS v
     FROM obs o
     JOIN {sample_tbl} s USING (sample_key)
     WHERE o.realm = 'env'
@@ -154,10 +177,82 @@ build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, 
       AND o.depth_min_m IS NOT NULL AND o.depth_min_m >= 0
       AND ({depth_sql})
       AND o.measurement_value IS NOT NULL AND isfinite(o.measurement_value)
-      AND {cr_year} BETWEEN {yr_min} AND {yr_max}
-      AND ({qual_ok_sql})
-    GROUP BY o.dataset_key, s.site_key, month, depth_bin, o.measurement_type
-    HAVING count(DISTINCT o.cruise_key) >= {min_cruises}"))
+      AND {.cruise_year_sql('o')} BETWEEN {yr_min} AND {yr_max}
+      AND ({qual_ok_sql})")
+  # the per-cast arm: one value per cast in sample_measurement, which has no depth, so its
+  # depth_bin is NULL. The cast's cruise, time and station are the sample's; the quality
+  # predicate still reads alias `o` (sample_measurement carries dataset_key + measurement_qual).
+  src_cast <- if (length(cast_types)) {
+    types_sql <- paste0("'", gsub("'", "''", cast_types), "'", collapse = ", ")
+    glue("
+    UNION ALL
+    SELECT o.dataset_key, s.site_key, s.grid_key, s.cruise_key, o.measurement_type,
+           {.cruise_month_sql('s')} AS month,
+           NULL::INTEGER AS depth_bin,
+           o.measurement_value AS v
+    FROM {sample_measurement_tbl} o
+    JOIN {sample_tbl} s USING (sample_key)
+    WHERE o.measurement_type IN ({types_sql})
+      AND s.site_key IS NOT NULL AND s.datetime IS NOT NULL
+      AND o.measurement_value IS NOT NULL AND isfinite(o.measurement_value)
+      AND {.cruise_year_sql('s')} BETWEEN {yr_min} AND {yr_max}
+      AND ({qual_ok_sql})")
+  } else ""
+
+  # the cell key, NULL-safe: a per-cast cell's depth_bin is NULL, and `=` never matches NULL
+  key_eq <- function(a, b) paste(
+    glue("{a}.dataset_key = {b}.dataset_key AND {a}.site_key = {b}.site_key"),
+    glue("{a}.measurement_type = {b}.measurement_type"),
+    glue("{a}.depth_bin IS NOT DISTINCT FROM {b}.depth_bin"), sep = " AND ")
+  stats <- function(prefix) glue(
+    "round(avg(v), {round_digits}) AS {prefix}_mean, ",
+    "round(stddev_samp(v), {round_digits}) AS {prefix}_sd, ",
+    "count(*)::INTEGER AS {prefix}_n, count(DISTINCT cruise_key)::INTEGER AS {prefix}_n_cruises, ",
+    "mode(grid_key) AS {prefix}_grid_key")
+
+  # the quarter's three months, so a seasonal cell sits on each month it covers and every
+  # consumer keeps looking a baseline up by (station, month, bin, type)
+  months_sql <- "SELECT unnest(range(1, 13))::TINYINT AS month"
+  season_cte <- if (season) glue(",
+    seas AS (
+      SELECT dataset_key, site_key, depth_bin, measurement_type,
+             ((month - 1) // 3 + 1)::TINYINT AS quarter, {stats('s')}
+      FROM src GROUP BY ALL
+      HAVING count(DISTINCT cruise_key) >= {min_cruises}),
+    seas_m AS (
+      SELECT seas.*, m.month FROM seas
+      JOIN ({months_sql}) m ON (m.month - 1) // 3 + 1 = seas.quarter)") else ""
+  cells <- if (season) glue("
+    SELECT COALESCE(mon.dataset_key, sm.dataset_key)           AS dataset_key,
+           COALESCE(mon.site_key, sm.site_key)                 AS site_key,
+           COALESCE(mon.m_grid_key, sm.s_grid_key)             AS grid_key,
+           COALESCE(mon.month, sm.month)                       AS month,
+           COALESCE(mon.depth_bin, sm.depth_bin)               AS depth_bin,
+           COALESCE(mon.measurement_type, sm.measurement_type) AS measurement_type,
+           mon.m_mean AS clim_mean, mon.m_sd AS clim_sd, mon.m_n AS clim_n, mon.m_n_cruises AS n_cruises,
+           ((COALESCE(mon.month, sm.month) - 1) // 3 + 1)::TINYINT AS quarter,
+           sm.s_mean AS season_mean, sm.s_sd AS season_sd, sm.s_n AS season_n,
+           sm.s_n_cruises AS season_n_cruises
+    FROM mon FULL OUTER JOIN seas_m sm ON {key_eq('mon', 'sm')} AND mon.month = sm.month") else glue("
+    SELECT dataset_key, site_key, m_grid_key AS grid_key, month, depth_bin, measurement_type,
+           m_mean AS clim_mean, m_sd AS clim_sd, m_n AS clim_n, m_n_cruises AS n_cruises,
+           ((month - 1) // 3 + 1)::TINYINT AS quarter,
+           NULL::DOUBLE AS season_mean, NULL::DOUBLE AS season_sd, NULL::INTEGER AS season_n,
+           NULL::INTEGER AS season_n_cruises
+    FROM mon")
+
+  dbExecute(con, glue("
+    CREATE OR REPLACE TABLE {tbl} AS
+    WITH src AS ({src_bin}{src_cast}),
+    mon AS (
+      SELECT dataset_key, site_key, month, depth_bin, measurement_type, {stats('m')}
+      FROM src GROUP BY ALL
+      HAVING count(DISTINCT cruise_key) >= {min_cruises}){season_cte}
+    SELECT dataset_key, site_key, grid_key, month::TINYINT AS month, depth_bin, measurement_type,
+           clim_mean, clim_sd, clim_n, n_cruises,
+           {yr_min}::SMALLINT AS clim_yr_min, {yr_max}::SMALLINT AS clim_yr_max,
+           quarter, season_mean, season_sd, season_n, season_n_cruises
+    FROM ({cells})"))
   n <- dbGetQuery(con, glue("SELECT count(*) AS n FROM {tbl}"))$n
   invisible(n)
 }

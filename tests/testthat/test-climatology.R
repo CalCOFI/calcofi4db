@@ -71,8 +71,12 @@ test_that("build_climatology(): the cell is a mean per dataset x station x month
   n <- build_climatology(con, qual_ok_sql = CLIM_QUAL_OK)
   cl <- DBI::dbGetQuery(con, "SELECT * FROM climatology ORDER BY dataset_key, site_key, month, depth_bin")
   expect_equal(n, nrow(cl))
+  # the 4.24.0 columns are appended, never inserted (a consumer reading by position keeps working)
   expect_named(cl, c("dataset_key", "site_key", "grid_key", "month", "depth_bin", "measurement_type",
-                     "clim_mean", "clim_sd", "clim_n", "n_cruises", "clim_yr_min", "clim_yr_max"))
+                     "clim_mean", "clim_sd", "clim_n", "n_cruises", "clim_yr_min", "clim_yr_max",
+                     "quarter", "season_mean", "season_sd", "season_n", "season_n_cruises"))
+  expect_true(all(is.na(cl$season_mean)), info = "season = FALSE (the default) leaves the seasonal columns NULL")
+  expect_equal(unique(cl$quarter), 3L)
   # five cells survive: ctd bin 0 + bin 10 + bottle bin 0 at 90.60, and the two st35 stations
   expect_equal(nrow(cl), 5)
   expect_true(all(cl$month == 7L), info = "January has one cruise, so no January cell")
@@ -267,4 +271,117 @@ test_that("build_climatology(): a cast is filed under its cruise's month and yea
   expect_equal(cl$clim_mean, c(13, 16))
   expect_equal(cl$n_cruises, c(3L, 3L),
                info = "July holds the two casts dated in June; January holds 1993-01 (sailed 1992) and the unparsed key")
+})
+
+# per-cast products (2026-10-13, Rasmus Swalethorp 2026-10-07: "anomalies for the derived products"):
+# a mixed-layer depth is one value per cast in sample_measurement, with no depth, so obs never sees it.
+cast_fixture <- function(con) {
+  DBI::dbExecute(con, "CREATE TABLE obs (realm VARCHAR, grid_key VARCHAR, cruise_key VARCHAR,
+    datetime TIMESTAMP, depth_min_m DOUBLE, measurement_type VARCHAR, measurement_value DOUBLE,
+    measurement_qual VARCHAR, dataset_key VARCHAR, sample_key VARCHAR)")
+  DBI::dbExecute(con, "CREATE TABLE sample AS SELECT * FROM (VALUES
+    ('k1', '093.3 030.0', 'st30-ln93.3', '2001-07-33XX', TIMESTAMP '2001-06-30 04:00'),
+    ('k2', '093.3 030.0', 'st30-ln93.3', '2002-07-33XX', TIMESTAMP '2002-07-02 04:00'),
+    ('k3', '093.3 030.0', 'st30-ln93.3', '2003-07-33XX', TIMESTAMP '2003-07-03 04:00'),
+    ('k4', '093.3 030.0', 'st30-ln93.3', '2004-07-33XX', TIMESTAMP '2004-07-03 04:00'),
+    ('k5', '093.3 030.0', 'st30-ln93.3', '2020-07-33XX', TIMESTAMP '2020-07-03 04:00'),
+    ('k6', NULL,          'st30-ln93.3', '2005-07-33XX', TIMESTAMP '2005-07-03 04:00')
+    ) t(sample_key, site_key, grid_key, cruise_key, datetime)")
+  DBI::dbExecute(con, "CREATE TABLE sample_measurement AS SELECT * FROM (VALUES
+    ('k1', 'calcofi_ctd-derived', 'mld_sigma_theta_002', 20.0, NULL::VARCHAR),
+    ('k2', 'calcofi_ctd-derived', 'mld_sigma_theta_002', 30.0, NULL),
+    ('k3', 'calcofi_ctd-derived', 'mld_sigma_theta_002', 40.0, NULL),
+    -- flagged bad: out
+    ('k4', 'calcofi_ctd-derived', 'mld_sigma_theta_002', 900.0, '9'),
+    -- outside the window: out
+    ('k5', 'calcofi_ctd-derived', 'mld_sigma_theta_002', 900.0, NULL),
+    -- no station: out
+    ('k6', 'calcofi_ctd-derived', 'mld_sigma_theta_002', 900.0, NULL),
+    -- a per-cast type the caller did not name: out
+    ('k1', 'calcofi_bottle', 'secchi_depth', 12.0, NULL),
+    ('k2', 'calcofi_bottle', 'secchi_depth', 12.0, NULL),
+    ('k3', 'calcofi_bottle', 'secchi_depth', 12.0, NULL)
+    ) t(sample_key, dataset_key, measurement_type, measurement_value, measurement_qual)")
+}
+
+test_that("build_climatology(cast_types =): a per-cast type gets a baseline with depth_bin NULL", {
+  con <- clim_con(); cast_fixture(con)
+  expect_equal(build_climatology(con, qual_ok_sql = CLIM_QUAL_OK), 0,
+               info = "without cast_types the per-cast table is not read")
+  n <- build_climatology(con, qual_ok_sql = CLIM_QUAL_OK, cast_types = "mld_sigma_theta_002")
+  cl <- DBI::dbGetQuery(con, "SELECT * FROM climatology")
+  expect_equal(n, 1)
+  expect_true(is.na(cl$depth_bin))
+  expect_equal(cl$measurement_type, "mld_sigma_theta_002")
+  expect_equal(cl$dataset_key, "calcofi_ctd-derived")
+  expect_equal(cl$clim_mean, 30)                     # 20, 30, 40: the 9-flagged, 2020 and station-less casts out
+  expect_equal(cl$n_cruises, 3L)
+  expect_equal(cl$month, 7L, info = "k1 was cast on 30 June; its cruise is July")
+  expect_equal(cl$grid_key, "st30-ln93.3", info = "the grid cell comes from sample, as obs does not exist for it")
+  # a per-bin join on depth_bin = <n> never matches it
+  expect_equal(DBI::dbGetQuery(con, "SELECT count(*) AS n FROM climatology WHERE depth_bin = 0")$n, 0)
+})
+
+test_that("build_climatology(season = TRUE): a quarter's baseline sits on each of its months, by the cruise's month", {
+  con <- clim_con()
+  DBI::dbExecute(con, "CREATE TABLE obs AS SELECT * FROM (VALUES
+    -- winter at a northern station: one cruise in each of Jan, Feb, Mar -- each month below a floor
+    -- of 3, the quarter (three cruises) above it
+    ('env', 'st60-ln66.7', '2001-01-33XX', TIMESTAMP '2001-01-20 00:00', 2.0, 'temperature_ave', 10.0, NULL::VARCHAR, 'calcofi_ctd-cast', 'n1'),
+    ('env', 'st60-ln66.7', '2002-02-33XX', TIMESTAMP '2002-02-20 00:00', 2.0, 'temperature_ave', 11.0, NULL, 'calcofi_ctd-cast', 'n2'),
+    ('env', 'st60-ln66.7', '2003-03-33XX', TIMESTAMP '2003-03-20 00:00', 2.0, 'temperature_ave', 12.0, NULL, 'calcofi_ctd-cast', 'n3'),
+    -- summer: three July cruises (one cast on 30 June) -> a July cell AND a Q3 cell
+    ('env', 'st60-ln66.7', '2001-07-33XX', TIMESTAMP '2001-06-30 00:00', 2.0, 'temperature_ave', 15.0, NULL, 'calcofi_ctd-cast', 'n4'),
+    ('env', 'st60-ln66.7', '2002-07-33XX', TIMESTAMP '2002-07-10 00:00', 2.0, 'temperature_ave', 16.0, NULL, 'calcofi_ctd-cast', 'n5'),
+    ('env', 'st60-ln66.7', '2003-07-33XX', TIMESTAMP '2003-07-10 00:00', 2.0, 'temperature_ave', 17.0, NULL, 'calcofi_ctd-cast', 'n6'),
+    -- one August cruise: no August monthly cell, but August carries Q3 (four cruises)
+    ('env', 'st60-ln66.7', '2004-08-33XX', TIMESTAMP '2004-08-10 00:00', 2.0, 'temperature_ave', 20.0, NULL, 'calcofi_ctd-cast', 'n7')
+    ) t(realm, grid_key, cruise_key, datetime, depth_min_m, measurement_type, measurement_value, measurement_qual, dataset_key, sample_key)")
+  DBI::dbExecute(con, "CREATE TABLE sample AS SELECT sample_key, '066.7 060.0' AS site_key
+    FROM (VALUES ('n1'), ('n2'), ('n3'), ('n4'), ('n5'), ('n6'), ('n7')) t(sample_key)")
+  build_climatology(con, qual_ok_sql = CLIM_QUAL_OK, season = TRUE)
+  cl <- DBI::dbGetQuery(con, "SELECT month, quarter, clim_mean, n_cruises, season_mean, season_n, season_n_cruises
+    FROM climatology ORDER BY month")
+  expect_equal(cl$month, c(1L, 2L, 3L, 7L, 8L, 9L), info = "every month of each passing quarter, nothing else")
+  expect_equal(cl$quarter, c(1L, 1L, 1L, 3L, 3L, 3L))
+  expect_equal(cl$clim_mean, c(NA, NA, NA, 16, NA, NA),
+               info = "a month below the floor has a row but no monthly baseline")
+  expect_equal(cl$n_cruises, c(NA, NA, NA, 3L, NA, NA))
+  expect_equal(cl$season_mean, c(11, 11, 11, 17, 17, 17))  # Q1 (10+11+12)/3; Q3 (15+16+17+20)/4
+  expect_equal(cl$season_n_cruises, c(3L, 3L, 3L, 4L, 4L, 4L))
+  # the key stays unique, and summing a column over the table never counts a cell twice
+  expect_silent(check_core_pk_unique(con, "climatology"))
+  expect_equal(DBI::dbGetQuery(con, "SELECT sum(clim_n) AS n FROM climatology")$n, 3)
+  # without season the table is the monthly cells alone
+  build_climatology(con, qual_ok_sql = CLIM_QUAL_OK, season = FALSE, tbl = "c_month")
+  expect_equal(DBI::dbGetQuery(con, "SELECT month FROM c_month")$month, 7L)
+})
+
+test_that("build_climatology(cast_types =, season = TRUE): per-cast seasonal cells join NULL-safely", {
+  con <- clim_con(); cast_fixture(con)
+  build_climatology(con, qual_ok_sql = CLIM_QUAL_OK, cast_types = "mld_sigma_theta_002", season = TRUE)
+  cl <- DBI::dbGetQuery(con, "SELECT month, depth_bin, clim_mean, season_mean FROM climatology ORDER BY month")
+  # one July cell + Q3 on July, August, September -- three rows, not six (a NULL depth_bin that
+  # failed `=` in the month/season join would have split July into two rows)
+  expect_equal(cl$month, c(7L, 8L, 9L))
+  expect_true(all(is.na(cl$depth_bin)))
+  expect_equal(cl$clim_mean, c(30, NA, NA))
+  expect_equal(cl$season_mean, c(30, 30, 30))
+})
+
+# a NULL in a key column was a failed key (2026-10-13): the per-cast climatology cells made depth_bin
+# NULL by design, so core_relationships() declares it nullable and the integrity check honours that
+test_that("check_release_relationships(): a declared nullable key column is a value, not a gap", {
+  con <- clim_con(); cast_fixture(con)
+  build_climatology(con, qual_ok_sql = CLIM_QUAL_OK, cast_types = "mld_sigma_theta_002", season = TRUE)
+  rels <- core_relationships("climatology")
+  expect_equal(rels$nullable_key_columns, list(climatology = "depth_bin"))
+  res <- check_release_relationships(con, rels, halt = FALSE)
+  expect_equal(res$primary_keys$status, "ok")
+  expect_equal(res$primary_keys$n_null, 0)
+  # undeclared, the same rows fail -- and a duplicate with a NULL depth_bin is still a duplicate
+  rels_strict <- rels; rels_strict$nullable_key_columns <- NULL
+  expect_equal(check_release_relationships(con, rels_strict, halt = FALSE)$primary_keys$status, "fail")
+  DBI::dbExecute(con, "INSERT INTO climatology SELECT * FROM climatology WHERE month = 7")
+  expect_equal(check_release_relationships(con, rels, halt = FALSE)$primary_keys$n_dup, 1)
 })

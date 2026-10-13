@@ -11,7 +11,7 @@ core_relationships(tables)
 result of \code{\link[=core_output_tables]{core_output_tables()}})}
 }
 \value{
-a list with \code{primary_keys} and \code{foreign_keys}
+a list with \code{primary_keys}, \code{nullable_key_columns} (key columns where NULL is a value) and \code{foreign_keys}
 }
 \description{
 Every ingest now emits the same core shape, so every ingest declares the same

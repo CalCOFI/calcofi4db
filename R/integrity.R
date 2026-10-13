@@ -51,7 +51,11 @@ check_release_relationships <- function(con, rels, path = NULL, version = NULL, 
     # a NULL anywhere in the key is counted once, as n_null, and kept out of the
     # duplicate count (COUNT(DISTINCT) drops NULLs, which would make every NULL
     # row look like a duplicate); a composite key is compared as a tuple
-    any_null <- paste(paste(q(cols), "IS NULL"), collapse = " OR ")
+    # ...except a column declared nullable for this table (rels$nullable_key_columns, from
+    # core_relationships()): there NULL is a value, and the tuple compares it as one
+    nullable <- unlist(rels$nullable_key_columns[[tb]])
+    cols_nn  <- setdiff(cols, nullable)
+    any_null <- if (length(cols_nn)) paste(paste(q(cols_nn), "IS NULL"), collapse = " OR ") else "FALSE"
     tuple    <- paste(q(cols), collapse = ", ")
     r <- DBI::dbGetQuery(con, glue::glue(
       'SELECT COUNT(*) AS n_rows,
@@ -64,7 +68,8 @@ check_release_relationships <- function(con, rels, path = NULL, version = NULL, 
     base$status <- if (base$n_dup == 0 && base$n_null == 0) "ok" else "fail"
     base
   })
-  pk <- do.call(rbind, c(pk_rows, list(stringsAsFactors = FALSE)))
+  # do.call(rbind, ...) over an empty list is not NULL but an atomic, so test the list itself
+  pk <- if (length(pk_rows)) do.call(rbind, c(pk_rows, list(stringsAsFactors = FALSE))) else NULL
   if (is.null(pk)) pk <- data.frame(table = character(), columns = character(), n_rows = numeric(),
                                     n_distinct = numeric(), n_dup = numeric(), n_null = numeric(),
                                     status = character(), stringsAsFactors = FALSE)
@@ -90,7 +95,7 @@ check_release_relationships <- function(con, rels, path = NULL, version = NULL, 
     base$status   <- if (base$n_orphan == 0) "ok" else "fail"
     base
   })
-  fk <- do.call(rbind, c(fk_rows, list(stringsAsFactors = FALSE)))
+  fk <- if (length(fk_rows)) do.call(rbind, c(fk_rows, list(stringsAsFactors = FALSE))) else NULL
   if (is.null(fk)) fk <- data.frame(table = character(), column = character(), ref_table = character(),
                                     ref_column = character(), n_rows = numeric(), n_null = numeric(),
                                     n_orphan = numeric(), status = character(), stringsAsFactors = FALSE)
