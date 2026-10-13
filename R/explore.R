@@ -245,6 +245,9 @@ check_sample_hex7 <- function(con, sample_tbl = "sample", root_tbl = "sample_roo
 #' Slims `obs` to the columns a lens needs, joins the gear and effort of the observation's own sample
 #' (`sample.tow_type`; `std_haul_factor`, `prop_sorted`, `volume_sampled` from `sample_measurement`),
 #' stamps `root_id`, `year`, `quarter`, `depth_bin` (10 m), `hex7`, `qual_ok` (from `qual_ok_sql`)
+#' (`year` and `quarter` are the **cruise's** — the year and month its `cruise_key` designates, as
+#' [build_climatology()] files the baseline — and the calendar date only where the key does not
+#' parse; since 4.24.0)
 #' and the D8 densities + `effort_class` (from `density_sql`). Depth is the observation's, falling back
 #' to its sample's and then its root's, so a net tow carries its integrated span. Both realms get the
 #' same schema (effort and taxon columns are NULL for env — a NULL column costs nothing in parquet), so
@@ -286,7 +289,12 @@ build_obs_slim <- function(con, realm = c("bio", "env"), qual_ok_sql, density_sq
     x AS (
       SELECT o.obs_id, o.dataset_key, r.root_id, o.sample_key, o.grid_key, s.site_key, o.cruise_key,
              o.latitude, o.longitude, o.datetime,
-             year(o.datetime)::SMALLINT AS year, quarter(o.datetime)::TINYINT AS quarter,
+             -- the cruise's designated year and quarter, not the cast's calendar date (4.24.0): the
+             -- Explorer's season filter keeps quarters, and 2607 (2026-07-3322) worked line 93.3
+             -- inshore on 30 June, so by date those casts left Q3 (Rasmus Swalethorp, 2026-10-07).
+             -- The same rule as the climatology, so a season and its baseline are one season.
+             ({.cruise_year_sql('o')})::SMALLINT AS year,
+             ((({.cruise_month_sql('o')}) - 1) // 3 + 1)::TINYINT AS quarter,
              COALESCE(o.depth_min_m, s.depth_min_m, r.depth_min_m) AS depth_min_m,
              COALESCE(o.depth_max_m, s.depth_max_m, r.depth_max_m) AS depth_max_m,
              o.taxon_key, o.life_stage, o.measurement_type, m.units, o.measurement_value,

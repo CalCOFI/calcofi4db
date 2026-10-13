@@ -1,3 +1,30 @@
+# calcofi4db 4.24.0
+
+- **`build_climatology()` gives the per-cast derived products a baseline** (new argument
+  `cast_types`). A cast's mixed-layer depth, chlorophyll-maximum depth and value, and integrated
+  chlorophyll live in `sample_measurement` with no depth, so `obs` never saw them. The named types are
+  pooled by the same rules (station, cruise month, window, quality, cruise floor) with **`depth_bin`
+  NULL**, meaning "a per-cast value". A per-bin join on `depth_bin = <n>` never matches one.
+  (Rasmus Swalethorp, 2026-10-07.)
+- **A seasonal baseline beside the monthly one** (new argument `season`, default `FALSE`; the release
+  passes `TRUE`). The quarter is that of the cruise's designated month (Q1 Jan–Mar … Q4 Oct–Dec).
+  New columns are appended: `quarter`, `season_mean`, `season_sd`, `season_n`, `season_n_cruises`, on
+  every month of a quarter that passes the cruise floor. A month below the monthly floor but inside a
+  passing quarter gets a row with **`clim_mean` NULL**, which means "no monthly baseline", the same as
+  an absent row. Nothing that sums the table counts a cell twice. (Rasmus Swalethorp, 2026-10-06.)
+- `core_relationships()` returns `nullable_key_columns` (`climatology.depth_bin`), and
+  `check_release_relationships()` treats a declared nullable key column as a value instead of a
+  failure.
+- `check_release_relationships()` no longer errors when there are no foreign keys (or no primary
+  keys) to check.
+- The measurement pages' anomaly (`build_measurements_catalog()`) ignores climatology rows whose
+  monthly `clim_mean` is NULL, so `n_values` and `n_cruises` count only values that have a monthly
+  normal.
+- **`build_obs_slim()` stamps the cruise's year and quarter**, not the cast's calendar date (the date
+  only where `cruise_key` does not parse). The Explorer's season filter therefore keeps 2607's
+  30 June casts in Q3 along with the rest of the July cruise, the same season their baseline is
+  filed under.
+
 # calcofi4db 4.23.0
 
 - **`build_spatial_layers()` carries the gazetteer-backed rows of the explore registry.** Two new

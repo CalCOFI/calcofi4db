@@ -418,6 +418,9 @@ CC_MEASUREMENT_REGISTRY_FILES <- c(
                       avg(o.value - c.clim_mean) AS cm, count(*) AS n
                FROM o JOIN climatology c
                  USING (dataset_key, measurement_type, site_key, month, depth_bin)
+               -- a row whose monthly mean is NULL carries only a seasonal baseline
+               -- (build_climatology(season = TRUE)): no monthly normal, so not counted
+               WHERE c.clim_mean IS NOT NULL
                GROUP BY 1, 2, 3, 4)
     SELECT key, band, year,
            round(avg(cm), {CC_MEASUREMENT_ANOMALY_DIGITS}) AS anom,

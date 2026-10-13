@@ -13,8 +13,11 @@ build_climatology(
   depth_bin_m = 10L,
   depth_max_m = NULL,
   round_digits = 6L,
+  cast_types = NULL,
+  season = FALSE,
   tbl = "climatology",
-  sample_tbl = "sample"
+  sample_tbl = "sample",
+  sample_measurement_tbl = "sample_measurement"
 )
 }
 \arguments{
@@ -45,12 +48,22 @@ while a consumer needed it).}
 sensor resolution but well above the parallel-aggregation floating-point noise floor (see
 above), so the table is byte-identical across re-exports of unchanged data.}
 
+\item{cast_types}{per-cast measurement types (in \code{sample_measurement_tbl}) to give a baseline
+too, with \code{depth_bin} NULL; \code{NULL} (the default) for the per-bin arm alone.}
+
+\item{season}{also compute the seasonal baseline (\code{quarter}, \verb{season_*} columns); \code{FALSE} leaves
+those columns NULL and keeps only cells that pass the monthly floor.}
+
 \item{tbl}{output table (default \code{climatology}).}
 
 \item{sample_tbl}{the sample table joined for \code{site_key} (default \code{"sample"}).}
+
+\item{sample_measurement_tbl}{the per-cast table read for \code{cast_types}.}
 }
 \value{
-Invisibly, the row count.
+Invisibly, the row count. Columns: \code{dataset_key}, \code{site_key}, \code{grid_key}, \code{month},
+\code{depth_bin}, \code{measurement_type}, \code{clim_mean}, \code{clim_sd}, \code{clim_n}, \code{n_cruises}, \code{clim_yr_min},
+\code{clim_yr_max}, \code{quarter}, \code{season_mean}, \code{season_sd}, \code{season_n}, \code{season_n_cruises}.
 }
 \description{
 A plain mean per \strong{dataset, station (\code{site_key}), the cruise's month, 10 m depth bin and measurement type} over
@@ -122,11 +135,31 @@ instrument's resolution (CTD temperature/salinity ship to 3-4 decimal places, bo
 to 2-3, oxygen to 2) — so rounding this way discards only reproducibility-breaking noise, never
 scientifically meaningful precision. Applied to the finished aggregate, so it is a pure function
 of the (order-independent) value, not of how it was summed.
+\item \strong{Per-cast values too} (\code{cast_types}, calcofi4db 4.24.0). A cast's mixed-layer depth, the
+depth and value of its chlorophyll maximum and its integrated chlorophyll have no depth: they are
+one value per cast in \code{sample_measurement}, so \code{obs} never sees them and until 4.24.0 they had no
+baseline (Rasmus Swalethorp, 2026-10-07: "anomalies for the derived products"). The types named
+in \code{cast_types} are pooled by the same rules (station, cruise month, window, quality, cruise
+floor) with \strong{\code{depth_bin} NULL} — "a per-cast value", never a depth. A NULL never matches \code{=},
+so no per-bin join can pick one up by accident; a per-cast consumer matches \verb{depth_bin IS NULL}.
+The caller names the types (the release passes the registry's per-cast physical and pigment
+types), so this package carries no list of datasets.
+\item \strong{A seasonal baseline beside the monthly one} (\code{season = TRUE}, the release's setting; calcofi4db 4.24.0; Rasmus
+Swalethorp, 2026-10-06: let the user toggle between a monthly and a seasonal baseline). The
+quarter is that of the \strong{cruise's month} — Q1 Jan–Mar, Q2 Apr–Jun, Q3 Jul–Sep, Q4 Oct–Dec, the
+Explorer's season filter — so 2607 (\code{2026-07-3322}) is Q3 even where it worked 93.3 on 30 June.
+It ships as columns, not rows: \code{quarter} and \code{season_mean}, \code{season_sd}, \code{season_n},
+\code{season_n_cruises} sit on \strong{every month of a quarter that passes the cruise floor}, so a
+consumer still looks a baseline up by (station, month, bin, type) and nothing that sums the table
+counts a cell twice. A station whose months are each below the floor but whose quarter is not
+(the northern lines 60–73.3, where winter and spring are split across Jan–Apr) gets rows whose
+monthly \code{clim_mean} is NULL: \strong{a NULL \code{clim_mean} is "no monthly baseline"} exactly as an absent
+row is.
 }
 
 Rows without a station (\code{site_key}), a time or a depth, non-finite values, and values the quality
-predicate rejects are left out; nothing is interpolated. A cell that is absent has no baseline —
-a consumer must leave its anomaly blank, never 0.
+predicate rejects are left out; nothing is interpolated. A cell that is absent, or whose mean is
+NULL, has no baseline — a consumer must leave its anomaly blank, never 0.
 }
 \examples{
 \dontrun{
