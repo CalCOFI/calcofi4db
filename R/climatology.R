@@ -85,8 +85,8 @@
 #'   in `cast_types` are pooled by the same rules (station, cruise month, window, quality, cruise
 #'   floor) with **`depth_bin` NULL** — "a per-cast value", never a depth. A NULL never matches `=`,
 #'   so no per-bin join can pick one up by accident; a per-cast consumer matches `depth_bin IS NULL`.
-#'   The caller names the types (the release passes the registry's per-cast physical and pigment
-#'   types), so this package carries no list of datasets.
+#'   The caller names the types (the release lists them in `release_database.qmd`'s
+#'   `clim_cast_types`), so this package carries no list of datasets.
 #' - **A seasonal baseline beside the monthly one** (`season = TRUE`, the release's setting; calcofi4db 4.24.0; Rasmus
 #'   Swalethorp, 2026-10-06: let the user toggle between a monthly and a seasonal baseline). The
 #'   quarter is that of the **cruise's month** — Q1 Jan–Mar, Q2 Apr–Jun, Q3 Jul–Sep, Q4 Oct–Dec, the
