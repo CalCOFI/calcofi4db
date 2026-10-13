@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.23.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.24.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,6 +77,20 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.24.0" id="calcofi4db-4240">calcofi4db 4.24.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4240"></a></h2>
+<ul><li>
+<strong><code><a href="../reference/build_climatology.html">build_climatology()</a></code> gives the per-cast derived products a baseline</strong> (new argument <code>cast_types</code>). A cast’s mixed-layer depth, chlorophyll-maximum depth and value, and integrated chlorophyll live in <code>sample_measurement</code> with no depth, so <code>obs</code> never saw them. The named types are pooled by the same rules (station, cruise month, window, quality, cruise floor) with <strong><code>depth_bin</code> NULL</strong>, meaning “a per-cast value”. A per-bin join on <code>depth_bin = &lt;n&gt;</code> never matches one. (Rasmus Swalethorp, 2026-10-07.)</li>
+<li>
+<strong>A seasonal baseline beside the monthly one</strong> (new argument <code>season</code>, default <code>FALSE</code>; the release passes <code>TRUE</code>). The quarter is that of the cruise’s designated month (Q1 Jan–Mar … Q4 Oct–Dec). New columns are appended: <code>quarter</code>, <code>season_mean</code>, <code>season_sd</code>, <code>season_n</code>, <code>season_n_cruises</code>, on every month of a quarter that passes the cruise floor. A month below the monthly floor but inside a passing quarter gets a row with <strong><code>clim_mean</code> NULL</strong>, which means “no monthly baseline”, the same as an absent row. Nothing that sums the table counts a cell twice. (Rasmus Swalethorp, 2026-10-06.)</li>
+<li>
+<code><a href="../reference/core_relationships.html">core_relationships()</a></code> returns <code>nullable_key_columns</code> (<code>climatology.depth_bin</code>), and <code><a href="../reference/check_release_relationships.html">check_release_relationships()</a></code> treats a declared nullable key column as a value instead of a failure.</li>
+<li>
+<code><a href="../reference/check_release_relationships.html">check_release_relationships()</a></code> no longer errors when there are no foreign keys (or no primary keys) to check.</li>
+<li>The measurement pages’ anomaly (<code><a href="../reference/build_measurements_catalog.html">build_measurements_catalog()</a></code>) ignores climatology rows whose monthly <code>clim_mean</code> is NULL, so <code>n_values</code> and <code>n_cruises</code> count only values that have a monthly normal.</li>
+<li>
+<strong><code><a href="../reference/build_obs_slim.html">build_obs_slim()</a></code> stamps the cruise’s year and quarter</strong>, not the cast’s calendar date (the date only where <code>cruise_key</code> does not parse). The Explorer’s season filter therefore keeps 2607’s 30 June casts in Q3 along with the rest of the July cruise, the same season their baseline is filed under.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.23.0" id="calcofi4db-4230">calcofi4db 4.23.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4230"></a></h2>
 <ul><li>

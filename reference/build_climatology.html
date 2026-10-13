@@ -49,7 +49,7 @@ departure from. Written once at release time so the products cannot disagree."><
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.23.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.24.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -102,8 +102,11 @@ departure from. Written once at release time so the products cannot disagree.</p
 <span>  depth_bin_m <span class="op">=</span> <span class="fl">10L</span>,</span>
 <span>  depth_max_m <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  round_digits <span class="op">=</span> <span class="fl">6L</span>,</span>
+<span>  cast_types <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  season <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  tbl <span class="op">=</span> <span class="st">"climatology"</span>,</span>
-<span>  sample_tbl <span class="op">=</span> <span class="st">"sample"</span></span>
+<span>  sample_tbl <span class="op">=</span> <span class="st">"sample"</span>,</span>
+<span>  sample_measurement_tbl <span class="op">=</span> <span class="st">"sample_measurement"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -152,6 +155,16 @@ sensor resolution but well above the parallel-aggregation floating-point noise f
 above), so the table is byte-identical across re-exports of unchanged data.</p></dd>
 
 
+<dt id="arg-cast-types">cast_types<a class="anchor" aria-label="anchor" href="#arg-cast-types"></a></dt>
+<dd><p>per-cast measurement types (in <code>sample_measurement_tbl</code>) to give a baseline
+too, with <code>depth_bin</code> NULL; <code>NULL</code> (the default) for the per-bin arm alone.</p></dd>
+
+
+<dt id="arg-season">season<a class="anchor" aria-label="anchor" href="#arg-season"></a></dt>
+<dd><p>also compute the seasonal baseline (<code>quarter</code>, <code>season_*</code> columns); <code>FALSE</code> leaves
+those columns NULL and keeps only cells that pass the monthly floor.</p></dd>
+
+
 <dt id="arg-tbl">tbl<a class="anchor" aria-label="anchor" href="#arg-tbl"></a></dt>
 <dd><p>output table (default <code>climatology</code>).</p></dd>
 
@@ -159,10 +172,16 @@ above), so the table is byte-identical across re-exports of unchanged data.</p><
 <dt id="arg-sample-tbl">sample_tbl<a class="anchor" aria-label="anchor" href="#arg-sample-tbl"></a></dt>
 <dd><p>the sample table joined for <code>site_key</code> (default <code>"sample"</code>).</p></dd>
 
+
+<dt id="arg-sample-measurement-tbl">sample_measurement_tbl<a class="anchor" aria-label="anchor" href="#arg-sample-measurement-tbl"></a></dt>
+<dd><p>the per-cast table read for <code>cast_types</code>.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>Invisibly, the row count.</p>
+    <p>Invisibly, the row count. Columns: <code>dataset_key</code>, <code>site_key</code>, <code>grid_key</code>, <code>month</code>,
+<code>depth_bin</code>, <code>measurement_type</code>, <code>clim_mean</code>, <code>clim_sd</code>, <code>clim_n</code>, <code>n_cruises</code>, <code>clim_yr_min</code>,
+<code>clim_yr_max</code>, <code>quarter</code>, <code>season_mean</code>, <code>season_sd</code>, <code>season_n</code>, <code>season_n_cruises</code>.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -227,9 +246,29 @@ instrument's resolution (CTD temperature/salinity ship to 3-4 decimal places, bo
 to 2-3, oxygen to 2) — so rounding this way discards only reproducibility-breaking noise, never
 scientifically meaningful precision. Applied to the finished aggregate, so it is a pure function
 of the (order-independent) value, not of how it was summed.</p></li>
+<li><p><strong>Per-cast values too</strong> (<code>cast_types</code>, calcofi4db 4.24.0). A cast's mixed-layer depth, the
+depth and value of its chlorophyll maximum and its integrated chlorophyll have no depth: they are
+one value per cast in <code>sample_measurement</code>, so <code>obs</code> never sees them and until 4.24.0 they had no
+baseline (Rasmus Swalethorp, 2026-10-07: "anomalies for the derived products"). The types named
+in <code>cast_types</code> are pooled by the same rules (station, cruise month, window, quality, cruise
+floor) with <strong><code>depth_bin</code> NULL</strong> — "a per-cast value", never a depth. A NULL never matches <code>=</code>,
+so no per-bin join can pick one up by accident; a per-cast consumer matches <code>depth_bin IS NULL</code>.
+The caller names the types (the release passes the registry's per-cast physical and pigment
+types), so this package carries no list of datasets.</p></li>
+<li><p><strong>A seasonal baseline beside the monthly one</strong> (<code>season = TRUE</code>, the release's setting; calcofi4db 4.24.0; Rasmus
+Swalethorp, 2026-10-06: let the user toggle between a monthly and a seasonal baseline). The
+quarter is that of the <strong>cruise's month</strong> — Q1 Jan–Mar, Q2 Apr–Jun, Q3 Jul–Sep, Q4 Oct–Dec, the
+Explorer's season filter — so 2607 (<code>2026-07-3322</code>) is Q3 even where it worked 93.3 on 30 June.
+It ships as columns, not rows: <code>quarter</code> and <code>season_mean</code>, <code>season_sd</code>, <code>season_n</code>,
+<code>season_n_cruises</code> sit on <strong>every month of a quarter that passes the cruise floor</strong>, so a
+consumer still looks a baseline up by (station, month, bin, type) and nothing that sums the table
+counts a cell twice. A station whose months are each below the floor but whose quarter is not
+(the northern lines 60–73.3, where winter and spring are split across Jan–Apr) gets rows whose
+monthly <code>clim_mean</code> is NULL: <strong>a NULL <code>clim_mean</code> is "no monthly baseline"</strong> exactly as an absent
+row is.</p></li>
 </ul><p>Rows without a station (<code>site_key</code>), a time or a depth, non-finite values, and values the quality
-predicate rejects are left out; nothing is interpolated. A cell that is absent has no baseline —
-a consumer must leave its anomaly blank, never 0.</p>
+predicate rejects are left out; nothing is interpolated. A cell that is absent, or whose mean is
+NULL, has no baseline — a consumer must leave its anomaly blank, never 0.</p>
     </div>
 
     <div class="section level2">

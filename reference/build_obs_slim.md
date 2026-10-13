@@ -4,7 +4,11 @@ Slims `obs` to the columns a lens needs, joins the gear and effort of
 the observation's own sample (`sample.tow_type`; `std_haul_factor`,
 `prop_sorted`, `volume_sampled` from `sample_measurement`), stamps
 `root_id`, `year`, `quarter`, `depth_bin` (10 m), `hex7`, `qual_ok`
-(from `qual_ok_sql`) and the D8 densities + `effort_class` (from
+(from `qual_ok_sql`) (`year` and `quarter` are the **cruise's** — the
+year and month its `cruise_key` designates, as
+[`build_climatology()`](https://calcofi.io/calcofi4db/reference/build_climatology.md)
+files the baseline — and the calendar date only where the key does not
+parse; since 4.24.0) and the D8 densities + `effort_class` (from
 `density_sql`). Depth is the observation's, falling back to its sample's
 and then its root's, so a net tow carries its integrated span. Both
 realms get the same schema (effort and taxon columns are NULL for env —

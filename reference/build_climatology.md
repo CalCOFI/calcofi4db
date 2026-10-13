@@ -20,8 +20,11 @@ build_climatology(
   depth_bin_m = 10L,
   depth_max_m = NULL,
   round_digits = 6L,
+  cast_types = NULL,
+  season = FALSE,
   tbl = "climatology",
-  sample_tbl = "sample"
+  sample_tbl = "sample",
+  sample_measurement_tbl = "sample_measurement"
 )
 ```
 
@@ -73,6 +76,18 @@ build_climatology(
   floating-point noise floor (see above), so the table is byte-identical
   across re-exports of unchanged data.
 
+- cast_types:
+
+  per-cast measurement types (in `sample_measurement_tbl`) to give a
+  baseline too, with `depth_bin` NULL; `NULL` (the default) for the
+  per-bin arm alone.
+
+- season:
+
+  also compute the seasonal baseline (`quarter`, `season_*` columns);
+  `FALSE` leaves those columns NULL and keeps only cells that pass the
+  monthly floor.
+
 - tbl:
 
   output table (default `climatology`).
@@ -81,9 +96,16 @@ build_climatology(
 
   the sample table joined for `site_key` (default `"sample"`).
 
+- sample_measurement_tbl:
+
+  the per-cast table read for `cast_types`.
+
 ## Value
 
-Invisibly, the row count.
+Invisibly, the row count. Columns: `dataset_key`, `site_key`,
+`grid_key`, `month`, `depth_bin`, `measurement_type`, `clim_mean`,
+`clim_sd`, `clim_n`, `n_cruises`, `clim_yr_min`, `clim_yr_max`,
+`quarter`, `season_mean`, `season_sd`, `season_n`, `season_n_cruises`.
 
 ## Details
 
@@ -180,10 +202,39 @@ Why each part of the grain:
   precision. Applied to the finished aggregate, so it is a pure function
   of the (order-independent) value, not of how it was summed.
 
+- **Per-cast values too** (`cast_types`, calcofi4db 4.24.0). A cast's
+  mixed-layer depth, the depth and value of its chlorophyll maximum and
+  its integrated chlorophyll have no depth: they are one value per cast
+  in `sample_measurement`, so `obs` never sees them and until 4.24.0
+  they had no baseline (Rasmus Swalethorp, 2026-10-07: "anomalies for
+  the derived products"). The types named in `cast_types` are pooled by
+  the same rules (station, cruise month, window, quality, cruise floor)
+  with **`depth_bin` NULL** — "a per-cast value", never a depth. A NULL
+  never matches `=`, so no per-bin join can pick one up by accident; a
+  per-cast consumer matches `depth_bin IS NULL`. The caller names the
+  types (the release passes the registry's per-cast physical and pigment
+  types), so this package carries no list of datasets.
+
+- **A seasonal baseline beside the monthly one** (`season = TRUE`, the
+  release's setting; calcofi4db 4.24.0; Rasmus Swalethorp, 2026-10-06:
+  let the user toggle between a monthly and a seasonal baseline). The
+  quarter is that of the **cruise's month** — Q1 Jan–Mar, Q2 Apr–Jun, Q3
+  Jul–Sep, Q4 Oct–Dec, the Explorer's season filter — so 2607
+  (`2026-07-3322`) is Q3 even where it worked 93.3 on 30 June. It ships
+  as columns, not rows: `quarter` and `season_mean`, `season_sd`,
+  `season_n`, `season_n_cruises` sit on **every month of a quarter that
+  passes the cruise floor**, so a consumer still looks a baseline up by
+  (station, month, bin, type) and nothing that sums the table counts a
+  cell twice. A station whose months are each below the floor but whose
+  quarter is not (the northern lines 60–73.3, where winter and spring
+  are split across Jan–Apr) gets rows whose monthly `clim_mean` is NULL:
+  **a NULL `clim_mean` is "no monthly baseline"** exactly as an absent
+  row is.
+
 Rows without a station (`site_key`), a time or a depth, non-finite
 values, and values the quality predicate rejects are left out; nothing
-is interpolated. A cell that is absent has no baseline — a consumer must
-leave its anomaly blank, never 0.
+is interpolated. A cell that is absent, or whose mean is NULL, has no
+baseline — a consumer must leave its anomaly blank, never 0.
 
 ## Examples
 

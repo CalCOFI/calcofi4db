@@ -22,4 +22,5 @@ core_relationships(tables)
 
 ## Value
 
-a list with `primary_keys` and `foreign_keys`
+a list with `primary_keys`, `nullable_key_columns` (key columns where
+NULL is a value) and `foreign_keys`
