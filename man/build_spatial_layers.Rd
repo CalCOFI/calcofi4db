@@ -33,7 +33,7 @@ skew between releases and archives is accepted but must be visible.}
 \code{.bbox}); \code{NULL} (default) leaves a reference row at zero features.}
 
 \item{gazetteer_manifest}{URL or local path of the gazetteer's \code{index/layers.json} (\code{layers[]} with
-\code{pmtiles}, \code{n}, \code{bbox}); read only when the registry has a \code{pmtiles} row with a \code{source_url}.
+\code{pmtiles}, \code{n}, \code{bbox}, and optionally the status fields above); read only when the registry has a \code{pmtiles} row with a \code{source_url}.
 \code{NULL} skips it. Unreachable or unparseable: a message, and those rows keep zero features.}
 }
 \value{
@@ -41,7 +41,10 @@ A list ready for \code{jsonlite::write_json(auto_unbox = TRUE)}: \code{version},
 \code{built}, and \code{layers[]} with \code{id} (the registry \code{dataset_id}), \code{group}, \code{name} (the human
 layer name), \code{source}, \code{geom}, \code{role}, \code{source_type}, \code{source_url}, \code{filter} (the registry
 expression verbatim, as parsed JSON), the symbology defaults, \code{name_field}, \code{description},
-\code{attribution}, \code{source_layer} and \code{popup_fields} (gazetteer rows; \code{NULL} otherwise), \code{n_features}, \code{bbox}, \code{names}, \code{n_memberships}.
+\code{attribution}, \code{source_layer} and \code{popup_fields} (gazetteer rows; \code{NULL} otherwise), \code{status},
+\code{status_history}, \code{status_label}, \code{created}, \code{updated}, \code{source_date}, \code{gazetteer_version}
+(gazetteer rows, from the manifest; \code{NULL} otherwise), \code{n_features}, \code{bbox}, \code{names},
+\code{n_memberships}, \code{region_status}.
 }
 \description{
 \code{metadata/spatial_layers.csv} is the registry of the boundary layers (Erin's sheet: one row per
@@ -71,6 +74,16 @@ ride through for such rows: \code{source_layer} (the vector layer name inside th
 \code{popup_fields} (\code{|}-separated property names for the popup, emitted as a JSON array). Their
 \code{n_features} and \code{bbox} come from the gazetteer manifest (\code{gazetteer_manifest}, rows matched on
 \code{pmtiles} = \code{source_url}, field \code{n}); when the manifest is unreachable (the bucket has answered 403)
-they stay \code{0} / \code{NULL} with a message, never an error.
+they stay \code{0} / \code{NULL} with a message, never an error. Since 4.25.0 a gazetteer row that \strong{does}
+have rows in \code{spatial} (ingested with \code{\link[=read_gazetteer_layer]{read_gazetteer_layer()}}, so it is a region) counts from
+\code{spatial} like any other layer (\code{n_features}, \code{bbox}, \code{names}), and the matched manifest row's
+layer-level status rides through: \code{status} (\verb{\{value, date, source, note\}}), \code{status_history},
+\code{status_label}, \code{created}, \code{updated}, \code{source_date} and \code{gazetteer_version} (the manifest's
+\code{version}); each is \code{NULL} when the manifest lacks it, and on every non-gazetteer row.
+
+\strong{Region status} (every layer): \code{region_status} lists \verb{\{name, status, status_date\}} for the
+regions that have at least one \code{sample_spatial} membership \strong{and} a non-empty \code{status} in
+\code{spatial_attribute} (\code{fld = 'status'} / \code{'status_date'}, joined on \code{spatial_key}), sorted by name;
+\code{NULL} when there are none, or when \code{sample_spatial} or \code{spatial_attribute} is absent.
 }
 \concept{explore}
