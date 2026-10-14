@@ -1285,6 +1285,9 @@ check for other functions or datasets not captured by above categories
 
   Read `metadata/distribution.csv`, the curated endpoints per dataset
 
+- [`read_gazetteer_layer()`](https://calcofi.io/calcofi4db/reference/read_gazetteer_layer.md)
+  : Read one gazetteer layer, pinned and verified
+
 - [`read_gear_registry()`](https://calcofi.io/calcofi4db/reference/read_gear_registry.md)
   [`dataset_gear()`](https://calcofi.io/calcofi4db/reference/read_gear_registry.md)
   :

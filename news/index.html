@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.24.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.25.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,6 +77,15 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.25.0" id="calcofi4db-4250">calcofi4db 4.25.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4250"></a></h2>
+<ul><li>
+<strong>New <code>read_gazetteer_layer(slug, version, manifest, cache_dir)</code></strong> reads one oceanmetrics gazetteer collection’s <code>places.parquet</code> as an <code>sf</code> (EPSG:4326, geometry column <code>geometry</code>), so <code>ingest_spatial.qmd</code> can append gazetteer layers to <code>spatial</code> / <code>spatial_attribute</code> as regions. The read is pinned to the manifest’s <code>version</code> and <code>parquet_sha256</code> and <strong>errors on a sha256 mismatch</strong>. Older manifests work too: without <code>parquet</code> the URL is <code>&lt;base&gt;&lt;slug&gt;/places.parquet</code>, and without <code>parquet_sha256</code> the hash comes from <code>&lt;base&gt;&lt;slug&gt;/versions.json</code>. Verified copies are cached under <code>cache_dir</code>. <code>place_id</code>, <code>name</code>, <code>status</code>, <code>status_date</code>, <code>status_source</code>, <code>status_upstream</code> and <code>status_history</code> come first, and a column the parquet lacks (today: <code>status_upstream</code>, <code>status_history</code>) is <code>NA</code>. The native attributes follow, and the result has attribute <code>gazetteer</code> = <code>list(slug, version, sha256, url)</code>. GeoParquet is read through arrow, so no GDAL Parquet driver is needed.</li>
+<li>
+<strong><code><a href="../reference/build_spatial_layers.html">build_spatial_layers()</a></code> emits <code>region_status</code> for every layer.</strong> It lists <code>{name, status, status_date}</code> for each region that has at least one <code>sample_spatial</code> membership and a non-empty <code>status</code> in <code>spatial_attribute</code> (<code>fld</code> <code>status</code> / <code>status_date</code>, joined on <code>spatial_key</code>). It is <code>NULL</code> when no region qualifies, and also when <code>sample_spatial</code> or <code>spatial_attribute</code> is absent.</li>
+<li>
+<strong>A gazetteer row (registry <code>source_url</code> set) that has rows in <code>spatial</code> now counts from <code>spatial</code></strong> (<code>n_features</code>, <code>bbox</code>, <code>names</code>, <code>n_memberships</code>), like any other layer. A gazetteer row with no rows in <code>spatial</code> still counts from the manifest, as before. Gazetteer rows also get the matched manifest row’s <code>status</code>, <code>status_history</code>, <code>status_label</code>, <code>created</code>, <code>updated</code>, <code>source_date</code> and <code>gazetteer_version</code>. Each is <code>NULL</code> when the manifest lacks it and on non-gazetteer rows.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.24.0" id="calcofi4db-4240">calcofi4db 4.24.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4240"></a></h2>
 <ul><li>

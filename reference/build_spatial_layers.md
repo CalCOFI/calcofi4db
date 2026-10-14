@@ -64,9 +64,10 @@ build_spatial_layers(
 - gazetteer_manifest:
 
   URL or local path of the gazetteer's `index/layers.json` (`layers[]`
-  with `pmtiles`, `n`, `bbox`); read only when the registry has a
-  `pmtiles` row with a `source_url`. `NULL` skips it. Unreachable or
-  unparseable: a message, and those rows keep zero features.
+  with `pmtiles`, `n`, `bbox`, and optionally the status fields above);
+  read only when the registry has a `pmtiles` row with a `source_url`.
+  `NULL` skips it. Unreachable or unparseable: a message, and those rows
+  keep zero features.
 
 ## Value
 
@@ -76,8 +77,10 @@ A list ready for `jsonlite::write_json(auto_unbox = TRUE)`: `version`,
 `role`, `source_type`, `source_url`, `filter` (the registry expression
 verbatim, as parsed JSON), the symbology defaults, `name_field`,
 `description`, `attribution`, `source_layer` and `popup_fields`
-(gazetteer rows; `NULL` otherwise), `n_features`, `bbox`, `names`,
-`n_memberships`.
+(gazetteer rows; `NULL` otherwise), `status`, `status_history`,
+`status_label`, `created`, `updated`, `source_date`, `gazetteer_version`
+(gazetteer rows, from the manifest; `NULL` otherwise), `n_features`,
+`bbox`, `names`, `n_memberships`, `region_status`.
 
 ## Details
 
@@ -102,4 +105,20 @@ property names for the popup, emitted as a JSON array). Their
 `n_features` and `bbox` come from the gazetteer manifest
 (`gazetteer_manifest`, rows matched on `pmtiles` = `source_url`, field
 `n`); when the manifest is unreachable (the bucket has answered 403)
-they stay `0` / `NULL` with a message, never an error.
+they stay `0` / `NULL` with a message, never an error. Since 4.25.0 a
+gazetteer row that **does** have rows in `spatial` (ingested with
+[`read_gazetteer_layer()`](https://calcofi.io/calcofi4db/reference/read_gazetteer_layer.md),
+so it is a region) counts from `spatial` like any other layer
+(`n_features`, `bbox`, `names`), and the matched manifest row's
+layer-level status rides through: `status`
+(`{value, date, source, note}`), `status_history`, `status_label`,
+`created`, `updated`, `source_date` and `gazetteer_version` (the
+manifest's `version`); each is `NULL` when the manifest lacks it, and on
+every non-gazetteer row.
+
+**Region status** (every layer): `region_status` lists
+`{name, status, status_date}` for the regions that have at least one
+`sample_spatial` membership **and** a non-empty `status` in
+`spatial_attribute` (`fld = 'status'` / `'status_date'`, joined on
+`spatial_key`), sorted by name; `NULL` when there are none, or when
+`sample_spatial` or `spatial_attribute` is absent.

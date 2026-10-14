@@ -59,7 +59,7 @@ the layers that can summarize something)."><!-- calcofi.io brand contract v2 (ht
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.24.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.25.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -156,7 +156,7 @@ skew between releases and archives is accepted but must be visible.</p></dd>
 
 <dt id="arg-gazetteer-manifest">gazetteer_manifest<a class="anchor" aria-label="anchor" href="#arg-gazetteer-manifest"></a></dt>
 <dd><p>URL or local path of the gazetteer's <code>index/layers.json</code> (<code>layers[]</code> with
-<code>pmtiles</code>, <code>n</code>, <code>bbox</code>); read only when the registry has a <code>pmtiles</code> row with a <code>source_url</code>.
+<code>pmtiles</code>, <code>n</code>, <code>bbox</code>, and optionally the status fields above); read only when the registry has a <code>pmtiles</code> row with a <code>source_url</code>.
 <code>NULL</code> skips it. Unreachable or unparseable: a message, and those rows keep zero features.</p></dd>
 
 </dl></div>
@@ -166,7 +166,10 @@ skew between releases and archives is accepted but must be visible.</p></dd>
 <code>built</code>, and <code>layers[]</code> with <code>id</code> (the registry <code>dataset_id</code>), <code>group</code>, <code>name</code> (the human
 layer name), <code>source</code>, <code>geom</code>, <code>role</code>, <code>source_type</code>, <code>source_url</code>, <code>filter</code> (the registry
 expression verbatim, as parsed JSON), the symbology defaults, <code>name_field</code>, <code>description</code>,
-<code>attribution</code>, <code>source_layer</code> and <code>popup_fields</code> (gazetteer rows; <code>NULL</code> otherwise), <code>n_features</code>, <code>bbox</code>, <code>names</code>, <code>n_memberships</code>.</p>
+<code>attribution</code>, <code>source_layer</code> and <code>popup_fields</code> (gazetteer rows; <code>NULL</code> otherwise), <code>status</code>,
+<code>status_history</code>, <code>status_label</code>, <code>created</code>, <code>updated</code>, <code>source_date</code>, <code>gazetteer_version</code>
+(gazetteer rows, from the manifest; <code>NULL</code> otherwise), <code>n_features</code>, <code>bbox</code>, <code>names</code>,
+<code>n_memberships</code>, <code>region_status</code>.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -185,7 +188,16 @@ ride through for such rows: <code>source_layer</code> (the vector layer name ins
 <code>popup_fields</code> (<code>|</code>-separated property names for the popup, emitted as a JSON array). Their
 <code>n_features</code> and <code>bbox</code> come from the gazetteer manifest (<code>gazetteer_manifest</code>, rows matched on
 <code>pmtiles</code> = <code>source_url</code>, field <code>n</code>); when the manifest is unreachable (the bucket has answered 403)
-they stay <code>0</code> / <code>NULL</code> with a message, never an error.</p>
+they stay <code>0</code> / <code>NULL</code> with a message, never an error. Since 4.25.0 a gazetteer row that <strong>does</strong>
+have rows in <code>spatial</code> (ingested with <code><a href="read_gazetteer_layer.html">read_gazetteer_layer()</a></code>, so it is a region) counts from
+<code>spatial</code> like any other layer (<code>n_features</code>, <code>bbox</code>, <code>names</code>), and the matched manifest row's
+layer-level status rides through: <code>status</code> (<code>{value, date, source, note}</code>), <code>status_history</code>,
+<code>status_label</code>, <code>created</code>, <code>updated</code>, <code>source_date</code> and <code>gazetteer_version</code> (the manifest's
+<code>version</code>); each is <code>NULL</code> when the manifest lacks it, and on every non-gazetteer row.</p>
+<p><strong>Region status</strong> (every layer): <code>region_status</code> lists <code>{name, status, status_date}</code> for the
+regions that have at least one <code>sample_spatial</code> membership <strong>and</strong> a non-empty <code>status</code> in
+<code>spatial_attribute</code> (<code>fld = 'status'</code> / <code>'status_date'</code>, joined on <code>spatial_key</code>), sorted by name;
+<code>NULL</code> when there are none, or when <code>sample_spatial</code> or <code>spatial_attribute</code> is absent.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

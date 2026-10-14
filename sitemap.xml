@@ -324,6 +324,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/read_dataset_status.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_distribution_observed.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_distribution_registry.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/read_gazetteer_layer.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_gear_registry.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_ingest_manifest.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_ingest_parquet.html</loc></url>
