@@ -1,3 +1,26 @@
+# calcofi4db 4.25.0
+
+- **New `read_gazetteer_layer(slug, version, manifest, cache_dir)`** reads one oceanmetrics gazetteer
+  collection's `places.parquet` as an `sf` (EPSG:4326, geometry column `geometry`), so
+  `ingest_spatial.qmd` can append gazetteer layers to `spatial` / `spatial_attribute` as regions. The
+  read is pinned to the manifest's `version` and `parquet_sha256` and **errors on a sha256 mismatch**.
+  Older manifests work too: without `parquet` the URL is `<base><slug>/places.parquet`, and without
+  `parquet_sha256` the hash comes from `<base><slug>/versions.json`. Verified copies are cached under
+  `cache_dir`. `place_id`, `name`, `status`, `status_date`, `status_source`, `status_upstream` and
+  `status_history` come first, and a column the parquet lacks (today: `status_upstream`,
+  `status_history`) is `NA`. The native attributes follow, and the result has attribute `gazetteer` =
+  `list(slug, version, sha256, url)`. GeoParquet is read through arrow, so no GDAL Parquet driver is
+  needed.
+- **`build_spatial_layers()` emits `region_status` for every layer.** It lists `{name, status,
+  status_date}` for each region that has at least one `sample_spatial` membership and a non-empty
+  `status` in `spatial_attribute` (`fld` `status` / `status_date`, joined on `spatial_key`). It is
+  `NULL` when no region qualifies, and also when `sample_spatial` or `spatial_attribute` is absent.
+- **A gazetteer row (registry `source_url` set) that has rows in `spatial` now counts from `spatial`**
+  (`n_features`, `bbox`, `names`, `n_memberships`), like any other layer. A gazetteer row with no rows in
+  `spatial` still counts from the manifest, as before. Gazetteer rows also get the matched manifest
+  row's `status`, `status_history`, `status_label`, `created`, `updated`, `source_date` and
+  `gazetteer_version`. Each is `NULL` when the manifest lacks it and on non-gazetteer rows.
+
 # calcofi4db 4.24.0
 
 - **`build_climatology()` gives the per-cast derived products a baseline** (new argument

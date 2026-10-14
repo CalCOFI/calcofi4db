@@ -697,7 +697,17 @@ build_coverage_stations <- function(con, version) {
 #' `popup_fields` (`|`-separated property names for the popup, emitted as a JSON array). Their
 #' `n_features` and `bbox` come from the gazetteer manifest (`gazetteer_manifest`, rows matched on
 #' `pmtiles` = `source_url`, field `n`); when the manifest is unreachable (the bucket has answered 403)
-#' they stay `0` / `NULL` with a message, never an error.
+#' they stay `0` / `NULL` with a message, never an error. Since 4.25.0 a gazetteer row that **does**
+#' have rows in `spatial` (ingested with [read_gazetteer_layer()], so it is a region) counts from
+#' `spatial` like any other layer (`n_features`, `bbox`, `names`), and the matched manifest row's
+#' layer-level status rides through: `status` (`{value, date, source, note}`), `status_history`,
+#' `status_label`, `created`, `updated`, `source_date` and `gazetteer_version` (the manifest's
+#' `version`); each is `NULL` when the manifest lacks it, and on every non-gazetteer row.
+#'
+#' **Region status** (every layer): `region_status` lists `{name, status, status_date}` for the
+#' regions that have at least one `sample_spatial` membership **and** a non-empty `status` in
+#' `spatial_attribute` (`fld = 'status'` / `'status_date'`, joined on `spatial_key`), sorted by name;
+#' `NULL` when there are none, or when `sample_spatial` or `spatial_attribute` is absent.
 #'
 #' @param con DuckDB connection holding `spatial` (and, if built, `sample_spatial`).
 #' @param registry_csv Path to `metadata/spatial_layers.csv`.
@@ -709,13 +719,16 @@ build_coverage_stations <- function(con, version) {
 #' @param reference_json Path to the reference-layer manifest (`layers.<dataset_id>.n_features` /
 #'   `.bbox`); `NULL` (default) leaves a reference row at zero features.
 #' @param gazetteer_manifest URL or local path of the gazetteer's `index/layers.json` (`layers[]` with
-#'   `pmtiles`, `n`, `bbox`); read only when the registry has a `pmtiles` row with a `source_url`.
+#'   `pmtiles`, `n`, `bbox`, and optionally the status fields above); read only when the registry has a `pmtiles` row with a `source_url`.
 #'   `NULL` skips it. Unreachable or unparseable: a message, and those rows keep zero features.
 #' @return A list ready for `jsonlite::write_json(auto_unbox = TRUE)`: `version`, `pmtiles_base`,
 #'   `built`, and `layers[]` with `id` (the registry `dataset_id`), `group`, `name` (the human
 #'   layer name), `source`, `geom`, `role`, `source_type`, `source_url`, `filter` (the registry
 #'   expression verbatim, as parsed JSON), the symbology defaults, `name_field`, `description`,
-#'   `attribution`, `source_layer` and `popup_fields` (gazetteer rows; `NULL` otherwise), `n_features`, `bbox`, `names`, `n_memberships`.
+#'   `attribution`, `source_layer` and `popup_fields` (gazetteer rows; `NULL` otherwise), `status`,
+#'   `status_history`, `status_label`, `created`, `updated`, `source_date`, `gazetteer_version`
+#'   (gazetteer rows, from the manifest; `NULL` otherwise), `n_features`, `bbox`, `names`,
+#'   `n_memberships`, `region_status`.
 #' @export
 #' @concept explore
 build_spatial_layers <- function(con, registry_csv, version, pmtiles_base,
@@ -748,6 +761,7 @@ build_spatial_layers <- function(con, registry_csv, version, pmtiles_base,
   mem <- if ("sample_spatial" %in% DBI::dbListTables(con))
     DBI::dbGetQuery(con, "SELECT layer, count(DISTINCT root_id) AS n FROM sample_spatial GROUP BY 1")
   else data.frame(layer = character(), n = integer())
+  rs <- .region_status(con)
   # a pmtiles row with its own source_url lives on the gazetteer: not in `spatial`, so no warning
   gaz <- reg$source_type == "pmtiles" & !is.na(reg$source_url) & reg$source_url != ""
   gz  <- if (any(gaz) && !is.null(gazetteer_manifest)) .read_gazetteer_manifest(gazetteer_manifest) else list()
@@ -763,10 +777,12 @@ build_spatial_layers <- function(con, registry_csv, version, pmtiles_base,
     j <- match(r$layer, sp$layer)
     nms <- nm$name[nm$layer == r$layer]
     rj <- if (r$role == "reference") ref[[r$dataset_id]] else NULL # a reference row counts from its manifest, never from `spatial`
-    if (is.null(rj) && gaz[i]) { # a gazetteer row counts from the gazetteer manifest, matched on its archive URL
-      gj <- Filter(function(g) identical(g$pmtiles, r$source_url), gz)
-      if (length(gj)) rj <- list(n_features = gj[[1]]$n, bbox = gj[[1]]$bbox)
-    }
+    # a gazetteer row: its manifest row (matched on the archive URL) carries the layer status; it counts
+    # from the manifest only while it has no rows in `spatial` (not ingested as a region)
+    gm <- if (gaz[i]) Filter(function(g) identical(g$pmtiles, r$source_url), gz) else list()
+    gm <- if (length(gm)) gm[[1]] else NULL
+    if (is.null(rj) && !is.null(gm) && is.na(j)) rj <- list(n_features = gm$n, bbox = gm$bbox)
+    rsl <- rs[rs$layer == r$layer, , drop = FALSE]
     pf <- if (blank(r$popup_fields)) NULL else as.list(trimws(strsplit(r$popup_fields, "|", fixed = TRUE)[[1]]))
     list(
       id = r$dataset_id, group = r$group, name = r$layer,
@@ -779,10 +795,15 @@ build_spatial_layers <- function(con, registry_csv, version, pmtiles_base,
       line_width = num(r$line_width), fill_opacity = num(r$fill_opacity),
       default_visible = isTRUE(as.logical(r$default_visible)),
       name_field = chr(r$name_field), description = chr(r$description), attribution = chr(r$attribution),
+      status = gm$status, status_history = gm$status_history, status_label = gm$status_label,
+      created = gm$created, updated = gm$updated, source_date = gm$source_date,
+      gazetteer_version = gm$version,
       n_features = if (!is.null(rj)) as.integer(rj$n_features %||% 0L) else if (is.na(j)) 0L else as.integer(sp$n_features[j]),
       bbox = if (!is.null(rj)) (if (is.null(rj$bbox)) NULL else round(unlist(rj$bbox), 4)) else if (is.na(j)) NULL else round(c(sp$w[j], sp$s[j], sp$e[j], sp$n[j]), 4),
       names = if (length(nms) >= 1 && length(nms) <= names_max) as.list(nms) else NULL,
-      n_memberships = { k <- match(r$layer, mem$layer); if (is.na(k)) 0L else as.integer(mem$n[k]) })
+      n_memberships = { k <- match(r$layer, mem$layer); if (is.na(k)) 0L else as.integer(mem$n[k]) },
+      region_status = if (nrow(rsl) == 0) NULL else lapply(seq_len(nrow(rsl)), function(k)
+        list(name = rsl$name[k], status = rsl$status[k], status_date = chr(rsl$status_date[k]))))
   })
   list(version = version, pmtiles_base = pmtiles_base,
        built = if (is.null(built)) NULL else as.character(built), layers = layers)
@@ -791,16 +812,35 @@ build_spatial_layers <- function(con, registry_csv, version, pmtiles_base,
 # the gazetteer manifest's `layers[]` (a list of rows), or `list()` with a message when the file or
 # URL cannot be read (the storage host has answered 403): counts for gazetteer rows are optional
 .read_gazetteer_manifest <- function(x, timeout = 15) {
-  txt <- tryCatch({
-    if (file.exists(x)) readLines(x, warn = FALSE, encoding = "UTF-8")
-    else {
-      h <- curl::new_handle(timeout = timeout, followlocation = TRUE)
-      r <- curl::curl_fetch_memory(x, handle = h)
-      if (r$status_code != 200) stop("HTTP ", r$status_code)
-      rawToChar(r$content)
-    }
-  }, error = function(e) { message("gazetteer manifest unreachable (", x, "): ", conditionMessage(e)); NULL })
+  txt <- tryCatch(.gazetteer_text(x, timeout = timeout),
+                  error = function(e) { message("gazetteer manifest unreachable (", x, "): ", conditionMessage(e)); NULL })
   if (is.null(txt)) return(list())
-  tryCatch(jsonlite::fromJSON(paste(txt, collapse = "\n"), simplifyVector = FALSE)$layers %||% list(),
+  tryCatch(jsonlite::fromJSON(txt, simplifyVector = FALSE)$layers %||% list(),
            error = function(e) { message("gazetteer manifest unparseable (", x, "): ", conditionMessage(e)); list() })
+}
+
+# per layer, the regions with >= 1 sample_spatial membership and a non-empty `status` attribute:
+# `layer`, `name`, `status`, `status_date` (VARCHAR; a DATE value as YYYY-MM-DD), sorted by layer and
+# name. Empty when `sample_spatial` or `spatial_attribute` (or its `val_chr`) is absent
+.region_status <- function(con) {
+  empty <- data.frame(layer = character(), name = character(), status = character(), status_date = character())
+  tbls  <- DBI::dbListTables(con)
+  if (!all(c("sample_spatial", "spatial_attribute") %in% tbls)) return(empty)
+  flds <- DBI::dbListFields(con, "spatial_attribute")
+  if (!all(c("spatial_key", "fld", "val_chr") %in% flds)) return(empty)
+  # a date may be stored typed (val_date) or as text (val_chr)
+  dt <- if ("val_date" %in% flds) "COALESCE(NULLIF(trim(val_chr), ''), strftime(val_date, '%Y-%m-%d'))" else "NULLIF(trim(val_chr), '')"
+  nm <- if ("spatial" %in% tbls) "COALESCE(sp.name, m.spatial_name)" else "m.spatial_name"
+  sj <- if ("spatial" %in% tbls) "LEFT JOIN (SELECT spatial_key, any_value(name) AS name FROM spatial GROUP BY 1) sp ON sp.spatial_key = m.spatial_key" else ""
+  DBI::dbGetQuery(con, glue("
+    WITH st AS (
+      SELECT spatial_key,
+             any_value(NULLIF(trim(val_chr), '')) FILTER (WHERE fld = 'status') AS status,
+             any_value({dt})                       FILTER (WHERE fld = 'status_date') AS status_date
+      FROM spatial_attribute WHERE fld IN ('status', 'status_date') GROUP BY 1),
+    m AS (SELECT DISTINCT layer, spatial_key, spatial_name FROM sample_spatial)
+    SELECT DISTINCT m.layer, {nm} AS name, st.status, st.status_date
+    FROM m JOIN st ON st.spatial_key = m.spatial_key {sj}
+    WHERE st.status IS NOT NULL
+    ORDER BY 1, 2, 3, 4"))
 }
