@@ -13,6 +13,6 @@ length-1 character
 Same pattern as \code{\link[=write_holdings_csv]{write_holdings_csv()}}'s: a single \verb{#}-prefixed line ahead
 of the real header, saying what the file is and who appends to it, so a
 person opening the CSV cold does not have to find this file to learn that.
-\code{\link[=read_variable]{read_variable()}} skips it with \code{readr::read_csv(comment = "#")}.
+\code{\link[=read_variable]{read_variable()}} skips it with \code{.registry_csv_text()} (the leading \verb{#} block only).
 }
 \keyword{internal}

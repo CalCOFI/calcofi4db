@@ -38,6 +38,29 @@ test_that("register_measurement_chem() bootstraps, writes na='', and reads clean
   expect_s3_class(read_measurement_chem(p), "data.frame")
 })
 
+# regression: a `#` inside a field is data, not a comment. readr's comment = "#" cut every
+# line at its first `#`, so a URL with a text fragment lost its tail and the fields after it
+# (workflows measurement_chem.csv rows btl_chlorophyll_a / chlorophyll_a, found 2026-10-19).
+test_that("a registry row whose URL carries a #fragment reads whole", {
+  p <- withr::local_tempfile(fileext = ".csv")
+  x <- mchem_fixture()
+  x$source_url[2] <- "https://calcofi.org/sampling-info/methods/bottle-sampling-methods/#:~:text=Chlorophyll-a"
+  x$note[2]       <- "what acid turns it into"
+  register_measurement_chem(x, p, quiet = TRUE)
+  expect_no_warning(d <- read_measurement_chem(p))
+  expect_equal(d$source_url[d$key == "salinity"], x$source_url[2])
+  expect_equal(d$note[d$key == "salinity"], "what acid turns it into")
+})
+
+test_that("read_variable() keeps a #fragment inside a field", {
+  p <- withr::local_tempfile(fileext = ".csv")
+  writeLines(c("# header comment", "variable,label,description,units,nerc_p01,category,is_unified",
+               "temperature,Temperature,see https://example.org/a#b,degC,,Physical Oceanography,TRUE"), p)
+  d <- read_variable(p)
+  expect_equal(nrow(d), 1)
+  expect_equal(d$description, "see https://example.org/a#b")
+})
+
 test_that("register_measurement_* upserts by natural key (append-or-update, not append-only)", {
   p <- withr::local_tempfile(fileext = ".csv")
   register_measurement_face(mface_fixture(), p, quiet = TRUE)

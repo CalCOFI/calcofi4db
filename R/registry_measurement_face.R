@@ -23,7 +23,7 @@
 # first. `validate_measurement_faces()` is the standing-invariant check (never a
 # controlled-vocabulary id filled without an exact match; every row sourced).
 
-#' @importFrom readr read_csv write_csv format_csv cols col_character col_double col_integer
+#' @importFrom readr read_csv read_lines write_csv format_csv cols col_character col_double col_integer
 #' @importFrom dplyr bind_rows anti_join
 NULL
 
@@ -136,6 +136,23 @@ CC_SHORT_LABEL_MAX <- 48L
 
 # generic read/register/bootstrap ------------------------------------------------
 
+#' The CSV text of a registry without its leading `#` header comment
+#'
+#' Only the block of `#`-prefixed lines at the top of the file is a comment.
+#' `readr::read_csv(comment = "#")` instead cuts every line at its first `#`,
+#' which silently truncates a row whose URL carries a fragment
+#' (`…/bottle-sampling-methods/#:~:text=…`) and drops the fields after it.
+#'
+#' @param path path to a registry CSV
+#' @return the remaining text, wrapped in [I()] for [readr::read_csv()]
+#' @keywords internal
+.registry_csv_text <- function(path) {
+  x <- readr::read_lines(path)
+  n_hdr <- match(FALSE, startsWith(x, "#"), nomatch = length(x) + 1L) - 1L
+  if (n_hdr > 0) x <- x[-seq_len(n_hdr)]
+  I(paste(x, collapse = "\n"))
+}
+
 #' @keywords internal
 .read_measurement_registry <- function(path, cols, validate = TRUE, optional = character()) {
   stopifnot("registry file not found" = file.exists(path))
@@ -143,11 +160,11 @@ CC_SHORT_LABEL_MAX <- 48L
   # parser with no column) and is added below as NA
   read_cols <- cols
   if (length(optional)) {
-    hdr <- names(readr::read_csv(path, na = "", comment = "#", n_max = 0, show_col_types = FALSE,
+    hdr <- names(readr::read_csv(.registry_csv_text(path), na = "", n_max = 0, show_col_types = FALSE,
                                  col_types = readr::cols(.default = readr::col_character())))
     read_cols <- setdiff(cols, setdiff(optional, hdr))
   }
-  d <- readr::read_csv(path, na = "", comment = "#", show_col_types = FALSE,
+  d <- readr::read_csv(.registry_csv_text(path), na = "", show_col_types = FALSE,
                         col_types = .measurement_col_types(read_cols))
   for (cl in intersect(setdiff(cols, names(d)), optional)) d[[cl]] <- NA_character_
   missing_cols <- setdiff(cols, names(d))

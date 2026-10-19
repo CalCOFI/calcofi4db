@@ -12,6 +12,10 @@
   case). `validate_measurement_faces()` reports the same four rules (`empty_short_label`,
   `short_label_too_long`, `short_label_trailing_punct`, `duplicate_short_label`); an empty cell is
   allowed.
+- **Fix: a `#` inside a registry field is no longer read as a comment.** `read_variable()` and the
+  measurement-face readers used `readr::read_csv(comment = "#")`, which cut every line at its first
+  `#`, so a `source_url` with a text fragment (`…/#:~:text=…`) lost its tail and the `note` after it
+  (two `measurement_chem.csv` rows). Only the leading block of `#` lines is skipped now.
 
 # calcofi4db 4.25.0
 

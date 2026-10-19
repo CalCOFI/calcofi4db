@@ -515,7 +515,7 @@ declare_measurement_fields <- function(fields, path, categories = NULL, overwrit
 #' Same pattern as [write_holdings_csv()]'s: a single `#`-prefixed line ahead
 #' of the real header, saying what the file is and who appends to it, so a
 #' person opening the CSV cold does not have to find this file to learn that.
-#' [read_variable()] skips it with `readr::read_csv(comment = "#")`.
+#' [read_variable()] skips it with `.registry_csv_text()` (the leading `#` block only).
 #'
 #' @return length-1 character
 #' @keywords internal
@@ -537,9 +537,9 @@ variable_csv_header_comment <- function()
 #' @importFrom readr read_csv
 read_variable <- function(path, validate = TRUE) {
   stopifnot("variable.csv not found" = file.exists(path))
-  # na = "" is load-bearing, not stylistic — see the top of this file; comment = "#"
+  # na = "" is load-bearing, not stylistic — see the top of this file; .registry_csv_text()
   # skips the header-comment line written by register_variables()/create_variable_registry()
-  d <- readr::read_csv(path, na = "", comment = "#", show_col_types = FALSE)
+  d <- readr::read_csv(.registry_csv_text(path), na = "", show_col_types = FALSE)
   if (isTRUE(validate)) check_registry_na_strings(d, path)
   d
 }
