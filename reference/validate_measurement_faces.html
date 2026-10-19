@@ -47,7 +47,7 @@ reports before calling itself done. Checks, one row of output each:"><!-- calcof
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.25.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.26.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -128,6 +128,9 @@ rows means clean.</p>
 method <code>platform</code>, scale <code>kind</code>, why <code>kind</code>, face <code>face_kind</code>)</p></li>
 <li><p>a <code>measurement_why</code> key with zero, or more than one, <code>rank == 1</code> row</p></li>
 <li><p>a <code>measurement_face</code> key absent from <code>measurement_type.csv</code></p></li>
+<li><p>a <code>measurement_face</code> <code>short_label</code> that is set but blank, longer than 48
+characters, ends in punctuation, or is shared by another key (ignoring
+case); an <code>NA</code> short_label is allowed</p></li>
 <li><p>a <code>nerc_l22</code> (method) that is not an exact-form L22 concept URI</p></li>
 </ul></div>
 

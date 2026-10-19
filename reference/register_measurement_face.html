@@ -49,7 +49,7 @@ own concept, D3)."><!-- calcofi.io brand contract v2 (https://calcofi.io/brand/v
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.25.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.26.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -116,6 +116,15 @@ own concept, D3).</p>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>the full updated registry</p>
+    </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p><code>short_label</code> is the key's authored short title, the name a page head shows
+beside its face (issue #30 D13); the full <code>label</code> from <code>variable.csv</code> keeps
+the method notes. It may be empty (none authored yet). When set it is
+non-blank, at most 48 characters, does not end in punctuation and is not
+used by another key (ignoring case), counting the keys already in the file.
+A row breaking any of these is refused.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

@@ -46,4 +46,8 @@ means clean.
 
 - a `measurement_face` key absent from `measurement_type.csv`
 
+- a `measurement_face` `short_label` that is set but blank, longer than
+  48 characters, ends in punctuation, or is shared by another key
+  (ignoring case); an `NA` short_label is allowed
+
 - a `nerc_l22` (method) that is not an exact-form L22 concept URI

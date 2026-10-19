@@ -18,6 +18,7 @@ so a row whose natural key (`key_cols`) matches an existing row
   key_cols,
   header_comment,
   label,
-  quiet = FALSE
+  quiet = FALSE,
+  optional = character()
 )
 ```

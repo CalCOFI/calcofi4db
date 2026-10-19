@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.25.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.26.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,6 +77,15 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.26.0" id="calcofi4db-4260">calcofi4db 4.26.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4260"></a></h2>
+<ul><li>
+<strong><code>measurements.json</code> carries an authored <code>short_label</code> per key</strong> (calcofi.io issue <a href="https://github.com/calcofi/calcofi4db/issues/30" class="external-link">#30</a> D13): the short title a measurement page head shows beside its face, while <code>label</code> keeps the full name with its method notes. <code><a href="../reference/build_measurements_catalog.html">build_measurements_catalog()</a></code> reads it from the face registry and emits it right after <code>label</code>; a key without one is <code>null</code>, never cut from <code>label</code>. <code>measurements.schema.json</code> adds <code>short_label</code> as an optional nullable string, so earlier records still validate.</li>
+<li>
+<strong><code>metadata/measurement_face.csv</code> gains a <code>short_label</code> column after <code>key</code>.</strong> <code><a href="../reference/read_measurement_face.html">read_measurement_face()</a></code> returns it, and reads a registry without the column (an older header) with <code>short_label</code> <code>NA</code>. <code><a href="../reference/register_measurement_face.html">register_measurement_face()</a></code> writes it and refuses a short_label that is blank, longer than 48 characters, ends in punctuation, or is already used by another key (ignoring case). <code><a href="../reference/validate_measurement_faces.html">validate_measurement_faces()</a></code> reports the same four rules (<code>empty_short_label</code>, <code>short_label_too_long</code>, <code>short_label_trailing_punct</code>, <code>duplicate_short_label</code>); an empty cell is allowed.</li>
+<li>
+<strong>Fix: a <code>#</code> inside a registry field is no longer read as a comment.</strong> <code><a href="../reference/read_variable.html">read_variable()</a></code> and the measurement-face readers used <code>readr::read_csv(comment = "#")</code>, which cut every line at its first <code>#</code>, so a <code>source_url</code> with a text fragment (<code>…/#:~:text=…</code>) lost its tail and the <code>note</code> after it (two <code>measurement_chem.csv</code> rows). Only the leading block of <code>#</code> lines is skipped now.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.25.0" id="calcofi4db-4250">calcofi4db 4.25.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4250"></a></h2>
 <ul><li>

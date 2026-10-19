@@ -1,5 +1,38 @@
 # Changelog
 
+## calcofi4db 4.26.0
+
+- **`measurements.json` carries an authored `short_label` per key**
+  (calcofi.io issue
+  [\#30](https://github.com/calcofi/calcofi4db/issues/30) D13): the
+  short title a measurement page head shows beside its face, while
+  `label` keeps the full name with its method notes.
+  [`build_measurements_catalog()`](https://calcofi.io/calcofi4db/reference/build_measurements_catalog.md)
+  reads it from the face registry and emits it right after `label`; a
+  key without one is `null`, never cut from `label`.
+  `measurements.schema.json` adds `short_label` as an optional nullable
+  string, so earlier records still validate.
+- **`metadata/measurement_face.csv` gains a `short_label` column after
+  `key`.**
+  [`read_measurement_face()`](https://calcofi.io/calcofi4db/reference/read_measurement_face.md)
+  returns it, and reads a registry without the column (an older header)
+  with `short_label` `NA`.
+  [`register_measurement_face()`](https://calcofi.io/calcofi4db/reference/register_measurement_face.md)
+  writes it and refuses a short_label that is blank, longer than 48
+  characters, ends in punctuation, or is already used by another key
+  (ignoring case).
+  [`validate_measurement_faces()`](https://calcofi.io/calcofi4db/reference/validate_measurement_faces.md)
+  reports the same four rules (`empty_short_label`,
+  `short_label_too_long`, `short_label_trailing_punct`,
+  `duplicate_short_label`); an empty cell is allowed.
+- **Fix: a `#` inside a registry field is no longer read as a comment.**
+  [`read_variable()`](https://calcofi.io/calcofi4db/reference/read_variable.md)
+  and the measurement-face readers used
+  `readr::read_csv(comment = "#")`, which cut every line at its first
+  `#`, so a `source_url` with a text fragment (`…/#:~:text=…`) lost its
+  tail and the `note` after it (two `measurement_chem.csv` rows). Only
+  the leading block of `#` lines is skipped now.
+
 ## calcofi4db 4.25.0
 
 - **New `read_gazetteer_layer(slug, version, manifest, cache_dir)`**

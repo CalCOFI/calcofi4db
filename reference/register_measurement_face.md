@@ -31,3 +31,12 @@ register_measurement_face(new_rows, path, quiet = FALSE)
 ## Value
 
 the full updated registry
+
+## Details
+
+`short_label` is the key's authored short title, the name a page head
+shows beside its face (issue \#30 D13); the full `label` from
+`variable.csv` keeps the method notes. It may be empty (none authored
+yet). When set it is non-blank, at most 48 characters, does not end in
+punctuation and is not used by another key (ignoring case), counting the
+keys already in the file. A row breaking any of these is refused.

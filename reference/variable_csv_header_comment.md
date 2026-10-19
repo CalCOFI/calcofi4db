@@ -6,7 +6,9 @@ a single `#`-prefixed line ahead of the real header, saying what the
 file is and who appends to it, so a person opening the CSV cold does not
 have to find this file to learn that.
 [`read_variable()`](https://calcofi.io/calcofi4db/reference/read_variable.md)
-skips it with `readr::read_csv(comment = "#")`.
+skips it with
+[`.registry_csv_text()`](https://calcofi.io/calcofi4db/reference/dot-registry_csv_text.md)
+(the leading `#` block only).
 
 ## Usage
 
