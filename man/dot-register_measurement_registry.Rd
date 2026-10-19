@@ -11,7 +11,8 @@
   key_cols,
   header_comment,
   label,
-  quiet = FALSE
+  quiet = FALSE,
+  optional = character()
 )
 }
 \description{

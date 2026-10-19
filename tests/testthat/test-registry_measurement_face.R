@@ -148,3 +148,138 @@ test_that("validate_measurement_faces() accepts a well-formed nerc_l22 concept U
   out <- validate_measurement_faces(p$chem, p$method, p$scale, p$why, p$face)
   expect_false(any(out$rule == "bad_nerc_l22"))
 })
+
+# ---- short_label (issue #30 D13) ----
+
+test_that("read_measurement_face() reads a registry without short_label as NA (older header)", {
+  p <- withr::local_tempfile(fileext = ".csv")
+  writeLines(c("# an older registry", "key,face_kind,face_of,stands_in_note,source",
+               "temperature,scale,,,TEOS-10"), p)
+  d <- expect_silent(read_measurement_face(p))
+  expect_identical(names(d), c("key", "short_label", "face_kind", "face_of", "stands_in_note", "source"))
+  expect_true(is.na(d$short_label))
+  expect_identical(d$face_kind, "scale")
+})
+
+test_that("read_measurement_face() reads short_label when the column is present", {
+  p <- withr::local_tempfile(fileext = ".csv")
+  writeLines(c("#", "key,short_label,face_kind,face_of,stands_in_note,source",
+               "temperature,Temperature,scale,,,TEOS-10", "salinity,,scale,,,TEOS-10"), p)
+  d <- read_measurement_face(p)
+  expect_identical(d$short_label, c("Temperature", NA))
+})
+
+test_that("read_measurement_face() still refuses a file missing a required column", {
+  p <- withr::local_tempfile(fileext = ".csv")
+  writeLines(c("#", "key,short_label,face_kind,face_of,stands_in_note", "temperature,T,scale,,"), p)
+  # readr also warns that the `source` parser matches no column; the stop is what matters
+  suppressWarnings(expect_error(read_measurement_face(p), "missing column"))
+})
+
+test_that("register_measurement_face() upgrades an older file to carry short_label after key", {
+  p <- withr::local_tempfile(fileext = ".csv")
+  writeLines(c("# old", "key,face_kind,face_of,stands_in_note,source",
+               "salinity,scale,,,TEOS-10", "temperature,scale,,,TEOS-10"), p)
+  d <- read_measurement_face(p)
+  d$short_label[d$key == "temperature"] <- "Temperature"
+  register_measurement_face(d, p, quiet = TRUE)
+  raw <- readLines(p)
+  expect_true(any(raw == "key,short_label,face_kind,face_of,stands_in_note,source"))
+  expect_true(any(raw == "salinity,,scale,,,TEOS-10"))
+  expect_true(any(raw == "temperature,Temperature,scale,,,TEOS-10"))
+})
+
+sl_face <- function(key, short_label)
+  tibble::tibble(key = key, short_label = short_label, face_kind = "scale",
+                 face_of = NA_character_, stands_in_note = NA_character_, source = "a source")
+
+test_that("register_measurement_face() refuses a duplicate short_label (ignoring case)", {
+  p <- withr::local_tempfile(fileext = ".csv")
+  expect_error(register_measurement_face(sl_face(c("par_surf", "spar"), c("Surface PAR", "surface par")),
+                                         p, quiet = TRUE), "duplicate_short_label")
+  # and against a key already in the file
+  register_measurement_face(sl_face("spar", "Surface PAR"), p, quiet = TRUE)
+  expect_error(register_measurement_face(sl_face("par_surf", "Surface PAR"), p, quiet = TRUE),
+               "duplicate_short_label")
+  # re-registering the SAME key with its own label is an update, not a duplicate
+  expect_no_error(register_measurement_face(sl_face("spar", "Surface PAR"), p, quiet = TRUE))
+})
+
+test_that("register_measurement_face() refuses a blank, too long or punctuated short_label", {
+  p <- withr::local_tempfile(fileext = ".csv")
+  expect_error(register_measurement_face(sl_face("a", "  "), p, quiet = TRUE), "empty_short_label")
+  expect_error(register_measurement_face(sl_face("a", strrep("x", 49)), p, quiet = TRUE),
+               "short_label_too_long")
+  expect_no_error(register_measurement_face(sl_face("a", strrep("x", 48)), p, quiet = TRUE))
+  expect_error(register_measurement_face(sl_face("b", "Salinity,"), p, quiet = TRUE),
+               "short_label_trailing_punct")
+  # a closing parenthesis is not trailing punctuation
+  expect_no_error(register_measurement_face(sl_face("c", "Dissolved oxygen (ml/L)"), p, quiet = TRUE))
+  # NA is allowed: no title authored yet
+  expect_no_error(register_measurement_face(sl_face("d", NA_character_), p, quiet = TRUE))
+})
+
+# a hand-edited face file past the writer's guard, for the validator
+write_face_by_hand <- function(p, key, short_label) {
+  d <- sl_face(key, short_label)
+  writeLines(c("#", readr::format_csv(d, na = "")), p)
+}
+
+test_that("validate_measurement_faces() flags a duplicate short_label", {
+  p <- validate_fixture_paths()
+  write_face_by_hand(p$face, c("spar", "par_surf"), c("Surface PAR", "Surface PAR"))
+  out <- validate_measurement_faces(p$chem, p$method, p$scale, p$why, p$face)
+  dup <- out[out$rule == "duplicate_short_label", ]
+  expect_setequal(dup$key, c("spar", "par_surf"))
+})
+
+test_that("a blank short_label is flagged in memory and reads from a file as NA (absent)", {
+  # the rule itself, on values a data frame can hold
+  out <- calcofi4db:::.check_short_labels(c("a", "b", "c"), c("", "  ", NA))
+  expect_identical(out$key, c("a", "b"))
+  expect_true(all(out$rule == "empty_short_label"))
+  # a CSV cannot hold a blank: readr trims it and na = "" reads it as NA, which
+  # is allowed (no title authored), so the validator stays clean
+  p <- validate_fixture_paths()
+  writeLines(c("#", "key,short_label,face_kind,face_of,stands_in_note,source",
+               'temperature,"   ",scale,,,a source'), p$face)
+  expect_true(is.na(read_measurement_face(p$face)$short_label))
+  out <- validate_measurement_faces(p$chem, p$method, p$scale, p$why, p$face)
+  expect_equal(nrow(out), 0)
+})
+
+test_that("validate_measurement_faces() flags a too-long short_label", {
+  p <- validate_fixture_paths()
+  write_face_by_hand(p$face, "temperature", strrep("x", 49))
+  out <- validate_measurement_faces(p$chem, p$method, p$scale, p$why, p$face)
+  expect_true(any(out$rule == "short_label_too_long" & out$key == "temperature"))
+})
+
+test_that("validate_measurement_faces() flags a short_label ending in punctuation", {
+  p <- validate_fixture_paths()
+  write_face_by_hand(p$face, "temperature", "Temperature.")
+  out <- validate_measurement_faces(p$chem, p$method, p$scale, p$why, p$face)
+  expect_true(any(out$rule == "short_label_trailing_punct" & out$key == "temperature"))
+})
+
+test_that("validate_measurement_faces() accepts unique short_labels and NA ones", {
+  p <- validate_fixture_paths()
+  write_face_by_hand(p$face, c("temperature", "salinity", "oxygen"), c("Temperature", "Salinity", NA))
+  out <- validate_measurement_faces(p$chem, p$method, p$scale, p$why, p$face)
+  expect_equal(nrow(out), 0)
+})
+
+test_that("the shipped workflows measurement_face.csv passes validation, short_label included", {
+  # the sibling checkout, whether the package sits at CalCOFI/calcofi4db or in a
+  # worktree under CalCOFI/.worktrees/
+  cand <- c(test_path("..", "..", "..", "workflows", "metadata"),
+            test_path("..", "..", "..", "..", "workflows", "metadata"))
+  md <- cand[dir.exists(cand)][1]
+  skip_if(is.na(md), "workflows/metadata not beside the package")
+  # the face file alone: validate_measurement_faces() also reads the other four,
+  # whose own state is not this test's subject
+  face <- read_measurement_face(file.path(md, "measurement_face.csv"))
+  expect_true("short_label" %in% names(face))
+  out <- calcofi4db:::.check_short_labels(face$key, face$short_label)
+  expect_equal(nrow(out), 0, info = paste(out$key, out$rule, collapse = "; "))
+})

@@ -23,4 +23,12 @@ borrows and \code{stands_in_note} is the chip's short text; a row that is not
 \code{standsin} never carries \code{face_of} (no borrowed ids on a key that has its
 own concept, D3).
 }
+\details{
+\code{short_label} is the key's authored short title, the name a page head shows
+beside its face (issue #30 D13); the full \code{label} from \code{variable.csv} keeps
+the method notes. It may be empty (none authored yet). When set it is
+non-blank, at most 48 characters, does not end in punctuation and is not
+used by another key (ignoring case), counting the keys already in the file.
+A row breaking any of these is refused.
+}
 \concept{registry}

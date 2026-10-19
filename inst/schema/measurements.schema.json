@@ -91,6 +91,7 @@
         "key":  { "type": "string", "description": "the registry's `variable` where set, else the measurement_type" },
         "slug": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+$", "description": "the page directory /measurements/{slug}/ — equal to key, which is already URL-safe" },
         "label":          { "$ref": "#/definitions/nullable_string", "description": "from metadata/variable.csv; absent a row, the canonical series' registry description, and the measurement carries the no_label flag" },
+        "short_label":    { "$ref": "#/definitions/nullable_string", "description": "1.1 (additive, optional) — the key's authored short title, the name a page head shows beside its face (calcofi.io issue #30 D13), from metadata/measurement_face.csv `short_label`: at most 48 characters, unique across keys, no method notes (those stay in `label`). null when the registry has no short_label for the key; never derived from `label`" },
         "description":    { "$ref": "#/definitions/nullable_string" },
         "units":          { "$ref": "#/definitions/nullable_string" },
         "units_nerc_p06": { "$ref": "#/definitions/nullable_string" },

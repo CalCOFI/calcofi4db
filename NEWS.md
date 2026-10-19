@@ -1,3 +1,18 @@
+# calcofi4db 4.26.0
+
+- **`measurements.json` carries an authored `short_label` per key** (calcofi.io issue #30 D13): the
+  short title a measurement page head shows beside its face, while `label` keeps the full name with
+  its method notes. `build_measurements_catalog()` reads it from the face registry and emits it right
+  after `label`; a key without one is `null`, never cut from `label`. `measurements.schema.json`
+  adds `short_label` as an optional nullable string, so earlier records still validate.
+- **`metadata/measurement_face.csv` gains a `short_label` column after `key`.**
+  `read_measurement_face()` returns it, and reads a registry without the column (an older header)
+  with `short_label` `NA`. `register_measurement_face()` writes it and refuses a short_label that is
+  blank, longer than 48 characters, ends in punctuation, or is already used by another key (ignoring
+  case). `validate_measurement_faces()` reports the same four rules (`empty_short_label`,
+  `short_label_too_long`, `short_label_trailing_punct`, `duplicate_short_label`); an empty cell is
+  allowed.
+
 # calcofi4db 4.25.0
 
 - **New `read_gazetteer_layer(slug, version, manifest, cache_dir)`** reads one oceanmetrics gazetteer

@@ -37,6 +37,9 @@ reports before calling itself done. Checks, one row of output each:
 method \code{platform}, scale \code{kind}, why \code{kind}, face \code{face_kind})
 \item a \code{measurement_why} key with zero, or more than one, \code{rank == 1} row
 \item a \code{measurement_face} key absent from \code{measurement_type.csv}
+\item a \code{measurement_face} \code{short_label} that is set but blank, longer than 48
+characters, ends in punctuation, or is shared by another key (ignoring
+case); an \code{NA} short_label is allowed
 \item a \code{nerc_l22} (method) that is not an exact-form L22 concept URI
 }
 }
