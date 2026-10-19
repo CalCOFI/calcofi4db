@@ -850,7 +850,17 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
     regs$why <- .mm_cols(regs$why, c("key", "rank", "kind", "text", "bibkeys", "source_url",
                                      "eov", "goos_doc"))
   if (!is.null(regs$face))
-    regs$face <- .mm_cols(regs$face, c("key", "face_kind", "face_of", "stands_in_note", "source"))
+    regs$face <- .mm_cols(regs$face, c("key", "short_label", "face_kind", "face_of",
+                                       "stands_in_note", "source"))
+
+  # the authored short title (issue #30 D13) is read from the face registry and
+  # never derived: a key without one carries NA, written as JSON null
+  short_label_of <- function(k) {
+    d <- regs$face
+    if (is.null(d) || !nrow(d)) return(NA_character_)
+    i <- match(k, as.character(d[["key"]]))
+    if (is.na(i)) NA_character_ else .mm_chr(d[["short_label"]][i])
+  }
 
   face_of_key <- function(k) {
     d <- regs$face
@@ -1057,6 +1067,7 @@ build_measurements_catalog <- function(con, record, measurement_type, variable =
     out <- list(key   = k,
                 slug  = k,
                 label = lab,
+                short_label   = short_label_of(k),
                 description   = .mm_chr(reg(ct, "description")),
                 units         = .mm_chr(reg(ct, "units")),
                 units_nerc_p06 = .mm_chr(reg(ct, "units_nerc_p06")),

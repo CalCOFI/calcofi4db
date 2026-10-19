@@ -12,9 +12,11 @@ read_measurement_face(path, validate = TRUE)
 \item{validate}{error on sentinel strings (default TRUE)}
 }
 \value{
-tibble
+tibble with columns \code{key}, \code{short_label}, \code{face_kind}, \code{face_of},
+\code{stands_in_note}, \code{source}
 }
 \description{
-Read \code{metadata/measurement_face.csv}
+A registry authored before \code{short_label} existed (4.26.0) still reads: the
+column is then \code{NA} for every key.
 }
 \concept{registry}

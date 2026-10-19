@@ -299,3 +299,42 @@ test_that("the check suite still passes on a 1.1 record", {
   d <- check_measurements_catalog(rec, con, mfz_record(), mfz_measurement_type())
   expect_true(all(d$ok))
 })
+
+# ---- short_label (issue #30 D13): read from the face registry, never derived ----
+
+test_that("the builder carries the face registry's short_label beside label", {
+  m <- mfz_of(faces_record(anomaly = FALSE), "temperature")
+  expect_identical(m$short_label, "Temperature")
+  # it sits right after label, so the page head's two names read together
+  expect_identical(match("short_label", names(m)), match("label", names(m)) + 1L)
+})
+
+test_that("short_label is NA (JSON null) when the registry has none, never cut from label", {
+  # no registries at all
+  bare <- mfz_of(faces_record(registries = NULL, anomaly = FALSE), "temperature")
+  expect_true("short_label" %in% names(bare))
+  expect_true(is.na(bare$short_label))
+  # a face registry authored before the column existed
+  old_face <- data.frame(key = "temperature", face_kind = "scale", source = "TEOS-10")
+  m_old <- mfz_of(faces_record(registries = list(face = old_face), anomaly = FALSE), "temperature")
+  expect_true(is.na(m_old$short_label))
+  # a row with the column left empty
+  blank <- data.frame(key = "temperature", short_label = NA_character_, face_kind = "scale",
+                      source = "TEOS-10")
+  m_blank <- mfz_of(faces_record(registries = list(face = blank), anomaly = FALSE), "temperature")
+  expect_true(is.na(m_blank$short_label))
+  # and it is written as null, which the schema accepts
+  rec <- faces_record(registries = list(face = blank), anomaly = FALSE)
+  p <- write_measurements_catalog(rec, withr::local_tempdir())
+  expect_true(validate_measurements_catalog(p))
+  j <- jsonlite::fromJSON(p, simplifyVector = FALSE)
+  expect_true("short_label" %in% names(j$measurements[[1]]))
+  expect_null(j$measurements[[1]]$short_label)
+})
+
+test_that("a set short_label round-trips through the file and the schema", {
+  p <- write_measurements_catalog(faces_record(anomaly = FALSE), withr::local_tempdir())
+  expect_true(validate_measurements_catalog(p))
+  j <- jsonlite::fromJSON(p, simplifyVector = FALSE)
+  expect_identical(j$measurements[[1]]$short_label, "Temperature")
+})

@@ -9,7 +9,7 @@
 #                           calcofi_org_url,text_fragment,source,source_url
 #   measurement_scale.csv   key,value,lo,hi,label,kind,how,source,source_url
 #   measurement_why.csv     key,rank,kind,text,bibkeys,source_url,eov,goos_doc
-#   measurement_face.csv    key,face_kind,face_of,stands_in_note,source
+#   measurement_face.csv    key,short_label,face_kind,face_of,stands_in_note,source
 #
 # Same round-trip discipline as every other registry in this package (R/registry.R):
 # `na = ""` on every write (readr's `na = "NA"` default is how a registry ships the
@@ -23,7 +23,7 @@
 # first. `validate_measurement_faces()` is the standing-invariant check (never a
 # controlled-vocabulary id filled without an exact match; every row sourced).
 
-#' @importFrom readr read_csv write_csv format_csv cols col_character col_double col_integer
+#' @importFrom readr read_csv read_lines write_csv format_csv cols col_character col_double col_integer
 #' @importFrom dplyr bind_rows anti_join
 NULL
 
@@ -78,7 +78,45 @@ NULL
 
 #' @keywords internal
 .measurement_face_cols <- function()
-  c("key", "face_kind", "face_of", "stands_in_note", "source")
+  c("key", "short_label", "face_kind", "face_of", "stands_in_note", "source")
+
+# columns a registry authored to an older header may lack: they read as NA
+# rather than refusing the file (short_label arrived in 4.26.0, issue #30 D13)
+#' @keywords internal
+.measurement_face_optional_cols <- function() "short_label"
+
+# the longest short_label a page head carries
+#' @keywords internal
+CC_SHORT_LABEL_MAX <- 48L
+
+# findings for a measurement_face `short_label` column: one row per offending
+# key, with `rule` in empty_short_label | short_label_too_long |
+# short_label_trailing_punct | duplicate_short_label. An NA short_label is
+# allowed (none authored yet); a duplicate is judged ignoring case and
+# surrounding space, since two pages may not share a title.
+#' @keywords internal
+.check_short_labels <- function(key, short_label) {
+  empty <- tibble::tibble(key = character(), rule = character(), detail = character())
+  if (!length(key)) return(empty)
+  sl   <- as.character(short_label)
+  set  <- !is.na(sl)
+  sl_t <- trimws(ifelse(set, sl, ""))
+  out  <- list()
+  hit  <- function(i, rule, detail)
+    if (any(i)) out[[length(out) + 1]] <<- tibble::tibble(key = key[i], rule = rule, detail = detail[i])
+  hit(set & !nzchar(sl_t), "empty_short_label",
+      rep("short_label is set but blank", length(key)))
+  hit(set & nchar(sl_t) > CC_SHORT_LABEL_MAX, "short_label_too_long",
+      paste0("short_label is ", nchar(sl_t), " characters (max ", CC_SHORT_LABEL_MAX, ")"))
+  hit(set & nzchar(sl_t) & grepl("[.,;:!?–—-]$", sl_t), "short_label_trailing_punct",
+      paste0("short_label '", sl, "' ends in punctuation"))
+  norm <- ifelse(set & nzchar(sl_t), tolower(sl_t), NA_character_)
+  dup  <- !is.na(norm) & (duplicated(norm) | duplicated(norm, fromLast = TRUE))
+  hit(dup, "duplicate_short_label",
+      paste0("short_label '", sl, "' is shared by another key"))
+  if (!length(out)) return(empty)
+  dplyr::bind_rows(out)
+}
 
 #' @keywords internal
 .measurement_col_types <- function(cols) {
@@ -98,11 +136,37 @@ NULL
 
 # generic read/register/bootstrap ------------------------------------------------
 
+#' The CSV text of a registry without its leading `#` header comment
+#'
+#' Only the block of `#`-prefixed lines at the top of the file is a comment.
+#' `readr::read_csv(comment = "#")` instead cuts every line at its first `#`,
+#' which silently truncates a row whose URL carries a fragment
+#' (`…/bottle-sampling-methods/#:~:text=…`) and drops the fields after it.
+#'
+#' @param path path to a registry CSV
+#' @return the remaining text, wrapped in [I()] for [readr::read_csv()]
 #' @keywords internal
-.read_measurement_registry <- function(path, cols, validate = TRUE) {
+.registry_csv_text <- function(path) {
+  x <- readr::read_lines(path)
+  n_hdr <- match(FALSE, startsWith(x, "#"), nomatch = length(x) + 1L) - 1L
+  if (n_hdr > 0) x <- x[-seq_len(n_hdr)]
+  I(paste(x, collapse = "\n"))
+}
+
+#' @keywords internal
+.read_measurement_registry <- function(path, cols, validate = TRUE, optional = character()) {
   stopifnot("registry file not found" = file.exists(path))
-  d <- readr::read_csv(path, na = "", comment = "#", show_col_types = FALSE,
-                        col_types = .measurement_col_types(cols))
+  # an optional column the file lacks gets no parser (readr warns on a named
+  # parser with no column) and is added below as NA
+  read_cols <- cols
+  if (length(optional)) {
+    hdr <- names(readr::read_csv(.registry_csv_text(path), na = "", n_max = 0, show_col_types = FALSE,
+                                 col_types = readr::cols(.default = readr::col_character())))
+    read_cols <- setdiff(cols, setdiff(optional, hdr))
+  }
+  d <- readr::read_csv(.registry_csv_text(path), na = "", show_col_types = FALSE,
+                        col_types = .measurement_col_types(read_cols))
+  for (cl in intersect(setdiff(cols, names(d)), optional)) d[[cl]] <- NA_character_
   missing_cols <- setdiff(cols, names(d))
   if (length(missing_cols))
     stop(path, " is missing column(s): ", paste(missing_cols, collapse = ", "), call. = FALSE)
@@ -128,9 +192,10 @@ NULL
 #' Always writes `na = ""`.
 #'
 #' @keywords internal
-.register_measurement_registry <- function(new_rows, path, cols, key_cols, header_comment, label, quiet = FALSE) {
+.register_measurement_registry <- function(new_rows, path, cols, key_cols, header_comment, label, quiet = FALSE,
+                                           optional = character()) {
   .bootstrap_measurement_registry(path, cols, header_comment)
-  d <- .read_measurement_registry(path, cols)
+  d <- .read_measurement_registry(path, cols, optional = optional)
   if (is.null(new_rows) || !nrow(new_rows)) return(d)
 
   missing_key <- setdiff(key_cols, names(new_rows))
@@ -157,7 +222,7 @@ NULL
   out <- out[do.call(order, out[key_cols]), , drop = FALSE]
 
   writeLines(c(header_comment, readr::format_csv(out, na = "")), path)
-  out <- .read_measurement_registry(path, cols)
+  out <- .read_measurement_registry(path, cols, optional = optional)
   if (!quiet)
     message(glue::glue(
       "{label}: added {nrow(new_rows) - replaced} new, updated {replaced} existing row(s)"))
@@ -334,13 +399,19 @@ register_measurement_why <- function(new_rows, path, quiet = FALSE) {
 # measurement_face.csv -------------------------------------------------------------
 
 #' Read `metadata/measurement_face.csv`
+#'
+#' A registry authored before `short_label` existed (4.26.0) still reads: the
+#' column is then `NA` for every key.
+#'
 #' @param path path to `metadata/measurement_face.csv`
 #' @param validate error on sentinel strings (default TRUE)
-#' @return tibble
+#' @return tibble with columns `key`, `short_label`, `face_kind`, `face_of`,
+#'   `stands_in_note`, `source`
 #' @export
 #' @concept registry
 read_measurement_face <- function(path, validate = TRUE)
-  .read_measurement_registry(path, .measurement_face_cols(), validate)
+  .read_measurement_registry(path, .measurement_face_cols(), validate,
+                             optional = .measurement_face_optional_cols())
 
 #' Append-or-update `metadata/measurement_face.csv` by key
 #'
@@ -349,6 +420,13 @@ read_measurement_face <- function(path, validate = TRUE)
 #' borrows and `stands_in_note` is the chip's short text; a row that is not
 #' `standsin` never carries `face_of` (no borrowed ids on a key that has its
 #' own concept, D3).
+#'
+#' `short_label` is the key's authored short title, the name a page head shows
+#' beside its face (issue #30 D13); the full `label` from `variable.csv` keeps
+#' the method notes. It may be empty (none authored yet). When set it is
+#' non-blank, at most 48 characters, does not end in punctuation and is not
+#' used by another key (ignoring case), counting the keys already in the file.
+#' A row breaking any of these is refused.
 #'
 #' @param new_rows data.frame with `key` and any other column of
 #'   `.measurement_face_cols()`
@@ -364,12 +442,24 @@ register_measurement_face <- function(new_rows, path, quiet = FALSE) {
                           paste(bad, collapse = ", "), call. = FALSE)
     if (!"source" %in% names(new_rows) || any(is.na(new_rows$source) | !nzchar(new_rows$source)))
       stop("measurement_face: every row needs a source", call. = FALSE)
+    if ("short_label" %in% names(new_rows)) {
+      # judge the new rows together with every other key already in the file
+      old  <- if (file.exists(path)) read_measurement_face(path) else NULL
+      keep <- if (is.null(old)) NULL else old[!old$key %in% new_rows$key, c("key", "short_label")]
+      all_rows <- dplyr::bind_rows(
+        keep, tibble::tibble(key         = as.character(new_rows$key),
+                             short_label = as.character(new_rows$short_label)))
+      bad_sl <- .check_short_labels(all_rows$key, all_rows$short_label)
+      if (nrow(bad_sl))
+        stop("measurement_face short_label: ",
+             paste0(bad_sl$key, " (", bad_sl$rule, ")", collapse = "; "), call. = FALSE)
+    }
   }
   .register_measurement_registry(
     new_rows, path, .measurement_face_cols(), "key",
     .measurement_header_comment("measurement_face.csv", .measurement_face_cols(),
-      "every measurement key's face_kind (D2-D3): structure | composition | scale |\n# organism | standsin | none. A standsin row's face_of names the key it borrows; stands_in_note is the chip text."),
-    "measurement_face registry", quiet)
+      "every measurement key's face_kind (D2-D3): structure | composition | scale |\n# organism | standsin | none. A standsin row's face_of names the key it borrows; stands_in_note is the chip text.\n# short_label is the key's authored short title (issue #30 D13): at most 48 characters, unique, no trailing punctuation."),
+    "measurement_face registry", quiet, optional = .measurement_face_optional_cols())
 }
 
 # the standing check ----------------------------------------------------------------
@@ -386,6 +476,9 @@ register_measurement_face <- function(new_rows, path, quiet = FALSE) {
 #'   method `platform`, scale `kind`, why `kind`, face `face_kind`)
 #' * a `measurement_why` key with zero, or more than one, `rank == 1` row
 #' * a `measurement_face` key absent from `measurement_type.csv`
+#' * a `measurement_face` `short_label` that is set but blank, longer than 48
+#'   characters, ends in punctuation, or is shared by another key (ignoring
+#'   case); an `NA` short_label is allowed
 #' * a `nerc_l22` (method) that is not an exact-form L22 concept URI
 #'
 #' @param chem_path,method_path,scale_path,why_path,face_path paths to the
@@ -447,6 +540,13 @@ validate_measurement_faces <- function(chem_path, method_path, scale_path, why_p
     }
     if (length(zero)) add("measurement_why", zero, "rank1_count", "zero rank == 1 rows")
     if (length(two_plus)) add("measurement_why", two_plus, "rank1_count", "more than one rank == 1 row")
+  }
+
+  # measurement_face short_label: non-blank, <= 48 characters, no trailing
+  # punctuation, unique across keys
+  if (nrow(face)) {
+    sl <- .check_short_labels(face$key, face$short_label)
+    if (nrow(sl)) add("measurement_face", sl$key, sl$rule, sl$detail)
   }
 
   # measurement_face key must exist in measurement_type.csv

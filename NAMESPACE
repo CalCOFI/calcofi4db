@@ -570,6 +570,7 @@ importFrom(readr,
   cols,
   format_csv,
   read_csv,
+  read_lines,
   write_csv
 )
 importFrom(rlang,
