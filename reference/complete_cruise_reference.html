@@ -61,7 +61,7 @@ it is looking at."><!-- calcofi.io brand contract v2 (https://calcofi.io/brand/v
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.27.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.28.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -135,7 +135,9 @@ it is looking at.</p>
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>Invisibly, a tibble of the rows ADDED (empty if none were needed) —
 <code>cruise_key</code>, <code>ship_key</code>, <code>date_ym</code>, <code>date_min</code>, <code>date_max</code>,
-<code>cruise_key_datasets</code>.</p>
+<code>cruise_key_datasets</code> — with attribute <code>span_filled</code>: a tibble of the
+existing rows whose NULL span was filled from their events (<code>cruise_key</code>,
+<code>date_min</code>, <code>date_max</code>, <code>cruise_key_datasets</code>; empty when none was).</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -148,6 +150,19 @@ failing on the first. <code>date_ym</code> is the key's own <code>YYYY-MM</code>
 (a derived row's span is therefore always contained in itself — see
 <code><a href="check_cruise_key_integrity.html">check_cruise_key_integrity()</a></code>'s check 6). <code>cruise_uuid</code> is left <code>NULL</code>: no
 derived cruise has one, by definition.</p>
+<p><strong>A reference row with no span takes the observed span of its events.</strong> Since
+SWFSC's 2026-10-14 export the <code>Cruise</code> table is the union of its <code>dbo</code> and
+<code>stg</code> schemas, so a cruise with no <code>Station</code> row (50 of 739: CUFES-only
+cruises, cruises whose ichthyoplankton are still in staging, cruises only the
+bottle and CTD sources sample) arrives with <code>date_min</code> / <code>date_max</code> NULL.
+Twenty-one of them were <code>derived</code> rows in v2026.10.19 and carried exactly the
+min/max event date of the samples keyed to them; on becoming <code>swfsc</code> rows they
+would have lost it, and check 6 skips a NULL span without a word. So every
+existing row whose <code>date_min</code> or <code>date_max</code> is NULL and that some dataset keys
+events to is filled from those events, before any row is added. A row that has
+a span keeps it (the ichthyo tows are the designation; another dataset's event
+outside it is check 6's finding, not a reason to widen the span), and a row no
+dataset keys to stays NULL.</p>
 <p><code>cruise_tbl</code> may arrive as a VIEW over static parquet (as it does in
 <code>release_database.qmd</code>, before the per-cruise enrichment step rebuilds it as
 a TABLE) — this materializes it into a TABLE either way, because it must add

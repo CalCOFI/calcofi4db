@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.27.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.28.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,6 +77,13 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.28.0" id="calcofi4db-4280">calcofi4db 4.28.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4280"></a></h2>
+<ul><li>
+<strong><code><a href="../reference/complete_cruise_reference.html">complete_cruise_reference()</a></code> fills the span of a reference cruise that has none.</strong> Since SWFSC’s 2026-10-14 export the <code>Cruise</code> table is the union of its <code>dbo</code> and <code>stg</code> schemas, so a cruise with no <code>Station</code> row (50 of 739) arrives with <code>date_min</code> / <code>date_max</code> NULL. Twenty-one of those were <code>derived</code> rows in v2026.10.19, carrying the min/max event date of the samples keyed to them; as <code>swfsc</code> rows they would have lost that span, and check 6 of <code><a href="../reference/check_cruise_key_integrity.html">check_cruise_key_integrity()</a></code> (an event within its cruise’s span) skips a NULL span without a word. An existing row whose span is NULL and that some dataset keys events to now takes those events’ observed min/max, before any derived row is added; a row with a span keeps it, and a row no dataset keys to stays NULL. The rows filled come back as <code>attr(, "span_filled")</code> (<code>cruise_key</code>, <code>date_min</code>, <code>date_max</code>, <code>cruise_key_datasets</code>) and are counted in the message.</li>
+<li>
+<strong><code>ichthyo_net</code> is a released table.</strong> <code><a href="../reference/core_relationships.html">core_relationships()</a></code> declares <code>swfsc_ichthyo</code>’s second dataset-owned table — one row per net: the net’s <code>sample_key</code>, SWFSC’s <code>net_uuid</code> and <code>tow_uuid</code>, <code>net_side</code> (S / P / NULL), <code>tow_number</code> and <code>tow_type</code> — keyed <code>sample_key</code> with an FK to <code>sample</code>, and <code><a href="../reference/release_sort_keys.html">release_sort_keys()</a></code> orders it by that key. Net side and tow number were the two source columns the core projection dropped; they are what tells the two nets of a bongo pair, and two tows of one type at one station occupation, apart, and the SIO PIC “Parent Net Event” crosswalk joins on them.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.27.0" id="calcofi4db-4270">calcofi4db 4.27.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4270"></a></h2>
 <ul><li>

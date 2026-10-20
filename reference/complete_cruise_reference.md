@@ -38,7 +38,10 @@ complete_cruise_reference(
 
 Invisibly, a tibble of the rows ADDED (empty if none were needed) —
 `cruise_key`, `ship_key`, `date_ym`, `date_min`, `date_max`,
-`cruise_key_datasets`.
+`cruise_key_datasets` — with attribute `span_filled`: a tibble of the
+existing rows whose NULL span was filled from their events
+(`cruise_key`, `date_min`, `date_max`, `cruise_key_datasets`; empty when
+none was).
 
 ## Details
 
@@ -53,6 +56,21 @@ contained in itself — see
 [`check_cruise_key_integrity()`](https://calcofi.io/calcofi4db/reference/check_cruise_key_integrity.md)'s
 check 6). `cruise_uuid` is left `NULL`: no derived cruise has one, by
 definition.
+
+**A reference row with no span takes the observed span of its events.**
+Since SWFSC's 2026-10-14 export the `Cruise` table is the union of its
+`dbo` and `stg` schemas, so a cruise with no `Station` row (50 of 739:
+CUFES-only cruises, cruises whose ichthyoplankton are still in staging,
+cruises only the bottle and CTD sources sample) arrives with `date_min`
+/ `date_max` NULL. Twenty-one of them were `derived` rows in v2026.10.19
+and carried exactly the min/max event date of the samples keyed to them;
+on becoming `swfsc` rows they would have lost it, and check 6 skips a
+NULL span without a word. So every existing row whose `date_min` or
+`date_max` is NULL and that some dataset keys events to is filled from
+those events, before any row is added. A row that has a span keeps it
+(the ichthyo tows are the designation; another dataset's event outside
+it is check 6's finding, not a reason to widen the span), and a row no
+dataset keys to stays NULL.
 
 `cruise_tbl` may arrive as a VIEW over static parquet (as it does in
 `release_database.qmd`, before the per-cruise enrichment step rebuilds
