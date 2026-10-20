@@ -7,6 +7,7 @@ export(CC_RELEASE_PREFIX)
 export(CC_TABLES_PREFIX)
 export(OBS_VIEW_COLUMNS)
 export(add_cruise_date_span)
+export(add_measurement_source_dataset)
 export(add_parquet_metadata)
 export(add_point_geom)
 export(add_provenance_columns)
@@ -34,6 +35,7 @@ export(assign_deterministic_uuids)
 export(assign_deterministic_uuids_md5)
 export(assign_grid_key)
 export(assign_sequential_ids)
+export(bottle_spice_sigma0)
 export(bounds_datatable)
 export(build_climatology)
 export(build_coverage)
@@ -261,6 +263,7 @@ export(measurements_catalog_checks)
 export(merge_dataset_meta)
 export(merge_metadata_json)
 export(merge_relationships_json)
+export(merge_source_datasets)
 export(merge_taxon_shards)
 export(nc_global_atts)
 export(nc_level_put)
@@ -527,6 +530,8 @@ importFrom(gsw,
   gsw_CT_from_t,
   gsw_SA_from_SP,
   gsw_geo_strf_dyn_height,
+  gsw_p_from_z,
+  gsw_sigma0,
   gsw_spiciness0
 )
 importFrom(here,here)

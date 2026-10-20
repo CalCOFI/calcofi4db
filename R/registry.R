@@ -259,6 +259,83 @@ declare_measurement_bounds <- function(bounds, path, overwrite = FALSE,
   d
 }
 
+#' Add a dataset to a measurement type's `_source_datasets`, keeping the others
+#'
+#' `_source_datasets` lists every dataset that publishes rows of a type,
+#' separated by `;` (`"calcofi_bottle;calcofi_2022-edna"`). A type two ingests
+#' share (`spiciness0`: `calcofi_ctd-derived` per CTD bin, `calcofi_bottle-derived`
+#' per bottle) must not be narrowed to one of them when the other re-renders and
+#' writes its literal, so each ingest merges its own key into what the registry
+#' already holds. The existing order is kept, the new key goes last, a key is
+#' never listed twice, and an empty or `NA` cell becomes the key alone.
+#'
+#' @param current character: the registry's `_source_datasets` values (`NA` /
+#'   `""` allowed).
+#' @param dataset_key the dataset key to add (one string).
+#' @return character, the same length as `current`.
+#' @export
+#' @concept registry
+#' @examples
+#' merge_source_datasets(c(NA, "calcofi_ctd-derived", "a;calcofi_ctd-derived"),
+#'                       "calcofi_ctd-derived")
+#' # "calcofi_ctd-derived" "calcofi_ctd-derived" "a;calcofi_ctd-derived"
+merge_source_datasets <- function(current, dataset_key) {
+  stopifnot(is.character(dataset_key), length(dataset_key) == 1, nzchar(dataset_key))
+  cur <- as.character(current)
+  vapply(cur, function(x) {
+    have <- if (is.na(x)) character() else trimws(strsplit(x, ";", fixed = TRUE)[[1]])
+    have <- have[nzchar(have)]
+    paste(unique(c(have, dataset_key)), collapse = ";")
+  }, character(1), USE.NAMES = FALSE)
+}
+
+#' Declare that a dataset also publishes measurement types another dataset defined
+#'
+#' The registry-file counterpart of [merge_source_datasets()]: reads
+#' `measurement_type.csv`, adds `dataset_key` to `_source_datasets` on the named
+#' types (keeping every dataset already listed) and writes with `na = ""`.
+#' Nothing else on the row changes — the description, units, derivation and
+#' bounds stay the defining ingest's. Like [declare_measurement_bounds()] it
+#' refuses an unknown `measurement_type` (register a new type with
+#' [register_measurement_types()] first) and writes nothing when every type
+#' already lists the dataset.
+#'
+#' @param types character: measurement types the dataset publishes.
+#' @param dataset_key the publishing dataset (`provider_dataset`).
+#' @param path path to `metadata/measurement_type.csv`.
+#' @param quiet suppress the summary message.
+#' @return The full registry (invisibly if nothing changed).
+#' @export
+#' @concept registry
+#' @importFrom readr write_csv
+#' @examples
+#' \dontrun{
+#' add_measurement_source_dataset("spiciness0", "calcofi_bottle-derived",
+#'                                here::here("metadata/measurement_type.csv"))
+#' }
+add_measurement_source_dataset <- function(types, dataset_key, path, quiet = FALSE) {
+  d <- read_measurement_type(path)
+  stopifnot(is.character(types), length(types) >= 1)
+  unknown <- setdiff(types, d$measurement_type)
+  if (length(unknown))
+    stop("unknown measurement_type(s): ", paste(unknown, collapse = ", "),
+         " -- register them first with register_measurement_types()", call. = FALSE)
+  i   <- which(d$measurement_type %in% types)
+  new <- merge_source_datasets(d[["_source_datasets"]][i], dataset_key)
+  chg <- i[!(new == d[["_source_datasets"]][i]) %in% TRUE]
+  if (!length(chg)) {
+    if (!quiet) message("measurement_type registry unchanged (", dataset_key, " already listed)")
+    return(invisible(d))
+  }
+  d[["_source_datasets"]][i] <- new
+  readr::write_csv(d, path, na = "")
+  out <- read_measurement_type(path)
+  if (!quiet)
+    message(glue::glue("measurement_type _source_datasets: added {dataset_key} to ",
+                       "{paste(d$measurement_type[chg], collapse = ', ')}"))
+  out
+}
+
 #' Replace a measurement type's definition while keeping its curated columns
 #'
 #' Ten ingests "register" their types by deleting the existing row and binding a
