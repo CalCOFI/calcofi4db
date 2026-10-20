@@ -1,3 +1,23 @@
+# calcofi4db 4.28.0
+
+- **`complete_cruise_reference()` fills the span of a reference cruise that has none.** Since
+  SWFSC's 2026-10-14 export the `Cruise` table is the union of its `dbo` and `stg` schemas, so a
+  cruise with no `Station` row (50 of 739) arrives with `date_min` / `date_max` NULL. Twenty-one of
+  those were `derived` rows in v2026.10.19, carrying the min/max event date of the samples keyed to
+  them; as `swfsc` rows they would have lost that span, and check 6 of `check_cruise_key_integrity()`
+  (an event within its cruise's span) skips a NULL span without a word. An existing row whose span
+  is NULL and that some dataset keys events to now takes those events' observed min/max, before any
+  derived row is added; a row with a span keeps it, and a row no dataset keys to stays NULL. The
+  rows filled come back as `attr(, "span_filled")` (`cruise_key`, `date_min`, `date_max`,
+  `cruise_key_datasets`) and are counted in the message.
+- **`ichthyo_net` is a released table.** `core_relationships()` declares `swfsc_ichthyo`'s second
+  dataset-owned table — one row per net: the net's `sample_key`, SWFSC's `net_uuid` and `tow_uuid`,
+  `net_side` (S / P / NULL), `tow_number` and `tow_type` — keyed `sample_key` with an FK to `sample`,
+  and `release_sort_keys()` orders it by that key. Net side and tow number were the two source
+  columns the core projection dropped; they are what tells the two nets of a bongo pair, and two
+  tows of one type at one station occupation, apart, and the SIO PIC "Parent Net Event" crosswalk
+  joins on them.
+
 # calcofi4db 4.27.0
 
 - **New `bottle_spice_sigma0(temperature, salinity, depth, longitude, latitude, q_temperature,

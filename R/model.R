@@ -762,6 +762,12 @@ core_relationships <- function(tables) {
     # swfsc_ichthyo's own table (SWFSC Fish, from the 2026-09-26 export): fish grown
     # past the larval stage, per net and CalCOFI species code
     fish               = c("sample_key", "species_id"),
+    # swfsc_ichthyo's second own table (2026-10-20, D2): one row per net with the
+    # two source columns the core projection drops — Net.NetSide (S / P / NULL)
+    # and Tow.TowNumber — beside SWFSC's NetId and TowId and the tow type. What
+    # tells the two nets of a bongo pair, and two tows of one type at one station
+    # occupation, apart; the SIO PIC "Parent Net Event" crosswalk joins on it.
+    ichthyo_net        = "sample_key",
     # the release-built tables (release_database.qmd), so every released table
     # declares a key and check_release_relationships() can measure it. Every
     # candidate below was measured unique on v2026.09.06 (2026-09-08); a
@@ -796,6 +802,7 @@ core_relationships <- function(tables) {
     list(table = "sample_measurement", column = "measurement_type",  ref_table = "measurement_type", ref_column = "measurement_type"),
     list(table = "fish",               column = "sample_key",        ref_table = "sample",           ref_column = "sample_key"),
     list(table = "fish",               column = "taxon_key",         ref_table = "taxon",            ref_column = "taxon_key"),
+    list(table = "ichthyo_net",        column = "sample_key",        ref_table = "sample",           ref_column = "sample_key"),
     list(table = "dataset_taxon",      column = "taxon_key",         ref_table = "taxon",            ref_column = "taxon_key"),
     list(table = "taxon_group",        column = "taxon_key",         ref_table = "taxon",            ref_column = "taxon_key"),
     list(table = "taxon",              column = "parent_taxon_key",  ref_table = "taxon",            ref_column = "taxon_key"))

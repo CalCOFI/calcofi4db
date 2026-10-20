@@ -110,6 +110,91 @@ test_that("a cruise_tbl arriving as a VIEW is materialized into a table", {
   expect_equal(got$cruise_key_method, "swfsc")
 })
 
+test_that("a swfsc row with no span takes its events' span; a row with one keeps it; one with no events stays NULL", {
+  # SWFSC's 2026-10-14 Cruise table is the union of its dbo and stg schemas, so a
+  # cruise with no Station row (CUFES-only, or ichthyoplankton still in staging)
+  # arrives with date_min/date_max NULL. 21 such keys were 'derived' rows in
+  # v2026.10.19 carrying exactly the span of the events the other datasets key
+  # to them; becoming 'swfsc' rows must not lose it (check 6 skips a NULL span).
+  con <- k_con()
+  DBI::dbWriteTable(con, "ship", data.frame(
+    ship_key = c("JD", "RL"), ship_nodc = c("31JD", "33UD"), stringsAsFactors = FALSE))
+  DBI::dbWriteTable(con, "cruise", data.frame(
+    cruise_key = c("1982-02-31JD", "1982-12-31JD", "2024-01-33UD"),
+    ship_key   = c("JD", "JD", "RL"),
+    date_ym    = as.Date(c("1982-02-01", "1982-12-01", "2024-01-01")),
+    date_min   = as.Date(c("1982-02-05", NA, NA)),
+    date_max   = as.Date(c("1982-02-20", NA, NA)),
+    cruise_uuid = c("11111111-1111-1111-1111-111111111111",
+                    "22222222-2222-2222-2222-222222222222",
+                    "33333333-3333-3333-3333-333333333333"),
+    stringsAsFactors = FALSE))
+  DBI::dbWriteTable(con, "sample", data.frame(
+    sample_key  = c("euph:tow:1", "euph:tow:2", "zoodb:tow:1", "ctd:cast:1"),
+    dataset_key = c("cce-lter_euphausiids", "cce-lter_euphausiids",
+                    "cce-lter_zoodb", "calcofi_ctd-cast"),
+    cruise_key  = c("1982-12-31JD", "1982-12-31JD", "1982-12-31JD", "1982-02-31JD"),
+    datetime    = as.POSIXct(c("1982-12-03", "1982-12-14", "1982-12-09", "1982-03-15"),
+                             tz = "UTC"),
+    stringsAsFactors = FALSE))
+
+  added <- suppressMessages(complete_cruise_reference(con))
+  # every key already has a row: nothing is derived
+  expect_equal(nrow(added), 0L)
+  filled <- attr(added, "span_filled")
+  expect_s3_class(filled, "tbl_df")
+  expect_equal(filled$cruise_key, "1982-12-31JD")
+  expect_equal(as.character(filled$date_min), "1982-12-03")
+  expect_equal(as.character(filled$date_max), "1982-12-14")
+  expect_equal(filled$cruise_key_datasets, "cce-lter_euphausiids,cce-lter_zoodb")
+
+  got <- DBI::dbGetQuery(con, "SELECT * FROM cruise ORDER BY cruise_key")
+  row <- function(k) got[got$cruise_key == k, , drop = FALSE]
+  # the span-less row with events: filled from them
+  expect_equal(as.character(row("1982-12-31JD")$date_min), "1982-12-03")
+  expect_equal(as.character(row("1982-12-31JD")$date_max), "1982-12-14")
+  # the row with its own span keeps it, although a CTD cast falls outside it
+  expect_equal(as.character(row("1982-02-31JD")$date_min), "1982-02-05")
+  expect_equal(as.character(row("1982-02-31JD")$date_max), "1982-02-20")
+  # the row no dataset keys to stays NULL
+  expect_true(is.na(row("2024-01-33UD")$date_min))
+  expect_true(is.na(row("2024-01-33UD")$date_max))
+  # all three stay swfsc rows with their uuid; nothing was added
+  expect_equal(got$cruise_key_method, rep("swfsc", 3))
+  expect_equal(nrow(got), 3L)
+  expect_false(anyNA(got$cruise_uuid))
+
+  # idempotent: a second run fills nothing
+  added2 <- suppressMessages(complete_cruise_reference(con))
+  expect_equal(nrow(attr(added2, "span_filled")), 0L)
+  expect_equal(as.character(row("1982-12-31JD")$date_min), "1982-12-03")
+})
+
+test_that("a filled span is reported alongside derived rows, and a derived row is never 'filled'", {
+  con <- k_con()
+  DBI::dbWriteTable(con, "ship", data.frame(
+    ship_key = c("BD", "JD"), ship_nodc = c("31BD", "31JD"), stringsAsFactors = FALSE))
+  DBI::dbWriteTable(con, "cruise", data.frame(
+    cruise_key = "1955-08-31BD", ship_key = "BD",
+    date_ym = as.Date("1955-08-01"),
+    date_min = as.Date(NA), date_max = as.Date(NA),
+    cruise_uuid = "11111111-1111-1111-1111-111111111111",
+    stringsAsFactors = FALSE))
+  DBI::dbWriteTable(con, "sample", data.frame(
+    sample_key = c("ds1:e:1", "ds2:e:1"),
+    dataset_key = c("ds1", "ds2"),
+    cruise_key = c("1955-08-31BD", "2020-01-31JD"),
+    datetime = as.POSIXct(c("1955-08-10", "2020-01-06"), tz = "UTC"),
+    stringsAsFactors = FALSE))
+  added <- suppressMessages(complete_cruise_reference(con))
+  expect_equal(added$cruise_key, "2020-01-31JD")
+  filled <- attr(added, "span_filled")
+  expect_equal(filled$cruise_key, "1955-08-31BD")
+  got <- DBI::dbGetQuery(con, "SELECT * FROM cruise ORDER BY cruise_key")
+  expect_equal(as.character(got$date_min), c("1955-08-10", "2020-01-06"))
+  expect_equal(got$cruise_key_method, c("swfsc", "derived"))
+})
+
 # ---- check_cruise_key_integrity() ------------------------------------------
 
 # a baseline that PASSES every hard check and stays within every ratchet;

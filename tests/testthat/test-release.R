@@ -253,3 +253,21 @@ test_that("fish (swfsc_ichthyo's own table) is a keyed, sortable released table"
   # an edge is kept only when both ends ship
   expect_length(Filter(function(e) e$table == "fish", core_relationships("fish")$foreign_keys), 0)
 })
+
+test_that("ichthyo_net (swfsc_ichthyo's net side + tow number table) is a keyed, sortable released table", {
+  # one row per net, keyed by the net's sample_key, with an FK to sample only
+  # (net_uuid / tow_uuid are the provider's ids, not FKs)
+  r <- core_relationships(c("ichthyo_net", "sample", "taxon"))
+  expect_identical(r$primary_keys$ichthyo_net, "sample_key")
+  fk <- Filter(function(e) e$table == "ichthyo_net", r$foreign_keys)
+  expect_length(fk, 1L)
+  expect_identical(fk[[1]]$column, "sample_key")
+  expect_identical(fk[[1]]$ref_table, "sample")
+  expect_identical(fk[[1]]$ref_column, "sample_key")
+  # without a PK the deterministic export refuses to write it (release_sort_keys)
+  expect_identical(release_sort_keys()$ichthyo_net,
+                   list(partition_by = NULL, order_by = "sample_key"))
+  # an edge is kept only when both ends ship
+  expect_length(Filter(function(e) e$table == "ichthyo_net",
+                       core_relationships("ichthyo_net")$foreign_keys), 0)
+})

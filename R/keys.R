@@ -49,6 +49,20 @@
 #' [check_cruise_key_integrity()]'s check 6). `cruise_uuid` is left `NULL`: no
 #' derived cruise has one, by definition.
 #'
+#' **A reference row with no span takes the observed span of its events.** Since
+#' SWFSC's 2026-10-14 export the `Cruise` table is the union of its `dbo` and
+#' `stg` schemas, so a cruise with no `Station` row (50 of 739: CUFES-only
+#' cruises, cruises whose ichthyoplankton are still in staging, cruises only the
+#' bottle and CTD sources sample) arrives with `date_min` / `date_max` NULL.
+#' Twenty-one of them were `derived` rows in v2026.10.19 and carried exactly the
+#' min/max event date of the samples keyed to them; on becoming `swfsc` rows they
+#' would have lost it, and check 6 skips a NULL span without a word. So every
+#' existing row whose `date_min` or `date_max` is NULL and that some dataset keys
+#' events to is filled from those events, before any row is added. A row that has
+#' a span keeps it (the ichthyo tows are the designation; another dataset's event
+#' outside it is check 6's finding, not a reason to widen the span), and a row no
+#' dataset keys to stays NULL.
+#'
 #' `cruise_tbl` may arrive as a VIEW over static parquet (as it does in
 #' `release_database.qmd`, before the per-cruise enrichment step rebuilds it as
 #' a TABLE) — this materializes it into a TABLE either way, because it must add
@@ -58,7 +72,9 @@
 #' @param sample_tbl,cruise_tbl,ship_tbl Table names.
 #' @return Invisibly, a tibble of the rows ADDED (empty if none were needed) —
 #'   `cruise_key`, `ship_key`, `date_ym`, `date_min`, `date_max`,
-#'   `cruise_key_datasets`.
+#'   `cruise_key_datasets` — with attribute `span_filled`: a tibble of the
+#'   existing rows whose NULL span was filled from their events (`cruise_key`,
+#'   `date_min`, `date_max`, `cruise_key_datasets`; empty when none was).
 #' @export
 #' @concept keys
 #' @importFrom DBI dbExecute dbGetQuery dbListFields dbListTables dbQuoteIdentifier
@@ -140,6 +156,24 @@ complete_cruise_reference <- function(con, sample_tbl = "sample",
     "UPDATE {cruise_tbl} c SET cruise_key_datasets = k.cruise_key_datasets
        FROM _ckr k WHERE c.cruise_key = k.cruise_key AND c.cruise_key_datasets IS NULL"))
 
+  # an existing row with no span of its own (a SWFSC cruise with no Station row,
+  # since the 2026-10-14 export's Cruise table is the union of dbo + stg) takes
+  # the observed span of the events the other datasets key to it — exactly what
+  # a derived row carries. A row with a span keeps it; a row with no events
+  # stays NULL. Reported, so a release log says which rows it touched.
+  span_filled <- tibble::as_tibble(DBI::dbGetQuery(con, glue::glue(
+    "SELECT c.cruise_key, k.ev_date_min AS date_min, k.ev_date_max AS date_max,
+            k.cruise_key_datasets
+     FROM {cruise_tbl} c JOIN _ckr k ON k.cruise_key = c.cruise_key
+     WHERE c.date_min IS NULL OR c.date_max IS NULL
+     ORDER BY c.cruise_key")))
+  if (nrow(span_filled))
+    DBI::dbExecute(con, glue::glue(
+      "UPDATE {cruise_tbl} c SET date_min = k.ev_date_min, date_max = k.ev_date_max
+         FROM _ckr k
+        WHERE c.cruise_key = k.cruise_key
+          AND (c.date_min IS NULL OR c.date_max IS NULL)"))
+
   added <- tibble::tibble(
     cruise_key = character(), ship_key = character(),
     date_ym = as.Date(character()), date_min = as.Date(character()),
@@ -174,7 +208,9 @@ complete_cruise_reference <- function(con, sample_tbl = "sample",
     "SELECT COUNT(*) AS n FROM {cruise_tbl} WHERE cruise_key_method = 'swfsc'"))$n
   message(glue::glue(
     "cruise reference: {n_swfsc} swfsc + {nrow(added)} derived = ",
-    "{n_swfsc + nrow(added)} rows"))
+    "{n_swfsc + nrow(added)} rows; span filled from other datasets' events on ",
+    "{nrow(span_filled)} swfsc row(s) that had none"))
+  attr(added, "span_filled") <- span_filled
   invisible(added)
 }
 
