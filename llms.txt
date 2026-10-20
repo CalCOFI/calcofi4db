@@ -732,6 +732,10 @@ check for other functions or datasets not captured by above categories
 - [`add_cruise_date_span()`](https://calcofi.io/calcofi4db/reference/add_cruise_date_span.md)
   : Add the observed date span of each cruise to the cruise reference
 
+- [`add_measurement_source_dataset()`](https://calcofi.io/calcofi4db/reference/add_measurement_source_dataset.md)
+  : Declare that a dataset also publishes measurement types another
+  dataset defined
+
 - [`add_point_geom()`](https://calcofi.io/calcofi4db/reference/add_point_geom.md)
   : Add Point Geometry Column to a DuckDB Table
 
@@ -837,6 +841,9 @@ check for other functions or datasets not captured by above categories
 
 - [`assign_grid_key()`](https://calcofi.io/calcofi4db/reference/assign_grid_key.md)
   : Assign Grid Key via Spatial Join
+
+- [`bottle_spice_sigma0()`](https://calcofi.io/calcofi4db/reference/bottle_spice_sigma0.md)
+  : Spice and TEOS-10 sigma-theta per bottle
 
 - [`build_climatology()`](https://calcofi.io/calcofi4db/reference/build_climatology.md)
   :
@@ -1355,6 +1362,12 @@ check for other functions or datasets not captured by above categories
 
   Merge a notebook's structural `dataset_meta` with its descriptive
   sidecar
+
+- [`merge_source_datasets()`](https://calcofi.io/calcofi4db/reference/merge_source_datasets.md)
+  :
+
+  Add a dataset to a measurement type's `_source_datasets`, keeping the
+  others
 
 - [`merge_taxon_shards()`](https://calcofi.io/calcofi4db/reference/merge_taxon_shards.md)
   :

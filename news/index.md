@@ -1,5 +1,31 @@
 # Changelog
 
+## calcofi4db 4.27.0
+
+- **New
+  `bottle_spice_sigma0(temperature, salinity, depth, longitude, latitude, q_temperature, q_salinity)`**:
+  spice (`spiciness0`) and TEOS-10 sigma-theta (`sigma_theta_teos10`,
+  `gsw_sigma0`) per bottle from the bottle’s own in-situ temperature and
+  practical salinity, at the sea pressure
+  `gsw_p_from_z(-depth, latitude)`. Spice is computed by
+  [`ctd_spice()`](https://calcofi.io/calcofi4db/reference/ctd_spice.md),
+  so the bottle and CTD series share one definition. A bottle whose
+  temperature or salinity is flagged 8 or 9 gets neither value (flags
+  first; `"8.0"` is `"8"`). Code 6 and an empty code count as good, and
+  a missing or non-finite input gives `NA`. Returns a tibble
+  (`pressure_dbar`, `spiciness0`, `sigma_theta_teos10`). It is the rule
+  behind the new `calcofi_bottle-derived` dataset (thread “calcofi
+  derived data”, Rasmus Swalethorp 2026-10-19, Ben Best 2026-10-20).
+- **New `merge_source_datasets(current, dataset_key)`** adds a dataset
+  to a measurement type’s `;`-separated `_source_datasets` and keeps the
+  datasets already listed, so two ingests that publish one type
+  (`spiciness0` from `calcofi_ctd-derived` and `calcofi_bottle-derived`)
+  no longer narrow it to themselves when they re-render.
+  **`add_measurement_source_dataset(types, dataset_key, path)`** does
+  the same on `measurement_type.csv` itself: it changes only
+  `_source_datasets`, refuses an unknown type, writes with `na = ""` and
+  writes nothing when the dataset is already listed.
+
 ## calcofi4db 4.26.0
 
 - **`measurements.json` carries an authored `short_label` per key**

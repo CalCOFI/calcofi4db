@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.26.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.27.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,6 +77,13 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.27.0" id="calcofi4db-4270">calcofi4db 4.27.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4270"></a></h2>
+<ul><li>
+<strong>New <code>bottle_spice_sigma0(temperature, salinity, depth, longitude, latitude, q_temperature, q_salinity)</code></strong>: spice (<code>spiciness0</code>) and TEOS-10 sigma-theta (<code>sigma_theta_teos10</code>, <code>gsw_sigma0</code>) per bottle from the bottle’s own in-situ temperature and practical salinity, at the sea pressure <code>gsw_p_from_z(-depth, latitude)</code>. Spice is computed by <code><a href="../reference/ctd_spice.html">ctd_spice()</a></code>, so the bottle and CTD series share one definition. A bottle whose temperature or salinity is flagged 8 or 9 gets neither value (flags first; <code>"8.0"</code> is <code>"8"</code>). Code 6 and an empty code count as good, and a missing or non-finite input gives <code>NA</code>. Returns a tibble (<code>pressure_dbar</code>, <code>spiciness0</code>, <code>sigma_theta_teos10</code>). It is the rule behind the new <code>calcofi_bottle-derived</code> dataset (thread “calcofi derived data”, Rasmus Swalethorp 2026-10-19, Ben Best 2026-10-20).</li>
+<li>
+<strong>New <code>merge_source_datasets(current, dataset_key)</code></strong> adds a dataset to a measurement type’s <code>;</code>-separated <code>_source_datasets</code> and keeps the datasets already listed, so two ingests that publish one type (<code>spiciness0</code> from <code>calcofi_ctd-derived</code> and <code>calcofi_bottle-derived</code>) no longer narrow it to themselves when they re-render. <strong><code>add_measurement_source_dataset(types, dataset_key, path)</code></strong> does the same on <code>measurement_type.csv</code> itself: it changes only <code>_source_datasets</code>, refuses an unknown type, writes with <code>na = ""</code> and writes nothing when the dataset is already listed.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.26.0" id="calcofi4db-4260">calcofi4db 4.26.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4260"></a></h2>
 <ul><li>

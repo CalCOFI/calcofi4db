@@ -11,6 +11,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/OBS_VIEW_COLUMNS.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/RELEASE_REQUIRED_OBJECTS.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/add_cruise_date_span.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/add_measurement_source_dataset.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/add_parquet_metadata.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/add_point_geom.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/add_provenance_columns.html</loc></url>
@@ -38,6 +39,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/assign_deterministic_uuids_md5.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assign_grid_key.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assign_sequential_ids.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/bottle_spice_sigma0.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/bounds_datatable.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_climatology.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_coverage.html</loc></url>
@@ -263,6 +265,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/merge_dataset_meta.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/merge_metadata_json.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/merge_relationships_json.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/merge_source_datasets.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/merge_taxon_shards.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/nc_global_atts.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/nc_level_put.html</loc></url>
