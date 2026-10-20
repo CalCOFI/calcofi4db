@@ -19,7 +19,9 @@ complete_cruise_reference(
 \value{
 Invisibly, a tibble of the rows ADDED (empty if none were needed) —
 \code{cruise_key}, \code{ship_key}, \code{date_ym}, \code{date_min}, \code{date_max},
-\code{cruise_key_datasets}.
+\code{cruise_key_datasets} — with attribute \code{span_filled}: a tibble of the
+existing rows whose NULL span was filled from their events (\code{cruise_key},
+\code{date_min}, \code{date_max}, \code{cruise_key_datasets}; empty when none was).
 }
 \description{
 The SWFSC ichthyo export's \code{cruise} table is a station-occupation cruise
@@ -43,6 +45,20 @@ failing on the first. \code{date_ym} is the key's own \code{YYYY-MM}; \code{date
 (a derived row's span is therefore always contained in itself — see
 \code{\link[=check_cruise_key_integrity]{check_cruise_key_integrity()}}'s check 6). \code{cruise_uuid} is left \code{NULL}: no
 derived cruise has one, by definition.
+
+\strong{A reference row with no span takes the observed span of its events.} Since
+SWFSC's 2026-10-14 export the \code{Cruise} table is the union of its \code{dbo} and
+\code{stg} schemas, so a cruise with no \code{Station} row (50 of 739: CUFES-only
+cruises, cruises whose ichthyoplankton are still in staging, cruises only the
+bottle and CTD sources sample) arrives with \code{date_min} / \code{date_max} NULL.
+Twenty-one of them were \code{derived} rows in v2026.10.19 and carried exactly the
+min/max event date of the samples keyed to them; on becoming \code{swfsc} rows they
+would have lost it, and check 6 skips a NULL span without a word. So every
+existing row whose \code{date_min} or \code{date_max} is NULL and that some dataset keys
+events to is filled from those events, before any row is added. A row that has
+a span keeps it (the ichthyo tows are the designation; another dataset's event
+outside it is check 6's finding, not a reason to widen the span), and a row no
+dataset keys to stays NULL.
 
 \code{cruise_tbl} may arrive as a VIEW over static parquet (as it does in
 \code{release_database.qmd}, before the per-cruise enrichment step rebuilds it as
