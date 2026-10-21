@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.28.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.29.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -1133,6 +1133,13 @@
 
       <dl><dt>
 
+          <code><a href="archive_sources.html">archive_sources()</a></code>
+
+        </dt>
+        <dd>Keep every source file an ingest reads in an immutable GCS archive</dd>
+
+        <dt>
+
           <code><a href="cleanup_duplicate_archives.html">cleanup_duplicate_archives()</a></code>
 
         </dt>
@@ -1172,6 +1179,20 @@
 
         </dt>
         <dd>Get local file manifest</dd>
+
+        <dt>
+
+          <code><a href="plan_source_archive.html">plan_source_archive()</a></code>
+
+        </dt>
+        <dd>Decide what archiving each source file needs</dd>
+
+        <dt>
+
+          <code><a href="source_archive_path.html">source_archive_path()</a></code>
+
+        </dt>
+        <dd>Where a source file is archived on GCS</dd>
 
         <dt>
 
@@ -3173,6 +3194,13 @@
 
         </dt>
         <dd>Validate a <code>taxa.json</code> against the package's JSON schema</dd>
+
+        <dt>
+
+          <code><a href="versions_record.html">versions_record()</a></code>
+
+        </dt>
+        <dd>One release's record in <code>versions.json</code>, from its <code>catalog.json</code></dd>
 
         <dt>
 

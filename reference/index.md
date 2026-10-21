@@ -400,6 +400,8 @@ tables)
 
 functions for archiving and managing historical data snapshots
 
+- [`archive_sources()`](https://calcofi.io/calcofi4db/reference/archive_sources.md)
+  : Keep every source file an ingest reads in an immutable GCS archive
 - [`cleanup_duplicate_archives()`](https://calcofi.io/calcofi4db/reference/cleanup_duplicate_archives.md)
   : Remove duplicate archives from GCS
 - [`compare_local_vs_archive()`](https://calcofi.io/calcofi4db/reference/compare_local_vs_archive.md)
@@ -412,6 +414,10 @@ functions for archiving and managing historical data snapshots
   : Get latest archive timestamp from GCS
 - [`get_local_manifest()`](https://calcofi.io/calcofi4db/reference/get_local_manifest.md)
   : Get local file manifest
+- [`plan_source_archive()`](https://calcofi.io/calcofi4db/reference/plan_source_archive.md)
+  : Decide what archiving each source file needs
+- [`source_archive_path()`](https://calcofi.io/calcofi4db/reference/source_archive_path.md)
+  : Where a source file is archived on GCS
 - [`sync_to_gcs_archive()`](https://calcofi.io/calcofi4db/reference/sync_to_gcs_archive.md)
   : Sync local files to GCS archive (deprecated wrapper)
 
@@ -1597,6 +1603,11 @@ check for other functions or datasets not captured by above categories
   :
 
   Validate a `taxa.json` against the package's JSON schema
+
+- [`versions_record()`](https://calcofi.io/calcofi4db/reference/versions_record.md)
+  :
+
+  One release's record in `versions.json`, from its `catalog.json`
 
 - [`write_dataset_catalog()`](https://calcofi.io/calcofi4db/reference/write_dataset_catalog.md)
   :

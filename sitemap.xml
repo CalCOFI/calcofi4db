@@ -25,6 +25,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/append_sample_measurement.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/apply_data_corrections.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/apply_taxon_common.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/archive_sources.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assemble_core.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assemble_core_table.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/assert_dataset_catalog.html</loc></url>
@@ -287,6 +288,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/parse_qmd_frontmatter.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/parse_registration.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/plan_dataset_netcdf.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/plan_source_archive.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/preview_tables.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/print_csv_change_stats.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/promote_release.html</loc></url>
@@ -395,6 +397,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/site_key_sql.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/sitemap_findings.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/source_accessed_from_git.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/source_archive_path.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/stac_collection.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/stac_findings.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/stac_item.html</loc></url>
@@ -430,6 +433,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/validate_measurements_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/validate_taxa_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/variable_csv_header_comment.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/versions_record.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/write_dataset_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/write_distribution_observed.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/write_eml_files.html</loc></url>
