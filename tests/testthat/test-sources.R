@@ -47,3 +47,13 @@ test_that("sources_block() carries md5, url and archive when present", {
   # a plain stamp_source_access() table is unchanged
   expect_named(sources_block(x[, 1:4])[[1]], c("source", "method", "accessed", "bytes"))
 })
+
+test_that("versions_record() carries the DOI from the catalog just written (v2026.10.20 regression)", {
+  cat_ <- list(version = "v2026.10.20", release_date = "2026-10-20", tables = list(1, 2),
+               total_rows = 383803652, total_size = 2717.2 * 1024^2, doi = "10.5281/zenodo.23524400")
+  r <- versions_record(cat_)
+  expect_equal(r$doi, "10.5281/zenodo.23524400")
+  expect_equal(r$tables, 2L)
+  expect_equal(r$size_mb, 2717.2)
+  expect_null(versions_record(modifyList(cat_, list(doi = "")))$doi)
+})

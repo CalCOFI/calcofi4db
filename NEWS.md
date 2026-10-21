@@ -7,6 +7,11 @@
   plain folder nothing syncs back to GCS, so a zip fetched from calcofi.org existed only there;
   when calcofi.org stopped serving the 1995-98 FinalQC zips, no copy was kept anywhere. The plan
   is the pure `plan_source_archive()`.
+- **`publish_release_notes()` writes the DOI into `versions.json` itself.** It passed nothing for
+  the version it had just stamped, so `build_versions_json()` read that catalog back over public
+  HTTPS, got the cached copy without the DOI, and every `versions.json` through v2026.10.20 had the
+  DOI patched in by hand. The record now comes from the local catalog (`versions_record()`, new),
+  and the local `data/releases/versions.json` is rewritten too.
 - **`metadata.json` `sources[]` records `md5`, `url` and `archive`** when the stamp table carries
   them (`sources_block()`), so the sidecars answer which bytes a release read and where they are
   kept. `archive_sources()` returns such a table for `build_metadata_json(sources = )`.

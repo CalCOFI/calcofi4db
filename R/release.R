@@ -490,14 +490,7 @@ build_versions_json <- function(bucket, prefix = CC_RELEASE_PREFIX,
     cat_ <- tryCatch(jsonlite::fromJSON(https(sprintf("%s/%s/catalog.json", prefix, v)),
                                         simplifyVector = FALSE), error = function(e) NULL)
     if (is.null(cat_)) return(NULL)
-    rec <- list(
-      version      = cat_$version,
-      release_date = cat_$release_date,
-      tables       = length(cat_$tables),
-      total_rows   = as.numeric(cat_$total_rows %||% 0),
-      size_mb      = round((cat_$total_size %||% 0) / 1024 / 1024, 1))
-    # the version DOI, once publish_release_notes() has written it into the catalog
-    if (!is.null(cat_$doi) && nzchar(cat_$doi)) rec$doi <- cat_$doi
+    rec <- versions_record(cat_)
     ret <- tryCatch(jsonlite::fromJSON(https(sprintf("%s/%s/retired.json", prefix, v)),
                                        simplifyVector = FALSE), error = function(e) NULL)
     if (!is.null(ret)) rec$retired <- ret
@@ -510,6 +503,24 @@ build_versions_json <- function(bucket, prefix = CC_RELEASE_PREFIX,
   }
   recs <- lapply(recs, function(r) { r$consolidated <- r$version %in% consolidated; r })
   recs[order(vapply(recs, `[[`, "", "version"), decreasing = TRUE)]
+}
+
+#' One release's record in `versions.json`, from its `catalog.json`
+#'
+#' @param catalog a parsed `catalog.json` (list)
+#' @return list: `version`, `release_date`, `tables`, `total_rows`, `size_mb`, and
+#'   `doi` once [publish_release_notes()] has written it into the catalog
+#' @concept release
+#' @export
+versions_record <- function(catalog) {
+  rec <- list(
+    version      = catalog$version,
+    release_date = catalog$release_date,
+    tables       = length(catalog$tables),
+    total_rows   = as.numeric(catalog$total_rows %||% 0),
+    size_mb      = round((catalog$total_size %||% 0) / 1024 / 1024, 1))
+  if (!is.null(catalog$doi) && nzchar(catalog$doi)) rec$doi <- catalog$doi
+  rec
 }
 
 #' Archive-thinning plan: which versions lose their parquet
