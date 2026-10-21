@@ -476,6 +476,9 @@ register_measurement_face <- function(new_rows, path, quiet = FALSE) {
 #'   method `platform`, scale `kind`, why `kind`, face `face_kind`)
 #' * a `measurement_why` key with zero, or more than one, `rank == 1` row
 #' * a `measurement_face` key absent from `measurement_type.csv`
+#' * a `measurement_face` `standsin` key whose `measurement_type.csv` row has
+#'   its own `nerc_p01`: a stand-in borrows the lender's chain, so a key with
+#'   its own P01 takes `scale` (or its own face) instead
 #' * a `measurement_face` `short_label` that is set but blank, longer than 48
 #'   characters, ends in punctuation, or is shared by another key (ignoring
 #'   case); an `NA` short_label is allowed
@@ -555,6 +558,18 @@ validate_measurement_faces <- function(chem_path, method_path, scale_path, why_p
     orphan <- setdiff(face$key, mt$measurement_type)
     if (length(orphan)) add("measurement_face", orphan, "unknown_key",
                             "measurement_face key not in measurement_type.csv")
+
+    # a stand-in borrows another key's face and NERC chain; a key with its own
+    # P01 has its own chain, so it cannot stand in (calcofi.io's
+    # check_measurement_faces.py refuses the pair, which first surfaced at the
+    # v2026.10.20 deploy for sigma_theta_teos10)
+    if ("nerc_p01" %in% names(mt)) {
+      p01 <- mt$nerc_p01[match(face$key, mt$measurement_type)]
+      own <- face$face_kind %in% "standsin" & !is.na(p01) & nzchar(p01)
+      if (any(own)) add("measurement_face", face$key[own], "standsin_own_p01",
+                        paste0("stands in for ", face$face_of[own],
+                               " but has its own NERC P01 ", p01[own]))
+    }
   }
 
   # nerc_l22 must be an exact-form L22 concept URI

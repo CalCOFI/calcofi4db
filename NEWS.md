@@ -1,3 +1,11 @@
+# calcofi4db 4.28.1
+
+- **`validate_measurement_faces()` reports a stand-in that has its own NERC P01** (rule
+  `standsin_own_p01`, when `measurement_type_path` is given). A `standsin` face borrows another key's
+  face and NERC chain, so a key with its own `nerc_p01` must take `scale` (or a face of its own).
+  calcofi.io's face check refused `sigma_theta_teos10` on these grounds, but only at the v2026.10.20
+  deploy; the validator now catches it before a release.
+
 # calcofi4db 4.28.0
 
 - **`complete_cruise_reference()` fills the span of a reference cruise that has none.** Since

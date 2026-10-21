@@ -157,6 +157,24 @@ test_that("validate_measurement_faces() flags a measurement_face key absent from
   expect_true(any(out$rule == "unknown_key" & out$key == "temperature"))
 })
 
+test_that("validate_measurement_faces() flags a stand-in key that has its own NERC P01", {
+  face <- tibble::tibble(
+    key = c("temperature", "temp_alt", "temp_ave"), face_kind = c("scale", "standsin", "standsin"),
+    face_of = c(NA, "temperature", "temperature"),
+    stands_in_note = c(NA, "stands in: temperature's face", "stands in: temperature's face"),
+    source = "fixture")
+  p <- validate_fixture_paths(face = face)
+  mtp <- withr::local_tempfile(fileext = ".csv")
+  writeLines(c("measurement_type,units,nerc_p01",
+               "temperature,deg_C,http://vocab.nerc.ac.uk/collection/P01/current/TEMPPR01/",
+               "temp_alt,deg_C,http://vocab.nerc.ac.uk/collection/P01/current/TEMPPR02/",
+               "temp_ave,deg_C,"), mtp)
+  out <- validate_measurement_faces(p$chem, p$method, p$scale, p$why, p$face, measurement_type_path = mtp)
+  hit <- out[out$rule == "standsin_own_p01", ]
+  expect_equal(hit$key, "temp_alt")
+  expect_match(hit$detail, "TEMPPR02")
+})
+
 test_that("validate_measurement_faces() flags a nerc_l22 that is not an exact L22 concept URI", {
   bad_method <- mmethod_fixture(); bad_method$nerc_l22 <- "SBE43"
   p <- validate_fixture_paths(method = bad_method)

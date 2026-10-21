@@ -37,6 +37,9 @@ reports before calling itself done. Checks, one row of output each:
 method \code{platform}, scale \code{kind}, why \code{kind}, face \code{face_kind})
 \item a \code{measurement_why} key with zero, or more than one, \code{rank == 1} row
 \item a \code{measurement_face} key absent from \code{measurement_type.csv}
+\item a \code{measurement_face} \code{standsin} key whose \code{measurement_type.csv} row has
+its own \code{nerc_p01}: a stand-in borrows the lender's chain, so a key with
+its own P01 takes \code{scale} (or its own face) instead
 \item a \code{measurement_face} \code{short_label} that is set but blank, longer than 48
 characters, ends in punctuation, or is shared by another key (ignoring
 case); an \code{NA} short_label is allowed
