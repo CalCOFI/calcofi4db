@@ -1,3 +1,16 @@
+# calcofi4db 4.29.0
+
+- **`archive_sources()` keeps every file an ingest reads in an immutable GCS archive**, once per
+  content at `archive/sources/{provider}/{dataset}/{md5}/{file}` (`source_archive_path()`): an
+  object already there costs nothing, one the `_sync/` mirror holds is copied server side, anything
+  else is uploaded, and a failed copy or upload stops the render. On the Mac mini `dir_data` is a
+  plain folder nothing syncs back to GCS, so a zip fetched from calcofi.org existed only there;
+  when calcofi.org stopped serving the 1995-98 FinalQC zips, no copy was kept anywhere. The plan
+  is the pure `plan_source_archive()`.
+- **`metadata.json` `sources[]` records `md5`, `url` and `archive`** when the stamp table carries
+  them (`sources_block()`), so the sidecars answer which bytes a release read and where they are
+  kept. `archive_sources()` returns such a table for `build_metadata_json(sources = )`.
+
 # calcofi4db 4.28.1
 
 - **`validate_measurement_faces()` reports a stand-in that has its own NERC P01** (rule
