@@ -725,6 +725,9 @@ sources_block <- function(x) {
     e <- list(source = x$source[i], method = x$method[i],
               accessed = format(x$accessed[i], "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"))
     if (!is.na(x$bytes[i])) e$bytes <- x$bytes[i]
+    # provenance from archive_sources(): which bytes, fetched from where, kept where
+    for (k in intersect(c("md5", "url", "archive"), names(x)))
+      if (!is.na(x[[k]][i])) e[[k]] <- x[[k]][i]
     e
   })
 }

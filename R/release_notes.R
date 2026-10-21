@@ -307,8 +307,14 @@ publish_release_notes <- function(version, releases_md, dir_releases,
           release_policy <- file.path(dirname(releases_md), "metadata", "release_policy.yml")
         consolidated <- if (file.exists(release_policy))
           yaml::read_yaml(release_policy)$consolidated %||% character() else character()
-        vj <- build_versions_json(bucket, prefix, consolidated = consolidated)
-        vj_local <- tempfile(fileext = ".json")
+        # the record for this version comes from the catalog just written, not from
+        # the bucket: build_versions_json() reads catalogs over public HTTPS, whose
+        # cached copy (until the no-cache update below) still lacks the DOI, so every
+        # versions.json through v2026.10.20 needed the DOI patched in by hand
+        vj <- build_versions_json(bucket, prefix, consolidated = consolidated,
+                                  current = versions_record(cat_raw))
+        vj_local <- file.path(dir_releases, "versions.json")
+        if (!file.exists(vj_local)) vj_local <- tempfile(fileext = ".json")
         jsonlite::write_json(list(versions = vj), vj_local, auto_unbox = TRUE, pretty = TRUE)
         put_gcs_file(vj_local, gs("versions.json"))
         system2(find_gcloud(), c("storage", "objects", "update", "--cache-control=no-cache",
