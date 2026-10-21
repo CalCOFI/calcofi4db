@@ -46,6 +46,10 @@ means clean.
 
 - a `measurement_face` key absent from `measurement_type.csv`
 
+- a `measurement_face` `standsin` key whose `measurement_type.csv` row
+  has its own `nerc_p01`: a stand-in borrows the lender's chain, so a
+  key with its own P01 takes `scale` (or its own face) instead
+
 - a `measurement_face` `short_label` that is set but blank, longer than
   48 characters, ends in punctuation, or is shared by another key
   (ignoring case); an `NA` short_label is allowed

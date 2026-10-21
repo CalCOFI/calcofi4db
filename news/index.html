@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.28.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.28.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,6 +77,11 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.28.1" id="calcofi4db-4281">calcofi4db 4.28.1<a class="anchor" aria-label="anchor" href="#calcofi4db-4281"></a></h2>
+<ul><li>
+<strong><code><a href="../reference/validate_measurement_faces.html">validate_measurement_faces()</a></code> reports a stand-in that has its own NERC P01</strong> (rule <code>standsin_own_p01</code>, when <code>measurement_type_path</code> is given). A <code>standsin</code> face borrows another key’s face and NERC chain, so a key with its own <code>nerc_p01</code> must take <code>scale</code> (or a face of its own). calcofi.io’s face check refused <code>sigma_theta_teos10</code> on these grounds, but only at the v2026.10.20 deploy; the validator now catches it before a release.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.28.0" id="calcofi4db-4280">calcofi4db 4.28.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4280"></a></h2>
 <ul><li>
