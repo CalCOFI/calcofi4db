@@ -79,7 +79,9 @@ md5_base64_to_hex <- function(x) {
 #' @param provider,dataset the ingest's provider and dataset
 #' @param urls where each file was fetched from (`NA` for a file that arrived by
 #'   hand or from Drive); recycled to `files`
-#' @param bucket GCS bucket (default `"calcofi-files-public"`)
+#' @param bucket GCS bucket (default `"calcofi-files-public"`; an
+#'   `in_release: false` dataset goes to `calcofi-files-private`, see
+#'   [gcs_bucket_for_dataset()])
 #' @param prefix archive prefix (default `"archive/sources"`)
 #' @param mirror_prefix a mirror to copy from server side, e.g.
 #'   `"_sync/calcofi/ctd-cast/download"`; `NULL` for none
@@ -92,6 +94,14 @@ archive_sources <- function(files, provider, dataset, urls = NA_character_,
                             bucket = "calcofi-files-public", prefix = "archive/sources",
                             mirror_prefix = NULL, dry_run = FALSE) {
   stopifnot(length(files) > 0, all(file.exists(files)))
+  # an unreleased dataset's sources are kept in the private twin, never the public archive
+  to <- gcs_bucket_for_dataset(bucket, paste0(provider, "_", dataset))
+  if (is.na(to)) stop(glue::glue("{provider}_{dataset} is in_release: false and has no private ",
+                                 "bucket for gs://{bucket}"), call. = FALSE)
+  if (!identical(to, bucket)) {
+    message(glue::glue("{provider}_{dataset} is in_release: false: gs://{bucket} -> gs://{to}"))
+    bucket <- to
+  }
   urls  <- rep_len(as.character(urls), length(files))
   info  <- file.info(files)
   md5   <- unname(tools::md5sum(files))

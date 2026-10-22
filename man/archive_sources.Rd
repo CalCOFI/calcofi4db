@@ -23,7 +23,9 @@ archive_sources(
 \item{urls}{where each file was fetched from (\code{NA} for a file that arrived by
 hand or from Drive); recycled to \code{files}}
 
-\item{bucket}{GCS bucket (default \code{"calcofi-files-public"})}
+\item{bucket}{GCS bucket (default \code{"calcofi-files-public"}; an
+\code{in_release: false} dataset goes to \code{calcofi-files-private}, see
+\code{\link[=gcs_bucket_for_dataset]{gcs_bucket_for_dataset()}})}
 
 \item{prefix}{archive prefix (default \code{"archive/sources"})}
 

@@ -88,6 +88,15 @@ Timestamp derived from max file mtime for reproducibility.
 Skips upload if files match the latest existing archive.
 }
 }
+\section{Unreleased datasets never reach a public bucket}{
+
+When \code{gcs_prefix} names a dataset (\verb{ingest/\{provider\}_\{dataset\}},
+\code{archive/{provider}/{dataset}}, or \code{provider} + \code{dataset} are given) and its
+ingest says \code{in_release: false}, an upload to a bucket anyone can read
+(\link{CC_PUBLIC_BUCKETS}) goes to the private preview bucket instead, or is
+skipped with a warning when none is configured; see \code{\link[=gcs_bucket_for_dataset]{gcs_bucket_for_dataset()}}.
+}
+
 \examples{
 \dontrun{
 # mirror mode: sync parquet outputs
