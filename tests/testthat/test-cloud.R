@@ -74,3 +74,66 @@ test_that("gcs_object_md5() reads a real object's MD5 when gcloud is available",
   expect_true(is.na(gcs_object_md5("gs://calcofi-db/ducklake/releases/no-such-object.txt")))
 })
 
+
+# an unreleased dataset never reaches a public bucket (2026-10-22) -----------
+# the withdrawn cetacean notebooks still archived their sources to
+# calcofi-files-public and synced parquet to calcofi-db/ingest/ on every render
+
+test_that("gcs_bucket_for_dataset() keeps an unreleased dataset out of the public buckets", {
+  ex <- c("sio_cetacean-sightings")
+  # released, or a private bucket: unchanged
+  expect_equal(gcs_bucket_for_dataset("calcofi-db", "swfsc_ichthyo", ex, ""), "calcofi-db")
+  expect_equal(gcs_bucket_for_dataset("calcofi-files-private", "sio_cetacean-sightings", ex, ""),
+               "calcofi-files-private")
+  # unreleased sources: always the private twin, so a source is still kept
+  expect_equal(gcs_bucket_for_dataset("calcofi-files-public", "sio_cetacean-sightings", ex, ""),
+               "calcofi-files-private")
+  # unreleased parquet: the preview bucket, or NA (skip) without one
+  expect_equal(gcs_bucket_for_dataset("calcofi-db", "sio_cetacean-sightings", ex, "calcofi-preview"),
+               "calcofi-preview")
+  expect_identical(gcs_bucket_for_dataset("calcofi-db", "sio_cetacean-sightings", ex, ""), NA_character_)
+  # a "preview" bucket that is itself public is no preview
+  expect_identical(gcs_bucket_for_dataset("calcofi-db", "sio_cetacean-sightings", ex, "calcofi-db"),
+                   NA_character_)
+})
+
+test_that("dataset_key_from_gcs_prefix() reads the ingest and archive prefixes", {
+  expect_equal(dataset_key_from_gcs_prefix("ingest/sio_cetacean-edna"), "sio_cetacean-edna")
+  expect_equal(dataset_key_from_gcs_prefix("ingest/sio_cetacean-edna/obs"), "sio_cetacean-edna")
+  expect_equal(dataset_key_from_gcs_prefix("archive/sio/cetacean-sonobuoy"), "sio_cetacean-sonobuoy")
+  expect_equal(dataset_key_from_gcs_prefix("archive", provider = "sio", dataset = "x"), "sio_x")
+  expect_identical(dataset_key_from_gcs_prefix("_sync"), NA_character_)
+  expect_identical(dataset_key_from_gcs_prefix("ducklake/releases/v1"), NA_character_)
+})
+
+test_that("sync_to_gcs() skips an unreleased dataset's public upload without touching gcloud", {
+  dir <- withr::local_tempdir()
+  writeLines(c("---", "calcofi:", "  target_name: ingest_sio_held", "  workflow_type: ingest",
+               "  output: data/parquet/sio_held/manifest.json", "  provider: sio", "  dataset: held",
+               "  in_release: false", "---"), file.path(dir, "ingest_sio_held.qmd"))
+  withr::local_options(calcofi.workflow_dir = dir)
+  withr::local_envvar(CALCOFI_PREVIEW_BUCKET = "")
+  local_mocked_bindings(find_gcloud = function(...) stop("gcloud must not be called"))
+  src <- withr::local_tempdir(); writeLines("x", file.path(src, "a.csv"))
+
+  expect_warning(r <- sync_to_gcs(src, "ingest/sio_held", "calcofi-db"), "in_release: false")
+  expect_equal(nrow(r), 0)
+  expect_equal(gcs_bucket_for_dataset("calcofi-files-public", "sio_held"), "calcofi-files-private")
+})
+
+test_that("archive_sources() keeps an unreleased dataset's sources in the private twin", {
+  dir <- withr::local_tempdir()
+  writeLines(c("---", "calcofi:", "  target_name: ingest_sio_held", "  workflow_type: ingest",
+               "  output: data/parquet/sio_held/manifest.json", "  provider: sio", "  dataset: held",
+               "  in_release: false", "---"), file.path(dir, "ingest_sio_held.qmd"))
+  withr::local_options(calcofi.workflow_dir = dir)
+  seen <- character()
+  local_mocked_bindings(list_gcs_files = function(bucket, ...) {
+    seen <<- c(seen, bucket); tibble::tibble(name = character(), md5 = character()) })
+  src <- withr::local_tempdir(); f <- file.path(src, "a.csv"); writeLines("x", f)
+  expect_message(archive_sources(f, "sio", "held", dry_run = TRUE), "calcofi-files-private")
+  expect_equal(unique(seen), "calcofi-files-private")
+  seen <- character()
+  archive_sources(f, "swfsc", "ichthyo", dry_run = TRUE)
+  expect_equal(unique(seen), "calcofi-files-public")
+})

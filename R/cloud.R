@@ -236,6 +236,13 @@ copy_gcs_file <- function(src, dst) {
 #' @param dataset Dataset name (required when `archive = TRUE`)
 #' @param verbose Print per-file status messages (default: TRUE)
 #'
+#' @section Unreleased datasets never reach a public bucket:
+#' When `gcs_prefix` names a dataset (`ingest/{provider}_{dataset}`,
+#' `archive/{provider}/{dataset}`, or `provider` + `dataset` are given) and its
+#' ingest says `in_release: false`, an upload to a bucket anyone can read
+#' ([CC_PUBLIC_BUCKETS]) goes to the private preview bucket instead, or is
+#' skipped with a warning when none is configured; see [gcs_bucket_for_dataset()].
+#'
 #' @return In mirror mode: tibble with columns `file`, `action`, `size`.
 #'   In archive mode: list with `archive_timestamp`, `archive_path`,
 #'   `created_new`, `files_uploaded`.
@@ -286,6 +293,27 @@ sync_to_gcs <- function(
     sidecar_dir  = NULL,
     gcs_retries  = 3L,
     verbose      = TRUE) {
+
+  # an unreleased dataset's sources and parquet go to the preview bucket, never
+  # a public one (2026-10-22: a re-render of the withdrawn cetacean notebooks
+  # would have re-published them)
+  key <- dataset_key_from_gcs_prefix(gcs_prefix, provider, dataset)
+  if (!is.na(key)) {
+    to <- gcs_bucket_for_dataset(bucket, key)
+    if (is.na(to)) {
+      warning(glue::glue(
+        "{key} is in_release: false, so it is not uploaded to the public bucket gs://{bucket}; ",
+        "set CALCOFI_PREVIEW_BUCKET to stage it privately"), call. = FALSE)
+      if (archive) return(invisible(list(
+        archive_timestamp = NA_character_, archive_path = NA_character_,
+        created_new = FALSE, files_uploaded = 0L)))
+      return(invisible(tibble::tibble(file = character(), action = character(), size = numeric())))
+    }
+    if (!identical(to, bucket)) {
+      if (verbose) message(glue::glue("{key} is in_release: false: gs://{bucket} -> gs://{to}"))
+      bucket <- to
+    }
+  }
 
   sidecar_files <- character()
   if (!is.null(sidecar_dir) && dir.exists(sidecar_dir))
@@ -1389,4 +1417,56 @@ promote_release <- function(version, bucket = "calcofi-db",
     stop(glue::glue("promote_release(): failed to write {gcs_path}"), call. = FALSE)
   message(glue::glue("promoted {version} -> {gcs_path} (no-cache)"))
   invisible(version)
+}
+
+#' Buckets anyone can read
+#'
+#' The buckets the pipeline writes that grant `allUsers` read: the release and
+#' staging bucket and the public source mirror. [sync_to_gcs()] keeps an
+#' unreleased dataset out of them.
+#' @export
+#' @concept cloud
+CC_PUBLIC_BUCKETS <- c("calcofi-db", "calcofi-files-public")
+
+#' The bucket an upload of one dataset may go to
+#'
+#' A dataset whose ingest says `in_release: false` has not been confirmed by its
+#' provider, so neither its sources nor its staged parquet may reach a bucket
+#' anyone can read. A private bucket, or a released dataset, keeps `bucket`.
+#' Sources (`calcofi-files-public`) go to their private twin
+#' `calcofi-files-private`, so a source is still kept; staged parquet
+#' (`calcofi-db`) goes to the preview bucket, or nowhere until one is set.
+#'
+#' @param bucket the bucket the caller asked for
+#' @param dataset_key `{provider}_{dataset}`
+#' @param excluded the unreleased dataset keys (default: [release_excluded_datasets()]
+#'   of the workflows directory, `getOption("calcofi.workflow_dir")`, else the
+#'   working directory, where a notebook renders)
+#' @param preview_bucket the private bucket for unreleased datasets
+#'   (`CALCOFI_PREVIEW_BUCKET`; empty means none is configured)
+#' @return `bucket`, the preview bucket, or `NA` when the upload must be skipped
+#' @export
+#' @concept cloud
+gcs_bucket_for_dataset <- function(
+    bucket, dataset_key,
+    excluded       = release_excluded_datasets(getOption("calcofi.workflow_dir", getwd())),
+    preview_bucket = Sys.getenv("CALCOFI_PREVIEW_BUCKET")) {
+  if (!bucket %in% CC_PUBLIC_BUCKETS || !dataset_key %in% excluded) return(bucket)
+  to <- if (identical(bucket, "calcofi-files-public")) "calcofi-files-private" else preview_bucket
+  if (nzchar(to) && !to %in% CC_PUBLIC_BUCKETS) return(to)
+  NA_character_
+}
+
+#' The dataset an upload belongs to, from its arguments
+#'
+#' @return `{provider}_{dataset}` from `provider` + `dataset`, an
+#'   `ingest/{key}` or `archive/{provider}/{dataset}` prefix, else `NA`
+#' @noRd
+dataset_key_from_gcs_prefix <- function(gcs_prefix, provider = NULL, dataset = NULL) {
+  if (!is.null(provider) && !is.null(dataset)) return(paste0(provider, "_", dataset))
+  gcs_prefix <- sub("^/", "", as.character(gcs_prefix))
+  if (grepl("^ingest/[^/]+", gcs_prefix)) return(sub("^ingest/([^/]+).*$", "\\1", gcs_prefix))
+  if (grepl("^archive/[^/]+/[^/]+", gcs_prefix))
+    return(sub("^archive/([^/]+)/([^/]+).*$", "\\1_\\2", gcs_prefix))
+  NA_character_
 }
