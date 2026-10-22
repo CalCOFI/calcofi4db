@@ -1,5 +1,24 @@
 # Changelog
 
+## calcofi4db 4.30.0
+
+- [`sync_to_gcs()`](https://calcofi.io/calcofi4db/reference/sync_to_gcs.md)
+  and
+  [`archive_sources()`](https://calcofi.io/calcofi4db/reference/archive_sources.md)
+  never upload a dataset whose ingest says `in_release: false` to a
+  bucket anyone can read (`CC_PUBLIC_BUCKETS`: `calcofi-db`,
+  `calcofi-files-public`). The dataset is recognized from an
+  `ingest/{key}` or `archive/{provider}/{dataset}` prefix or from
+  `provider` + `dataset`. Its sources go to the private twin
+  `calcofi-files-private`, so they are still kept; its staged parquet
+  goes to the private preview bucket named by `CALCOFI_PREVIEW_BUCKET`,
+  or is skipped with a warning while none is set. Before this,
+  re-rendering one of the withdrawn cetacean notebooks would have
+  re-published their sources and parquet.
+- New
+  [`gcs_bucket_for_dataset()`](https://calcofi.io/calcofi4db/reference/gcs_bucket_for_dataset.md)
+  is that rule, and `CC_PUBLIC_BUCKETS` the list.
+
 ## calcofi4db 4.29.0
 
 - **[`archive_sources()`](https://calcofi.io/calcofi4db/reference/archive_sources.md)

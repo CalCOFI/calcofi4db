@@ -7,6 +7,7 @@
 <url><loc>https://calcofi.io/calcofi4db/news/index.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/CC_DEPTH_MAX_M.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/CC_PARQUET_WRITER.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/CC_PUBLIC_BUCKETS.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/CC_RELEASE_PREFIX.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/OBS_VIEW_COLUMNS.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/RELEASE_REQUIRED_OBJECTS.html</loc></url>
@@ -212,6 +213,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/format_bbox.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/freeze_plan.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/freeze_release.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/gcs_bucket_for_dataset.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/gcs_object_md5.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/get_archive_manifest.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/get_calcofi_file.html</loc></url>

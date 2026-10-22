@@ -45,7 +45,7 @@ Only uploads files that are new or changed."><!-- calcofi.io brand contract v2 (
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.29.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.30.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -198,6 +198,16 @@ immutable snapshot at <code>gs://{bucket}/{gcs_prefix}/{timestamp}/{provider}/{d
 Timestamp derived from max file mtime for reproducibility.
 Skips upload if files match the latest existing archive.</p></li>
 </ul></div>
+    <div class="section level2">
+    <h2 id="unreleased-datasets-never-reach-a-public-bucket">Unreleased datasets never reach a public bucket<a class="anchor" aria-label="anchor" href="#unreleased-datasets-never-reach-a-public-bucket"></a></h2>
+
+
+<p>When <code>gcs_prefix</code> names a dataset (<code>ingest/{provider}_{dataset}</code>,
+<code>archive/{provider}/{dataset}</code>, or <code>provider</code> + <code>dataset</code> are given) and its
+ingest says <code>in_release: false</code>, an upload to a bucket anyone can read
+(<a href="CC_PUBLIC_BUCKETS.html">CC_PUBLIC_BUCKETS</a>) goes to the private preview bucket instead, or is
+skipped with a warning when none is configured; see <code><a href="gcs_bucket_for_dataset.html">gcs_bucket_for_dataset()</a></code>.</p>
+    </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>

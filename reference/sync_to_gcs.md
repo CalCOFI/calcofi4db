@@ -122,6 +122,17 @@ Two modes:
   Timestamp derived from max file mtime for reproducibility. Skips
   upload if files match the latest existing archive.
 
+## Unreleased datasets never reach a public bucket
+
+When `gcs_prefix` names a dataset (`ingest/{provider}_{dataset}`,
+`archive/{provider}/{dataset}`, or `provider` + `dataset` are given) and
+its ingest says `in_release: false`, an upload to a bucket anyone can
+read
+([CC_PUBLIC_BUCKETS](https://calcofi.io/calcofi4db/reference/CC_PUBLIC_BUCKETS.md))
+goes to the private preview bucket instead, or is skipped with a warning
+when none is configured; see
+[`gcs_bucket_for_dataset()`](https://calcofi.io/calcofi4db/reference/gcs_bucket_for_dataset.md).
+
 ## Examples
 
 ``` r

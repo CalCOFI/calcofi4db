@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.29.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.30.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,6 +77,12 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.30.0" id="calcofi4db-4300">calcofi4db 4.30.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4300"></a></h2>
+<ul><li>
+<code><a href="../reference/sync_to_gcs.html">sync_to_gcs()</a></code> and <code><a href="../reference/archive_sources.html">archive_sources()</a></code> never upload a dataset whose ingest says <code>in_release: false</code> to a bucket anyone can read (<code>CC_PUBLIC_BUCKETS</code>: <code>calcofi-db</code>, <code>calcofi-files-public</code>). The dataset is recognized from an <code>ingest/{key}</code> or <code>archive/{provider}/{dataset}</code> prefix or from <code>provider</code> + <code>dataset</code>. Its sources go to the private twin <code>calcofi-files-private</code>, so they are still kept; its staged parquet goes to the private preview bucket named by <code>CALCOFI_PREVIEW_BUCKET</code>, or is skipped with a warning while none is set. Before this, re-rendering one of the withdrawn cetacean notebooks would have re-published their sources and parquet.</li>
+<li>New <code><a href="../reference/gcs_bucket_for_dataset.html">gcs_bucket_for_dataset()</a></code> is that rule, and <code>CC_PUBLIC_BUCKETS</code> the list.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.29.0" id="calcofi4db-4290">calcofi4db 4.29.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4290"></a></h2>
 <ul><li>

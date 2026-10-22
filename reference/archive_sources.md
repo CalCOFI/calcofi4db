@@ -43,7 +43,9 @@ archive_sources(
 
 - bucket:
 
-  GCS bucket (default `"calcofi-files-public"`)
+  GCS bucket (default `"calcofi-files-public"`; an `in_release: false`
+  dataset goes to `calcofi-files-private`, see
+  [`gcs_bucket_for_dataset()`](https://calcofi.io/calcofi4db/reference/gcs_bucket_for_dataset.md))
 
 - prefix:
 

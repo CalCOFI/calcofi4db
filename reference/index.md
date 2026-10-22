@@ -4,6 +4,9 @@
 
 functions for Google Cloud Storage operations
 
+- [`CC_PUBLIC_BUCKETS`](https://calcofi.io/calcofi4db/reference/CC_PUBLIC_BUCKETS.md)
+  : Buckets anyone can read
+
 - [`cc_stage_dir()`](https://calcofi.io/calcofi4db/reference/cc_stage_dir.md)
   : Local Staging Root for Bulk Data
 
@@ -24,6 +27,9 @@ functions for Google Cloud Storage operations
 
 - [`delete_gcs_prefix()`](https://calcofi.io/calcofi4db/reference/delete_gcs_prefix.md)
   : Delete all objects under a GCS prefix
+
+- [`gcs_bucket_for_dataset()`](https://calcofi.io/calcofi4db/reference/gcs_bucket_for_dataset.md)
+  : The bucket an upload of one dataset may go to
 
 - [`gcs_object_md5()`](https://calcofi.io/calcofi4db/reference/gcs_object_md5.md)
   [`local_md5_base64()`](https://calcofi.io/calcofi4db/reference/gcs_object_md5.md)
