@@ -1,3 +1,22 @@
+# calcofi4db 4.31.0
+
+- **New `correct_cruise_ship()`** corrects a source's ship code on a single
+  source cruise (`ship_code` + `cruise_ym`, from a registry CSV), where a global
+  rename by name and code would also change the ship's correct cruises. The
+  CalCOFI bottle database and the picoplankton `studyName` call the July 2009
+  cruise `31M4` (MCARTHUR, out of service since 2003) instead of `33MH`
+  (MCARTHUR II), and 198502 is a real `31M4` cruise. A registry row for the
+  dataset that matches nothing stops the ingest.
+- **`check_cruise_key_integrity()` check 11 (`derived_co_occupied`, hard)**: a
+  root sample on a `derived` cruise at a station an `swfsc_ichthyo` site occupied
+  within `co_occupation_hours` (default 24) under a different `cruise_key` fails
+  the release, with `known_co_occupied` for named exceptions. Every release
+  through v2026.10.21 kept the July 2009 bottle casts and picoplankton samples
+  on a derived `2009-07-31M4` beside SWFSC's `2009-07-33MH` with the same dates,
+  and checks 1-10 passed: the derived row satisfied the FK, its NODC was the
+  stated ship's own, its span was its own events' and the overlap check compares
+  one ship's cruises only. The check now needs `sample.site_key`.
+
 # calcofi4db 4.30.0
 
 - `sync_to_gcs()` and `archive_sources()` never upload a dataset whose ingest says

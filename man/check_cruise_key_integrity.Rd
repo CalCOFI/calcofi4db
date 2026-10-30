@@ -9,6 +9,8 @@ check_cruise_key_integrity(
   tolerance_days = 31L,
   known_outside_span = character(),
   manifest_ichthyo = NULL,
+  co_occupation_hours = 24,
+  known_co_occupied = character(),
   ratchets = list(span_overlaps_max = 2L, derived_max = 152L, key_null_max =
     c(calcofi_dic = 3255L, `sio_pic-zooplankton` = 5087L, `cdfw_dungeness-crab` = 1639L,
     calcofi_bottle = 49L)),
@@ -34,6 +36,13 @@ only the values are used) — an UNLISTED violator still fails.}
 \code{mismatches$cruise_uuid} \code{n_mismatch} count (from \code{manifest.json}), or
 \code{NULL} if not supplied (check 7 then fails, naming the gap).}
 
+\item{co_occupation_hours}{Hours within which a derived-cruise event and an
+ichthyo site at the same \code{site_key} count as one occupation (check 11;
+default 24).}
+
+\item{known_co_occupied}{Derived \code{cruise_key}s exempt from check 11 (two
+ships really at one station at once) — an unlisted one still fails.}
+
 \item{ratchets}{A list with \code{span_overlaps_max}, \code{derived_max} (both single
 integers) and \code{key_null_max} (a named integer vector by \code{dataset_key};
 an un-named dataset's allowance is 0, so a first NULL there fails).}
@@ -49,12 +58,13 @@ check is not per-dataset), \code{n}, \code{mode} (\code{"fail"} | \code{"ratchet
 \code{finding}.
 }
 \description{
-Ten checks over \code{cruise_key} as it is actually used, not as it is assumed to
+Eleven checks over \code{cruise_key} as it is actually used, not as it is assumed to
 behave — see the WS-B design memo for the incidents each one guards against.
 Checks 1-5 and 7 are hard failures from the first run (\code{n} must be exactly
 0); check 6 is hard with \code{known_outside_span} as named exceptions (an
 UNLISTED violator still fails); checks 8-10 are ratchets — the current count
-must not exceed the allowance, which may only ever be lowered.
+must not exceed the allowance, which may only ever be lowered; check 11 is
+hard with \code{known_co_occupied} as named exceptions.
 }
 \details{
 \enumerate{
@@ -78,6 +88,16 @@ overlap by more than 3 days.
 \item (ratchet \code{derived_max}) \code{cruise_key_method = 'derived'} row count.
 \item (ratchet \code{key_null_max}, per \code{dataset_key}) root samples with a
 \code{NULL} \code{cruise_key}.
+\item a root sample on a \code{'derived'} cruise at a station (\code{site_key}) that
+an \code{swfsc_ichthyo} site occupied within \code{co_occupation_hours} under a
+different \code{cruise_key}. A derived cruise is one SWFSC has no record of,
+so a station SWFSC occupied at the same time on a cruise it does know is
+the same occupation under a second key: the source named the wrong ship
+(the July 2009 bottle casts, \verb{2009-07-31M4} beside \verb{2009-07-33MH}, in every
+release through v2026.10.21). Checks 3, 4, 6 and 8 cannot see this:
+the derived row makes the FK hold, its NODC is the (wrong) ship's own,
+its span is its own events', and the two cruises are different ships.
+\code{known_co_occupied} names exempt derived \code{cruise_key}s.
 }
 }
 \concept{keys}
