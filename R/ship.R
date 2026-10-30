@@ -727,3 +727,93 @@ ensure_interim_ships <- function(
 
   length(new_codes)
 }
+
+#' Correct a source's ship code on one cruise only
+#'
+#' A source can name the wrong ship for a single cruise while naming that ship
+#' correctly on every other cruise. A global rename (`ship_renames.csv`, by name
+#' and code) cannot fix that without breaking the cruises it already gets right.
+#' The CalCOFI bottle database and the picoplankton `studyName` call the July 2009
+#' cruise `2009-07-14-C-31M4` (MCARTHUR, which left service in 2003), while every
+#' other dataset and the SWFSC reference call it `2009-07-33MH` (MCARTHUR II), so
+#' the bottle casts were released on a `derived` cruise of their own and joined
+#' to nothing. Cruise 198502 is a real 31M4 cruise.
+#'
+#' Each row of `corrections_csv` names a source ship code and a source cruise
+#' designation (`cruise_ym`, YYYYMM), plus the corrected code, and the rows of
+#' `table_name` holding both get the corrected `ship_code`. Run it before
+#' [derive_cruise_key_on_casts()]. A row that lists `dataset_key` (`;`-separated,
+#' or empty for every dataset) and matches nothing in that table is an error.
+#' A correction that no longer applies should be deleted from the registry, not
+#' left to pass silently.
+#'
+#' @param con DBI connection holding `table_name`.
+#' @param table_name Table with a `ship_code` column and `cruise_ym_col`.
+#' @param corrections_csv Path to the registry, with columns `ship_code`,
+#'   `cruise_ym`, `ship_code_new`, `dataset_key` and `evidence`.
+#' @param dataset_key This ingest's dataset key. Only rows listing it, or listing
+#'   no dataset, apply.
+#' @param cruise_ym_col Column holding the source's own cruise designation as
+#'   YYYYMM (character or number; compared as an integer).
+#' @param ship_name_col Optional column to set to `ship_name_new` where the
+#'   registry gives one (default `NULL`, so no name is changed).
+#' @return A tibble of the applied rows with `n_updated`.
+#' @export
+#' @concept ship
+#' @importFrom DBI dbExecute dbQuoteIdentifier dbQuoteString dbListFields
+#' @importFrom readr read_csv cols col_character
+#' @importFrom glue glue
+correct_cruise_ship <- function(
+    con, table_name, corrections_csv, dataset_key,
+    cruise_ym_col = "cruise", ship_name_col = NULL) {
+  stopifnot(
+    "corrections_csv not found" = file.exists(corrections_csv),
+    "dataset_key must be one string" = is.character(dataset_key) && length(dataset_key) == 1)
+  flds <- DBI::dbListFields(con, table_name)
+  stopifnot(
+    "table needs a ship_code column" = "ship_code" %in% flds,
+    "table needs the cruise_ym_col"  = cruise_ym_col %in% flds)
+  if (!is.null(ship_name_col))
+    stopifnot("table needs the ship_name_col" = ship_name_col %in% flds)
+
+  d <- readr::read_csv(corrections_csv, col_types = readr::cols(.default = readr::col_character()),
+                       na = "")
+  need <- c("ship_code", "cruise_ym", "ship_code_new", "dataset_key", "evidence")
+  miss <- setdiff(need, names(d))
+  if (length(miss)) stop("corrections_csv lacks column(s): ", paste(miss, collapse = ", "))
+  bad_ym <- d$cruise_ym[!grepl("^\\d{6}$", d$cruise_ym)]
+  if (length(bad_ym)) stop("cruise_ym must be YYYYMM: ", paste(bad_ym, collapse = ", "))
+
+  applies <- is.na(d$dataset_key) |
+    vapply(strsplit(ifelse(is.na(d$dataset_key), "", d$dataset_key), ";"),
+           function(x) dataset_key %in% trimws(x), logical(1))
+  d <- d[applies, , drop = FALSE]
+  d$n_updated <- integer(nrow(d))
+
+  tbl <- DBI::dbQuoteIdentifier(con, table_name)
+  ym  <- DBI::dbQuoteIdentifier(con, cruise_ym_col)
+  for (i in seq_len(nrow(d))) {
+    set_name <- if (!is.null(ship_name_col) && "ship_name_new" %in% names(d) &&
+                    !is.na(d$ship_name_new[i]))
+      glue::glue(", {DBI::dbQuoteIdentifier(con, ship_name_col)} = ",
+                 "{DBI::dbQuoteString(con, d$ship_name_new[i])}") else ""
+    d$n_updated[i] <- DBI::dbExecute(con, glue::glue(
+      "UPDATE {tbl}
+          SET ship_code = {DBI::dbQuoteString(con, d$ship_code_new[i])}{set_name}
+        WHERE ship_code = {DBI::dbQuoteString(con, d$ship_code[i])}
+          AND TRY_CAST(TRY_CAST({ym} AS DOUBLE) AS INTEGER) = {as.integer(d$cruise_ym[i])}"))
+    message(glue::glue(
+      "correct_cruise_ship(): {d$n_updated[i]} row(s) of {table_name} on cruise ",
+      "{d$cruise_ym[i]}: {d$ship_code[i]} -> {d$ship_code_new[i]}"))
+  }
+
+  # a row naming this dataset that touched nothing is a stale registry or a
+  # changed source; either way a person must look
+  listed <- !is.na(d$dataset_key)
+  stale  <- d[listed & d$n_updated == 0L, , drop = FALSE]
+  if (nrow(stale))
+    stop("correct_cruise_ship(): registry row(s) for ", dataset_key, " matched no row of ",
+         table_name, ": ", paste0(stale$ship_code, "@", stale$cruise_ym, collapse = ", "),
+         call. = FALSE)
+  tibble::as_tibble(d)
+}

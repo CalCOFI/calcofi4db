@@ -218,12 +218,13 @@ complete_cruise_reference <- function(con, sample_tbl = "sample",
 
 #' Fail (or ratchet) the release on a `cruise_key` that does not hold up
 #'
-#' Ten checks over `cruise_key` as it is actually used, not as it is assumed to
+#' Eleven checks over `cruise_key` as it is actually used, not as it is assumed to
 #' behave — see the WS-B design memo for the incidents each one guards against.
 #' Checks 1-5 and 7 are hard failures from the first run (`n` must be exactly
 #' 0); check 6 is hard with `known_outside_span` as named exceptions (an
 #' UNLISTED violator still fails); checks 8-10 are ratchets — the current count
-#' must not exceed the allowance, which may only ever be lowered.
+#' must not exceed the allowance, which may only ever be lowered; check 11 is
+#' hard with `known_co_occupied` as named exceptions.
 #'
 #' \enumerate{
 #'   \item `cruise_key` matches `^\\d{4}-(0[1-9]|1[0-2])-[A-Za-z0-9]{4}$` on
@@ -247,6 +248,16 @@ complete_cruise_reference <- function(con, sample_tbl = "sample",
 #'   \item (ratchet `derived_max`) `cruise_key_method = 'derived'` row count.
 #'   \item (ratchet `key_null_max`, per `dataset_key`) root samples with a
 #'     `NULL` `cruise_key`.
+#'   \item a root sample on a `'derived'` cruise at a station (`site_key`) that
+#'     an `swfsc_ichthyo` site occupied within `co_occupation_hours` under a
+#'     different `cruise_key`. A derived cruise is one SWFSC has no record of,
+#'     so a station SWFSC occupied at the same time on a cruise it does know is
+#'     the same occupation under a second key: the source named the wrong ship
+#'     (the July 2009 bottle casts, `2009-07-31M4` beside `2009-07-33MH`, in every
+#'     release through v2026.10.21). Checks 3, 4, 6 and 8 cannot see this:
+#'     the derived row makes the FK hold, its NODC is the (wrong) ship's own,
+#'     its span is its own events', and the two cruises are different ships.
+#'     `known_co_occupied` names exempt derived `cruise_key`s.
 #' }
 #'
 #' @param con DBI connection holding `sample_tbl`, `obs_tbl`, `cruise_tbl`,
@@ -259,6 +270,11 @@ complete_cruise_reference <- function(con, sample_tbl = "sample",
 #' @param manifest_ichthyo A single integer: the ichthyo ingest's own
 #'   `mismatches$cruise_uuid` `n_mismatch` count (from `manifest.json`), or
 #'   `NULL` if not supplied (check 7 then fails, naming the gap).
+#' @param co_occupation_hours Hours within which a derived-cruise event and an
+#'   ichthyo site at the same `site_key` count as one occupation (check 11;
+#'   default 24).
+#' @param known_co_occupied Derived `cruise_key`s exempt from check 11 (two
+#'   ships really at one station at once) — an unlisted one still fails.
 #' @param ratchets A list with `span_overlaps_max`, `derived_max` (both single
 #'   integers) and `key_null_max` (a named integer vector by `dataset_key`;
 #'   an un-named dataset's allowance is 0, so a first NULL there fails).
@@ -275,6 +291,7 @@ complete_cruise_reference <- function(con, sample_tbl = "sample",
 check_cruise_key_integrity <- function(
     con, tolerance_days = 31L, known_outside_span = character(),
     manifest_ichthyo = NULL,
+    co_occupation_hours = 24, known_co_occupied = character(),
     ratchets = list(span_overlaps_max = 2L, derived_max = 152L,
                     key_null_max = c(calcofi_dic = 3255L,
                                       "sio_pic-zooplankton" = 5087L,
@@ -428,6 +445,44 @@ check_cruise_key_integrity <- function(
     add("null_cruise_key", d10$dataset_key[i], d10$n[i], "ratchet",
         glue::glue("{d10$n[i]} root `{sample_tbl}` row(s) of {d10$dataset_key[i]} ",
                    "with NULL cruise_key"))
+
+  # 11. a derived cruise's event at a station SWFSC occupied at the same time
+  #     on a different cruise: the same occupation under two keys
+  if (!"site_key" %in% DBI::dbListFields(con, sample_tbl)) {
+    add("derived_co_occupied", sample_tbl, 1L, "fail",
+        glue::glue("`{sample_tbl}` has no site_key column, so check 11 cannot run"))
+  } else {
+    secs <- as.numeric(co_occupation_hours) * 3600
+    d11 <- DBI::dbGetQuery(con, glue::glue(
+      "WITH ref AS (
+         SELECT DISTINCT cruise_key, site_key, datetime FROM {sample_tbl}
+         WHERE dataset_key = 'swfsc_ichthyo' AND sample_key = root_sample_key
+           AND cruise_key IS NOT NULL AND site_key IS NOT NULL AND datetime IS NOT NULL)
+       SELECT s.dataset_key, s.cruise_key, r.cruise_key AS ref_cruise_key,
+              COUNT(DISTINCT s.sample_key) AS n
+       FROM {sample_tbl} s
+       JOIN {cruise_tbl} c ON c.cruise_key = s.cruise_key AND {sub('cruise_key_method', 'c.cruise_key_method', method_derived)}
+       JOIN ref r ON r.site_key = s.site_key AND r.cruise_key <> s.cruise_key
+        AND abs(epoch(r.datetime) - epoch(s.datetime)) < {secs}
+       WHERE s.sample_key = s.root_sample_key AND s.dataset_key <> 'swfsc_ichthyo'
+       GROUP BY 1, 2, 3 ORDER BY 1, 2, 3"))
+    d11 <- d11[!d11$cruise_key %in% known_co_occupied, , drop = FALSE]
+    if (nrow(d11) == 0) {
+      add("derived_co_occupied", "(none)", 0L, "fail",
+          "0 derived-cruise events share a station occupation with an SWFSC cruise")
+    } else {
+      by_ds <- split(d11, d11$dataset_key)
+      for (ds in names(by_ds)) {
+        x <- by_ds[[ds]]
+        add("derived_co_occupied", ds, sum(x$n), "fail", glue::glue(
+          "{sum(x$n)} root `{sample_tbl}` row(s) of {ds} sit on a derived cruise at a ",
+          "station SWFSC occupied within {co_occupation_hours} h on another cruise ",
+          "(likely a wrong ship code in the source; correct it per cruise with ",
+          "correct_cruise_ship()): ",
+          paste0(x$cruise_key, " ~ ", x$ref_cruise_key, " (", x$n, ")", collapse = ", ")))
+      }
+    }
+  }
 
   out <- tibble::as_tibble(do.call(rbind, rows))
 

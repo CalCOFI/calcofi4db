@@ -222,6 +222,8 @@ ck2_base <- function() {
                           "swfsc_ichthyo:site:S1", "swfsc_ichthyo:site:S1"),
       dataset_key = c("ds1", "ds1", "ds2", "swfsc_ichthyo", "swfsc_ichthyo"),
       sample_type = c("e", "e", "e", "site", "tow"),
+      site_key    = c("090.0 060.0", "090.0 070.0", "093.3 030.0",
+                      "090.0 060.0", "090.0 060.0"),
       cruise_key  = c("1955-08-31BD", "1955-09-31BD", "2020-01-31JD",
                       "1955-08-31BD", "1955-08-31BD"),
       datetime    = as.POSIXct(c(
@@ -373,7 +375,7 @@ test_that("check 10 (ratchet): NULL cruise_key on a root sample is held per-data
   fx <- ck2_base()
   fx$sample <- rbind(fx$sample, data.frame(
     sample_key = "ds1:e:3", root_sample_key = "ds1:e:3", dataset_key = "ds1",
-    sample_type = "e", cruise_key = NA_character_,
+    sample_type = "e", site_key = "090.0 080.0", cruise_key = NA_character_,
     datetime = as.POSIXct("1955-08-11", tz = "UTC"), source_uuid = NA_character_,
     stringsAsFactors = FALSE))
   con <- ck2_con(fx)
@@ -546,4 +548,60 @@ test_that("a two-candidate datetime tie (both inside tolerance) stays NULL, not 
     "SELECT station_uuid, station_uuid_method FROM sample WHERE sample_key = 'calcofi_bottle:cast:9'")
   expect_true(is.na(got$station_uuid))
   expect_true(is.na(got$station_uuid_method))
+})
+
+# ---- check 11: a derived cruise sharing a station occupation with SWFSC ----
+
+# the July 2009 shape: ds2's derived 2020-01-31JD event at 093.3 030.0 on
+# 2020-01-06, and an ichthyo site of ANOTHER ship's SWFSC cruise at the same
+# station `hours_apart` later
+ck11_fx <- function(hours_apart = 2) {
+  fx <- ck2_base()
+  fx$ship <- rbind(fx$ship, data.frame(ship_key = "M2", ship_nodc = "33MH"))
+  fx$cruise <- rbind(fx$cruise, data.frame(
+    cruise_key = "2020-01-33MH", ship_key = "M2",
+    date_ym = as.Date("2020-01-01"), date_min = as.Date("2020-01-05"),
+    date_max = as.Date("2020-01-10"),
+    cruise_uuid = "55555555-5555-5555-5555-555555555555",
+    cruise_key_method = "swfsc", cruise_key_datasets = "swfsc_ichthyo"))
+  fx$sample <- rbind(fx$sample, data.frame(
+    sample_key = "swfsc_ichthyo:site:S2", root_sample_key = "swfsc_ichthyo:site:S2",
+    dataset_key = "swfsc_ichthyo", sample_type = "site", site_key = "093.3 030.0",
+    cruise_key = "2020-01-33MH",
+    datetime = as.POSIXct("2020-01-06 00:00:00", tz = "UTC") + hours_apart * 3600,
+    source_uuid = "66666666-6666-6666-6666-666666666666"))
+  fx
+}
+
+test_that("check 11: a derived-cruise event at a station SWFSC occupied that day fails", {
+  con <- ck2_con(ck11_fx(hours_apart = 2))
+  expect_error(suppressMessages(check_cruise_key_integrity(con, manifest_ichthyo = 0L)),
+               "derived_co_occupied.*2020-01-31JD ~ 2020-01-33MH \\(1\\)")
+  out <- suppressWarnings(suppressMessages(check_cruise_key_integrity(
+    con, manifest_ichthyo = 0L, halt = FALSE)))
+  fails <- out[out$mode == "fail" & out$n > 0, ]
+  expect_equal(fails$check, "derived_co_occupied")
+  expect_equal(fails$dataset_key, "ds2")
+})
+
+test_that("check 11: the same station days apart is two occupations and passes", {
+  con <- ck2_con(ck11_fx(hours_apart = 72))
+  expect_silent(suppressMessages(check_cruise_key_integrity(con, manifest_ichthyo = 0L)))
+})
+
+test_that("check 11: a listed derived cruise is exempt, an unlisted one still fails", {
+  con <- ck2_con(ck11_fx(hours_apart = 2))
+  expect_silent(suppressMessages(check_cruise_key_integrity(
+    con, manifest_ichthyo = 0L, known_co_occupied = "2020-01-31JD")))
+  expect_error(suppressMessages(check_cruise_key_integrity(
+    con, manifest_ichthyo = 0L, known_co_occupied = "1999-01-31JD")),
+    "derived_co_occupied")
+})
+
+test_that("check 11: a sample table without site_key fails rather than skipping", {
+  fx <- ck2_base()
+  fx$sample$site_key <- NULL
+  con <- ck2_con(fx)
+  expect_error(suppressMessages(check_cruise_key_integrity(con, manifest_ichthyo = 0L)),
+               "no site_key column")
 })
