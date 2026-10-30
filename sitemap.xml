@@ -135,6 +135,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/core_output_tables.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/core_relationships.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/core_shard_paths.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/correct_cruise_ship.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/create_cruise_key.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/create_duckdb_from_parquet.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/create_duckdb_views.html</loc></url>

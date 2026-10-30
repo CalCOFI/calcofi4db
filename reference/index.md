@@ -831,6 +831,9 @@ check for other functions or datasets not captured by above categories
 - [`core_shard_paths()`](https://calcofi.io/calcofi4db/reference/core_shard_paths.md)
   : Find the per-dataset parquet shards for a core table
 
+- [`correct_cruise_ship()`](https://calcofi.io/calcofi4db/reference/correct_cruise_ship.md)
+  : Correct a source's ship code on one cruise only
+
 - [`ctd_chl_max()`](https://calcofi.io/calcofi4db/reference/ctd_chl_max.md)
   : Depth of the chlorophyll-a maximum (DCM) of one CTD cast
 

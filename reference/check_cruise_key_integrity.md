@@ -1,12 +1,13 @@
 # Fail (or ratchet) the release on a `cruise_key` that does not hold up
 
-Ten checks over `cruise_key` as it is actually used, not as it is
+Eleven checks over `cruise_key` as it is actually used, not as it is
 assumed to behave — see the WS-B design memo for the incidents each one
 guards against. Checks 1-5 and 7 are hard failures from the first run
 (`n` must be exactly 0); check 6 is hard with `known_outside_span` as
 named exceptions (an UNLISTED violator still fails); checks 8-10 are
 ratchets — the current count must not exceed the allowance, which may
-only ever be lowered.
+only ever be lowered; check 11 is hard with `known_co_occupied` as named
+exceptions.
 
 ## Usage
 
@@ -16,6 +17,8 @@ check_cruise_key_integrity(
   tolerance_days = 31L,
   known_outside_span = character(),
   manifest_ichthyo = NULL,
+  co_occupation_hours = 24,
+  known_co_occupied = character(),
   ratchets = list(span_overlaps_max = 2L, derived_max = 152L, key_null_max =
     c(calcofi_dic = 3255L, `sio_pic-zooplankton` = 5087L, `cdfw_dungeness-crab` = 1639L,
     calcofi_bottle = 49L)),
@@ -50,6 +53,16 @@ check_cruise_key_integrity(
   A single integer: the ichthyo ingest's own `mismatches$cruise_uuid`
   `n_mismatch` count (from `manifest.json`), or `NULL` if not supplied
   (check 7 then fails, naming the gap).
+
+- co_occupation_hours:
+
+  Hours within which a derived-cruise event and an ichthyo site at the
+  same `site_key` count as one occupation (check 11; default 24).
+
+- known_co_occupied:
+
+  Derived `cruise_key`s exempt from check 11 (two ships really at one
+  station at once) — an unlisted one still fails.
 
 - ratchets:
 
@@ -105,3 +118,15 @@ is not per-dataset), `n`, `mode` (`"fail"` \| `"ratchet"`), `finding`.
 
 10. (ratchet `key_null_max`, per `dataset_key`) root samples with a
     `NULL` `cruise_key`.
+
+11. a root sample on a `'derived'` cruise at a station (`site_key`) that
+    an `swfsc_ichthyo` site occupied within `co_occupation_hours` under
+    a different `cruise_key`. A derived cruise is one SWFSC has no
+    record of, so a station SWFSC occupied at the same time on a cruise
+    it does know is the same occupation under a second key: the source
+    named the wrong ship (the July 2009 bottle casts, `2009-07-31M4`
+    beside `2009-07-33MH`, in every release through v2026.10.21). Checks
+    3, 4, 6 and 8 cannot see this: the derived row makes the FK hold,
+    its NODC is the (wrong) ship's own, its span is its own events', and
+    the two cruises are different ships. `known_co_occupied` names
+    exempt derived `cruise_key`s.
