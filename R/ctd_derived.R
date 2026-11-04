@@ -426,7 +426,11 @@ ctd_n2 <- function(temperature, salinity, pressure, longitude, latitude,
   sa <- gsw::gsw_SA_from_SP(su, pu, lonu, latu)
   ct <- gsw::gsw_CT_from_t(sa, tu, pu)
   st <- gsw::gsw_Nsquared(sa, ct, pu, latu)
-  n2u <- stats::approx(st$p_mid, st$N2, xout = pu, rule = 2, ties = mean)$y
+  # two good bins give one mid-point, and a non-finite N2 can come back from gsw on a degenerate
+  # pair: approx() needs two finite points, else the cast simply has no N2
+  fin <- is.finite(st$p_mid) & is.finite(st$N2)
+  if (sum(fin) < 2) return(out)
+  n2u <- stats::approx(st$p_mid[fin], st$N2[fin], xout = pu, rule = 2, ties = mean)$y
   if (smooth_m > 0) {
     n2u <- .running_tri_m(pu, n2u, smooth_m)
     # undefined within half a window of the profile's ends, as the legacy script leaves the first

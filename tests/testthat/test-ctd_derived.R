@@ -397,3 +397,10 @@ test_that("geostrophic: a station closer than min_dx_km to the last kept one is 
   expect_equal(unique(paste(g$station_1, g$station_2)), "a b")
   expect_equal(unique(paste(ctd_geostrophic(casts, min_dx_km = 0)$station_1)), c("a", "a2"))
 })
+
+test_that("n2: two good bins (one mid-point) or a cast of flagged bins give NA, not an error", {
+  expect_true(all(is.na(ctd_n2(c(16, 10), c(33.5, 33.5), c(1, 50), -120, 33))))
+  expect_true(all(is.na(ctd_n2(c(16, 12, 10), c(33.5, 33.5, 33.5), c(1, 25, 50), -120, 33,
+                               q_temperature = c("9", NA, "9")))))
+  expect_length(ctd_n2(c(16, 10), c(33.5, 33.5), c(1, 50), -120, 33), 2)
+})

@@ -1,3 +1,9 @@
+# calcofi4db 4.33.1
+
+- `ctd_n2()` returns `NA` for a cast whose good bins yield fewer than two finite
+  N² mid-points (two good bins, or a degenerate pair) instead of erroring in
+  `approx()`; the full ctd-derived render hit it on the first cruise with such a cast.
+
 # calcofi4db 4.33.0
 
 - **Three new derived hydrographic rules, Rasmus Swalethorp's definitions (email "Next Two
