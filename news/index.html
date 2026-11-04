@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.32.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.33.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,6 +77,20 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.33.0" id="calcofi4db-4330">calcofi4db 4.33.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4330"></a></h2>
+<ul><li>
+<strong>Three new derived hydrographic rules, Rasmus Swalethorp’s definitions (email “Next Two Weeks Tasks” 2026-09-24, his legacy CalCOFI Matlab scripts and his TEOS-10 R draft):</strong>
+<ul><li>
+<code><a href="../reference/profile_threshold_depth.html">profile_threshold_depth()</a></code>: the depth at which a profile reaches a threshold, interpolated linearly between the two bracketing samples (<code>D_NClineDepth.m</code>): the <strong>nitracline</strong> at 1 umol/L nitrate (<code>direction = "above"</code>), or a boundary where oxygen falls to a threshold (<code>"below"</code>). A first sample already past the threshold counts only when it is no deeper than 20 m in a profile of at least 3 samples (<code>at_surface</code>); otherwise <code>no_bracket</code>. Only the shallowest crossing is reported. Statuses <code>ok</code>, <code>at_surface</code>, <code>no_bracket</code>, <code>not_reached</code>, <code>no_data</code>.</li>
+<li>
+<code><a href="../reference/ctd_hypoxic_depth.html">ctd_hypoxic_depth()</a></code>: the three <strong>hypoxic boundary depths</strong> in one call, 2.4 mL/L (mild), 1.4 (hypoxic) and 0.5 (severe, the OMZ core), one row per threshold named by its registry key (<code>hypoxic_depth_24</code>, <code>hypoxic_depth_14</code>, <code>hypoxic_depth_05</code>).</li>
+<li>
+<code><a href="../reference/ctd_n2.html">ctd_n2()</a></code>: the <strong>buoyancy frequency squared</strong> per bin, TEOS-10 (<code>gsw_Nsquared</code> on absolute salinity and conservative temperature at the mid-points, aligned back to the bins), then a centred 10 dbar running mean (in place of the draft’s <code>smooth.spline(spar = 0.4)</code>, so the value needs no tuning parameter; the legacy bottle script used a 10 m centred difference).</li>
+<li>
+<code><a href="../reference/ctd_pycnocline.html">ctd_pycnocline()</a></code>: the <strong>pycnocline depth</strong> as the pressure of the maximum smoothed N^2 within 10-200 dbar and that maximum (<code>n2_max</code>), with the legacy script’s conditions (the cast starts by 15 m, reaches 50 m, at least 5 points in the window; <code>F_PycnoclineDepth.m</code> after Fiedler et al. 2013). A value flagged 8/9 never enters any of them. Each has a testthat fixture per rule.</li>
+</ul></li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.32.0" id="calcofi4db-4320">calcofi4db 4.32.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4320"></a></h2>
 <ul><li>

@@ -146,9 +146,12 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/csv_to_parquet.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ctd_chl_max.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ctd_geostrophic.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/ctd_hypoxic_depth.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ctd_integrate.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ctd_map_columns.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ctd_mld.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/ctd_n2.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/ctd_pycnocline.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ctd_sigma_theta_ave.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ctd_spice.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ctd_upload_to_core.html</loc></url>
@@ -295,6 +298,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/plan_source_archive.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/preview_tables.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/print_csv_change_stats.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/profile_threshold_depth.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/promote_release.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/promote_unreleased.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/propagate_natural_key.html</loc></url>

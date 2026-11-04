@@ -1112,6 +1112,9 @@ check for other functions or datasets not captured by above categories
 - [`ctd_geostrophic()`](https://calcofi.io/calcofi4db/reference/ctd_geostrophic.md)
   : Relative geostrophic velocity between adjacent CTD stations
 
+- [`ctd_hypoxic_depth()`](https://calcofi.io/calcofi4db/reference/ctd_hypoxic_depth.md)
+  : Hypoxic boundary depths of one CTD cast
+
 - [`ctd_integrate()`](https://calcofi.io/calcofi4db/reference/ctd_integrate.md)
   : Depth-integrate one CTD cast's profile
 
@@ -1120,6 +1123,12 @@ check for other functions or datasets not captured by above categories
 
 - [`ctd_mld()`](https://calcofi.io/calcofi4db/reference/ctd_mld.md) :
   Mixed-layer depth of one CTD cast (threshold criterion)
+
+- [`ctd_n2()`](https://calcofi.io/calcofi4db/reference/ctd_n2.md) :
+  Buoyancy frequency squared (N^2) of one CTD cast, TEOS-10
+
+- [`ctd_pycnocline()`](https://calcofi.io/calcofi4db/reference/ctd_pycnocline.md)
+  : Pycnocline depth and maximum N^2 of one CTD cast
 
 - [`ctd_sigma_theta_ave()`](https://calcofi.io/calcofi4db/reference/ctd_sigma_theta_ave.md)
   : Averaged sigma-theta from a CTD sensor pair
@@ -1465,6 +1474,10 @@ check for other functions or datasets not captured by above categories
 
 - [`plan_dataset_netcdf()`](https://calcofi.io/calcofi4db/reference/plan_dataset_netcdf.md)
   : Plan the netCDF shape for a dataset
+
+- [`profile_threshold_depth()`](https://calcofi.io/calcofi4db/reference/profile_threshold_depth.md)
+  : Depth at which a profile reaches a threshold: the nitracline and
+  hypoxic-boundary rule
 
 - [`promote_unreleased()`](https://calcofi.io/calcofi4db/reference/promote_unreleased.md)
   :
