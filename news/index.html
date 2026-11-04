@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.33.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.33.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,6 +77,11 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.33.1" id="calcofi4db-4331">calcofi4db 4.33.1<a class="anchor" aria-label="anchor" href="#calcofi4db-4331"></a></h2>
+<ul><li>
+<code><a href="../reference/ctd_n2.html">ctd_n2()</a></code> returns <code>NA</code> for a cast whose good bins yield fewer than two finite N² mid-points (two good bins, or a degenerate pair) instead of erroring in <code><a href="https://rdrr.io/r/stats/approxfun.html" class="external-link">approx()</a></code>; the full ctd-derived render hit it on the first cruise with such a cast.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.33.0" id="calcofi4db-4330">calcofi4db 4.33.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4330"></a></h2>
 <ul><li>
