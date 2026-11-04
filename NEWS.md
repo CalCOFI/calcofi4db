@@ -1,3 +1,22 @@
+# calcofi4db 4.32.0
+
+- **New `check_dataset_consent()`**, the consent gate: no dataset reaches the
+  public database before its provider's final acceptance. For every dataset a
+  release includes it reads the standing consent question (the row of
+  `metadata/{provider}/{dataset}/questions.csv` with `related_field = consent`)
+  and returns one row per dataset — `dataset_key`, `consent` (`none` |
+  `pending` | `declined` | `given`), `label`, `status`, `answer`, `who`,
+  `answered_date`, `ok`, plus `exempt`, `legacy` and `why`. A dataset is ok with
+  no consent row, or with a row `answered` whose answer begins with `yes` (or
+  `no ask needed`, the convention for a dataset openly licensed at its source)
+  and a `who`. `halt = TRUE` (the default, used by `release_database.qmd`) stops
+  with every failing dataset and its state. `exempt` (a preview run's
+  `CALCOFI_RELEASE_INCLUDE`) reports a dataset without failing it, since the
+  preview is where the decision is made; `legacy` (default: every notebook with
+  no `in_release` key, i.e. released before the gate existed) reports a pending
+  ask without failing, but a provider's no fails there too. Until now flipping
+  `in_release: false` to `true` was enough to publish a dataset.
+
 # calcofi4db 4.31.0
 
 - **New `correct_cruise_ship()`** corrects a source's ship code on a single
