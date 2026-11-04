@@ -718,6 +718,10 @@ check for other functions or datasets not captured by above categories
   : Check every dataset's citation, license and DOI, structurally and
   against its authority
 
+- [`check_dataset_consent()`](https://calcofi.io/calcofi4db/reference/check_dataset_consent.md)
+  : The consent gate: no dataset reaches the public database before its
+  provider accepts
+
 - [`check_dataset_meta_split()`](https://calcofi.io/calcofi4db/reference/check_dataset_meta_split.md)
   :
 

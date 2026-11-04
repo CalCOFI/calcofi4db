@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.31.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.32.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,6 +77,11 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.32.0" id="calcofi4db-4320">calcofi4db 4.32.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4320"></a></h2>
+<ul><li>
+<strong>New <code><a href="../reference/check_dataset_consent.html">check_dataset_consent()</a></code></strong>, the consent gate: no dataset reaches the public database before its provider’s final acceptance. For every dataset a release includes it reads the standing consent question (the row of <code>metadata/{provider}/{dataset}/questions.csv</code> with <code>related_field = consent</code>) and returns one row per dataset — <code>dataset_key</code>, <code>consent</code> (<code>none</code> | <code>pending</code> | <code>declined</code> | <code>given</code>), <code>label</code>, <code>status</code>, <code>answer</code>, <code>who</code>, <code>answered_date</code>, <code>ok</code>, plus <code>exempt</code>, <code>legacy</code> and <code>why</code>. A dataset is ok with no consent row, or with a row <code>answered</code> whose answer begins with <code>yes</code> (or <code>no ask needed</code>, the convention for a dataset openly licensed at its source) and a <code>who</code>. <code>halt = TRUE</code> (the default, used by <code>release_database.qmd</code>) stops with every failing dataset and its state. <code>exempt</code> (a preview run’s <code>CALCOFI_RELEASE_INCLUDE</code>) reports a dataset without failing it, since the preview is where the decision is made; <code>legacy</code> (default: every notebook with no <code>in_release</code> key, i.e. released before the gate existed) reports a pending ask without failing, but a provider’s no fails there too. Until now flipping <code>in_release: false</code> to <code>true</code> was enough to publish a dataset.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.31.0" id="calcofi4db-4310">calcofi4db 4.31.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4310"></a></h2>
 <ul><li>
