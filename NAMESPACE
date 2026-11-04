@@ -145,9 +145,12 @@ export(create_redefinition_files)
 export(csv_to_parquet)
 export(ctd_chl_max)
 export(ctd_geostrophic)
+export(ctd_hypoxic_depth)
 export(ctd_integrate)
 export(ctd_map_columns)
 export(ctd_mld)
+export(ctd_n2)
+export(ctd_pycnocline)
 export(ctd_sigma_theta_ave)
 export(ctd_spice)
 export(ctd_upload_to_core)
@@ -297,6 +300,7 @@ export(plan_dataset_netcdf)
 export(plan_source_archive)
 export(preview_tables)
 export(print_csv_change_stats)
+export(profile_threshold_depth)
 export(promote_release)
 export(promote_unreleased)
 export(propagate_natural_key)
@@ -536,6 +540,7 @@ importFrom(googledrive,
 )
 importFrom(gsw,
   gsw_CT_from_t,
+  gsw_Nsquared,
   gsw_SA_from_SP,
   gsw_geo_strf_dyn_height,
   gsw_p_from_z,
