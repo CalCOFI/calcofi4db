@@ -325,11 +325,13 @@ test_that("build_climatology(cast_types =): a per-cast type gets a baseline with
 test_that("build_climatology(season = TRUE): a quarter's baseline sits on each of its months, by the cruise's month", {
   con <- clim_con()
   DBI::dbExecute(con, "CREATE TABLE obs AS SELECT * FROM (VALUES
-    -- winter at a northern station: one cruise in each of Jan, Feb, Mar -- each month below a floor
-    -- of 3, the quarter (three cruises) above it
-    ('env', 'st60-ln66.7', '2001-01-33XX', TIMESTAMP '2001-01-20 00:00', 2.0, 'temperature_ave', 10.0, NULL::VARCHAR, 'calcofi_ctd-cast', 'n1'),
-    ('env', 'st60-ln66.7', '2002-02-33XX', TIMESTAMP '2002-02-20 00:00', 2.0, 'temperature_ave', 11.0, NULL, 'calcofi_ctd-cast', 'n2'),
-    ('env', 'st60-ln66.7', '2003-03-33XX', TIMESTAMP '2003-03-20 00:00', 2.0, 'temperature_ave', 12.0, NULL, 'calcofi_ctd-cast', 'n3'),
+    -- winter at a northern station: one cruise in each of Dec, Jan, Feb -- each month below a floor
+    -- of 3, the season DJF (three cruises; 4.33.0: December is winter with the January after it) above it
+    ('env', 'st60-ln66.7', '2001-12-33XX', TIMESTAMP '2001-12-20 00:00', 2.0, 'temperature_ave', 10.0, NULL::VARCHAR, 'calcofi_ctd-cast', 'n1'),
+    ('env', 'st60-ln66.7', '2002-01-33XX', TIMESTAMP '2002-01-20 00:00', 2.0, 'temperature_ave', 11.0, NULL, 'calcofi_ctd-cast', 'n2'),
+    ('env', 'st60-ln66.7', '2003-02-33XX', TIMESTAMP '2003-02-20 00:00', 2.0, 'temperature_ave', 12.0, NULL, 'calcofi_ctd-cast', 'n3'),
+    -- a lone March cruise: MAM, one cruise, no row at all
+    ('env', 'st60-ln66.7', '2003-03-33XX', TIMESTAMP '2003-03-20 00:00', 2.0, 'temperature_ave', 99.0, NULL, 'calcofi_ctd-cast', 'n8'),
     -- summer: three July cruises (one cast on 30 June) -> a July cell AND a Q3 cell
     ('env', 'st60-ln66.7', '2001-07-33XX', TIMESTAMP '2001-06-30 00:00', 2.0, 'temperature_ave', 15.0, NULL, 'calcofi_ctd-cast', 'n4'),
     ('env', 'st60-ln66.7', '2002-07-33XX', TIMESTAMP '2002-07-10 00:00', 2.0, 'temperature_ave', 16.0, NULL, 'calcofi_ctd-cast', 'n5'),
@@ -338,17 +340,17 @@ test_that("build_climatology(season = TRUE): a quarter's baseline sits on each o
     ('env', 'st60-ln66.7', '2004-08-33XX', TIMESTAMP '2004-08-10 00:00', 2.0, 'temperature_ave', 20.0, NULL, 'calcofi_ctd-cast', 'n7')
     ) t(realm, grid_key, cruise_key, datetime, depth_min_m, measurement_type, measurement_value, measurement_qual, dataset_key, sample_key)")
   DBI::dbExecute(con, "CREATE TABLE sample AS SELECT sample_key, '066.7 060.0' AS site_key
-    FROM (VALUES ('n1'), ('n2'), ('n3'), ('n4'), ('n5'), ('n6'), ('n7')) t(sample_key)")
+    FROM (VALUES ('n1'), ('n2'), ('n3'), ('n4'), ('n5'), ('n6'), ('n7'), ('n8')) t(sample_key)")
   build_climatology(con, qual_ok_sql = CLIM_QUAL_OK, season = TRUE)
   cl <- DBI::dbGetQuery(con, "SELECT month, quarter, clim_mean, n_cruises, season_mean, season_n, season_n_cruises
     FROM climatology ORDER BY month")
-  expect_equal(cl$month, c(1L, 2L, 3L, 7L, 8L, 9L), info = "every month of each passing quarter, nothing else")
-  expect_equal(cl$quarter, c(1L, 1L, 1L, 3L, 3L, 3L))
+  expect_equal(cl$month, c(1L, 2L, 6L, 7L, 8L, 12L), info = "every month of each passing season (JJA = June-August), nothing else (no March: MAM has one cruise)")
+  expect_equal(cl$quarter, c(1L, 1L, 3L, 3L, 3L, 1L), info = "1 = DJF, 3 = JJA (4.33.0)")
   expect_equal(cl$clim_mean, c(NA, NA, NA, 16, NA, NA),
                info = "a month below the floor has a row but no monthly baseline")
   expect_equal(cl$n_cruises, c(NA, NA, NA, 3L, NA, NA))
-  expect_equal(cl$season_mean, c(11, 11, 11, 17, 17, 17))  # Q1 (10+11+12)/3; Q3 (15+16+17+20)/4
-  expect_equal(cl$season_n_cruises, c(3L, 3L, 3L, 4L, 4L, 4L))
+  expect_equal(cl$season_mean, c(11, 11, 17, 17, 17, 11))  # DJF (10+11+12)/3; JJA (15+16+17+20)/4
+  expect_equal(cl$season_n_cruises, c(3L, 3L, 4L, 4L, 4L, 3L))
   # the key stays unique, and summing a column over the table never counts a cell twice
   expect_silent(check_core_pk_unique(con, "climatology"))
   expect_equal(DBI::dbGetQuery(con, "SELECT sum(clim_n) AS n FROM climatology")$n, 3)
@@ -361,11 +363,11 @@ test_that("build_climatology(cast_types =, season = TRUE): per-cast seasonal cel
   con <- clim_con(); cast_fixture(con)
   build_climatology(con, qual_ok_sql = CLIM_QUAL_OK, cast_types = "mld_sigma_theta_002", season = TRUE)
   cl <- DBI::dbGetQuery(con, "SELECT month, depth_bin, clim_mean, season_mean FROM climatology ORDER BY month")
-  # one July cell + Q3 on July, August, September -- three rows, not six (a NULL depth_bin that
+  # one July cell + JJA on June, July, August -- three rows, not six (a NULL depth_bin that
   # failed `=` in the month/season join would have split July into two rows)
-  expect_equal(cl$month, c(7L, 8L, 9L))
+  expect_equal(cl$month, c(6L, 7L, 8L))
   expect_true(all(is.na(cl$depth_bin)))
-  expect_equal(cl$clim_mean, c(30, NA, NA))
+  expect_equal(cl$clim_mean, c(NA, 30, NA))
   expect_equal(cl$season_mean, c(30, 30, 30))
 })
 
@@ -384,4 +386,50 @@ test_that("check_release_relationships(): a declared nullable key column is a va
   expect_equal(check_release_relationships(con, rels_strict, halt = FALSE)$primary_keys$status, "fail")
   DBI::dbExecute(con, "INSERT INTO climatology SELECT * FROM climatology WHERE month = 7")
   expect_equal(check_release_relationships(con, rels, halt = FALSE)$primary_keys$n_dup, 1)
+})
+
+# the cruise's MEDIAN cast month (4.33.0; Rasmus Swalethorp 2026-10-16, Ben Best 2026-10-20): when a
+# `cruise` table carrying add_cruise_median_date()'s columns is in the connection, a cast is filed
+# under its cruise's median month, not the key's MM; without that table the key rule stands.
+test_that("build_climatology(cruise_tbl =): a cast is filed under its cruise's median month when the cruise table carries one", {
+  con <- clim_con()
+  DBI::dbExecute(con, "CREATE TABLE obs AS SELECT * FROM (VALUES
+    -- three cruises keyed February that centre on March (the 1981-02 JD shape), one keyed March
+    ('env', 'st30-ln93.3', '2001-02-33XX', TIMESTAMP '2001-02-27 04:00', 2.0, 'temperature_ave', 10.0, NULL::VARCHAR, 'calcofi_ctd-cast', 'm1'),
+    ('env', 'st30-ln93.3', '2002-02-33XX', TIMESTAMP '2002-03-05 04:00', 2.0, 'temperature_ave', 11.0, NULL, 'calcofi_ctd-cast', 'm2'),
+    ('env', 'st30-ln93.3', '2003-02-33XX', TIMESTAMP '2003-03-06 04:00', 2.0, 'temperature_ave', 12.0, NULL, 'calcofi_ctd-cast', 'm3'),
+    ('env', 'st30-ln93.3', '2004-03-33XX', TIMESTAMP '2004-03-10 04:00', 2.0, 'temperature_ave', 13.0, NULL, 'calcofi_ctd-cast', 'm4'),
+    -- a cruise the cruise table does not know: the key rule (February)
+    ('env', 'st30-ln93.3', '2005-02-33XX', TIMESTAMP '2005-02-10 04:00', 2.0, 'temperature_ave', 50.0, NULL, 'calcofi_ctd-cast', 'm5')
+    ) t(realm, grid_key, cruise_key, datetime, depth_min_m, measurement_type, measurement_value, measurement_qual, dataset_key, sample_key)")
+  DBI::dbExecute(con, "CREATE TABLE sample AS SELECT sample_key, '093.3 030.0' AS site_key
+    FROM (VALUES ('m1'), ('m2'), ('m3'), ('m4'), ('m5')) t(sample_key)")
+  DBI::dbExecute(con, "CREATE TABLE cruise AS SELECT * FROM (VALUES
+    ('2001-02-33XX', DATE '2001-03-02', 3::TINYINT, 'MAM', 2001::SMALLINT),
+    ('2002-02-33XX', DATE '2002-03-03', 3, 'MAM', 2002),
+    ('2003-02-33XX', DATE '2003-03-04', 3, 'MAM', 2003),
+    ('2004-03-33XX', DATE '2004-03-10', 3, 'MAM', 2004)
+    ) t(cruise_key, date_median, month_median, season, season_year)")
+  build_climatology(con, qual_ok_sql = CLIM_QUAL_OK, season = TRUE)
+  cl <- DBI::dbGetQuery(con, "SELECT month, quarter, clim_mean, n_cruises, season_mean FROM climatology ORDER BY month")
+  expect_equal(cl$month, c(3L, 4L, 5L), info = "March (four cruises by median month) and its season's other months; no February cell (one cruise, by the key rule)")
+  expect_equal(cl$quarter, c(2L, 2L, 2L), info = "MAM = 2")
+  expect_equal(cl$clim_mean, c(11.5, NA, NA))
+  expect_equal(cl$n_cruises, c(4L, NA, NA))
+  expect_equal(cl$season_mean, c(11.5, 11.5, 11.5), info = "the unknown cruise is February = DJF: not in MAM")
+  # the key rule is still the fallback: cruise_tbl = NULL files them under their keys
+  build_climatology(con, qual_ok_sql = CLIM_QUAL_OK, cruise_tbl = NULL, tbl = "c_key")
+  expect_equal(DBI::dbGetQuery(con, "SELECT month, n_cruises FROM c_key ORDER BY month"),
+               data.frame(month = 2L, n_cruises = 4L), ignore_attr = TRUE)
+})
+
+test_that("cruise_quarter_sql() / cruise_quarter(): 1 = DJF, 2 = MAM, 3 = JJA, 4 = SON; December belongs to the next season_year", {
+  con <- clim_con()
+  q <- DBI::dbGetQuery(con, glue::glue("SELECT m, {cruise_quarter_sql('m')} AS q, {cruise_season_sql('m')} AS s,
+    {cruise_season_year_sql('m', '2025')} AS sy FROM (SELECT unnest(range(1, 13)) AS m) ORDER BY m"))
+  expect_equal(q$q, c(1L, 1L, 2L, 2L, 2L, 3L, 3L, 3L, 4L, 4L, 4L, 1L))
+  expect_equal(q$s, c("DJF", "DJF", "MAM", "MAM", "MAM", "JJA", "JJA", "JJA", "SON", "SON", "SON", "DJF"))
+  expect_equal(q$sy, c(rep(2025L, 11), 2026L))
+  expect_equal(cruise_quarter(c(12, 1, 3, 6, 9, NA)), c(1L, 1L, 2L, 3L, 4L, NA))
+  expect_equal(CC_SEASONS, c("DJF", "MAM", "JJA", "SON"))
 })
