@@ -219,7 +219,7 @@ supplemental_core_tables <- function(root = ".", which = TRUE) {
 #' Assemble the whole consolidated core from the ingest shards
 #'
 #' Convenience wrapper: `sample`, `obs`, `obs_attribute`, `sample_measurement`
-#' (surrogate ids renumbered globally), the supplemental `obs_ctd_full`, and the
+#' (surrogate ids renumbered globally), `sample_track` (when any shard has one), the supplemental `obs_ctd_full`, and the
 #' taxa references (`taxon` merged in dataset order; `dataset_taxon` /`taxon_group`
 #' deduplicated). Errors if `sample_key` is not globally unique — the namespacing
 #' guarantee the whole model rests on.
@@ -269,6 +269,17 @@ assemble_core <- function(con, root = ".", supplemental = TRUE,
     con, "sample_measurement", root, id_col = "sample_measurement_id",
     order_by = "dataset_key, sample_key, measurement_type",
     parquet_dir = parquet_dir, exclude = exclude)
+  # a path per sample (4.35.0): only the datasets that have one write the shard
+  out$sample_track <- assemble_core_table(
+    con, "sample_track", root, order_by = "dataset_key, sample_key",
+    parquet_dir = parquet_dir, exclude = exclude)
+  if (out$sample_track > 0) {
+    dup <- DBI::dbGetQuery(con,
+      "SELECT sample_key FROM sample_track GROUP BY 1 HAVING COUNT(*) > 1 LIMIT 5")$sample_key
+    if (length(dup))
+      stop("assemble_core(): a sample has more than one sample_track row, e.g. ",
+           paste(dup, collapse = "; "))
+  }
   # Supplemental full-resolution tables are DISCOVERED from the ingests, not
   # hardcoded: `obs_ctd_full` was the only one until `calcofi_mets` added
   # `obs_mets_full`, and a hardcoded name silently drops any new one from the
