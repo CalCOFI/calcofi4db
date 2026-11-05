@@ -1,11 +1,11 @@
 # Assemble the whole consolidated core from the ingest shards
 
 Convenience wrapper: `sample`, `obs`, `obs_attribute`,
-`sample_measurement` (surrogate ids renumbered globally), the
-supplemental `obs_ctd_full`, and the taxa references (`taxon` merged in
-dataset order; `dataset_taxon` /`taxon_group` deduplicated). Errors if
-`sample_key` is not globally unique — the namespacing guarantee the
-whole model rests on.
+`sample_measurement` (surrogate ids renumbered globally), `sample_track`
+(when any shard has one), the supplemental `obs_ctd_full`, and the taxa
+references (`taxon` merged in dataset order; `dataset_taxon`
+/`taxon_group` deduplicated). Errors if `sample_key` is not globally
+unique — the namespacing guarantee the whole model rests on.
 
 ## Usage
 

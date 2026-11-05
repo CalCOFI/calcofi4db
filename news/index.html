@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.34.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.35.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,6 +77,13 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.35.0" id="calcofi4db-4350">calcofi4db 4.35.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4350"></a></h2>
+<ul><li>
+<strong>New core table <code>sample_track</code></strong>: one row per sample whose event is a path on the sea surface (<code>track_type</code> <code>effort_segment</code>, <code>sight_line</code>, …), keyed by <code>sample_key</code> (FK to <code>sample</code>), with the beginning, middle and end in x, y and t (<code>datetime_beg/_mid/_end</code>, <code>longitude_beg/_mid/_end</code>, <code>latitude_beg/_mid/_end</code>), <code>length_km</code> and a beginning-to-end <code>LINESTRING</code> <code>geom</code>. Written by the new <strong><code><a href="../reference/append_sample_track.html">append_sample_track()</a></code></strong> (the middle is computed: halfway in time, the great-circle midpoint; a NULL length is the great-circle distance, a supplied one is kept). <code><a href="../reference/core_output_tables.html">core_output_tables()</a></code>, <code><a href="../reference/core_relationships.html">core_relationships()</a></code>, <code><a href="../reference/release_sort_keys.html">release_sort_keys()</a></code> and <code><a href="../reference/assemble_core.html">assemble_core()</a></code> carry it; <code><a href="../reference/assemble_core.html">assemble_core()</a></code> stops on a sample with two tracks. <code>sample</code> is unchanged: it keeps one point per event.</li>
+<li>
+<strong>New <code><a href="../reference/cogo_true_bearing.html">cogo_true_bearing()</a></code></strong> (ship heading ± the angle off the bow, by side) and <strong><code><a href="../reference/cogo_destination.html">cogo_destination()</a></code></strong> (spherical destination point from a position, a true bearing and a distance) for placing a line-transect sighting from the observer’s position.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.34.0" id="calcofi4db-4340">calcofi4db 4.34.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4340"></a></h2>
 <ul><li><p><strong>A cruise’s month is its median cast month, and the seasons are DJF/MAM/JJA/SON</strong> (Rasmus Swalethorp 2026-10-16, Ben Best 2026-10-20, agreed 2026-10-27). New <code><a href="../reference/add_cruise_median_date.html">add_cruise_median_date()</a></code> stamps <code>date_median</code>, <code>month_median</code>, <code>season</code> and <code>season_year</code> on the <code>cruise</code> reference from the median datetime of each cruise’s root samples (a cast with 24 bottles counts once; a cruise with no dated sample keeps its key’s month). <code><a href="../reference/build_climatology.html">build_climatology()</a></code> and <code><a href="../reference/build_obs_slim.html">build_obs_slim()</a></code> gain <code>cruise_tbl</code> (default <code>"cruise"</code>) and read the month and year from it, falling back to the <code>cruise_key</code>’s YYYY-MM where the table is absent or lacks the column.</p></li>

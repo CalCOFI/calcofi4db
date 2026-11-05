@@ -1,5 +1,33 @@
 # Changelog
 
+## calcofi4db 4.35.0
+
+- **New core table `sample_track`**: one row per sample whose event is a
+  path on the sea surface (`track_type` `effort_segment`, `sight_line`,
+  …), keyed by `sample_key` (FK to `sample`), with the beginning, middle
+  and end in x, y and t (`datetime_beg/_mid/_end`,
+  `longitude_beg/_mid/_end`, `latitude_beg/_mid/_end`), `length_km` and
+  a beginning-to-end `LINESTRING` `geom`. Written by the new
+  **[`append_sample_track()`](https://calcofi.io/calcofi4db/reference/append_sample_track.md)**
+  (the middle is computed: halfway in time, the great-circle midpoint; a
+  NULL length is the great-circle distance, a supplied one is kept).
+  [`core_output_tables()`](https://calcofi.io/calcofi4db/reference/core_output_tables.md),
+  [`core_relationships()`](https://calcofi.io/calcofi4db/reference/core_relationships.md),
+  [`release_sort_keys()`](https://calcofi.io/calcofi4db/reference/release_sort_keys.md)
+  and
+  [`assemble_core()`](https://calcofi.io/calcofi4db/reference/assemble_core.md)
+  carry it;
+  [`assemble_core()`](https://calcofi.io/calcofi4db/reference/assemble_core.md)
+  stops on a sample with two tracks. `sample` is unchanged: it keeps one
+  point per event.
+- **New
+  [`cogo_true_bearing()`](https://calcofi.io/calcofi4db/reference/cogo_true_bearing.md)**
+  (ship heading ± the angle off the bow, by side) and
+  **[`cogo_destination()`](https://calcofi.io/calcofi4db/reference/cogo_destination.md)**
+  (spherical destination point from a position, a true bearing and a
+  distance) for placing a line-transect sighting from the observer’s
+  position.
+
 ## calcofi4db 4.34.0
 
 - **A cruise’s month is its median cast month, and the seasons are

@@ -25,6 +25,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/append_obs_attribute.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/append_sample.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/append_sample_measurement.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/append_sample_track.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/apply_data_corrections.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/apply_taxon_common.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/archive_sources.html</loc></url>
@@ -119,6 +120,8 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/cleanup_duplicate_archives.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/cleanup_gcs_obsolete.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/close_duckdb.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/cogo_destination.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/cogo_true_bearing.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/collect_cruise_key_mismatches.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/collect_measurement_type_mismatches.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/collect_ship_mismatches.html</loc></url>

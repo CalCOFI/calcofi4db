@@ -796,6 +796,11 @@ check for other functions or datasets not captured by above categories
   Append event-level (effort) rows into the core `sample_measurement`
   table
 
+- [`append_sample_track()`](https://calcofi.io/calcofi4db/reference/append_sample_track.md)
+  :
+
+  Append path rows into the core `sample_track` table
+
 - [`apply_taxon_common()`](https://calcofi.io/calcofi4db/reference/apply_taxon_common.md)
   :
 
@@ -1077,6 +1082,13 @@ check for other functions or datasets not captured by above categories
 
 - [`clean_taxon_name()`](https://calcofi.io/calcofi4db/reference/clean_taxon_name.md)
   : Normalize a source taxon name for an authority lookup
+
+- [`cogo_destination()`](https://calcofi.io/calcofi4db/reference/cogo_destination.md)
+  : Destination point from a position, a true bearing and a distance
+
+- [`cogo_true_bearing()`](https://calcofi.io/calcofi4db/reference/cogo_true_bearing.md)
+  : True bearing from the ship's heading and a sighting's angle off the
+  bow
 
 - [`combine_sensor_pair()`](https://calcofi.io/calcofi4db/reference/combine_sensor_pair.md)
   [`combine_sensor_pair_sql()`](https://calcofi.io/calcofi4db/reference/combine_sensor_pair.md)
