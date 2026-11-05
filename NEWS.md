@@ -1,4 +1,4 @@
-# calcofi4db 4.33.0
+# calcofi4db 4.34.0
 
 - **A cruise's month is its median cast month, and the seasons are DJF/MAM/JJA/SON**
   (Rasmus Swalethorp 2026-10-16, Ben Best 2026-10-20, agreed 2026-10-27). New
@@ -15,6 +15,35 @@
   `cruise_season_year_sql()`, `cruise_quarter()` and `CC_SEASONS` are the one rule.
 - `build_obs_slim()` appends `cruise_month` and `season_year` after `hex7`; the
   measurement catalog's anomaly series reads `obs_env.cruise_month`.
+# calcofi4db 4.33.1
+
+- `ctd_n2()` returns `NA` for a cast whose good bins yield fewer than two finite
+  N² mid-points (two good bins, or a degenerate pair) instead of erroring in
+  `approx()`; the full ctd-derived render hit it on the first cruise with such a cast.
+
+# calcofi4db 4.33.0
+
+- **Three new derived hydrographic rules, Rasmus Swalethorp's definitions (email "Next Two
+  Weeks Tasks" 2026-09-24, his legacy CalCOFI Matlab scripts and his TEOS-10 R draft):**
+  - `profile_threshold_depth()`: the depth at which a profile reaches a threshold, interpolated
+    linearly between the two bracketing samples (`D_NClineDepth.m`): the **nitracline** at 1 umol/L
+    nitrate (`direction = "above"`), or a boundary where oxygen falls to a threshold
+    (`"below"`). A first sample already past the threshold counts only when it is no deeper than
+    20 m in a profile of at least 3 samples (`at_surface`); otherwise `no_bracket`. Only the
+    shallowest crossing is reported. Statuses `ok`, `at_surface`, `no_bracket`, `not_reached`,
+    `no_data`.
+  - `ctd_hypoxic_depth()`: the three **hypoxic boundary depths** in one call, 2.4 mL/L (mild),
+    1.4 (hypoxic) and 0.5 (severe, the OMZ core), one row per threshold named by its registry key
+    (`hypoxic_depth_24`, `hypoxic_depth_14`, `hypoxic_depth_05`).
+  - `ctd_n2()`: the **buoyancy frequency squared** per bin, TEOS-10 (`gsw_Nsquared` on absolute
+    salinity and conservative temperature at the mid-points, aligned back to the bins), then a
+    centred 10 dbar running mean (in place of the draft's `smooth.spline(spar = 0.4)`, so the
+    value needs no tuning parameter; the legacy bottle script used a 10 m centred difference).
+  - `ctd_pycnocline()`: the **pycnocline depth** as the pressure of the maximum smoothed N^2
+    within 10-200 dbar and that maximum (`n2_max`), with the legacy script's conditions (the cast
+    starts by 15 m, reaches 50 m, at least 5 points in the window; `F_PycnoclineDepth.m` after
+    Fiedler et al. 2013).
+  A value flagged 8/9 never enters any of them. Each has a testthat fixture per rule.
 
 # calcofi4db 4.32.0
 

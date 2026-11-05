@@ -248,6 +248,248 @@ ctd_integrate <- function(depth, value, qual = NA, z_max = 200, z_top_max = 5,
   res(x, bottom, status)
 }
 
+#' Depth at which a profile reaches a threshold: the nitracline and hypoxic-boundary rule
+#'
+#' Rasmus Swalethorp's definition (email "Next Two Weeks Tasks" 2026-09-24; the CalCOFI legacy
+#' `D_NClineDepth.m`): the nitracline is the "depth at which nitrate is equal to or just above
+#' 1 uM. For the 1 m binned data this is simple. For the discrete depth bottle data we will have
+#' to find the depth between the point above and below this concentration ... by linear
+#' interpolation between the two points". The hypoxic boundaries are "the same as nitracline" with
+#' oxygen falling to a threshold, taking the shallowest crossing (see [ctd_hypoxic_depth()]).
+#'
+#' The rule, as the legacy script applies it: the profile is cleaned ([ctd_mld()]'s rule: flagged
+#' 8/9, missing and non-finite samples dropped, duplicate depths averaged, sorted), then the
+#' shallowest sample `i` that reaches the threshold is found — `value >= threshold` for
+#' `direction = "above"` (nitrate; the script tests `NO3 > 0.9999`, so a tolerance of 1e-4 is
+#' allowed), `value <= threshold` for `"below"` (oxygen). If `i > 1` the crossing depth is
+#' interpolated linearly between sample `i - 1` and `i` (`status = "ok"`). If the first good sample
+#' already reaches the threshold, its depth is the answer only when it is no deeper than
+#' `surface_max_m` and the profile has at least `min_n` samples (`"at_surface"`; the script: "I_NO3
+#' == 1 && Depth < 20 && NoDepths > 2"); otherwise there is nothing to bracket (`"no_bracket"`). A
+#' profile that never reaches the threshold is `"not_reached"`; fewer than two good samples is
+#' `"no_data"`. Only the shallowest crossing is reported: an oxygen minimum in mid-profile has a
+#' lower boundary too, which this rule does not return (Rasmus Swalethorp, 2026-09-24: "I suggest
+#' we just focus on the shallowest boundary depths").
+#'
+#' @param depth depth (m), one cast or bottle profile.
+#' @param value the quantity tested (nitrate in umol/L, oxygen in mL/L, ...).
+#' @param qual quality codes of `value` (`NA` = good); 8/9 are dropped.
+#' @param threshold the concentration the profile must reach.
+#' @param direction `"above"`: the first depth where `value >= threshold` (a nutricline);
+#'   `"below"`: the first depth where `value <= threshold` (a hypoxic boundary).
+#' @param surface_max_m deepest first sample that may be reported as the crossing when it already
+#'   reaches the threshold (m), default 20.
+#' @param min_n fewest samples the profile needs for an `at_surface` answer, default 3.
+#' @return one-row tibble: `depth_m`, `value_above`, `value_below` (the bracketing values, the
+#'   same value twice for `at_surface`), `status` (`ok`, `at_surface`, `no_bracket`,
+#'   `not_reached`, `no_data`), `threshold`, `direction`, `depth_max_m`, `n`.
+#' @export
+#' @concept ctd_derived
+#' @examples
+#' profile_threshold_depth(c(0, 10, 20, 30, 50), c(0.1, 0.2, 0.5, 1.5, 8), threshold = 1)   # 25 m
+#' profile_threshold_depth(c(0, 50, 100, 200), c(6, 4, 2, 1), threshold = 2.4, direction = "below")
+profile_threshold_depth <- function(depth, value, qual = NA, threshold,
+                                    direction = c("above", "below"),
+                                    surface_max_m = 20, min_n = 3) {
+  direction <- match.arg(direction)
+  stopifnot(is.numeric(depth), length(depth) == length(value),
+            is.numeric(threshold), length(threshold) == 1, is.finite(threshold),
+            is.numeric(surface_max_m), length(surface_max_m) == 1, surface_max_m >= 0,
+            is.numeric(min_n), length(min_n) == 1, min_n >= 1)
+  prof <- .clean_profile(depth, value, qual)
+  n <- nrow(prof)
+  res <- function(d = NA_real_, va = NA_real_, vb = NA_real_, status) tibble::tibble(
+    depth_m = as.numeric(d), value_above = as.numeric(va), value_below = as.numeric(vb),
+    status = status, threshold = threshold, direction = direction,
+    depth_max_m = if (n) max(prof$depth) else NA_real_, n = as.integer(n))
+  if (n < 2) return(res(status = "no_data"))
+  tol <- 1e-4
+  hit <- if (direction == "above") prof$value >= threshold - tol else prof$value <= threshold + tol
+  if (!any(hit)) return(res(status = "not_reached"))
+  i <- which(hit)[1]
+  if (i == 1) {
+    if (prof$depth[1] <= surface_max_m && n >= min_n)
+      return(res(prof$depth[1], prof$value[1], prof$value[1], "at_surface"))
+    return(res(status = "no_bracket"))
+  }
+  z0 <- prof$depth[i - 1]; z1 <- prof$depth[i]
+  v0 <- prof$value[i - 1]; v1 <- prof$value[i]
+  # interp1(NO3(i-1:i), Depth(i-1:i), threshold): a flat pair cannot happen (v0 did not hit, v1 did);
+  # clamped to the bracket, since a hit within the tolerance would otherwise extrapolate past it
+  d <- z0 + (threshold - v0) * (z1 - z0) / (v1 - v0)
+  res(min(max(d, z0), z1), v0, v1, "ok")
+}
+
+#' Hypoxic boundary depths of one CTD cast
+#'
+#' Rasmus Swalethorp's definition (email 2026-09-24): "Same as nitracline but here the thresholds
+#' should be set at 2.4 mL/L O2 for mild hypoxic boundary, 1.4 for hypoxic boundary and 0.5 for
+#' severe hypoxic boundary (core oxygen minimum zone, OMZ). The OMZ sometimes sits in the middle of
+#' the CTD profile meaning you can encounter the boundaries both above and below the OMZ. I suggest
+#' we just focus on the shallowest boundary depths." Each threshold is
+#' [profile_threshold_depth()] with `direction = "below"`: the shallowest depth where oxygen falls
+#' to the threshold, interpolated linearly between the bracketing bins. Use the bottle-corrected
+#' sensor-pair average in mL/L (`oxygen_ml_l_ave_sta_corr`).
+#'
+#' @param depth depth (m), one cast.
+#' @param oxygen dissolved oxygen (mL/L).
+#' @param qual quality codes of `oxygen` (`NA` = good).
+#' @param thresholds named numeric: the measurement type key of each boundary and its oxygen
+#'   threshold (mL/L); the defaults are the registry keys.
+#' @param surface_max_m passed to [profile_threshold_depth()].
+#' @return a tibble with one row per threshold, in the order given: `measurement_type` plus the
+#'   columns of [profile_threshold_depth()].
+#' @export
+#' @concept ctd_derived
+#' @importFrom dplyr bind_rows
+#' @examples
+#' z <- seq(0, 500, by = 10)
+#' ctd_hypoxic_depth(z, 6 - z / 100)
+ctd_hypoxic_depth <- function(depth, oxygen, qual = NA,
+                              thresholds = c(hypoxic_depth_24 = 2.4, hypoxic_depth_14 = 1.4,
+                                             hypoxic_depth_05 = 0.5),
+                              surface_max_m = 20) {
+  stopifnot(is.numeric(thresholds), length(thresholds) >= 1,
+            !is.null(names(thresholds)), all(nzchar(names(thresholds))))
+  dplyr::bind_rows(lapply(names(thresholds), function(k) {
+    r <- profile_threshold_depth(depth, oxygen, qual, threshold = thresholds[[k]],
+                                 direction = "below", surface_max_m = surface_max_m)
+    tibble::tibble(measurement_type = k, r)
+  }))
+}
+
+#' Buoyancy frequency squared (N^2) of one CTD cast, TEOS-10
+#'
+#' Rasmus Swalethorp's request (email 2026-09-24, with his R draft "Boyancy frequency and
+#' pycnocline.r" and the legacy `E_BuoyFreq_Calc.m`): "Buoyancy frequency ... calculated just for
+#' the 1 m binned CTD data that could be served up on the CTD transect plotter. This product tells us
+#' something about the stability of the water column and is useful for identifying layers of
+#' mixing", modernized "following TEOS-10 standards using the Gibbs package". Absolute salinity
+#' (`gsw_SA_from_SP`) and conservative temperature (`gsw_CT_from_t`), then `gsw_Nsquared()` on the
+#' staggered mid-points, aligned back to the sample pressures by linear interpolation (`rule = 2`,
+#' as the draft does), then a centred triangular-weighted (Bartlett) running mean over `smooth_m`
+#' dbar.
+#'
+#' The smoothing is the one departure from the draft, which fits `smooth.spline(spar = 0.4)` to the
+#' N^2 profile before searching for the pycnocline: a weighted mean over a stated window gives the
+#' same answer on every machine with no tuning parameter, and the legacy bottle script
+#' (`F_PycnoclineDepth.m`) used a 10 m centred difference of the interpolated density, which is the
+#' same window. The weights fall linearly from the centre to the window's edge, so a one-bin step
+#' smooths to a peak at the step (a flat box mean would make a plateau whose shallow edge wins the
+#' maximum). As in that script, the value is undefined (`NA`) within half a window of the
+#' profile's top and bottom, where a truncated window would inflate a surface step. `smooth_m = 0`
+#' returns the aligned raw N^2 at every sample. A sample whose temperature or salinity is flagged
+#' 8/9 or missing takes no part in the computation and is `NA` in the result; the output is aligned
+#' to the input.
+#'
+#' @param temperature in-situ temperature (deg C, ITS-90), one cast (a scalar is recycled).
+#' @param salinity practical salinity (a scalar is recycled).
+#' @param pressure sea pressure (dbar).
+#' @param longitude,latitude the cast's position (scalar or per sample).
+#' @param q_temperature,q_salinity quality codes (`NA` = good).
+#' @param smooth_m running-mean window (dbar), default 10.
+#' @return numeric vector, N^2 (s^-2), the length of the input.
+#' @export
+#' @concept ctd_derived
+#' @importFrom gsw gsw_SA_from_SP gsw_CT_from_t gsw_Nsquared
+#' @importFrom stats approx
+#' @examples
+#' p <- 1:100
+#' n2 <- ctd_n2(ifelse(p < 50, 16, 10), 33.5, p, -120, 33)
+#' p[which.max(n2)]   # near the 50 dbar interface
+ctd_n2 <- function(temperature, salinity, pressure, longitude, latitude,
+                   q_temperature = NA, q_salinity = NA, smooth_m = 10) {
+  n <- length(pressure)
+  if (length(temperature) == 1) temperature <- rep_len(temperature, n)
+  if (length(salinity) == 1) salinity <- rep_len(salinity, n)
+  stopifnot(length(temperature) == n, length(salinity) == n,
+            is.numeric(smooth_m), length(smooth_m) == 1, smooth_m >= 0)
+  t  <- .drop_flagged(as.numeric(temperature), q_temperature)
+  sp <- .drop_flagged(as.numeric(salinity), q_salinity)
+  p  <- as.numeric(pressure)
+  lon <- rep_len(as.numeric(longitude), n); lat <- rep_len(as.numeric(latitude), n)
+  out <- rep(NA_real_, n)
+  ok <- !is.na(t) & !is.na(sp) & !is.na(p) & is.finite(t) & is.finite(sp) & is.finite(p) &
+    !is.na(lon) & !is.na(lat)
+  if (sum(ok) < 2) return(out)
+  o <- order(p[ok]); idx <- which(ok)[o]
+  # duplicate pressures (a repeated bin) collapse to their mean so the mid-points are distinct
+  pk <- p[idx]; keep <- !duplicated(pk)
+  if (!all(keep)) {
+    t_m  <- tapply(t[idx], pk, mean); s_m <- tapply(sp[idx], pk, mean)
+    pu <- as.numeric(names(t_m)); tu <- as.numeric(t_m); su <- as.numeric(s_m)
+    lonu <- as.numeric(tapply(lon[idx], pk, mean)); latu <- as.numeric(tapply(lat[idx], pk, mean))
+  } else {
+    pu <- pk; tu <- t[idx]; su <- sp[idx]; lonu <- lon[idx]; latu <- lat[idx]
+  }
+  if (length(pu) < 2) return(out)
+  sa <- gsw::gsw_SA_from_SP(su, pu, lonu, latu)
+  ct <- gsw::gsw_CT_from_t(sa, tu, pu)
+  st <- gsw::gsw_Nsquared(sa, ct, pu, latu)
+  # two good bins give one mid-point, and a non-finite N2 can come back from gsw on a degenerate
+  # pair: approx() needs two finite points, else the cast simply has no N2
+  fin <- is.finite(st$p_mid) & is.finite(st$N2)
+  if (sum(fin) < 2) return(out)
+  n2u <- stats::approx(st$p_mid[fin], st$N2[fin], xout = pu, rule = 2, ties = mean)$y
+  if (smooth_m > 0) {
+    n2u <- .running_tri_m(pu, n2u, smooth_m)
+    # undefined within half a window of the profile's ends, as the legacy script leaves the first
+    # and last 5 m blank: a truncated window there would inflate a surface step into a maximum
+    h <- smooth_m / 2 - 1e-9
+    n2u[pu - min(pu) < h | max(pu) - pu < h] <- NA_real_
+  }
+  out[idx] <- n2u[match(pk, pu)]
+  out
+}
+
+#' Pycnocline depth and maximum N^2 of one CTD cast
+#'
+#' Rasmus Swalethorp's definition (email 2026-09-24, R draft "Boyancy frequency and pycnocline.r";
+#' the legacy bottle script `F_PycnoclineDepth.m` after Fiedler et al. 2013, *J. Climate*): "The
+#' pycnocline is defined physically as the depth of maximum static stability": the pressure at
+#' which the smoothed N^2 of [ctd_n2()] is greatest within the search window `p_min`-`p_max` dbar
+#' (the draft's 10-200 m), and `n2_max` that value. The legacy script's conditions are kept: the cast
+#' must start no deeper than `surface_max_m` (15 m) and reach at least `depth_min_m` (50 m), with at
+#' least `min_points` (5) good values inside the window; an exact tie goes to the centre of the
+#' tied run.
+#'
+#' @param pressure sea pressure (dbar), one cast.
+#' @param n2 the smoothed N^2 at those pressures, from [ctd_n2()] (`NA` where flagged).
+#' @param p_min,p_max the search window (dbar), default 10-200.
+#' @param min_points fewest good values inside the window, default 5.
+#' @param surface_max_m deepest acceptable first good sample (m), default 15.
+#' @param depth_min_m shallowest acceptable deepest good sample (m), default 50.
+#' @return one-row tibble: `pycnocline_depth_m`, `n2_max`, `status` (`ok`, `no_surface`,
+#'   `too_shallow`, `too_few`, `no_data`), `n` (good values inside the window).
+#' @export
+#' @concept ctd_derived
+#' @examples
+#' p <- 1:300
+#' n2 <- ctd_n2(ifelse(p < 60, 16, 10), 33.5, p, -120, 33)
+#' ctd_pycnocline(p, n2)   # about 60 dbar
+ctd_pycnocline <- function(pressure, n2, p_min = 10, p_max = 200, min_points = 5,
+                           surface_max_m = 15, depth_min_m = 50) {
+  stopifnot(is.numeric(pressure), length(pressure) == length(n2),
+            is.numeric(p_min), is.numeric(p_max), p_min < p_max,
+            is.numeric(min_points), min_points >= 1)
+  p <- as.numeric(pressure); v <- as.numeric(n2)
+  ok <- !is.na(p) & !is.na(v) & is.finite(v)
+  res <- function(d = NA_real_, m = NA_real_, status, nw = 0L) tibble::tibble(
+    pycnocline_depth_m = as.numeric(d), n2_max = as.numeric(m), status = status, n = as.integer(nw))
+  if (!any(ok)) return(res(status = "no_data"))
+  if (min(p[ok]) > surface_max_m) return(res(status = "no_surface"))
+  if (max(p[ok]) < depth_min_m) return(res(status = "too_shallow"))
+  w <- ok & p >= p_min & p <= p_max
+  nw <- sum(w)
+  if (nw < min_points) return(res(status = "too_few", nw = nw))
+  pw <- p[w]; vw <- v[w]
+  o <- order(pw); pw <- pw[o]; vw <- vw[o]
+  # an exact tie (a constant run) takes the run's centre
+  top <- which(vw == max(vw))
+  i <- top[ceiling(length(top) / 2)]
+  res(pw[i], vw[i], "ok", nw)
+}
+
 #' Relative geostrophic velocity between adjacent CTD stations
 #'
 #' Rasmus Swalethorp's recipe (email 2026-09-22; CalCOFI/workflows#103): per station, absolute
@@ -366,6 +608,21 @@ ctd_geostrophic <- function(casts, p_ref = 500, dp = 1, min_dx_km = 10) {
   lo <- findInterval(depth - h, depth, left.open = TRUE) + 1L
   hi <- findInterval(depth + h, depth)
   vapply(seq_along(depth), function(i) mean(value[lo[i]:hi[i]]), numeric(1))
+}
+
+# a centred triangular-weighted (Bartlett) running mean over a window in metres: weight 1 at the
+# sample, falling linearly to 0 at half the window; `depth` sorted, no NA. Unlike the box mean a
+# one-bin spike smooths to a peak at the spike, not a plateau.
+.running_tri_m <- function(depth, value, window_m) {
+  if (window_m <= 0 || length(value) < 2) return(as.numeric(value))
+  h  <- window_m / 2
+  lo <- findInterval(depth - h, depth, left.open = TRUE) + 1L
+  hi <- findInterval(depth + h, depth, left.open = TRUE)
+  vapply(seq_along(depth), function(i) {
+    j <- lo[i]:hi[i]
+    w <- pmax(0, 1 - abs(depth[j] - depth[i]) / h)
+    sum(w * value[j]) / sum(w)
+  }, numeric(1))
 }
 
 .haversine_km <- function(lat1, lon1, lat2, lon2) {

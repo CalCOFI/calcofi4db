@@ -29,7 +29,7 @@
 #'   casts, sampled exactly where the profile bends, and their means sit visibly off their
 #'   neighbours'. Every 10 m bin holds every cast.
 #' - **The cruise's month, not the cast's.** A cast is filed under the month and year of its
-#'   cruise, never the calendar date it was occupied. Since 4.33.0 the cruise's month is the
+#'   cruise, never the calendar date it was occupied. Since 4.34.0 the cruise's month is the
 #'   calendar month of the **median datetime of its root samples** (`cruise.month_median`, written
 #'   by [add_cruise_median_date()] and read through `cruise_tbl`; Rasmus Swalethorp 2026-10-16,
 #'   Ben Best 2026-10-20: 642 of 681 cruises centre on the month their key designates, 39 on the
@@ -93,7 +93,7 @@
 #'   `clim_cast_types`), so this package carries no list of datasets.
 #' - **A seasonal baseline beside the monthly one** (`season = TRUE`, the release's setting; calcofi4db 4.24.0; Rasmus
 #'   Swalethorp, 2026-10-06: let the user toggle between a monthly and a seasonal baseline). The
-#'   season is that of the **cruise's month** — since 4.33.0 the meteorological seasons
+#'   season is that of the **cruise's month** — since 4.34.0 the meteorological seasons
 #'   [cruise_quarter_sql()] numbers 1 = DJF, 2 = MAM, 3 = JJA, 4 = SON (Q1 Jan–Mar … Q4 Oct–Dec
 #'   through v2026.10.30), the Explorer's season filter — so 2607 (`2026-07-3322`) is JJA even
 #'   where it worked 93.3 on 30 June, and a December cruise is winter with the January after it.
@@ -167,7 +167,7 @@ build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, 
             is.null(cast_types) || (is.character(cast_types) && !anyNA(cast_types)),
             is.logical(season), length(season) == 1, !is.na(season),
             is.null(cruise_tbl) || (is.character(cruise_tbl) && length(cruise_tbl) == 1))
-  # the cruise's month: the cruise table's median cast month (4.33.0) where the table carries it,
+  # the cruise's month: the cruise table's median cast month (4.34.0) where the table carries it,
   # the YYYY-MM of the key otherwise (an older wrangling db, a test fixture without a cruise table)
   cr <- .cruise_tbl_join(con, cruise_tbl)
   # no ceiling: the HAVING count(DISTINCT cruise_key) >= min_cruises rule is the only
@@ -224,7 +224,7 @@ build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, 
     "count(*)::INTEGER AS {prefix}_n, count(DISTINCT cruise_key)::INTEGER AS {prefix}_n_cruises, ",
     "mode(grid_key) AS {prefix}_grid_key")
 
-  # the season's three months (DJF, MAM, JJA, SON since 4.33.0 — cruise_quarter_sql()), so a
+  # the season's three months (DJF, MAM, JJA, SON since 4.34.0 — cruise_quarter_sql()), so a
   # seasonal cell sits on each month it covers and every consumer keeps looking a baseline up by
   # (station, month, bin, type)
   months_sql <- "SELECT unnest(range(1, 13))::TINYINT AS month"
@@ -272,7 +272,7 @@ build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, 
   invisible(n)
 }
 
-# the cruise's month and year as SQL over `alias`. Since 4.33.0 the month is the cruise's
+# the cruise's month and year as SQL over `alias`. Since 4.34.0 the month is the cruise's
 # MEDIAN cast month (`cruise.month_median`, add_cruise_median_date(); Rasmus Swalethorp 2026-10-16,
 # Ben Best 2026-10-20: 39 of 681 cruises centre on the month beside the one their key designates)
 # when a cruise table carrying it is joined under `cruise_alias`; the YYYY-MM of the key
@@ -308,7 +308,7 @@ build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, 
 
 #' The seasons every CalCOFI anomaly and season filter use: DJF, MAM, JJA, SON
 #'
-#' Since calcofi4db 4.33.0 (Rasmus Swalethorp, 2026-10-16: "keep the quarters matching seasons, so
+#' Since calcofi4db 4.34.0 (Rasmus Swalethorp, 2026-10-16: "keep the quarters matching seasons, so
 #' quarter 1 would be Dec-Feb"; agreed 2026-10-27) a season is three calendar months starting in
 #' December — winter `DJF`, spring `MAM`, summer `JJA`, fall `SON` — and **December counts toward
 #' the following year's winter** (Dec 2025 + Jan-Feb 2026 = winter 2026, the climatology

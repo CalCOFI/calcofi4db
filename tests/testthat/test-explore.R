@@ -405,6 +405,6 @@ test_that("build_obs_slim(): year and quarter are the cruise's, not the cast's c
   # a key that does not parse falls back to the date
   DBI::dbExecute(con, "UPDATE obs SET cruise_key = 'unknown' WHERE obs_id = 2")
   build_obs_slim(con, "env", QUAL_OK, DENSITY)
-  # (June is JJA = 3 since 4.33.0; Apr-Jun = 2 before)
+  # (June is JJA = 3 since 4.34.0; Apr-Jun = 2 before)
   expect_equal(DBI::dbGetQuery(con, "SELECT quarter FROM obs_env WHERE obs_id = 2")$quarter, 3L)
 })

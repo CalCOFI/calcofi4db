@@ -326,7 +326,7 @@ test_that("build_climatology(season = TRUE): a quarter's baseline sits on each o
   con <- clim_con()
   DBI::dbExecute(con, "CREATE TABLE obs AS SELECT * FROM (VALUES
     -- winter at a northern station: one cruise in each of Dec, Jan, Feb -- each month below a floor
-    -- of 3, the season DJF (three cruises; 4.33.0: December is winter with the January after it) above it
+    -- of 3, the season DJF (three cruises; 4.34.0: December is winter with the January after it) above it
     ('env', 'st60-ln66.7', '2001-12-33XX', TIMESTAMP '2001-12-20 00:00', 2.0, 'temperature_ave', 10.0, NULL::VARCHAR, 'calcofi_ctd-cast', 'n1'),
     ('env', 'st60-ln66.7', '2002-01-33XX', TIMESTAMP '2002-01-20 00:00', 2.0, 'temperature_ave', 11.0, NULL, 'calcofi_ctd-cast', 'n2'),
     ('env', 'st60-ln66.7', '2003-02-33XX', TIMESTAMP '2003-02-20 00:00', 2.0, 'temperature_ave', 12.0, NULL, 'calcofi_ctd-cast', 'n3'),
@@ -345,7 +345,7 @@ test_that("build_climatology(season = TRUE): a quarter's baseline sits on each o
   cl <- DBI::dbGetQuery(con, "SELECT month, quarter, clim_mean, n_cruises, season_mean, season_n, season_n_cruises
     FROM climatology ORDER BY month")
   expect_equal(cl$month, c(1L, 2L, 6L, 7L, 8L, 12L), info = "every month of each passing season (JJA = June-August), nothing else (no March: MAM has one cruise)")
-  expect_equal(cl$quarter, c(1L, 1L, 3L, 3L, 3L, 1L), info = "1 = DJF, 3 = JJA (4.33.0)")
+  expect_equal(cl$quarter, c(1L, 1L, 3L, 3L, 3L, 1L), info = "1 = DJF, 3 = JJA (4.34.0)")
   expect_equal(cl$clim_mean, c(NA, NA, NA, 16, NA, NA),
                info = "a month below the floor has a row but no monthly baseline")
   expect_equal(cl$n_cruises, c(NA, NA, NA, 3L, NA, NA))
@@ -388,7 +388,7 @@ test_that("check_release_relationships(): a declared nullable key column is a va
   expect_equal(check_release_relationships(con, rels, halt = FALSE)$primary_keys$n_dup, 1)
 })
 
-# the cruise's MEDIAN cast month (4.33.0; Rasmus Swalethorp 2026-10-16, Ben Best 2026-10-20): when a
+# the cruise's MEDIAN cast month (4.34.0; Rasmus Swalethorp 2026-10-16, Ben Best 2026-10-20): when a
 # `cruise` table carrying add_cruise_median_date()'s columns is in the connection, a cast is filed
 # under its cruise's median month, not the key's MM; without that table the key rule stands.
 test_that("build_climatology(cruise_tbl =): a cast is filed under its cruise's median month when the cruise table carries one", {

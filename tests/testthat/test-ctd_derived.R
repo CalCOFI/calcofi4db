@@ -205,6 +205,146 @@ test_that("spice: gsw recipe; spicy positive vs minty; flagged is NA", {
   expect_true(is.na(ctd_spice(16, 33.6, 10, -120, 33, q_salinity = "9")))
 })
 
+# profile_threshold_depth ----
+
+test_that("threshold depth: the crossing is interpolated linearly between the bracketing samples", {
+  r <- profile_threshold_depth(c(0, 10, 20, 30, 50), c(0.1, 0.2, 0.5, 1.5, 8), threshold = 1)
+  expect_equal(r$depth_m, 25)
+  expect_equal(r$status, "ok")
+  expect_equal(c(r$value_above, r$value_below), c(0.5, 1.5))
+  expect_equal(r$direction, "above"); expect_equal(r$threshold, 1)
+  expect_equal(r$depth_max_m, 50); expect_equal(r$n, 5L)
+  # the legacy script's tolerance: 0.9999 counts as reaching 1
+  expect_equal(profile_threshold_depth(c(0, 10, 20), c(0.2, 0.9999, 3), threshold = 1)$depth_m, 10)
+})
+
+test_that("threshold depth: a first sample already past the threshold is at_surface only when shallow", {
+  r <- profile_threshold_depth(c(5, 20, 40), c(2, 5, 9), threshold = 1)
+  expect_equal(r$depth_m, 5); expect_equal(r$status, "at_surface")
+  expect_equal(c(r$value_above, r$value_below), c(2, 2))
+  # deeper than 20 m: nothing above it to bracket the crossing
+  r <- profile_threshold_depth(c(25, 40, 60), c(2, 5, 9), threshold = 1)
+  expect_true(is.na(r$depth_m)); expect_equal(r$status, "no_bracket")
+  # shallow but only two samples (the script wants > 2 depths)
+  r <- profile_threshold_depth(c(5, 40), c(2, 9), threshold = 1)
+  expect_true(is.na(r$depth_m)); expect_equal(r$status, "no_bracket")
+})
+
+test_that("threshold depth: never reached, no data, flagged samples dropped first", {
+  r <- profile_threshold_depth(c(0, 10, 20), c(0.1, 0.2, 0.3), threshold = 1)
+  expect_true(is.na(r$depth_m)); expect_equal(r$status, "not_reached")
+  expect_equal(profile_threshold_depth(10, 5, threshold = 1)$status, "no_data")
+  expect_equal(profile_threshold_depth(c(0, 10), c(NA, 5), threshold = 1)$status, "no_data")
+  # a flagged spike at 10 m would have put the crossing at 5 m; dropped, it is 25 m
+  r <- profile_threshold_depth(c(0, 10, 20, 30), c(0.1, 9, 0.5, 1.5), qual = c(NA, "9", NA, NA),
+                               threshold = 1)
+  expect_equal(r$depth_m, 25); expect_equal(r$n, 3L)
+})
+
+test_that("threshold depth: direction below is the hypoxic rule (oxygen falling to the threshold)", {
+  r <- profile_threshold_depth(c(0, 50, 100, 200), c(6, 4, 2, 1), threshold = 2.4, direction = "below")
+  expect_equal(r$depth_m, 90); expect_equal(r$status, "ok")
+  expect_equal(c(r$value_above, r$value_below), c(4, 2))
+  # only the shallowest crossing: oxygen recovering below the minimum is not reported
+  r <- profile_threshold_depth(c(0, 100, 200, 300), c(6, 2, 6, 2), threshold = 2.4, direction = "below")
+  expect_equal(r$depth_m, 90)
+})
+
+# ctd_hypoxic_depth ----
+
+test_that("hypoxic: one row per threshold, in order, named by the registry key", {
+  z <- seq(0, 600, by = 10)
+  r <- ctd_hypoxic_depth(z, 6 - z / 100)
+  expect_equal(r$measurement_type, c("hypoxic_depth_24", "hypoxic_depth_14", "hypoxic_depth_05"))
+  expect_equal(r$depth_m, c(360, 460, 550))
+  expect_equal(r$direction, rep("below", 3)); expect_equal(r$status, rep("ok", 3))
+  # a cast that never reaches the severe boundary (oxygen 1 mL/L at its bottom)
+  r <- ctd_hypoxic_depth(seq(0, 500, by = 10), 6 - seq(0, 500, by = 10) / 100)
+  expect_equal(r$status, c("ok", "ok", "not_reached"))
+  expect_true(is.na(r$depth_m[3]))
+})
+
+# ctd_n2 ----
+
+test_that("n2: a two-layer profile peaks at the interface; flagged samples are NA; aligned to input", {
+  p <- 1:150
+  t <- ifelse(p < 60, 16, 10)
+  n2 <- ctd_n2(t, 33.5, p, -120, 33)
+  expect_length(n2, 150)
+  # undefined within half a window (5 dbar) of the top and bottom, finite elsewhere
+  expect_true(all(is.na(n2[c(1:5, 146:150)])))
+  expect_true(all(is.finite(n2[6:145])))
+  expect_true(abs(p[which.max(n2)] - 60) <= 5)
+  # far from the interface the water is uniform: N2 near zero
+  expect_lt(max(n2[c(6:40, 100:145)]), max(n2, na.rm = TRUE) / 100)
+  # a flagged temperature gives NA at that sample and takes no part elsewhere
+  q <- rep(NA, 150); q[30] <- "9"
+  n2q <- ctd_n2(t, 33.5, p, -120, 33, q_temperature = q)
+  expect_true(is.na(n2q[30]))
+  expect_equal(n2q[-30], ctd_n2(t[-30], 33.5, p[-30], -120, 33), tolerance = 1e-12)
+  # positions may be scalar or per sample
+  expect_equal(n2, ctd_n2(t, rep(33.5, 150), p, rep(-120, 150), rep(33, 150)))
+})
+
+test_that("n2: the running mean is a window in dbar, and smooth_m = 0 is the raw aligned N2", {
+  p <- 1:100
+  t <- ifelse(p < 50, 16, 10)
+  raw <- ctd_n2(t, 33.5, p, -120, 33, smooth_m = 0)
+  sm  <- ctd_n2(t, 33.5, p, -120, 33, smooth_m = 10)
+  # the raw step is one sharp spike at the interface (two mid-points straddle it), at every sample
+  expect_true(all(is.finite(raw)))
+  expect_lt(sum(raw > max(raw) / 2), 4)
+  # smoothed, the spike is spread over about the window and lowered, never raised
+  expect_gte(sum(sm > max(sm, na.rm = TRUE) / 2, na.rm = TRUE), 5)
+  expect_lt(max(sm, na.rm = TRUE), max(raw))
+  # the window is the hand-made triangular mean over +/- 5 dbar; blank within 5 dbar of the ends
+  w <- c(1:4, 5, 4:1) / 5
+  expect_equal(sm[50], sum(w * raw[46:54]) / sum(w), tolerance = 1e-12)
+  expect_equal(sm[6], sum(w * raw[2:10]) / sum(w), tolerance = 1e-12)
+  expect_true(all(is.na(sm[c(1:5, 96:100)])))
+  # the smoothed peak sits on the step (49.5 dbar, between bins 49 and 50), not at a plateau's edge
+  expect_true(p[which.max(sm)] %in% 49:50)
+  # fewer than two good samples: all NA
+  expect_true(all(is.na(ctd_n2(c(16, NA), c(33.5, 33.5), c(1, 2), -120, 33))))
+})
+
+# ctd_pycnocline ----
+
+test_that("pycnocline: the maximum of smoothed N2 inside 10-200 dbar; a surface gradient is ignored", {
+  p <- 1:300
+  # a sharper gradient at 5 dbar (outside the window) than the real pycnocline at 60
+  t <- ifelse(p < 5, 26, ifelse(p < 60, 16, 10))
+  n2 <- ctd_n2(t, 33.5, p, -120, 33)
+  raw <- ctd_n2(t, 33.5, p, -120, 33, smooth_m = 0)
+  expect_true(p[which.max(raw)] %in% 4:5)           # the raw maximum is the surface step
+  expect_gt(max(n2[6:9]), max(n2[10:200]))          # smoothed, it still outranks the pycnocline
+  r <- ctd_pycnocline(p, n2)
+  expect_equal(r$status, "ok")
+  expect_true(abs(r$pycnocline_depth_m - 60) <= 1)   # the step is at 59.5
+  expect_equal(r$n2_max, max(n2[p >= 10 & p <= 200]))
+  expect_equal(r$n, 191L)
+  # a deeper gradient below 200 dbar is outside the window too
+  t2 <- ifelse(p < 60, 16, ifelse(p < 250, 10, 4))
+  r2 <- ctd_pycnocline(p, ctd_n2(t2, 33.5, p, -120, 33))
+  expect_true(abs(r2$pycnocline_depth_m - 60) <= 1)
+  # a tied run takes its centre
+  expect_equal(ctd_pycnocline(1:100, c(rep(1e-5, 9), rep(1e-4, 11), rep(1e-5, 80)))$pycnocline_depth_m, 15)
+})
+
+test_that("pycnocline: the legacy conditions -- a cast must start by 15 m, reach 50 m, with 5 points", {
+  r <- ctd_pycnocline(1:40, rep(1e-4, 40))
+  expect_true(is.na(r$pycnocline_depth_m)); expect_equal(r$status, "too_shallow")
+  r <- ctd_pycnocline(20:100, rep(1e-4, 81))
+  expect_equal(r$status, "no_surface")
+  r <- ctd_pycnocline(c(1, 5, 12, 150, 160, 300), rep(1e-4, 6))
+  expect_equal(r$status, "too_few"); expect_equal(r$n, 3L)
+  expect_equal(ctd_pycnocline(1:100, rep(NA_real_, 100))$status, "no_data")
+  # NA inside the window do not count as points
+  v <- rep(1e-4, 100); v[10:100] <- NA; v[c(20, 30, 40, 50, 60)] <- 2e-4
+  expect_equal(ctd_pycnocline(1:100, v)$n, 5L)
+  expect_equal(ctd_pycnocline(1:100, v)$pycnocline_depth_m, 40)   # five tied points: the centre
+})
+
 # ctd_geostrophic ----
 
 mk_cast <- function(station, lat, lon, t_top, p_max = 500) {
@@ -256,4 +396,11 @@ test_that("geostrophic: a station closer than min_dx_km to the last kept one is 
   g <- ctd_geostrophic(casts)
   expect_equal(unique(paste(g$station_1, g$station_2)), "a b")
   expect_equal(unique(paste(ctd_geostrophic(casts, min_dx_km = 0)$station_1)), c("a", "a2"))
+})
+
+test_that("n2: two good bins (one mid-point) or a cast of flagged bins give NA, not an error", {
+  expect_true(all(is.na(ctd_n2(c(16, 10), c(33.5, 33.5), c(1, 50), -120, 33))))
+  expect_true(all(is.na(ctd_n2(c(16, 12, 10), c(33.5, 33.5, 33.5), c(1, 25, 50), -120, 33,
+                               q_temperature = c("9", NA, "9")))))
+  expect_length(ctd_n2(c(16, 10), c(33.5, 33.5), c(1, 50), -120, 33), 2)
 })

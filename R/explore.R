@@ -245,11 +245,11 @@ check_sample_hex7 <- function(con, sample_tbl = "sample", root_tbl = "sample_roo
 #' Slims `obs` to the columns a lens needs, joins the gear and effort of the observation's own sample
 #' (`sample.tow_type`; `std_haul_factor`, `prop_sorted`, `volume_sampled` from `sample_measurement`),
 #' stamps `root_id`, `year`, `quarter`, `depth_bin` (10 m), `hex7`, `qual_ok` (from `qual_ok_sql`)
-#' (`year` and `quarter` are the **cruise's** — since 4.33.0 the year and month of its median cast
+#' (`year` and `quarter` are the **cruise's** — since 4.34.0 the year and month of its median cast
 #' date (`cruise.month_median`, read through `cruise_tbl`) and the season 1 = DJF … 4 = SON
 #' ([cruise_quarter_sql()]), as [build_climatology()] files the baseline; the `cruise_key`'s YYYY-MM
 #' where the cruise table lacks it and the calendar date only where the key does not parse) and,
-#' appended after `hex7` (4.33.0), `cruise_month` (that month) and `season_year` (the year the
+#' appended after `hex7` (4.34.0), `cruise_month` (that month) and `season_year` (the year the
 #' season belongs to: December counts toward the following winter)
 #' and the D8 densities + `effort_class` (from `density_sql`). Depth is the observation's, falling back
 #' to its sample's and then its root's, so a net tow carries its integrated span. Both realms get the
@@ -302,7 +302,7 @@ build_obs_slim <- function(con, realm = c("bio", "env"), qual_ok_sql, density_sq
              -- Explorer's season filter keeps seasons, and 2607 (2026-07-3322) worked line 93.3
              -- inshore on 30 June, so by date those casts left summer (Rasmus Swalethorp, 2026-10-07).
              -- The same rule as the climatology, so a season and its baseline are one season. Since
-             -- 4.33.0 the cruise's month is its median cast month (cruise.month_median) and the
+             -- 4.34.0 the cruise's month is its median cast month (cruise.month_median) and the
              -- quarter is the meteorological season, 1 = DJF ... 4 = SON (cruise_quarter_sql()).
              ({yr_sql})::SMALLINT AS year,
              {cruise_quarter_sql(mon_sql)}::TINYINT AS quarter,
@@ -327,7 +327,7 @@ build_obs_slim <- function(con, realm = c("bio", "env"), qual_ok_sql, density_sq
            tow_type, std_haul_factor, prop_sorted, volume_sampled_m3,
            {density_sql},
            hex_id, hex7,
-           -- appended (4.33.0), never inserted: the cruise's month and the year its season belongs to
+           -- appended (4.34.0), never inserted: the cruise's month and the year its season belongs to
            cruise_month, season_year
     FROM x"))
   n <- dbGetQuery(con, glue("SELECT count(*) AS n FROM {tbl}"))$n

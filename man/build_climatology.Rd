@@ -92,7 +92,7 @@ inflection points plus bottle depths), so at 5 m the off-grid bins hold about a 
 casts, sampled exactly where the profile bends, and their means sit visibly off their
 neighbours'. Every 10 m bin holds every cast.
 \item \strong{The cruise's month, not the cast's.} A cast is filed under the month and year of its
-cruise, never the calendar date it was occupied. Since 4.33.0 the cruise's month is the
+cruise, never the calendar date it was occupied. Since 4.34.0 the cruise's month is the
 calendar month of the \strong{median datetime of its root samples} (\code{cruise.month_median}, written
 by \code{\link[=add_cruise_median_date]{add_cruise_median_date()}} and read through \code{cruise_tbl}; Rasmus Swalethorp 2026-10-16,
 Ben Best 2026-10-20: 642 of 681 cruises centre on the month their key designates, 39 on the
@@ -155,7 +155,7 @@ The caller names the types (the release lists them in \code{release_database.qmd
 \code{clim_cast_types}), so this package carries no list of datasets.
 \item \strong{A seasonal baseline beside the monthly one} (\code{season = TRUE}, the release's setting; calcofi4db 4.24.0; Rasmus
 Swalethorp, 2026-10-06: let the user toggle between a monthly and a seasonal baseline). The
-season is that of the \strong{cruise's month} — since 4.33.0 the meteorological seasons
+season is that of the \strong{cruise's month} — since 4.34.0 the meteorological seasons
 \code{\link[=cruise_quarter_sql]{cruise_quarter_sql()}} numbers 1 = DJF, 2 = MAM, 3 = JJA, 4 = SON (Q1 Jan–Mar … Q4 Oct–Dec
 through v2026.10.30), the Explorer's season filter — so 2607 (\code{2026-07-3322}) is JJA even
 where it worked 93.3 on 30 June, and a December cruise is winter with the January after it.

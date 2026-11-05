@@ -29,7 +29,7 @@ CC_SEASONS
 a character SQL fragment.
 }
 \description{
-Since calcofi4db 4.33.0 (Rasmus Swalethorp, 2026-10-16: "keep the quarters matching seasons, so
+Since calcofi4db 4.34.0 (Rasmus Swalethorp, 2026-10-16: "keep the quarters matching seasons, so
 quarter 1 would be Dec-Feb"; agreed 2026-10-27) a season is three calendar months starting in
 December — winter \code{DJF}, spring \code{MAM}, summer \code{JJA}, fall \code{SON} — and \strong{December counts toward
 the following year's winter} (Dec 2025 + Jan-Feb 2026 = winter 2026, the climatology

@@ -36,11 +36,11 @@ Invisibly, the row count.
 Slims \code{obs} to the columns a lens needs, joins the gear and effort of the observation's own sample
 (\code{sample.tow_type}; \code{std_haul_factor}, \code{prop_sorted}, \code{volume_sampled} from \code{sample_measurement}),
 stamps \code{root_id}, \code{year}, \code{quarter}, \code{depth_bin} (10 m), \code{hex7}, \code{qual_ok} (from \code{qual_ok_sql})
-(\code{year} and \code{quarter} are the \strong{cruise's} — since 4.33.0 the year and month of its median cast
+(\code{year} and \code{quarter} are the \strong{cruise's} — since 4.34.0 the year and month of its median cast
 date (\code{cruise.month_median}, read through \code{cruise_tbl}) and the season 1 = DJF … 4 = SON
 (\code{\link[=cruise_quarter_sql]{cruise_quarter_sql()}}), as \code{\link[=build_climatology]{build_climatology()}} files the baseline; the \code{cruise_key}'s YYYY-MM
 where the cruise table lacks it and the calendar date only where the key does not parse) and,
-appended after \code{hex7} (4.33.0), \code{cruise_month} (that month) and \code{season_year} (the year the
+appended after \code{hex7} (4.34.0), \code{cruise_month} (that month) and \code{season_year} (the year the
 season belongs to: December counts toward the following winter)
 and the D8 densities + \code{effort_class} (from \code{density_sql}). Depth is the observation's, falling back
 to its sample's and then its root's, so a net tow carries its integrated span. Both realms get the
