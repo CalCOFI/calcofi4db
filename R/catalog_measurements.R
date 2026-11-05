@@ -402,7 +402,9 @@ CC_MEASUREMENT_REGISTRY_FILES <- c(
   band <- .mm_band_sql("o.depth_min_m")
   # the cruise's month, as build_climatology() files the baseline (a cast worked in the last days
   # of the month before its cruise's month departs from its cruise's season)
-  cr_month <- .cruise_month_sql("o")
+  # obs_env carries it since 4.34.0 (build_obs_slim: the cruise's median cast month); the key rule before
+  cr_month <- if ("cruise_month" %in% DBI::dbListFields(con, "obs_env"))
+    glue::glue("COALESCE(o.cruise_month, {.cruise_month_sql('o')})") else .cruise_month_sql("o")
   base_sql <- glue::glue("
     SELECT o.dataset_key, o.measurement_type, o.site_key, o.cruise_key,
            CAST(o.year AS INTEGER) AS year, {cr_month} AS month,

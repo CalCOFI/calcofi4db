@@ -421,3 +421,93 @@ infer_ship_by_occupation <- function(
     paste(glue::glue("{out$outcome} {out$n}"), collapse = ", ")))
   out
 }
+
+#' Stamp each cruise's median cast date, month, season and season year
+#'
+#' A cruise's month is the calendar month (UTC) of the **median datetime of its root samples** in
+#' the release — the casts, station occupations and bottle casts that carry its `cruise_key` and a
+#' datetime — not the `YYYY-MM` its key designates. A cruise ID is set before the ship sails and
+#' names sometimes the month the cruise started, sometimes the month it mostly covered; across the
+#' 681 CalCOFI cruises of v2026.10.30, 642 centre on the month of their key and 39 on the month
+#' beside it (12 sampled mostly the month before, 27 the month after; 1981-02 JD centres on 1 March)
+#' (Rasmus Swalethorp 2026-10-16, Ben Best 2026-10-20, agreed 2026-10-27). The release writes it
+#' once onto the `cruise` reference, and every month-keyed lookup — [build_climatology()],
+#' [build_obs_slim()], the Explorer, ctd-transects and calcofi4r's anomalies — reads it from there.
+#'
+#' Writes four columns onto `cruise_tbl` (added if absent): `date_median` (DATE; NULL for a cruise
+#' with no dated sample), `month_median` (TINYINT; the median date's month, else the key's MM),
+#' `season` (`DJF`, `MAM`, `JJA`, `SON`; [cruise_season_sql()]) and `season_year` (SMALLINT; the
+#' calendar year of `date_median`, or of the key, **plus one for December**, so Dec 2025 belongs to
+#' winter 2026 with the January and February after it; [cruise_season_year_sql()]).
+#'
+#' The median is taken over root sample rows (`sample_key = COALESCE(root_sample_key, sample_key)`)
+#' so a cast with 24 bottles counts once; a cruise whose root rows carry no datetime falls back to
+#' the median over all its dated sample rows, and one with none at all to its key.
+#'
+#' @param con DBI connection to DuckDB holding `cruise_tbl` and `sample_tbl`.
+#' @param cruise_tbl the cruise reference (default `"cruise"`), with `cruise_key`.
+#' @param sample_tbl the consolidated sample table (default `"sample"`), with `sample_key`,
+#'   `root_sample_key`, `cruise_key`, `datetime`.
+#' @return Invisibly, a tibble with one row per cruise: `cruise_key`, `month_key` (the key's MM),
+#'   `date_median`, `month_median`, `season`, `season_year`, `n_roots` (dated root samples) and
+#'   `month_changed` (the median month differs from the key's).
+#' @export
+#' @concept ship
+#' @importFrom DBI dbExecute dbGetQuery dbListFields dbListTables
+#' @importFrom glue glue
+add_cruise_median_date <- function(con, cruise_tbl = "cruise", sample_tbl = "sample") {
+  stopifnot(
+    "cruise table required" = cruise_tbl %in% DBI::dbListTables(con),
+    "sample table required" = sample_tbl %in% DBI::dbListTables(con),
+    "cruise table needs cruise_key" = "cruise_key" %in% DBI::dbListFields(con, cruise_tbl))
+  sf <- DBI::dbListFields(con, sample_tbl)
+  stopifnot("sample table needs sample_key, cruise_key, datetime" =
+              all(c("sample_key", "cruise_key", "datetime") %in% sf))
+  ct   <- DBI::dbQuoteIdentifier(con, cruise_tbl)
+  st   <- DBI::dbQuoteIdentifier(con, sample_tbl)
+  root <- if ("root_sample_key" %in% sf) "COALESCE(root_sample_key, sample_key)" else "sample_key"
+
+  DBI::dbExecute(con, "DROP TABLE IF EXISTS _cruise_median")
+  DBI::dbExecute(con, glue::glue("
+    CREATE TEMP TABLE _cruise_median AS
+    WITH dated AS (
+      SELECT cruise_key, sample_key, {root} AS root_key, datetime
+      FROM {st}
+      WHERE cruise_key IS NOT NULL AND datetime IS NOT NULL),
+    roots AS (
+      SELECT cruise_key, CAST(median(datetime) AS DATE) AS date_median, count(*)::INTEGER AS n_roots
+      FROM dated WHERE sample_key = root_key GROUP BY 1),
+    any_row AS (
+      SELECT cruise_key, CAST(median(datetime) AS DATE) AS date_median, count(*)::INTEGER AS n_roots
+      FROM dated GROUP BY 1)
+    SELECT a.cruise_key,
+           COALESCE(r.date_median, a.date_median) AS date_median,
+           COALESCE(r.n_roots, a.n_roots)         AS n_roots
+    FROM any_row a LEFT JOIN roots r USING (cruise_key)"))
+
+  for (cl in c("date_median DATE", "month_median TINYINT", "season VARCHAR", "season_year SMALLINT"))
+    DBI::dbExecute(con, glue::glue("ALTER TABLE {ct} ADD COLUMN IF NOT EXISTS {cl}"))
+  key_ok <- function(a) glue::glue("regexp_matches({a}.cruise_key, '^[0-9]{{4}}-(0[1-9]|1[0-2])-')")
+  key_m  <- function(a) glue::glue("CASE WHEN {key_ok(a)} THEN substr({a}.cruise_key, 6, 2)::TINYINT END")
+  key_y  <- function(a) glue::glue("CASE WHEN {key_ok(a)} THEN substr({a}.cruise_key, 1, 4)::INTEGER END")
+  mon    <- glue::glue("COALESCE(month(m.date_median)::TINYINT, {key_m(ct)})")
+  yr     <- glue::glue("COALESCE(year(m.date_median)::INTEGER, {key_y(ct)})")
+  DBI::dbExecute(con, glue::glue("
+    UPDATE {ct} SET date_median = m.date_median,
+                    month_median = {mon},
+                    season = {cruise_season_sql(mon)},
+                    season_year = {cruise_season_year_sql(mon, yr)}
+    FROM (SELECT c.cruise_key, cm.date_median FROM {ct} c LEFT JOIN _cruise_median cm USING (cruise_key)) m
+    WHERE {ct}.cruise_key = m.cruise_key"))
+  out <- DBI::dbGetQuery(con, glue::glue("
+    SELECT c.cruise_key, {key_m('c')} AS month_key, c.date_median, c.month_median, c.season, c.season_year,
+           COALESCE(cm.n_roots, 0)::INTEGER AS n_roots,
+           c.month_median IS DISTINCT FROM ({key_m('c')}) AS month_changed
+    FROM {ct} c LEFT JOIN _cruise_median cm USING (cruise_key)
+    ORDER BY c.cruise_key"))
+  DBI::dbExecute(con, "DROP TABLE IF EXISTS _cruise_median")
+  message(glue::glue(
+    "cruise median date: {sum(!is.na(out$date_median))}/{nrow(out)} cruises dated, ",
+    "{sum(out$month_changed, na.rm = TRUE)} centre on a month other than their key's"))
+  invisible(tibble::as_tibble(out))
+}

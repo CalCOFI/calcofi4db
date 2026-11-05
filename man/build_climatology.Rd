@@ -17,7 +17,8 @@ build_climatology(
   season = FALSE,
   tbl = "climatology",
   sample_tbl = "sample",
-  sample_measurement_tbl = "sample_measurement"
+  sample_measurement_tbl = "sample_measurement",
+  cruise_tbl = "cruise"
 )
 }
 \arguments{
@@ -59,6 +60,10 @@ those columns NULL and keeps only cells that pass the monthly floor.}
 \item{sample_tbl}{the sample table joined for \code{site_key} (default \code{"sample"}).}
 
 \item{sample_measurement_tbl}{the per-cast table read for \code{cast_types}.}
+
+\item{cruise_tbl}{the cruise table whose \code{month_median} / \code{date_median} (from
+\code{\link[=add_cruise_median_date]{add_cruise_median_date()}}) give each row its cruise's month and year (default \code{"cruise"});
+when the table is absent or lacks the column, or \code{NULL}, the \code{cruise_key}'s YYYY-MM is used.}
 }
 \value{
 Invisibly, the row count. Columns: \code{dataset_key}, \code{site_key}, \code{grid_key}, \code{month},
@@ -86,9 +91,13 @@ labelled by the shallow edge. \code{obs} carries the \emph{thinned} CTD series (
 inflection points plus bottle depths), so at 5 m the off-grid bins hold about a third of the
 casts, sampled exactly where the profile bends, and their means sit visibly off their
 neighbours'. Every 10 m bin holds every cast.
-\item \strong{The cruise's month, not the cast's.} A cast is filed under the month and year its
-\code{cruise_key} designates (\code{YYYY-MM-NODC}, the month SWFSC assigns the cruise), never the
-calendar date it was occupied. A cruise sails for two to three weeks and often starts in the
+\item \strong{The cruise's month, not the cast's.} A cast is filed under the month and year of its
+cruise, never the calendar date it was occupied. Since 4.34.0 the cruise's month is the
+calendar month of the \strong{median datetime of its root samples} (\code{cruise.month_median}, written
+by \code{\link[=add_cruise_median_date]{add_cruise_median_date()}} and read through \code{cruise_tbl}; Rasmus Swalethorp 2026-10-16,
+Ben Best 2026-10-20: 642 of 681 cruises centre on the month their key designates, 39 on the
+month beside it), falling back to the \code{YYYY-MM} the \code{cruise_key} designates (the month SWFSC
+assigns the cruise) where the cruise table lacks it or is not joined. A cruise sails for two to three weeks and often starts in the
 last days of the month before: CalCOFI 2607 (\code{2026-07-3322}) worked line 93.3 inshore of
 station 50 on 30 June, so its anomaly looked up a June baseline that does not exist and
 ctd-transects drew nothing inshore (Rasmus Swalethorp, 2026-10-06). Within 1993-2013, 9.9 \% of
@@ -96,8 +105,8 @@ CTD casts (35 cruises) and 9.3 \% of bottle samples fall in another calendar mon
 cruise's; by event month they were both missing from their season's baseline and stranded in
 a month no cruise samples, where they mostly failed the cruise floor. The cruise month is the
 season the cruise samples, so it is the season both sides of an anomaly are matched on; a
-consumer reads it as \code{substr(cruise_key, 6, 2)}. A row whose \code{cruise_key} does not parse falls
-back to its calendar date.
+consumer reads it from \code{cruise.month_median} (the key's \code{substr(cruise_key, 6, 2)} only on a
+release before v2026.11). A row whose \code{cruise_key} does not parse falls back to its calendar date.
 \item \strong{The window} (\code{yr_min}–\code{yr_max}, default 1993–2013: Rasmus Swalethorp's CCIEA request; the
 Wilkinson archive fills 1993–2002 so it does not quietly mean "1998 plus 2003–2013"). 21 years
 with both phases of the 1997–99 ENSO inside it, ending before the 2014–16 marine heatwave so
@@ -146,8 +155,10 @@ The caller names the types (the release lists them in \code{release_database.qmd
 \code{clim_cast_types}), so this package carries no list of datasets.
 \item \strong{A seasonal baseline beside the monthly one} (\code{season = TRUE}, the release's setting; calcofi4db 4.24.0; Rasmus
 Swalethorp, 2026-10-06: let the user toggle between a monthly and a seasonal baseline). The
-quarter is that of the \strong{cruise's month} — Q1 Jan–Mar, Q2 Apr–Jun, Q3 Jul–Sep, Q4 Oct–Dec, the
-Explorer's season filter — so 2607 (\code{2026-07-3322}) is Q3 even where it worked 93.3 on 30 June.
+season is that of the \strong{cruise's month} — since 4.34.0 the meteorological seasons
+\code{\link[=cruise_quarter_sql]{cruise_quarter_sql()}} numbers 1 = DJF, 2 = MAM, 3 = JJA, 4 = SON (Q1 Jan–Mar … Q4 Oct–Dec
+through v2026.10.30), the Explorer's season filter — so 2607 (\code{2026-07-3322}) is JJA even
+where it worked 93.3 on 30 June, and a December cruise is winter with the January after it.
 It ships as columns, not rows: \code{quarter} and \code{season_mean}, \code{season_sd}, \code{season_n},
 \code{season_n_cruises} sit on \strong{every month of a quarter that passes the cruise floor}, so a
 consumer still looks a baseline up by (station, month, bin, type) and nothing that sums the table

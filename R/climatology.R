@@ -28,9 +28,13 @@
 #'   inflection points plus bottle depths), so at 5 m the off-grid bins hold about a third of the
 #'   casts, sampled exactly where the profile bends, and their means sit visibly off their
 #'   neighbours'. Every 10 m bin holds every cast.
-#' - **The cruise's month, not the cast's.** A cast is filed under the month and year its
-#'   `cruise_key` designates (`YYYY-MM-NODC`, the month SWFSC assigns the cruise), never the
-#'   calendar date it was occupied. A cruise sails for two to three weeks and often starts in the
+#' - **The cruise's month, not the cast's.** A cast is filed under the month and year of its
+#'   cruise, never the calendar date it was occupied. Since 4.34.0 the cruise's month is the
+#'   calendar month of the **median datetime of its root samples** (`cruise.month_median`, written
+#'   by [add_cruise_median_date()] and read through `cruise_tbl`; Rasmus Swalethorp 2026-10-16,
+#'   Ben Best 2026-10-20: 642 of 681 cruises centre on the month their key designates, 39 on the
+#'   month beside it), falling back to the `YYYY-MM` the `cruise_key` designates (the month SWFSC
+#'   assigns the cruise) where the cruise table lacks it or is not joined. A cruise sails for two to three weeks and often starts in the
 #'   last days of the month before: CalCOFI 2607 (`2026-07-3322`) worked line 93.3 inshore of
 #'   station 50 on 30 June, so its anomaly looked up a June baseline that does not exist and
 #'   ctd-transects drew nothing inshore (Rasmus Swalethorp, 2026-10-06). Within 1993-2013, 9.9 % of
@@ -38,8 +42,8 @@
 #'   cruise's; by event month they were both missing from their season's baseline and stranded in
 #'   a month no cruise samples, where they mostly failed the cruise floor. The cruise month is the
 #'   season the cruise samples, so it is the season both sides of an anomaly are matched on; a
-#'   consumer reads it as `substr(cruise_key, 6, 2)`. A row whose `cruise_key` does not parse falls
-#'   back to its calendar date.
+#'   consumer reads it from `cruise.month_median` (the key's `substr(cruise_key, 6, 2)` only on a
+#'   release before v2026.11). A row whose `cruise_key` does not parse falls back to its calendar date.
 #' - **The window** (`yr_min`–`yr_max`, default 1993–2013: Rasmus Swalethorp's CCIEA request; the
 #'   Wilkinson archive fills 1993–2002 so it does not quietly mean "1998 plus 2003–2013"). 21 years
 #'   with both phases of the 1997–99 ENSO inside it, ending before the 2014–16 marine heatwave so
@@ -89,8 +93,10 @@
 #'   `clim_cast_types`), so this package carries no list of datasets.
 #' - **A seasonal baseline beside the monthly one** (`season = TRUE`, the release's setting; calcofi4db 4.24.0; Rasmus
 #'   Swalethorp, 2026-10-06: let the user toggle between a monthly and a seasonal baseline). The
-#'   quarter is that of the **cruise's month** — Q1 Jan–Mar, Q2 Apr–Jun, Q3 Jul–Sep, Q4 Oct–Dec, the
-#'   Explorer's season filter — so 2607 (`2026-07-3322`) is Q3 even where it worked 93.3 on 30 June.
+#'   season is that of the **cruise's month** — since 4.34.0 the meteorological seasons
+#'   [cruise_quarter_sql()] numbers 1 = DJF, 2 = MAM, 3 = JJA, 4 = SON (Q1 Jan–Mar … Q4 Oct–Dec
+#'   through v2026.10.30), the Explorer's season filter — so 2607 (`2026-07-3322`) is JJA even
+#'   where it worked 93.3 on 30 June, and a December cruise is winter with the January after it.
 #'   It ships as columns, not rows: `quarter` and `season_mean`, `season_sd`, `season_n`,
 #'   `season_n_cruises` sit on **every month of a quarter that passes the cruise floor**, so a
 #'   consumer still looks a baseline up by (station, month, bin, type) and nothing that sums the table
@@ -129,6 +135,9 @@
 #' @param season also compute the seasonal baseline (`quarter`, `season_*` columns); `FALSE` leaves
 #'   those columns NULL and keeps only cells that pass the monthly floor.
 #' @param sample_measurement_tbl the per-cast table read for `cast_types`.
+#' @param cruise_tbl the cruise table whose `month_median` / `date_median` (from
+#'   [add_cruise_median_date()]) give each row its cruise's month and year (default `"cruise"`);
+#'   when the table is absent or lacks the column, or `NULL`, the `cruise_key`'s YYYY-MM is used.
 #' @param tbl output table (default `climatology`).
 #' @return Invisibly, the row count. Columns: `dataset_key`, `site_key`, `grid_key`, `month`,
 #'   `depth_bin`, `measurement_type`, `clim_mean`, `clim_sd`, `clim_n`, `n_cruises`, `clim_yr_min`,
@@ -146,7 +155,8 @@ build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, 
                               depth_bin_m = 10L, depth_max_m = NULL, round_digits = 6L,
                               cast_types = NULL, season = FALSE,
                               tbl = "climatology", sample_tbl = "sample",
-                              sample_measurement_tbl = "sample_measurement") {
+                              sample_measurement_tbl = "sample_measurement",
+                              cruise_tbl = "cruise") {
   stopifnot(is.character(qual_ok_sql), length(qual_ok_sql) == 1, nzchar(qual_ok_sql),
             is.numeric(yr_min), is.numeric(yr_max), length(yr_min) == 1, length(yr_max) == 1,
             yr_min <= yr_max, is.numeric(min_cruises), min_cruises >= 1,
@@ -155,7 +165,11 @@ build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, 
                                        depth_max_m >= 0),
             is.numeric(round_digits), length(round_digits) == 1, round_digits >= 0,
             is.null(cast_types) || (is.character(cast_types) && !anyNA(cast_types)),
-            is.logical(season), length(season) == 1, !is.na(season))
+            is.logical(season), length(season) == 1, !is.na(season),
+            is.null(cruise_tbl) || (is.character(cruise_tbl) && length(cruise_tbl) == 1))
+  # the cruise's month: the cruise table's median cast month (4.34.0) where the table carries it,
+  # the YYYY-MM of the key otherwise (an older wrangling db, a test fixture without a cruise table)
+  cr <- .cruise_tbl_join(con, cruise_tbl)
   # no ceiling: the HAVING count(DISTINCT cruise_key) >= min_cruises rule is the only
   # depth rule, so the baseline goes to the bottom
   depth_sql <- if (is.null(depth_max_m)) "TRUE" else
@@ -167,17 +181,17 @@ build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, 
   # the per-bin arm: obs (env realm), its station from `sample`
   src_bin <- glue("
     SELECT o.dataset_key, s.site_key, o.grid_key, o.cruise_key, o.measurement_type,
-           {.cruise_month_sql('o')} AS month,
+           {.cruise_month_sql('o', cr$alias)} AS month,
            (floor(o.depth_min_m / {depth_bin_m}) * {depth_bin_m})::INTEGER AS depth_bin,
            o.measurement_value AS v
     FROM obs o
-    JOIN {sample_tbl} s USING (sample_key)
+    JOIN {sample_tbl} s USING (sample_key){cr$join('o')}
     WHERE o.realm = 'env'
       AND s.site_key IS NOT NULL AND o.datetime IS NOT NULL
       AND o.depth_min_m IS NOT NULL AND o.depth_min_m >= 0
       AND ({depth_sql})
       AND o.measurement_value IS NOT NULL AND isfinite(o.measurement_value)
-      AND {.cruise_year_sql('o')} BETWEEN {yr_min} AND {yr_max}
+      AND {.cruise_year_sql('o', cr$alias)} BETWEEN {yr_min} AND {yr_max}
       AND ({qual_ok_sql})")
   # the per-cast arm: one value per cast in sample_measurement, which has no depth, so its
   # depth_bin is NULL. The cast's cruise, time and station are the sample's; the quality
@@ -187,15 +201,15 @@ build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, 
     glue("
     UNION ALL
     SELECT o.dataset_key, s.site_key, s.grid_key, s.cruise_key, o.measurement_type,
-           {.cruise_month_sql('s')} AS month,
+           {.cruise_month_sql('s', cr$alias)} AS month,
            NULL::INTEGER AS depth_bin,
            o.measurement_value AS v
     FROM {sample_measurement_tbl} o
-    JOIN {sample_tbl} s USING (sample_key)
+    JOIN {sample_tbl} s USING (sample_key){cr$join('s')}
     WHERE o.measurement_type IN ({types_sql})
       AND s.site_key IS NOT NULL AND s.datetime IS NOT NULL
       AND o.measurement_value IS NOT NULL AND isfinite(o.measurement_value)
-      AND {.cruise_year_sql('s')} BETWEEN {yr_min} AND {yr_max}
+      AND {.cruise_year_sql('s', cr$alias)} BETWEEN {yr_min} AND {yr_max}
       AND ({qual_ok_sql})")
   } else ""
 
@@ -210,18 +224,19 @@ build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, 
     "count(*)::INTEGER AS {prefix}_n, count(DISTINCT cruise_key)::INTEGER AS {prefix}_n_cruises, ",
     "mode(grid_key) AS {prefix}_grid_key")
 
-  # the quarter's three months, so a seasonal cell sits on each month it covers and every
-  # consumer keeps looking a baseline up by (station, month, bin, type)
+  # the season's three months (DJF, MAM, JJA, SON since 4.34.0 — cruise_quarter_sql()), so a
+  # seasonal cell sits on each month it covers and every consumer keeps looking a baseline up by
+  # (station, month, bin, type)
   months_sql <- "SELECT unnest(range(1, 13))::TINYINT AS month"
   season_cte <- if (season) glue(",
     seas AS (
       SELECT dataset_key, site_key, depth_bin, measurement_type,
-             ((month - 1) // 3 + 1)::TINYINT AS quarter, {stats('s')}
+             {cruise_quarter_sql('month')}::TINYINT AS quarter, {stats('s')}
       FROM src GROUP BY ALL
       HAVING count(DISTINCT cruise_key) >= {min_cruises}),
     seas_m AS (
       SELECT seas.*, m.month FROM seas
-      JOIN ({months_sql}) m ON (m.month - 1) // 3 + 1 = seas.quarter)") else ""
+      JOIN ({months_sql}) m ON {cruise_quarter_sql('m.month')} = seas.quarter)") else ""
   cells <- if (season) glue("
     SELECT COALESCE(mon.dataset_key, sm.dataset_key)           AS dataset_key,
            COALESCE(mon.site_key, sm.site_key)                 AS site_key,
@@ -230,13 +245,13 @@ build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, 
            COALESCE(mon.depth_bin, sm.depth_bin)               AS depth_bin,
            COALESCE(mon.measurement_type, sm.measurement_type) AS measurement_type,
            mon.m_mean AS clim_mean, mon.m_sd AS clim_sd, mon.m_n AS clim_n, mon.m_n_cruises AS n_cruises,
-           ((COALESCE(mon.month, sm.month) - 1) // 3 + 1)::TINYINT AS quarter,
+           {cruise_quarter_sql('COALESCE(mon.month, sm.month)')}::TINYINT AS quarter,
            sm.s_mean AS season_mean, sm.s_sd AS season_sd, sm.s_n AS season_n,
            sm.s_n_cruises AS season_n_cruises
     FROM mon FULL OUTER JOIN seas_m sm ON {key_eq('mon', 'sm')} AND mon.month = sm.month") else glue("
     SELECT dataset_key, site_key, m_grid_key AS grid_key, month, depth_bin, measurement_type,
            m_mean AS clim_mean, m_sd AS clim_sd, m_n AS clim_n, m_n_cruises AS n_cruises,
-           ((month - 1) // 3 + 1)::TINYINT AS quarter,
+           {cruise_quarter_sql('month')}::TINYINT AS quarter,
            NULL::DOUBLE AS season_mean, NULL::DOUBLE AS season_sd, NULL::INTEGER AS season_n,
            NULL::INTEGER AS season_n_cruises
     FROM mon")
@@ -257,14 +272,86 @@ build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, 
   invisible(n)
 }
 
-# the cruise's designated month and year as SQL over `alias` (cruise_key is YYYY-MM-NODC, the month
-# SWFSC assigns the cruise), the event datetime only when the key does not parse. The month every
-# anomaly is matched on, on both sides: build_climatology() and the measurement pages' series.
+# the cruise's month and year as SQL over `alias`. Since 4.34.0 the month is the cruise's
+# MEDIAN cast month (`cruise.month_median`, add_cruise_median_date(); Rasmus Swalethorp 2026-10-16,
+# Ben Best 2026-10-20: 39 of 681 cruises centre on the month beside the one their key designates)
+# when a cruise table carrying it is joined under `cruise_alias`; the YYYY-MM of the key
+# (`YYYY-MM-NODC`, the month SWFSC assigns the cruise) where it is not, and the event datetime only
+# when the key does not parse. The month every anomaly is matched on, on both sides:
+# build_climatology() and the measurement pages' series.
 .cruise_key_ok_sql <- function(alias = "o")
   glue("regexp_matches({alias}.cruise_key, '^[0-9]{{4}}-(0[1-9]|1[0-2])-')")
-.cruise_month_sql <- function(alias = "o")
+.cruise_key_month_sql <- function(alias = "o")
   glue("CASE WHEN {.cruise_key_ok_sql(alias)} THEN substr({alias}.cruise_key, 6, 2)::TINYINT ",
        "ELSE month({alias}.datetime)::TINYINT END")
-.cruise_year_sql <- function(alias = "o")
+.cruise_key_year_sql <- function(alias = "o")
   glue("CASE WHEN {.cruise_key_ok_sql(alias)} THEN substr({alias}.cruise_key, 1, 4)::INTEGER ",
        "ELSE year({alias}.datetime) END")
+.cruise_month_sql <- function(alias = "o", cruise_alias = NULL) {
+  if (is.null(cruise_alias)) return(.cruise_key_month_sql(alias))
+  glue("COALESCE({cruise_alias}.month_median::TINYINT, {.cruise_key_month_sql(alias)})")
+}
+.cruise_year_sql <- function(alias = "o", cruise_alias = NULL) {
+  if (is.null(cruise_alias)) return(.cruise_key_year_sql(alias))
+  glue("COALESCE(year({cruise_alias}.date_median)::INTEGER, {.cruise_key_year_sql(alias)})")
+}
+# the LEFT JOIN to the cruise table, when `cruise_tbl` names a table in `con` that carries
+# `month_median`; otherwise no join and the key rule. Returns list(alias, join(event_alias)).
+.cruise_tbl_join <- function(con, cruise_tbl, cruise_alias = "crz") {
+  none <- list(alias = NULL, join = function(a) "")
+  if (is.null(cruise_tbl)) return(none)
+  if (!cruise_tbl %in% DBI::dbListTables(con)) return(none)
+  if (!"month_median" %in% DBI::dbListFields(con, cruise_tbl)) return(none)
+  list(alias = cruise_alias,
+       join = function(a) glue("\n    LEFT JOIN {cruise_tbl} {cruise_alias} ON {cruise_alias}.cruise_key = {a}.cruise_key"))
+}
+
+#' The seasons every CalCOFI anomaly and season filter use: DJF, MAM, JJA, SON
+#'
+#' Since calcofi4db 4.34.0 (Rasmus Swalethorp, 2026-10-16: "keep the quarters matching seasons, so
+#' quarter 1 would be Dec-Feb"; agreed 2026-10-27) a season is three calendar months starting in
+#' December — winter `DJF`, spring `MAM`, summer `JJA`, fall `SON` — and **December counts toward
+#' the following year's winter** (Dec 2025 + Jan-Feb 2026 = winter 2026, the climatology
+#' convention, so a winter is never split across two years). The `quarter` column the release
+#' carries on `climatology`, `obs_env` and `obs_bio` keeps its 1-4 vocabulary with this meaning:
+#' 1 = DJF, 2 = MAM, 3 = JJA, 4 = SON (through v2026.10.30 it was Q1 Jan-Mar ... Q4 Oct-Dec).
+#'
+#' `cruise_quarter_sql()` / `cruise_season_sql()` / `cruise_season_year_sql()` are the one rule as
+#' DuckDB SQL over a month (and year) expression, so the release, the Explorer's slices and a
+#' notebook cannot disagree; [cruise_quarter()] is the vectorised R twin.
+#'
+#' @param month_expr SQL expression giving the cruise's month (1-12).
+#' @param year_expr SQL expression giving the calendar year of that month.
+#' @return a character SQL fragment.
+#' @export
+#' @concept release
+#' @examples
+#' cruise_quarter_sql("month")
+#' cruise_season_year_sql("month_median", "year(date_median)")
+cruise_quarter_sql <- function(month_expr)
+  glue("(CASE WHEN ({month_expr}) IN (12, 1, 2) THEN 1 WHEN ({month_expr}) IN (3, 4, 5) THEN 2 ",
+       "WHEN ({month_expr}) IN (6, 7, 8) THEN 3 WHEN ({month_expr}) IN (9, 10, 11) THEN 4 END)")
+
+#' @rdname cruise_quarter_sql
+#' @export
+cruise_season_sql <- function(month_expr)
+  glue("(CASE WHEN ({month_expr}) IN (12, 1, 2) THEN 'DJF' WHEN ({month_expr}) IN (3, 4, 5) THEN 'MAM' ",
+       "WHEN ({month_expr}) IN (6, 7, 8) THEN 'JJA' WHEN ({month_expr}) IN (9, 10, 11) THEN 'SON' END)")
+
+#' @rdname cruise_quarter_sql
+#' @export
+cruise_season_year_sql <- function(month_expr, year_expr)
+  glue("(CASE WHEN ({month_expr}) = 12 THEN ({year_expr}) + 1 ELSE ({year_expr}) END)::SMALLINT")
+
+#' @rdname cruise_quarter_sql
+#' @param month integer month (1-12), vectorised.
+#' @export
+cruise_quarter <- function(month) {
+  m <- as.integer(month)
+  q <- ifelse(m %in% c(12L, 1L, 2L), 1L, ifelse(m %in% 3:5, 2L, ifelse(m %in% 6:8, 3L, ifelse(m %in% 9:11, 4L, NA_integer_))))
+  as.integer(q)
+}
+
+#' @rdname cruise_quarter_sql
+#' @export
+CC_SEASONS <- c("DJF", "MAM", "JJA", "SON")

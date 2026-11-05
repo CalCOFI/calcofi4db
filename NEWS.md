@@ -1,3 +1,20 @@
+# calcofi4db 4.34.0
+
+- **A cruise's month is its median cast month, and the seasons are DJF/MAM/JJA/SON**
+  (Rasmus Swalethorp 2026-10-16, Ben Best 2026-10-20, agreed 2026-10-27). New
+  `add_cruise_median_date()` stamps `date_median`, `month_median`, `season` and
+  `season_year` on the `cruise` reference from the median datetime of each cruise's
+  root samples (a cast with 24 bottles counts once; a cruise with no dated sample
+  keeps its key's month). `build_climatology()` and `build_obs_slim()` gain
+  `cruise_tbl` (default `"cruise"`) and read the month and year from it, falling
+  back to the `cruise_key`'s YYYY-MM where the table is absent or lacks the column.
+- **`quarter` is redefined**: 1 = DJF, 2 = MAM, 3 = JJA, 4 = SON (was Q1 Jan-Mar …
+  Q4 Oct-Dec), on `climatology` (and its `season_*` baseline, now pooled by these
+  seasons) and on `obs_env` / `obs_bio`. December counts toward the following
+  year's winter. New exported `cruise_quarter_sql()`, `cruise_season_sql()`,
+  `cruise_season_year_sql()`, `cruise_quarter()` and `CC_SEASONS` are the one rule.
+- `build_obs_slim()` appends `cruise_month` and `season_year` after `hex7`; the
+  measurement catalog's anomaly series reads `obs_env.cruise_month`.
 # calcofi4db 4.33.1
 
 - `ctd_n2()` returns `NA` for a cast whose good bins yield fewer than two finite
