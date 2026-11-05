@@ -660,7 +660,7 @@ ensure_measurement_taxon <- function(con, measurement_taxon = NULL,
 #' @export
 #' @concept model
 core_output_tables <- function(con, extra = NULL) {
-  core <- c("sample", "obs", "obs_attribute", "sample_measurement",
+  core <- c("sample", "obs", "obs_attribute", "sample_measurement", "sample_track",
             "taxon", "dataset_taxon", "taxon_group")
   present <- DBI::dbListTables(con)
   keep <- vapply(intersect(core, present), function(t)
@@ -752,6 +752,8 @@ core_relationships <- function(tables) {
     obs                = "obs_id",
     obs_attribute      = "obs_attribute_id",
     sample_measurement = "sample_measurement_id",
+    # a path on the sea surface (an effort segment, a line of sight): at most one per sample (4.35.0)
+    sample_track       = "sample_key",
     taxon              = "taxon_key",
     dataset_taxon      = "ds_taxon_key",
     grid               = "grid_key",
@@ -800,6 +802,7 @@ core_relationships <- function(tables) {
     list(table = "obs_attribute",      column = "measurement_type",  ref_table = "measurement_type", ref_column = "measurement_type"),
     list(table = "sample_measurement", column = "sample_key",        ref_table = "sample",           ref_column = "sample_key"),
     list(table = "sample_measurement", column = "measurement_type",  ref_table = "measurement_type", ref_column = "measurement_type"),
+    list(table = "sample_track",       column = "sample_key",        ref_table = "sample",           ref_column = "sample_key"),
     list(table = "fish",               column = "sample_key",        ref_table = "sample",           ref_column = "sample_key"),
     list(table = "fish",               column = "taxon_key",         ref_table = "taxon",            ref_column = "taxon_key"),
     list(table = "ichthyo_net",        column = "sample_key",        ref_table = "sample",           ref_column = "sample_key"),

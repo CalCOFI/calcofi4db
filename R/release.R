@@ -58,7 +58,7 @@ release_sort_keys <- function(core_sort = c("grid_key NULLS LAST", "depth_min_m 
                                             "measurement_type", "datetime")) {
   # the core PKs, as core_relationships() declares them (it filters by the tables
   # you pass, so ask for all of them explicitly)
-  core <- c("sample", "obs", "obs_attribute", "sample_measurement", "taxon", "dataset_taxon",
+  core <- c("sample", "obs", "obs_attribute", "sample_measurement", "sample_track", "taxon", "dataset_taxon",
             "grid", "cruise", "ship", "measurement_type", "region", "fish", "ichthyo_net")
   pk <- core_relationships(core)$primary_keys
   keyed <- lapply(pk, function(k) list(partition_by = NULL, order_by = k))

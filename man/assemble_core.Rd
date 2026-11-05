@@ -35,7 +35,7 @@ once here and threaded to every shard read.}
 }
 \description{
 Convenience wrapper: \code{sample}, \code{obs}, \code{obs_attribute}, \code{sample_measurement}
-(surrogate ids renumbered globally), the supplemental \code{obs_ctd_full}, and the
+(surrogate ids renumbered globally), \code{sample_track} (when any shard has one), the supplemental \code{obs_ctd_full}, and the
 taxa references (\code{taxon} merged in dataset order; \code{dataset_taxon} /\code{taxon_group}
 deduplicated). Errors if \code{sample_key} is not globally unique — the namespacing
 guarantee the whole model rests on.
