@@ -24,7 +24,8 @@ build_climatology(
   season = FALSE,
   tbl = "climatology",
   sample_tbl = "sample",
-  sample_measurement_tbl = "sample_measurement"
+  sample_measurement_tbl = "sample_measurement",
+  cruise_tbl = "cruise"
 )
 ```
 
@@ -100,6 +101,14 @@ build_climatology(
 
   the per-cast table read for `cast_types`.
 
+- cruise_tbl:
+
+  the cruise table whose `month_median` / `date_median` (from
+  [`add_cruise_median_date()`](https://calcofi.io/calcofi4db/reference/add_cruise_median_date.md))
+  give each row its cruise's month and year (default `"cruise"`); when
+  the table is absent or lacks the column, or `NULL`, the `cruise_key`'s
+  YYYY-MM is used.
+
 ## Value
 
 Invisibly, the row count. Columns: `dataset_key`, `site_key`,
@@ -131,21 +140,28 @@ Why each part of the grain:
   cast.
 
 - **The cruise's month, not the cast's.** A cast is filed under the
-  month and year its `cruise_key` designates (`YYYY-MM-NODC`, the month
-  SWFSC assigns the cruise), never the calendar date it was occupied. A
-  cruise sails for two to three weeks and often starts in the last days
-  of the month before: CalCOFI 2607 (`2026-07-3322`) worked line 93.3
-  inshore of station 50 on 30 June, so its anomaly looked up a June
-  baseline that does not exist and ctd-transects drew nothing inshore
-  (Rasmus Swalethorp, 2026-10-06). Within 1993-2013, 9.9 % of CTD casts
-  (35 cruises) and 9.3 % of bottle samples fall in another calendar
-  month than their cruise's; by event month they were both missing from
-  their season's baseline and stranded in a month no cruise samples,
-  where they mostly failed the cruise floor. The cruise month is the
-  season the cruise samples, so it is the season both sides of an
-  anomaly are matched on; a consumer reads it as
-  `substr(cruise_key, 6, 2)`. A row whose `cruise_key` does not parse
-  falls back to its calendar date.
+  month and year of its cruise, never the calendar date it was occupied.
+  Since 4.34.0 the cruise's month is the calendar month of the **median
+  datetime of its root samples** (`cruise.month_median`, written by
+  [`add_cruise_median_date()`](https://calcofi.io/calcofi4db/reference/add_cruise_median_date.md)
+  and read through `cruise_tbl`; Rasmus Swalethorp 2026-10-16, Ben Best
+  2026-10-20: 642 of 681 cruises centre on the month their key
+  designates, 39 on the month beside it), falling back to the `YYYY-MM`
+  the `cruise_key` designates (the month SWFSC assigns the cruise) where
+  the cruise table lacks it or is not joined. A cruise sails for two to
+  three weeks and often starts in the last days of the month before:
+  CalCOFI 2607 (`2026-07-3322`) worked line 93.3 inshore of station 50
+  on 30 June, so its anomaly looked up a June baseline that does not
+  exist and ctd-transects drew nothing inshore (Rasmus Swalethorp,
+  2026-10-06). Within 1993-2013, 9.9 % of CTD casts (35 cruises) and 9.3
+  % of bottle samples fall in another calendar month than their
+  cruise's; by event month they were both missing from their season's
+  baseline and stranded in a month no cruise samples, where they mostly
+  failed the cruise floor. The cruise month is the season the cruise
+  samples, so it is the season both sides of an anomaly are matched on;
+  a consumer reads it from `cruise.month_median` (the key's
+  `substr(cruise_key, 6, 2)` only on a release before v2026.11). A row
+  whose `cruise_key` does not parse falls back to its calendar date.
 
 - **The window** (`yr_min`–`yr_max`, default 1993–2013: Rasmus
   Swalethorp's CCIEA request; the Wilkinson archive fills 1993–2002 so
@@ -218,10 +234,14 @@ Why each part of the grain:
 - **A seasonal baseline beside the monthly one** (`season = TRUE`, the
   release's setting; calcofi4db 4.24.0; Rasmus Swalethorp, 2026-10-06:
   let the user toggle between a monthly and a seasonal baseline). The
-  quarter is that of the **cruise's month** — Q1 Jan–Mar, Q2 Apr–Jun, Q3
-  Jul–Sep, Q4 Oct–Dec, the Explorer's season filter — so 2607
-  (`2026-07-3322`) is Q3 even where it worked 93.3 on 30 June. It ships
-  as columns, not rows: `quarter` and `season_mean`, `season_sd`,
+  season is that of the **cruise's month** — since 4.34.0 the
+  meteorological seasons
+  [`cruise_quarter_sql()`](https://calcofi.io/calcofi4db/reference/cruise_quarter_sql.md)
+  numbers 1 = DJF, 2 = MAM, 3 = JJA, 4 = SON (Q1 Jan–Mar … Q4 Oct–Dec
+  through v2026.10.30), the Explorer's season filter — so 2607
+  (`2026-07-3322`) is JJA even where it worked 93.3 on 30 June, and a
+  December cruise is winter with the January after it. It ships as
+  columns, not rows: `quarter` and `season_mean`, `season_sd`,
   `season_n`, `season_n_cruises` sit on **every month of a quarter that
   passes the cruise floor**, so a consumer still looks a baseline up by
   (station, month, bin, type) and nothing that sums the table counts a

@@ -49,7 +49,7 @@ departure from. Written once at release time so the products cannot disagree."><
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.33.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.34.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -106,7 +106,8 @@ departure from. Written once at release time so the products cannot disagree.</p
 <span>  season <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  tbl <span class="op">=</span> <span class="st">"climatology"</span>,</span>
 <span>  sample_tbl <span class="op">=</span> <span class="st">"sample"</span>,</span>
-<span>  sample_measurement_tbl <span class="op">=</span> <span class="st">"sample_measurement"</span></span>
+<span>  sample_measurement_tbl <span class="op">=</span> <span class="st">"sample_measurement"</span>,</span>
+<span>  cruise_tbl <span class="op">=</span> <span class="st">"cruise"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -176,6 +177,12 @@ those columns NULL and keeps only cells that pass the monthly floor.</p></dd>
 <dt id="arg-sample-measurement-tbl">sample_measurement_tbl<a class="anchor" aria-label="anchor" href="#arg-sample-measurement-tbl"></a></dt>
 <dd><p>the per-cast table read for <code>cast_types</code>.</p></dd>
 
+
+<dt id="arg-cruise-tbl">cruise_tbl<a class="anchor" aria-label="anchor" href="#arg-cruise-tbl"></a></dt>
+<dd><p>the cruise table whose <code>month_median</code> / <code>date_median</code> (from
+<code><a href="add_cruise_median_date.html">add_cruise_median_date()</a></code>) give each row its cruise's month and year (default <code>"cruise"</code>);
+when the table is absent or lacks the column, or <code>NULL</code>, the <code>cruise_key</code>'s YYYY-MM is used.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -197,9 +204,13 @@ labelled by the shallow edge. <code>obs</code> carries the <em>thinned</em> CTD 
 inflection points plus bottle depths), so at 5 m the off-grid bins hold about a third of the
 casts, sampled exactly where the profile bends, and their means sit visibly off their
 neighbours'. Every 10 m bin holds every cast.</p></li>
-<li><p><strong>The cruise's month, not the cast's.</strong> A cast is filed under the month and year its
-<code>cruise_key</code> designates (<code>YYYY-MM-NODC</code>, the month SWFSC assigns the cruise), never the
-calendar date it was occupied. A cruise sails for two to three weeks and often starts in the
+<li><p><strong>The cruise's month, not the cast's.</strong> A cast is filed under the month and year of its
+cruise, never the calendar date it was occupied. Since 4.34.0 the cruise's month is the
+calendar month of the <strong>median datetime of its root samples</strong> (<code>cruise.month_median</code>, written
+by <code><a href="add_cruise_median_date.html">add_cruise_median_date()</a></code> and read through <code>cruise_tbl</code>; Rasmus Swalethorp 2026-10-16,
+Ben Best 2026-10-20: 642 of 681 cruises centre on the month their key designates, 39 on the
+month beside it), falling back to the <code>YYYY-MM</code> the <code>cruise_key</code> designates (the month SWFSC
+assigns the cruise) where the cruise table lacks it or is not joined. A cruise sails for two to three weeks and often starts in the
 last days of the month before: CalCOFI 2607 (<code>2026-07-3322</code>) worked line 93.3 inshore of
 station 50 on 30 June, so its anomaly looked up a June baseline that does not exist and
 ctd-transects drew nothing inshore (Rasmus Swalethorp, 2026-10-06). Within 1993-2013, 9.9 % of
@@ -207,8 +218,8 @@ CTD casts (35 cruises) and 9.3 % of bottle samples fall in another calendar mont
 cruise's; by event month they were both missing from their season's baseline and stranded in
 a month no cruise samples, where they mostly failed the cruise floor. The cruise month is the
 season the cruise samples, so it is the season both sides of an anomaly are matched on; a
-consumer reads it as <code>substr(cruise_key, 6, 2)</code>. A row whose <code>cruise_key</code> does not parse falls
-back to its calendar date.</p></li>
+consumer reads it from <code>cruise.month_median</code> (the key's <code>substr(cruise_key, 6, 2)</code> only on a
+release before v2026.11). A row whose <code>cruise_key</code> does not parse falls back to its calendar date.</p></li>
 <li><p><strong>The window</strong> (<code>yr_min</code>–<code>yr_max</code>, default 1993–2013: Rasmus Swalethorp's CCIEA request; the
 Wilkinson archive fills 1993–2002 so it does not quietly mean "1998 plus 2003–2013"). 21 years
 with both phases of the 1997–99 ENSO inside it, ending before the 2014–16 marine heatwave so
@@ -257,8 +268,10 @@ The caller names the types (the release lists them in <code>release_database.qmd
 <code>clim_cast_types</code>), so this package carries no list of datasets.</p></li>
 <li><p><strong>A seasonal baseline beside the monthly one</strong> (<code>season = TRUE</code>, the release's setting; calcofi4db 4.24.0; Rasmus
 Swalethorp, 2026-10-06: let the user toggle between a monthly and a seasonal baseline). The
-quarter is that of the <strong>cruise's month</strong> — Q1 Jan–Mar, Q2 Apr–Jun, Q3 Jul–Sep, Q4 Oct–Dec, the
-Explorer's season filter — so 2607 (<code>2026-07-3322</code>) is Q3 even where it worked 93.3 on 30 June.
+season is that of the <strong>cruise's month</strong> — since 4.34.0 the meteorological seasons
+<code><a href="cruise_quarter_sql.html">cruise_quarter_sql()</a></code> numbers 1 = DJF, 2 = MAM, 3 = JJA, 4 = SON (Q1 Jan–Mar … Q4 Oct–Dec
+through v2026.10.30), the Explorer's season filter — so 2607 (<code>2026-07-3322</code>) is JJA even
+where it worked 93.3 on 30 June, and a December cruise is winter with the January after it.
 It ships as columns, not rows: <code>quarter</code> and <code>season_mean</code>, <code>season_sd</code>, <code>season_n</code>,
 <code>season_n_cruises</code> sit on <strong>every month of a quarter that passes the cruise floor</strong>, so a
 consumer still looks a baseline up by (station, month, bin, type) and nothing that sums the table

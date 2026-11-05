@@ -4,11 +4,18 @@ Slims `obs` to the columns a lens needs, joins the gear and effort of
 the observation's own sample (`sample.tow_type`; `std_haul_factor`,
 `prop_sorted`, `volume_sampled` from `sample_measurement`), stamps
 `root_id`, `year`, `quarter`, `depth_bin` (10 m), `hex7`, `qual_ok`
-(from `qual_ok_sql`) (`year` and `quarter` are the **cruise's** — the
-year and month its `cruise_key` designates, as
+(from `qual_ok_sql`) (`year` and `quarter` are the **cruise's** — since
+4.34.0 the year and month of its median cast date
+(`cruise.month_median`, read through `cruise_tbl`) and the season 1 =
+DJF … 4 = SON
+([`cruise_quarter_sql()`](https://calcofi.io/calcofi4db/reference/cruise_quarter_sql.md)),
+as
 [`build_climatology()`](https://calcofi.io/calcofi4db/reference/build_climatology.md)
-files the baseline — and the calendar date only where the key does not
-parse; since 4.24.0) and the D8 densities + `effort_class` (from
+files the baseline; the `cruise_key`'s YYYY-MM where the cruise table
+lacks it and the calendar date only where the key does not parse) and,
+appended after `hex7` (4.34.0), `cruise_month` (that month) and
+`season_year` (the year the season belongs to: December counts toward
+the following winter) and the D8 densities + `effort_class` (from
 `density_sql`). Depth is the observation's, falling back to its sample's
 and then its root's, so a net tow carries its integrated span. Both
 realms get the same schema (effort and taxon columns are NULL for env —
@@ -23,7 +30,8 @@ build_obs_slim(
   realm = c("bio", "env"),
   qual_ok_sql,
   density_sql,
-  tbl = NULL
+  tbl = NULL,
+  cruise_tbl = "cruise"
 )
 ```
 
@@ -52,6 +60,12 @@ build_obs_slim(
 - tbl:
 
   output table (default `obs_{realm}`).
+
+- cruise_tbl:
+
+  the cruise table carrying `month_median` / `date_median`
+  ([`add_cruise_median_date()`](https://calcofi.io/calcofi4db/reference/add_cruise_median_date.md));
+  `NULL`, or a table without them, keys the month on the `cruise_key`.
 
 ## Value
 

@@ -12,6 +12,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/OBS_VIEW_COLUMNS.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/RELEASE_REQUIRED_OBJECTS.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/add_cruise_date_span.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/add_cruise_median_date.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/add_measurement_source_dataset.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/add_parquet_metadata.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/add_point_geom.html</loc></url>
@@ -143,6 +144,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/create_gcs_manifest.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/create_lookup_table.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/create_redefinition_files.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/cruise_quarter_sql.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/csv_to_parquet.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ctd_chl_max.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/ctd_geostrophic.html</loc></url>

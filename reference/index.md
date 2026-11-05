@@ -476,6 +476,9 @@ check for other functions or datasets not captured by above categories
 - [`add_cruise_date_span()`](https://calcofi.io/calcofi4db/reference/add_cruise_date_span.md)
   : Add the observed date span of each cruise to the cruise reference
 
+- [`add_cruise_median_date()`](https://calcofi.io/calcofi4db/reference/add_cruise_median_date.md)
+  : Stamp each cruise's median cast date, month, season and season year
+
 - [`add_measurement_source_dataset()`](https://calcofi.io/calcofi4db/reference/add_measurement_source_dataset.md)
   : Declare that a dataset also publishes measurement types another
   dataset defined
@@ -837,6 +840,14 @@ check for other functions or datasets not captured by above categories
 
 - [`correct_cruise_ship()`](https://calcofi.io/calcofi4db/reference/correct_cruise_ship.md)
   : Correct a source's ship code on one cruise only
+
+- [`cruise_quarter_sql()`](https://calcofi.io/calcofi4db/reference/cruise_quarter_sql.md)
+  [`cruise_season_sql()`](https://calcofi.io/calcofi4db/reference/cruise_quarter_sql.md)
+  [`cruise_season_year_sql()`](https://calcofi.io/calcofi4db/reference/cruise_quarter_sql.md)
+  [`cruise_quarter()`](https://calcofi.io/calcofi4db/reference/cruise_quarter_sql.md)
+  [`CC_SEASONS`](https://calcofi.io/calcofi4db/reference/cruise_quarter_sql.md)
+  : The seasons every CalCOFI anomaly and season filter use: DJF, MAM,
+  JJA, SON
 
 - [`ctd_chl_max()`](https://calcofi.io/calcofi4db/reference/ctd_chl_max.md)
   : Depth of the chlorophyll-a maximum (DCM) of one CTD cast

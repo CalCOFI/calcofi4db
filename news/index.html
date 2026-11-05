@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.33.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.34.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -78,9 +78,11 @@
     </div>
 
     <div class="section level2">
-<h2 class="pkg-version" data-toc-text="4.33.1" id="calcofi4db-4331">calcofi4db 4.33.1<a class="anchor" aria-label="anchor" href="#calcofi4db-4331"></a></h2>
-<ul><li>
-<code><a href="../reference/ctd_n2.html">ctd_n2()</a></code> returns <code>NA</code> for a cast whose good bins yield fewer than two finite N² mid-points (two good bins, or a degenerate pair) instead of erroring in <code><a href="https://rdrr.io/r/stats/approxfun.html" class="external-link">approx()</a></code>; the full ctd-derived render hit it on the first cruise with such a cast.</li>
+<h2 class="pkg-version" data-toc-text="4.34.0" id="calcofi4db-4340">calcofi4db 4.34.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4340"></a></h2>
+<ul><li><p><strong>A cruise’s month is its median cast month, and the seasons are DJF/MAM/JJA/SON</strong> (Rasmus Swalethorp 2026-10-16, Ben Best 2026-10-20, agreed 2026-10-27). New <code><a href="../reference/add_cruise_median_date.html">add_cruise_median_date()</a></code> stamps <code>date_median</code>, <code>month_median</code>, <code>season</code> and <code>season_year</code> on the <code>cruise</code> reference from the median datetime of each cruise’s root samples (a cast with 24 bottles counts once; a cruise with no dated sample keeps its key’s month). <code><a href="../reference/build_climatology.html">build_climatology()</a></code> and <code><a href="../reference/build_obs_slim.html">build_obs_slim()</a></code> gain <code>cruise_tbl</code> (default <code>"cruise"</code>) and read the month and year from it, falling back to the <code>cruise_key</code>’s YYYY-MM where the table is absent or lacks the column.</p></li>
+<li><p><strong><code>quarter</code> is redefined</strong>: 1 = DJF, 2 = MAM, 3 = JJA, 4 = SON (was Q1 Jan-Mar … Q4 Oct-Dec), on <code>climatology</code> (and its <code>season_*</code> baseline, now pooled by these seasons) and on <code>obs_env</code> / <code>obs_bio</code>. December counts toward the following year’s winter. New exported <code><a href="../reference/cruise_quarter_sql.html">cruise_quarter_sql()</a></code>, <code><a href="../reference/cruise_quarter_sql.html">cruise_season_sql()</a></code>, <code><a href="../reference/cruise_quarter_sql.html">cruise_season_year_sql()</a></code>, <code><a href="../reference/cruise_quarter_sql.html">cruise_quarter()</a></code> and <code>CC_SEASONS</code> are the one rule.</p></li>
+<li><p><code><a href="../reference/build_obs_slim.html">build_obs_slim()</a></code> appends <code>cruise_month</code> and <code>season_year</code> after <code>hex7</code>; the measurement catalog’s anomaly series reads <code>obs_env.cruise_month</code>. # calcofi4db 4.33.1</p></li>
+<li><p><code><a href="../reference/ctd_n2.html">ctd_n2()</a></code> returns <code>NA</code> for a cast whose good bins yield fewer than two finite N² mid-points (two good bins, or a degenerate pair) instead of erroring in <code><a href="https://rdrr.io/r/stats/approxfun.html" class="external-link">approx()</a></code>; the full ctd-derived render hit it on the first cruise with such a cast.</p></li>
 </ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.33.0" id="calcofi4db-4330">calcofi4db 4.33.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4330"></a></h2>
