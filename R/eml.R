@@ -62,10 +62,14 @@ GEAR_COLS <- c("tow_type", "gear_name", "dwc_samplingProtocol", "nerc_l22", "dat
 # release column units -> EML standard unit names. Filled ONLY on an exact match,
 # the same rule the NERC/DwC id columns follow (workflows/CLAUDE.md): a unit that
 # no EML standard unit states exactly is emitted as a `customUnit` carrying the
-# release's own string, never coerced onto a near-neighbour. `count/10m2` and
-# `count/1000m3` are the standardized densities and have no EML standard unit.
+# release's own string, never coerced onto a near-neighbour, and is defined in
+# the document's `additionalMetadata/unitList` (EML's schema check refuses a
+# `customUnit` it cannot find there: "not all custom units are defined", the
+# sightings v2 candidate of 2026-11-06 on `sample_track.length_km`). `count/10m2`
+# and `count/1000m3` are the standardized densities and have no EML standard unit.
 EML_STANDARD_UNITS <- c(
   "m"               = "meter",
+  "km"              = "kilometer",
   "m3"              = "cubicMeter",
   "decimal degrees" = "degree",
   "count"           = "number",
@@ -419,6 +423,17 @@ dataset_gear <- function(gear, dataset_key) {
   list(tables = out, undocumented = undoc, custom_units = unique(custom))
 }
 
+# an STMML unitList defining each custom unit by its own string: `id` and `name`
+# are the release's unit string, the description says where it comes from; no
+# unitType, parentSI or multiplierToSI, because a conversion nobody stated is
+# never typed in
+.eml_unit_list <- function(units) {
+  list(unit = lapply(unique(units), function(u) list(
+    id = u, name = u,
+    description = paste0("Unit as written in the CalCOFI release (`", u,
+                         "`); no EML standard unit states it exactly."))))
+}
+
 # build --------------------------------------------------------------------------------
 
 #' Build one dataset's EML 2.2 document from the catalog record
@@ -446,7 +461,7 @@ dataset_gear <- function(gear, dataset_key) {
 #' | `dataset/methods` | the sidecar's `methods_md`, `quality_control_md`, `study_extent`, `sampling_description`, with `metadata/gear.csv`'s `dwc_samplingProtocol` sentences for the dataset's `tow_type`s |
 #' | `dataset/project` | `dataset_name` + `attribution.funding` (else `acknowledgement`), personnel from the creators |
 #' | `dataset/dataTable[]` | the record's `tables[]`, `attributeList` from `metadata.json`'s `columns{}` (label, definition, units, storage type), `physical` from the record's `objects[]` |
-#' | `additionalMetadata` | the release citation, the dataset citation and the record's own provenance |
+#' | `additionalMetadata` | the release citation, the dataset citation and the record's own provenance; then a `unitList` defining every `customUnit` the attributes use |
 #'
 #' Absent optional fields are omitted; a missing **required** field is a
 #' [check_eml()] finding, never a placeholder.
@@ -564,7 +579,12 @@ build_eml <- function(record, sidecar = NULL, meta = NULL, coverage = NULL, rele
   if (!is.null(ack)) am$acknowledgement <- ack
   if (nzchar(.s(att[["source_accessed"]]))) am$sourceAccessed <- .s(att[["source_accessed"]])
   if (!is.null(page)) am$datasetPage <- page
-  doc$additionalMetadata <- list(metadata = list(calcofi = am))
+  doc$additionalMetadata <- list(list(metadata = list(calcofi = am)))
+  # every customUnit must be defined in a unitList, or EML::eml_validate() refuses
+  # the document; the definition is the release's own string with no SI
+  # conversion, which we never invent (the `custom_units` finding still says so)
+  if (length(dts$custom_units))
+    doc$additionalMetadata[[2]] <- list(metadata = list(unitList = .eml_unit_list(dts$custom_units)))
 
   attr(doc, "eml_notes") <- list(
     dataset_key = key, creator_source = cre$source, contact_source = ct$source,
