@@ -197,7 +197,8 @@ test_that("build_eml() maps the record field by field, as § D-8 says", {
   expect_equal(a[[match("tow_type", nms)]]$measurementScale$nominal$nonNumericDomain$textDomain$definition,
                a[[match("tow_type", nms)]]$attributeDefinition)
   # additionalMetadata: the release citation and the dataset's own
-  am <- d$additionalMetadata$metadata$calcofi
+  am <- d$additionalMetadata[[1]]$metadata$calcofi
+  expect_length(d$additionalMetadata, 1L)   # no custom unit, no unitList
   expect_equal(am$datasetKey, "swfsc_ichthyo")
   expect_equal(am$release, "v2026.09.04")
   expect_match(am$releaseCitation, "CalCOFI")
@@ -433,6 +434,44 @@ test_that("no_data_table: tables with no documented columns", {
   d <- build_eml(min_record(), meta = list(tables = list(), columns = list()), release = min_release())
   expect_true("no_data_table" %in% findings_of(d))
   expect_null(d$dataset$dataTable)
+})
+
+test_that("km is an EML standard unit (kilometer), so sample_track.length_km is no custom unit", {
+  m <- min_meta()
+  m$columns$obs.length_km <- list(name_long = "Length", units = "km",
+                                  description_md = "Path length.", data_type = "DOUBLE")
+  d <- build_eml(min_record(), meta = m, release = min_release())
+  a <- d$dataset$dataTable[[1]]$attributeList$attribute
+  u <- a[[match("length_km", vapply(a, `[[`, "", "attributeName"))]]$measurementScale$ratio$unit
+  expect_equal(u, list(standardUnit = "kilometer"))
+  expect_false("custom_units" %in% findings_of(d))
+  expect_length(d$additionalMetadata, 1L)
+})
+
+test_that("a custom unit is defined in additionalMetadata/unitList and the document validates", {
+  # regression: the 2026-11-06 sightings v2 candidate failed EML::eml_validate() with
+  # "not all custom units are defined" on a customUnit with no unitList
+  m <- min_meta()
+  m$columns$obs.density <- list(name_long = "Density", units = "count/10m2",
+                                description_md = "Standardized density.", data_type = "DOUBLE")
+  d <- build_eml(min_record(), meta = m, release = min_release())
+  a <- d$dataset$dataTable[[1]]$attributeList$attribute
+  u <- a[[match("density", vapply(a, `[[`, "", "attributeName"))]]$measurementScale$ratio$unit
+  expect_equal(u, list(customUnit = "count/10m2"))
+  expect_true("custom_units" %in% findings_of(d))
+  expect_length(d$additionalMetadata, 2L)
+  ul <- d$additionalMetadata[[2]]$metadata$unitList$unit
+  expect_equal(vapply(ul, `[[`, "", "id"), "count/10m2")
+  expect_equal(vapply(ul, `[[`, "", "name"), "count/10m2")
+  expect_null(ul[[1]]$multiplierToSI)   # no conversion is ever invented
+  skip_if_not_installed("EML")
+  dir <- withr::local_tempdir()
+  p <- write_eml_files(d, dir)
+  v <- EML::eml_validate(unname(p))
+  expect_true(isTRUE(as.logical(v)), info = paste(attr(v, "errors"), collapse = " | "))
+  chk <- check_eml(d, path = unname(p), record = min_record())
+  expect_false("invalid_eml" %in% chk$finding)
+  expect_true("custom_units" %in% chk$finding)
 })
 
 test_that("undocumented_attributes: a column metadata.json does not describe", {

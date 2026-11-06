@@ -58,7 +58,7 @@ field:
    \code{dataset/methods} \tab the sidecar's \code{methods_md}, \code{quality_control_md}, \code{study_extent}, \code{sampling_description}, with \code{metadata/gear.csv}'s \code{dwc_samplingProtocol} sentences for the dataset's \code{tow_type}s \cr
    \code{dataset/project} \tab \code{dataset_name} + \code{attribution.funding} (else \code{acknowledgement}), personnel from the creators \cr
    \code{dataset/dataTable[]} \tab the record's \code{tables[]}, \code{attributeList} from \code{metadata.json}'s \verb{columns\{\}} (label, definition, units, storage type), \code{physical} from the record's \code{objects[]} \cr
-   \code{additionalMetadata} \tab the release citation, the dataset citation and the record's own provenance \cr
+   \code{additionalMetadata} \tab the release citation, the dataset citation and the record's own provenance; then a \code{unitList} defining every \code{customUnit} the attributes use \cr
 }
 
 
