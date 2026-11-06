@@ -1,5 +1,19 @@
 # Changelog
 
+## calcofi4db 4.35.1
+
+- [`build_eml()`](https://calcofi.io/calcofi4db/reference/build_eml.md)
+  defines every `customUnit` in an `additionalMetadata/unitList` (id,
+  name and a description, never an invented SI conversion), so a
+  document with a unit no EML standard unit states exactly still passes
+  [`EML::eml_validate()`](https://docs.ropensci.org/emld/reference/eml_validate.html);
+  the `custom_units` finding is unchanged. `km` now maps to the standard
+  unit `kilometer`. Found by the sightings v2 candidate (2026-11-06):
+  `sample_track.length_km` was written as an undefined `customUnit` and
+  [`check_eml()`](https://calcofi.io/calcofi4db/reference/check_eml.md)
+  stopped the release with `invalid_eml` (“not all custom units are
+  defined”).
+
 ## calcofi4db 4.35.0
 
 - **New core table `sample_track`**: one row per sample whose event is a

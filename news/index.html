@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.35.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.35.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,6 +77,11 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.35.1" id="calcofi4db-4351">calcofi4db 4.35.1<a class="anchor" aria-label="anchor" href="#calcofi4db-4351"></a></h2>
+<ul><li>
+<code><a href="../reference/build_eml.html">build_eml()</a></code> defines every <code>customUnit</code> in an <code>additionalMetadata/unitList</code> (id, name and a description, never an invented SI conversion), so a document with a unit no EML standard unit states exactly still passes <code><a href="https://docs.ropensci.org/emld/reference/eml_validate.html" class="external-link">EML::eml_validate()</a></code>; the <code>custom_units</code> finding is unchanged. <code>km</code> now maps to the standard unit <code>kilometer</code>. Found by the sightings v2 candidate (2026-11-06): <code>sample_track.length_km</code> was written as an undefined <code>customUnit</code> and <code><a href="../reference/check_eml.html">check_eml()</a></code> stopped the release with <code>invalid_eml</code> (“not all custom units are defined”).</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.35.0" id="calcofi4db-4350">calcofi4db 4.35.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4350"></a></h2>
 <ul><li>

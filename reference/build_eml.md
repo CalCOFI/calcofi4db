@@ -79,7 +79,7 @@ reads.
 | `dataset/methods` | the sidecar's `methods_md`, `quality_control_md`, `study_extent`, `sampling_description`, with `metadata/gear.csv`'s `dwc_samplingProtocol` sentences for the dataset's `tow_type`s |
 | `dataset/project` | `dataset_name` + `attribution.funding` (else `acknowledgement`), personnel from the creators |
 | `dataset/dataTable[]` | the record's `tables[]`, `attributeList` from `metadata.json`'s `columns{}` (label, definition, units, storage type), `physical` from the record's `objects[]` |
-| `additionalMetadata` | the release citation, the dataset citation and the record's own provenance |
+| `additionalMetadata` | the release citation, the dataset citation and the record's own provenance; then a `unitList` defining every `customUnit` the attributes use |
 
 Absent optional fields are omitted; a missing **required** field is a
 [`check_eml()`](https://calcofi.io/calcofi4db/reference/check_eml.md)
