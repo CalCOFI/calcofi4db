@@ -103,3 +103,78 @@ test_that("publish_release_notes() writes the local file from the sidecars (no u
   expect_match(paste(readLines(out), collapse = "\n"), "Dungeness enters")
   expect_error(publish_release_notes("v2026.08.25", f, d, bucket = NULL), "no section")
 })
+
+# the public page (RELEASES.html) is rendered from release_notes_page(): the
+# source keeps `# Unreleased` for the release gate, the page never leads with an
+# empty one, and each release shows the DOI versions.json records for it.
+rn_page_md <- c(
+  "# CalCOFI integrated database — release notes", "", "intro", "",
+  "# Unreleased", "",
+  "# v2026.11.09", "", "## More casts", "", "text a", "",
+  "# v2026.08.25", "", "## No DOI yet", "", "text b", "",
+  "# v2026.08.04 – v2026.08.06", "", "three releases")
+rn_page_versions <- data.frame(
+  version = c("v2026.11.09", "v2026.08.25", "v2026.08.06", "v2026.08.05", "v2026.08.04"),
+  doi     = c("10.5281/zenodo.24083894", NA, NA, NA, NA))
+
+test_that("release_notes_page() drops an empty Unreleased and prints each release's own DOI", {
+  expect_identical(
+    strsplit(release_notes_page(rn_page_md, rn_page_versions), "\n")[[1]],
+    c("# CalCOFI integrated database — release notes", "", "intro", "",
+      "# v2026.11.09", "",
+      "**DOI:** [10.5281/zenodo.24083894](https://doi.org/10.5281/zenodo.24083894)", "",
+      "## More casts", "", "text a", "",
+      "# v2026.08.25", "", "## No DOI yet", "", "text b", "",        # a release with no DOI shows none
+      "# v2026.08.04 – v2026.08.06", "", "three releases"))
+  # the same text as one string, and versions.json read either way jsonlite reads it
+  one  <- paste(rn_page_md, collapse = "\n")
+  json <- jsonlite::toJSON(list(versions = rn_page_versions), na = "null")
+  expect_identical(release_notes_page(one, rn_page_versions),
+                   release_notes_page(rn_page_md, rn_page_versions))
+  expect_identical(release_notes_page(rn_page_md, jsonlite::fromJSON(json)),
+                   release_notes_page(rn_page_md, rn_page_versions))
+  expect_identical(release_notes_page(rn_page_md, jsonlite::fromJSON(json, simplifyVector = FALSE)),
+                   release_notes_page(rn_page_md, rn_page_versions))
+  # the source is the caller's: the heading the release gate needs is still in it
+  expect_true("# Unreleased" %in% rn_page_md)
+})
+
+test_that("release_notes_page() keeps an Unreleased section that has entries", {
+  md  <- append(rn_page_md, c("## Something is now true", "", "because.", ""), after = 6)
+  out <- strsplit(release_notes_page(md, rn_page_versions), "\n")[[1]]
+  expect_identical(out[5:10], c("# Unreleased", "", "## Something is now true", "", "because.", ""))
+  expect_identical(out[11:13], c(
+    "# v2026.11.09", "", "**DOI:** [10.5281/zenodo.24083894](https://doi.org/10.5281/zenodo.24083894)"))
+  # whitespace alone is not an entry
+  expect_false(any(grepl("^# Unreleased", strsplit(
+    release_notes_page(append(rn_page_md, c("  ", ""), after = 6)), "\n")[[1]])))
+})
+
+test_that("release_notes_page() prints no DOI it was not given, and never one twice", {
+  # no versions.json: only the empty Unreleased goes
+  expect_identical(strsplit(release_notes_page(rn_page_md), "\n")[[1]], rn_page_md[-(5:6)])
+  # no `doi` column, an empty one, and a value that is not a DOI: no line
+  for (v in list(data.frame(version = "v2026.11.09"),
+                 data.frame(version = "v2026.11.09", doi = ""),
+                 data.frame(version = "v2026.11.09", doi = "pending"),
+                 list(list(version = "v2026.11.09", doi = NULL))))
+    expect_false(grepl("**DOI:**", release_notes_page(rn_page_md, v), fixed = TRUE))
+  # a resolver URL in `doi` is read as its DOI
+  expect_match(release_notes_page(rn_page_md, data.frame(
+    version = "v2026.11.09", doi = "https://doi.org/10.5281/zenodo.24083894")),
+    "**DOI:** [10.5281/zenodo.24083894](https://doi.org/10.5281/zenodo.24083894)", fixed = TRUE)
+  # a range heading names each version in its span that has one, the middle one included
+  rng <- rn_page_versions
+  rng$doi[rng$version %in% c("v2026.08.04", "v2026.08.05")] <- c("10.5281/zenodo.5", "10.5281/zenodo.4")
+  out <- strsplit(release_notes_page(rn_page_md, rng), "\n")[[1]]
+  expect_identical(out[which(out == "# v2026.08.04 – v2026.08.06") + 0:3], c(
+    "# v2026.08.04 – v2026.08.06", "",
+    paste0("**DOI:** v2026.08.04 [10.5281/zenodo.4](https://doi.org/10.5281/zenodo.4) · ",
+           "v2026.08.05 [10.5281/zenodo.5](https://doi.org/10.5281/zenodo.5)"), ""))
+  # a version's DOI sits under its own heading only, and a heading that merely
+  # mentions a version (not its entry) gets none
+  md2 <- c("# Unreleased (after v2026.11.09)", "", "## pending", "", "# v2026.11.09", "", "x",
+           "", "# v2026.11.09", "", "again")
+  expect_identical(sum(grepl("^\\*\\*DOI:\\*\\*", strsplit(
+    release_notes_page(md2, rn_page_versions), "\n")[[1]])), 1L)
+})
