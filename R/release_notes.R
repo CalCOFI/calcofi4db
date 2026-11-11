@@ -115,6 +115,93 @@ promote_unreleased <- function(md, version, date = Sys.Date()) {
   paste(lines, collapse = "\n")
 }
 
+# version -> DOI from the `versions` element of versions.json, in either form
+# jsonlite reads it (data frame, or a list of records), or the parsed file itself.
+# only a value that is a DOI is kept: a missing, NA or empty `doi` is "none yet".
+.rn_version_dois <- function(versions) {
+  if (is.null(versions) || !length(versions)) return(character())
+  if (!is.data.frame(versions) && !is.null(versions$versions)) versions <- versions$versions
+  one <- function(x) if (is.null(x) || !length(x) || is.na(x[[1]])) NA_character_ else as.character(x[[1]])
+  if (is.data.frame(versions)) {
+    v <- as.character(versions$version)
+    d <- if (is.null(versions$doi)) rep(NA_character_, length(v)) else as.character(versions$doi)
+  } else {
+    v <- vapply(versions, function(r) one(r$version), "")
+    d <- vapply(versions, function(r) one(r$doi), "")
+  }
+  d  <- sub("^https?://(dx\\.)?doi\\.org/", "", trimws(d))
+  ok <- !is.na(v) & grepl("^v20[0-9]{2}(\\.[0-9]{2}){1,2}$", v) &
+    !is.na(d) & grepl("^10\\.[0-9]{4,9}/[-._;/:A-Za-z0-9]+$", d)
+  stats::setNames(d[ok], v[ok])
+}
+
+#' RELEASES.md as the public changelog page shows it
+#'
+#' `RELEASES.md` is written for the release process, and two things about it do
+#' not suit a reader of the rendered page (`RELEASES.html`). Its `# Unreleased`
+#' heading has to stay in the source ([promote_unreleased()] renames it at the
+#' next cut) and is empty from the moment a release is cut until the next change
+#' lands, so the page led with an empty section. And a release's DOI is minted by
+#' Zenodo after its section is written, so it is recorded in `catalog.json` and
+#' `versions.json` ([publish_release_notes()]) and never in the notes. This
+#' returns the markdown the page is rendered from:
+#'
+#' - an `# Unreleased` section with no entries is dropped, heading and all; one
+#'   with entries is kept as it is;
+#' - under each release heading, a `**DOI:**` line linking that release's own DOI
+#'   (`https://doi.org/{doi}`) as `versions` records it. A release with no DOI
+#'   gets no line. A range heading (`# v2026.08.04 – v2026.08.06`) lists the DOI
+#'   of each version in its span that has one, each named by its version.
+#'
+#' The source is never changed, and with `versions = NULL` only the empty
+#' `# Unreleased` is dropped. Sections are split as [release_notes_sections()]
+#' splits them, so "empty" here is the same test the release gate applies.
+#' @param md RELEASES.md text (single string) or lines.
+#' @param versions the `versions` element of `versions.json` (a data frame, or a
+#'   list of records, with `version` and `doi`), the parsed file itself, or `NULL`.
+#' @return The markdown as a single string.
+#' @export
+#' @concept release
+#' @examples
+#' md <- c("# Notes", "", "# Unreleased", "", "# v2026.11.09", "", "## More casts")
+#' cat(release_notes_page(md, data.frame(
+#'   version = "v2026.11.09",
+#'   doi     = "10.5281/zenodo.24083894")))
+release_notes_page <- function(md, versions = NULL) {
+  lines <- if (length(md) == 1 && grepl("\n", md)) strsplit(md, "\n")[[1]] else md
+  h     <- grep("^# ", lines)
+  if (!length(h)) return(paste(lines, collapse = "\n"))
+  secs  <- release_notes_sections(lines)   # row i is the section at lines[h[i]]
+  ends  <- c(h[-1] - 1, length(lines))
+  dois  <- .rn_version_dois(versions)
+  keys  <- vapply(names(dois), .rn_version_key, "")
+  link  <- function(d) sprintf("[%s](https://doi.org/%s)", d, d)
+  shown <- character()                     # a version's DOI sits under one heading
+  out   <- lines[seq_len(h[1] - 1)]
+  for (i in seq_along(h)) {
+    vers <- secs$versions[[i]]
+    if (identical(vers, "Unreleased") && !nzchar(secs$body[i])) next
+    sec  <- lines[h[i]:ends[i]]
+    # the release's own entry starts with its version; a heading that only
+    # mentions one further along is not that release
+    if (length(dois) && grepl("^# v20[0-9]{2}(\\.[0-9]{2}){1,2}", sec[1])) {
+      ks   <- sort(vapply(vers, .rn_version_key, ""))
+      span <- if (length(vers) == 2) names(dois)[keys >= ks[1] & keys <= ks[2]] else
+        intersect(vers, names(dois))
+      span <- setdiff(span[order(vapply(span, .rn_version_key, ""))], shown)
+      if (length(span)) {
+        shown <- c(shown, span)
+        doi_line <- paste0("**DOI:** ", if (length(vers) == 1) link(dois[[span]]) else
+          paste(sprintf("%s %s", span, link(dois[span])), collapse = " · "))
+        rest <- sec[-1]
+        sec  <- c(sec[1], "", doi_line, if (length(rest) && nzchar(rest[1])) "", rest)
+      }
+    }
+    out <- c(out, sec)
+  }
+  paste(out, collapse = "\n")
+}
+
 #' Render a version's RELEASE_NOTES.md: narrative + generated appendix
 #'
 #' @param version the release.
