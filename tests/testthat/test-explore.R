@@ -76,6 +76,42 @@ test_that("build_sample_root() numbers roots densely and deterministically", {
                r$root_id[r$root_sample_key == "ich:site:1"])
 })
 
+test_that("build_sample_root() carries the root's own data_stage, last; NULL where the dataset records none", {
+  # a preliminary CTD cast and a final one (roots), a bottle cast of a dataset that records no stage (root), and a child
+  # of the preliminary cast whose own stage differs: a root takes its OWN value, never a child's
+  con <- ex_con()
+  DBI::dbExecute(con, "CREATE TABLE sample AS SELECT * FROM (VALUES
+    ('ctd:cast:1', 'cast',   NULL,         'ctd:cast:1', 'calcofi_ctd-cast', 'st90-ln90', '2026-11-33P4', 1, 32.9, -117.3, TIMESTAMP '2026-11-02 08:00', 0.0, 500.0, NULL, 'preliminary_with_bottle'),
+    ('ctd:bin:1',  'bin',    'ctd:cast:1', 'ctd:cast:1', 'calcofi_ctd-cast', 'st90-ln90', '2026-11-33P4', 1, 32.9, -117.3, TIMESTAMP '2026-11-02 08:00', 10.0, 10.0, NULL, 'final'),
+    ('ctd:cast:2', 'cast',   NULL,         'ctd:cast:2', 'calcofi_ctd-cast', 'st90-ln90', '2015-11-32OC', 1, 32.9, -117.3, TIMESTAMP '2015-11-05 08:00', 0.0, 500.0, NULL, 'final'),
+    ('btl:cast:1', 'cast',   NULL,         'btl:cast:1', 'calcofi_bottle',   'st90-ln90', '2015-11-32OC', 1, 32.9, -117.3, TIMESTAMP '2015-11-05 09:00', 0.0, 500.0, NULL, NULL)
+    ) t(sample_key, sample_type, parent_sample_key, root_sample_key, dataset_key, grid_key, cruise_key, order_occ,
+        latitude, longitude, datetime, depth_min_m, depth_max_m, tow_type, data_stage)")
+  expect_equal(suppressMessages(build_sample_root(con)), 3)
+  flds <- DBI::dbListFields(con, "sample_root")
+  expect_equal(flds[length(flds)], "data_stage")               # trailing: every earlier column keeps its position
+  expect_equal(
+    DBI::dbGetQuery(con, "SELECT root_sample_key, dataset_key, cruise_key, data_stage FROM sample_root ORDER BY root_id"),
+    data.frame(
+      root_sample_key = c("btl:cast:1", "ctd:cast:1", "ctd:cast:2"),
+      dataset_key     = c("calcofi_bottle", "calcofi_ctd-cast", "calcofi_ctd-cast"),
+      cruise_key      = c("2015-11-32OC", "2026-11-33P4", "2015-11-32OC"),
+      data_stage      = c(NA, "preliminary_with_bottle", "final")))
+  expect_equal(
+    DBI::dbGetQuery(con, "SELECT data_type FROM information_schema.columns
+      WHERE table_name = 'sample_root' AND column_name = 'data_stage'")$data_type, "VARCHAR")
+  # root for root, the two tables agree
+  expect_equal(DBI::dbGetQuery(con, "SELECT count(*) AS n FROM sample s JOIN sample_root r ON r.root_sample_key = s.sample_key
+    WHERE s.data_stage IS DISTINCT FROM r.data_stage")$n, 0)
+  # a `sample` from before data_stage (calcofi4db < 3.4.0): the same schema, every stage NULL
+  DBI::dbExecute(con, "CREATE OR REPLACE TABLE sample AS SELECT * EXCLUDE (data_stage) FROM sample")
+  suppressMessages(build_sample_root(con))
+  expect_equal(DBI::dbListFields(con, "sample_root"), flds)
+  expect_equal(
+    DBI::dbGetQuery(con, "SELECT count(*) AS n, count(data_stage) AS n_stage, any_value(typeof(data_stage)) AS t FROM sample_root"),
+    data.frame(n = 3, n_stage = 0, t = "VARCHAR"))
+})
+
 test_that("build_obs_slim() carries root_id, the net's span and effort, qual_ok, hex7 and the densities", {
   con <- ex_con(); ex_fixture(con); build_sample_root(con)
   expect_equal(build_obs_slim(con, "bio", QUAL_OK, DENSITY), 2)

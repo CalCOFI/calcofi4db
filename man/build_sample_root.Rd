@@ -16,14 +16,20 @@ Invisibly, the row count.
 }
 \description{
 One row per \code{sample} with no parent, numbered by \code{dense_rank()} over \code{sample_key} so the id is
-deterministic across runs; carries the root's position, time, cruise, gear, seafloor depth and —
-last — \code{hex7}, the root's own H3 cell exactly as \code{sample} holds it. Every browser object joins on
-\code{root_id}; \code{root_sample_key} is what it stands for.
+deterministic across runs; carries the root's position, time, cruise, gear, seafloor depth,
+\code{hex7} — the root's own H3 cell exactly as \code{sample} holds it — and, last, \code{data_stage}. Every
+browser object joins on \code{root_id}; \code{root_sample_key} is what it stands for.
 }
 \details{
 \code{hex7} is \strong{carried}, never recomputed here, so \code{sample.hex7} and \code{sample_root.hex7} cannot
 disagree for a root: stamp \code{sample} with \code{\link[=add_sample_hex7]{add_sample_hex7()}} first. On a \code{sample} without the
 column \code{hex7} is \code{NULL} (like \code{seafloor_depth_m}) and a message says so; \code{\link[=check_sample_hex7]{check_sample_hex7()}}
 fails such a release.
+
+\code{data_stage} is the root sample's own \code{sample.data_stage}, as the dataset's ingest wrote it
+(\code{final}, \code{preliminary_with_bottle}, \code{preliminary_without_bottle} on the CTD casts) and \code{NULL}
+where the dataset records none; it is the trailing column, so every earlier column keeps its
+position. It lets a reader of \code{sample_root} say that a cruise's data are preliminary without
+fetching \code{sample}. On a \code{sample} without the column it is \code{NULL}, typed \code{VARCHAR}.
 }
 \concept{release}
