@@ -78,7 +78,7 @@ test_that("add_sample_hex7() appends one UBIGINT column, keeps every other colum
   expect_error(add_sample_hex7(con, "nopos"), "latitude")
 })
 
-test_that("build_sample_root() carries sample.hex7, last; without it the column is NULL and it says so", {
+test_that("build_sample_root() carries sample.hex7, before data_stage; without it the column is NULL and it says so", {
   con <- h7_con()   # no h3 needed: the root table carries the cell, it never computes one
   DBI::dbExecute(con, glue::glue("CREATE TABLE sample AS SELECT * FROM (VALUES
     ('x:site:1', 'site', NULL,       'x:site:1', 'x', 'g', '2019-04-33UD', 1, 32.60::DOUBLE, -121.00::DOUBLE, TIMESTAMP '2019-04-02 22:00', NULL, NULL, NULL, {H7_EDGE_PARENT}::UBIGINT),
@@ -90,7 +90,8 @@ test_that("build_sample_root() carries sample.hex7, last; without it the column 
   expect_equal(n, 2)
   flds <- DBI::dbListFields(con, "sample_root")
   expect_equal(flds, c("root_id", "root_sample_key", "dataset_key", "sample_type", "grid_key", "cruise_key", "order_occ",
-                       "latitude", "longitude", "datetime", "depth_min_m", "depth_max_m", "tow_type", "seafloor_depth_m", "hex7"))
+                       "latitude", "longitude", "datetime", "depth_min_m", "depth_max_m", "tow_type", "seafloor_depth_m", "hex7",
+                       "data_stage"))
   r <- DBI::dbGetQuery(con, "SELECT root_sample_key, hex7::VARCHAR AS hex7 FROM sample_root ORDER BY root_id")
   expect_equal(r$hex7, c(NA, H7_EDGE_PARENT))            # the root's own cell, not its net's
   expect_equal(DBI::dbGetQuery(con, "SELECT data_type FROM information_schema.columns WHERE table_name = 'sample_root' AND column_name = 'hex7'")$data_type, "UBIGINT")

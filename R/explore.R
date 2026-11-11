@@ -6,7 +6,9 @@
 #   sample_root     one row per root sampling event with a dense integer `root_id` (the join key the
 #                   browser objects share; `root_sample_key` is the string it stands for) and, since
 #                   2026-10, the root's own `hex7` carried from `sample` (add_sample_hex7()), so a
-#                   per-sample value in `sample_measurement` can be drawn in a hexagon
+#                   per-sample value in `sample_measurement` can be drawn in a hexagon; since 4.37.0
+#                   the root's own `data_stage` too, so a browser can say a cruise is preliminary
+#                   without fetching `sample`
 #   obs_bio         the bio realm, slim: root_id, hex7 (one UBIGINT H3 cell at res 7; coarser parents
 #                   are bit arithmetic, see h3_parent_sql()), depth_bin, qual_ok, the gear and effort
 #                   of the observation's own sample, and the D8 densities + effort_class
@@ -125,14 +127,20 @@ add_sample_hex7 <- function(con, tbl = "sample", lat = "latitude", lng = "longit
 #' Root sampling events with a dense integer id
 #'
 #' One row per `sample` with no parent, numbered by `dense_rank()` over `sample_key` so the id is
-#' deterministic across runs; carries the root's position, time, cruise, gear, seafloor depth and —
-#' last — `hex7`, the root's own H3 cell exactly as `sample` holds it. Every browser object joins on
-#' `root_id`; `root_sample_key` is what it stands for.
+#' deterministic across runs; carries the root's position, time, cruise, gear, seafloor depth,
+#' `hex7` — the root's own H3 cell exactly as `sample` holds it — and, last, `data_stage`. Every
+#' browser object joins on `root_id`; `root_sample_key` is what it stands for.
 #'
 #' `hex7` is **carried**, never recomputed here, so `sample.hex7` and `sample_root.hex7` cannot
 #' disagree for a root: stamp `sample` with [add_sample_hex7()] first. On a `sample` without the
 #' column `hex7` is `NULL` (like `seafloor_depth_m`) and a message says so; [check_sample_hex7()]
 #' fails such a release.
+#'
+#' `data_stage` is the root sample's own `sample.data_stage`, as the dataset's ingest wrote it
+#' (`final`, `preliminary_with_bottle`, `preliminary_without_bottle` on the CTD casts) and `NULL`
+#' where the dataset records none; it is the trailing column, so every earlier column keeps its
+#' position. It lets a reader of `sample_root` say that a cruise's data are preliminary without
+#' fetching `sample`. On a `sample` without the column it is `NULL`, typed `VARCHAR`.
 #'
 #' @param con DuckDB connection holding `sample`.
 #' @param tbl name of the table to (re)create.
@@ -145,13 +153,14 @@ build_sample_root <- function(con, tbl = "sample_root") {
   flds     <- dbListFields(con, "sample")
   seafloor <- if ("seafloor_depth_m" %in% flds) "seafloor_depth_m" else "NULL::DOUBLE AS seafloor_depth_m"
   hex7     <- if ("hex7" %in% flds) "hex7::UBIGINT AS hex7" else "NULL::UBIGINT AS hex7"
+  stage    <- if ("data_stage" %in% flds) "data_stage::VARCHAR AS data_stage" else "NULL::VARCHAR AS data_stage"
   if (!"hex7" %in% flds)
     message("build_sample_root(): `sample` has no hex7, so ", tbl, ".hex7 is NULL - run add_sample_hex7() first")
   dbExecute(con, glue("
     CREATE OR REPLACE TABLE {tbl} AS
     SELECT dense_rank() OVER (ORDER BY sample_key)::INTEGER AS root_id, sample_key AS root_sample_key,
            dataset_key, sample_type, grid_key, cruise_key, order_occ, latitude, longitude, datetime,
-           depth_min_m, depth_max_m, tow_type, {seafloor}, {hex7}
+           depth_min_m, depth_max_m, tow_type, {seafloor}, {hex7}, {stage}
     FROM sample WHERE parent_sample_key IS NULL ORDER BY sample_key"))
   n <- dbGetQuery(con, glue("SELECT count(*) AS n, count(DISTINCT root_id) AS n_id FROM {tbl}"))
   stopifnot(n$n == n$n_id)
