@@ -1,5 +1,20 @@
 # Changelog
 
+## calcofi4db 4.37.0
+
+- **`sample_root` carries `data_stage`**:
+  [`build_sample_root()`](https://calcofi.io/calcofi4db/reference/build_sample_root.md)
+  now writes the root sample’s own `sample.data_stage` as the table’s
+  last column (`VARCHAR`: `final`, `preliminary_with_bottle` or
+  `preliminary_without_bottle` on the CTD casts, `NULL` where the
+  dataset records no stage, and `NULL` throughout on a `sample` without
+  the column). A reader of the 11 MB `sample_root` can now say that a
+  cruise’s data are preliminary, per dataset, without fetching the 28 MB
+  `sample`: the CalCOFI Explorer marks a preliminary cruise from it, as
+  ctd-transects already does from `sample`. The column is added at the
+  end, so every existing column keeps its name, type and position;
+  `sample` is unchanged.
+
 ## calcofi4db 4.36.0
 
 - **New `release_notes_page(md, versions)`**: `RELEASES.md` as the

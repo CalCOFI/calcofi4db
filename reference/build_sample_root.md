@@ -2,9 +2,10 @@
 
 One row per `sample` with no parent, numbered by `dense_rank()` over
 `sample_key` so the id is deterministic across runs; carries the root's
-position, time, cruise, gear, seafloor depth and — last — `hex7`, the
-root's own H3 cell exactly as `sample` holds it. Every browser object
-joins on `root_id`; `root_sample_key` is what it stands for.
+position, time, cruise, gear, seafloor depth, `hex7` — the root's own H3
+cell exactly as `sample` holds it — and, last, `data_stage`. Every
+browser object joins on `root_id`; `root_sample_key` is what it stands
+for.
 
 ## Usage
 
@@ -35,3 +36,11 @@ first. On a `sample` without the column `hex7` is `NULL` (like
 `seafloor_depth_m`) and a message says so;
 [`check_sample_hex7()`](https://calcofi.io/calcofi4db/reference/check_sample_hex7.md)
 fails such a release.
+
+`data_stage` is the root sample's own `sample.data_stage`, as the
+dataset's ingest wrote it (`final`, `preliminary_with_bottle`,
+`preliminary_without_bottle` on the CTD casts) and `NULL` where the
+dataset records none; it is the trailing column, so every earlier column
+keeps its position. It lets a reader of `sample_root` say that a
+cruise's data are preliminary without fetching `sample`. On a `sample`
+without the column it is `NULL`, typed `VARCHAR`.
