@@ -1758,6 +1758,9 @@ check for other functions or datasets not captured by above categories
 - [`release_citation()`](https://calcofi.io/calcofi4db/reference/release_citation.md)
   : The citation for a release of the integrated database
 
+- [`release_notes_page()`](https://calcofi.io/calcofi4db/reference/release_notes_page.md)
+  : RELEASES.md as the public changelog page shows it
+
 - [`release_notes_section()`](https://calcofi.io/calcofi4db/reference/release_notes_section.md)
   : The RELEASES.md section that documents a version
 

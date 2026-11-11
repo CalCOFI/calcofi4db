@@ -1,5 +1,19 @@
 # Changelog
 
+## calcofi4db 4.36.0
+
+- **New `release_notes_page(md, versions)`**: `RELEASES.md` as the
+  public changelog page (`RELEASES.html`) shows it. An `# Unreleased`
+  section with no entries is dropped (one with entries is kept), and
+  each release heading is followed by a `**DOI:**` line linking that
+  release’s own DOI (`https://doi.org/{doi}`) as `versions.json` records
+  it; a release with no DOI gets no line, and a range heading lists the
+  DOI of each version in its span that has one. The source is unchanged:
+  `# Unreleased` stays in `RELEASES.md` for
+  [`promote_unreleased()`](https://calcofi.io/calcofi4db/reference/promote_unreleased.md).
+  The page led with an empty “Unreleased” heading and printed no
+  release’s DOI (found 2026-11-11 on the page of v2026.11.09).
+
 ## calcofi4db 4.35.1
 
 - [`build_eml()`](https://calcofi.io/calcofi4db/reference/build_eml.md)

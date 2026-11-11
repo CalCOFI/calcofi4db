@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.35.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.36.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,6 +77,11 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.36.0" id="calcofi4db-4360">calcofi4db 4.36.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4360"></a></h2>
+<ul><li>
+<strong>New <code>release_notes_page(md, versions)</code></strong>: <code>RELEASES.md</code> as the public changelog page (<code>RELEASES.html</code>) shows it. An <code># Unreleased</code> section with no entries is dropped (one with entries is kept), and each release heading is followed by a <code>**DOI:**</code> line linking that release’s own DOI (<code>https://doi.org/{doi}</code>) as <code>versions.json</code> records it; a release with no DOI gets no line, and a range heading lists the DOI of each version in its span that has one. The source is unchanged: <code># Unreleased</code> stays in <code>RELEASES.md</code> for <code><a href="../reference/promote_unreleased.html">promote_unreleased()</a></code>. The page led with an empty “Unreleased” heading and printed no release’s DOI (found 2026-11-11 on the page of v2026.11.09).</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.35.1" id="calcofi4db-4351">calcofi4db 4.35.1<a class="anchor" aria-label="anchor" href="#calcofi4db-4351"></a></h2>
 <ul><li>
