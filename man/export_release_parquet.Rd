@@ -23,7 +23,10 @@ export_release_parquet(
 
 \item{order_by}{character vector of ORDER BY terms (may carry \verb{NULLS LAST}).}
 
-\item{partition_by}{optional partition column (Hive layout, one file per value).}
+\item{partition_by}{optional partition column (Hive layout, one file per value:
+the write raises DuckDB's \code{partitioned_write_max_open_files} above the number
+of partition values for its duration, and stops, naming them, if any
+partition directory holds more than one parquet file, 4.38.0).}
 
 \item{writer}{list of writer options; see \link{CC_PARQUET_WRITER}.}
 
