@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.37.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.38.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,6 +77,15 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.38.0" id="calcofi4db-4380">calcofi4db 4.38.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4380"></a></h2>
+<ul><li>
+<strong>A partitioned release table is written and published as one object per partition value again.</strong> DuckDB 2.0.0 starts another file for a partition once more than <code>partitioned_write_max_open_files</code> (default 100) are open, so <code><a href="../reference/export_release_parquet.html">export_release_parquet()</a></code> wrote <code>data_0</code>, <code>data_1</code> and sometimes <code>data_2.parquet</code> for 24 of the 143 cruises of <code>obs_ctd_full</code>; <code><a href="../reference/release_objects.html">release_objects()</a></code> gave every file the partition’s one path, the uploads overwrote each other, and releases v2026.11.05 and v2026.11.09 published 22 cruises short (47.2 M of 287.3 M rows). <code><a href="../reference/export_release_parquet.html">export_release_parquet()</a></code> now raises that limit above the table’s number of partition values for the write (and restores it), and stops, naming the partitions, unless every partition directory holds exactly one parquet file and there is one file per value.</li>
+<li>
+<code><a href="../reference/release_objects.html">release_objects()</a></code> stops when two files map to one partition value, and <code><a href="../reference/freeze_plan.html">freeze_plan()</a></code> stops on a duplicated <code>path</code>, so a second writer change of this kind fails the release instead of overwriting an object.</li>
+<li>
+<strong>New <code>check_release_objects(catalog, con, base_url, tables)</code></strong>: per table of a <code>catalog.json</code>, supplemental ones included, the object paths are unique, a partitioned table has one object per partition value (and at most one single-file twin, as <code>obs</code> publishes), and, given a connection, the rows in the published objects’ parquet footers (no scan) equal the catalog’s <code>rows</code>, partitions and twin each. Against v2026.11.09 as published it fails the three checks for <code>obs_ctd_full</code> (169 objects for 143 cruises, 24 paths repeated, 240,092,665 rows published of 287,281,956) and passes the other 25 tables; v2026.10.30 passes all. <code>test_release.qmd</code> gates promotion on it.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.37.0" id="calcofi4db-4370">calcofi4db 4.37.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4370"></a></h2>
 <ul><li>

@@ -40,7 +40,10 @@ export_release_parquet(
 
 - partition_by:
 
-  optional partition column (Hive layout, one file per value).
+  optional partition column (Hive layout, one file per value: the write
+  raises DuckDB's `partitioned_write_max_open_files` above the number of
+  partition values for its duration, and stops, naming them, if any
+  partition directory holds more than one parquet file, 4.38.0).
 
 - writer:
 

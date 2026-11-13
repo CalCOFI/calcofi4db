@@ -1,5 +1,40 @@
 # Changelog
 
+## calcofi4db 4.38.0
+
+- **A partitioned release table is written and published as one object
+  per partition value again.** DuckDB 2.0.0 starts another file for a
+  partition once more than `partitioned_write_max_open_files`
+  (default 100) are open, so
+  [`export_release_parquet()`](https://calcofi.io/calcofi4db/reference/export_release_parquet.md)
+  wrote `data_0`, `data_1` and sometimes `data_2.parquet` for 24 of the
+  143 cruises of `obs_ctd_full`;
+  [`release_objects()`](https://calcofi.io/calcofi4db/reference/release_objects.md)
+  gave every file the partition’s one path, the uploads overwrote each
+  other, and releases v2026.11.05 and v2026.11.09 published 22 cruises
+  short (47.2 M of 287.3 M rows).
+  [`export_release_parquet()`](https://calcofi.io/calcofi4db/reference/export_release_parquet.md)
+  now raises that limit above the table’s number of partition values for
+  the write (and restores it), and stops, naming the partitions, unless
+  every partition directory holds exactly one parquet file and there is
+  one file per value.
+- [`release_objects()`](https://calcofi.io/calcofi4db/reference/release_objects.md)
+  stops when two files map to one partition value, and
+  [`freeze_plan()`](https://calcofi.io/calcofi4db/reference/freeze_plan.md)
+  stops on a duplicated `path`, so a second writer change of this kind
+  fails the release instead of overwriting an object.
+- **New `check_release_objects(catalog, con, base_url, tables)`**: per
+  table of a `catalog.json`, supplemental ones included, the object
+  paths are unique, a partitioned table has one object per partition
+  value (and at most one single-file twin, as `obs` publishes), and,
+  given a connection, the rows in the published objects’ parquet footers
+  (no scan) equal the catalog’s `rows`, partitions and twin each.
+  Against v2026.11.09 as published it fails the three checks for
+  `obs_ctd_full` (169 objects for 143 cruises, 24 paths repeated,
+  240,092,665 rows published of 287,281,956) and passes the other 25
+  tables; v2026.10.30 passes all. `test_release.qmd` gates promotion on
+  it.
+
 ## calcofi4db 4.37.0
 
 - **`sample_root` carries `data_stage`**:
