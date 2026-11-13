@@ -101,7 +101,10 @@ release_sort_keys <- function(core_sort = c("grid_key NULLS LAST", "depth_min_m 
 #' @param table table (or view) name.
 #' @param path output file (single) or directory (partitioned).
 #' @param order_by character vector of ORDER BY terms (may carry `NULLS LAST`).
-#' @param partition_by optional partition column (Hive layout, one file per value).
+#' @param partition_by optional partition column (Hive layout, one file per value:
+#'   the write raises DuckDB's `partitioned_write_max_open_files` above the number
+#'   of partition values for its duration, and stops, naming them, if any
+#'   partition directory holds more than one parquet file, 4.38.0).
 #' @param writer list of writer options; see [CC_PARQUET_WRITER].
 #' @param strip_provenance drop `_source_*` / `_ingested_at` style columns.
 #' @return Invisibly, a tibble of files written: `rel_path`, `bytes`.
@@ -138,6 +141,18 @@ export_release_parquet <- function(con, table, path, order_by, partition_by = NU
   if (!is.null(partition_by)) {
     if (dir.exists(path)) unlink(path, recursive = TRUE)
     opts <- glue::glue('{opts}, PARTITION_BY ("{partition_by}"), OVERWRITE_OR_IGNORE')
+    # DuckDB (>= 2.0.0) starts another file for a partition once more than
+    # partitioned_write_max_open_files (default 100) are open; keep every
+    # partition open for the whole write so each gets exactly one file
+    n_part <- DBI::dbGetQuery(con, glue::glue(
+      'SELECT COUNT(DISTINCT "{partition_by}") + MAX(("{partition_by}" IS NULL)::INT) AS n
+       FROM "{table}"'))$n
+    max_open <- DBI::dbGetQuery(con,
+      "SELECT current_setting('partitioned_write_max_open_files') AS v")$v
+    DBI::dbExecute(con, glue::glue(
+      "SET partitioned_write_max_open_files = {as.integer(max(as.numeric(max_open), n_part + 1))}"))
+    on.exit(DBI::dbExecute(con, glue::glue(
+      "SET partitioned_write_max_open_files = {max_open}")), add = TRUE)
   }
   threads <- DBI::dbGetQuery(con, "SELECT current_setting('threads') AS t")$t
   DBI::dbExecute(con, "SET threads TO 1")
@@ -147,9 +162,28 @@ export_release_parquet <- function(con, table, path, order_by, partition_by = NU
   files <- if (is.null(partition_by)) path else
     list.files(path, pattern = "[.]parquet$", recursive = TRUE, full.names = TRUE)
   base <- if (is.null(partition_by)) dirname(path) else dirname(path)
-  invisible(tibble::tibble(
-    rel_path = sub(paste0("^", gsub("([.|()\\\\^${}+?*\\[\\]])", "\\\\\\1", base), "/"), "", files),
-    bytes    = file.size(files)))
+  rel <- sub(paste0("^", gsub("([.|()\\\\^${}+?*\\[\\]])", "\\\\\\1", base), "/"), "", files)
+  if (!is.null(partition_by)) {
+    .check_one_file_per_partition(rel, table, partition_by)
+    if (length(rel) != n_part)
+      stop("`", table, "`: ", length(rel), " partition files for ", n_part,
+           " values of ", partition_by, call. = FALSE)
+  }
+  invisible(tibble::tibble(rel_path = rel, bytes = file.size(files)))
+}
+
+# stop, naming them, when a partition directory holds more than one parquet
+# file: every release path and canonical path is one object per partition value
+.check_one_file_per_partition <- function(rel_path, table, partition_by) {
+  pv <- utils::URLdecode(sub(paste0("^.*", partition_by, "=([^/]+)/.*$"), "\\1", rel_path))
+  n  <- vapply(split(pv, pv), length, 1L)
+  bad <- n[n > 1]
+  if (length(bad))
+    stop(length(bad), " partition(s) of `", table, "` hold more than one file (",
+         "one object per partition value is what the release publishes): ",
+         paste(sprintf("%s (%d files)", names(bad), as.integer(bad)), collapse = ", "),
+         call. = FALSE)
+  invisible(TRUE)
 }
 
 #' Canonical (content-addressed) object path for a table or partition
@@ -207,6 +241,11 @@ release_objects <- function(con, table, dir_out, files, version, partition_by = 
   } else {
     sigs <- .partition_content_hashes(con, table, partition_by, excl)
     pv <- utils::URLdecode(sub(paste0("^.*", partition_by, "=([^/]+)/.*$"), "\\1", files$rel_path))
+    dup <- unique(pv[duplicated(pv)])
+    if (length(dup))
+      stop("`", table, "`: more than one file for partition value(s) ",
+           paste(dup, collapse = ", "), " — each would publish to the same path and ",
+           "overwrite the others (4.38.0)", call. = FALSE)
     d <- tibble::tibble(table = table, partition_by = partition_by, partition_value = pv,
                         rel_path = sprintf("%s/%s=%s/data_0.parquet", table, partition_by, pv),
                         local_path = file.path(dir_out, files$rel_path),
@@ -302,6 +341,10 @@ freeze_plan <- function(objects, prev_catalog, version, layout = c("compat", "ca
                              "exists", "upload")
     objects$source <- NA_character_
   }
+  dp <- unique(objects$path[duplicated(objects$path)])
+  if (length(dp))
+    stop("freeze_plan(): duplicated path(s) — two objects would be uploaded to one ",
+         "place and the last would win: ", paste(dp, collapse = ", "), call. = FALSE)
   # a reused object keeps the previous release's bytes/sha256 (a legacy catalog
   # without them falls back to the local export's)
   reuse <- objects$action %in% c("copy", "exists") & !is.na(m)

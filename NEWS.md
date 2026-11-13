@@ -1,3 +1,20 @@
+# calcofi4db 4.38.0
+
+- **A partitioned release table is written and published as one object per
+  partition value again.** DuckDB 2.0.0 starts another file for a partition once
+  more than `partitioned_write_max_open_files` (default 100) are open, so
+  `export_release_parquet()` wrote `data_0`, `data_1` and sometimes `data_2.parquet`
+  for 24 of the 143 cruises of `obs_ctd_full`; `release_objects()` gave every
+  file the partition's one path, the uploads overwrote each other, and releases
+  v2026.11.05 and v2026.11.09 published 22 cruises short (47.2 M of 287.3 M rows).
+  `export_release_parquet()` now raises that limit above the table's number of
+  partition values for the write (and restores it), and stops, naming the
+  partitions, unless every partition directory holds exactly one parquet file
+  and there is one file per value.
+- `release_objects()` stops when two files map to one partition value, and
+  `freeze_plan()` stops on a duplicated `path`, so a second writer change of this
+  kind fails the release instead of overwriting an object.
+
 # calcofi4db 4.37.0
 
 - **`sample_root` carries `data_stage`**: `build_sample_root()` now writes the
