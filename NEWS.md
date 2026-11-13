@@ -14,6 +14,15 @@
 - `release_objects()` stops when two files map to one partition value, and
   `freeze_plan()` stops on a duplicated `path`, so a second writer change of this
   kind fails the release instead of overwriting an object.
+- **New `check_release_objects(catalog, con, base_url, tables)`**: per table of a
+  `catalog.json`, supplemental ones included, the object paths are unique, a
+  partitioned table has one object per partition value (and at most one single-file
+  twin, as `obs` publishes), and, given a connection, the rows in the published
+  objects' parquet footers (no scan) equal the catalog's `rows`, partitions and twin
+  each. Against v2026.11.09 as published it fails the three checks for
+  `obs_ctd_full` (169 objects for 143 cruises, 24 paths repeated, 240,092,665 rows
+  published of 287,281,956) and passes the other 25 tables; v2026.10.30 passes all.
+  `test_release.qmd` gates promotion on it.
 
 # calcofi4db 4.37.0
 

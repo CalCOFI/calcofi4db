@@ -77,3 +77,64 @@ test_that("freeze_plan() stops on a duplicated path", {
   expect_error(freeze_plan(obj, NULL, "v1", layout = "compat"), "duplicated path.*k=B")
   expect_no_error(freeze_plan(obj[1:2, ], NULL, "v1", layout = "canonical"))
 })
+
+test_that("check_release_objects() flags repeated paths, extra objects and short published rows", {
+  con <- get_duckdb_con(":memory:")
+  withr::defer(DBI::dbDisconnect(con, shutdown = TRUE))
+  set.seed(9); pf_fixture(con, n_part = 3, n_per = 200)
+  d <- withr::local_tempdir()
+  files <- export_release_parquet(con, "obs_ctd_full", file.path(d, "obs_ctd_full"),
+                                  c("cruise_key", "depth_m", "obs_id"), partition_by = "cruise_key")
+  o <- release_objects(con, "obs_ctd_full", d, files, "v1", partition_by = "cruise_key")
+  obj <- lapply(seq_len(nrow(o)), function(i) list(
+    path = o$rel_path[i], bytes = o$bytes[i], sha256 = o$sha256[i], content_hash = o$content_hash[i],
+    partition_by = "cruise_key", partition_value = o$partition_value[i]))
+  whole <- list(version = "v1", tables = list(
+    list(name = "obs_ctd_full", rows = 600, partitioned = TRUE, supplemental = TRUE, objects = obj)))
+  r <- check_release_objects(whole, con, base_url = d)
+  expect_equal(nrow(r), 3); expect_true(all(r$ok))
+  expect_equal(r$n[r$check == "published_rows"], 600)
+  # as v2026.11.09 published it: a partition listed twice and its object short
+  short <- file.path(d, "short"); dir.create(short)
+  DBI::dbExecute(con, sprintf(
+    "COPY (SELECT * FROM read_parquet('%s') LIMIT 7) TO '%s/data_0.parquet' (FORMAT PARQUET)",
+    file.path(d, o$rel_path[2]), short))
+  bad_obj <- obj; bad_obj[[2]]$path <- "short/data_0.parquet"
+  bad_obj[[4]] <- bad_obj[[2]]
+  bad <- whole; bad$tables[[1]]$objects <- bad_obj
+  r2 <- check_release_objects(bad, con, base_url = d)
+  expect_false(any(r2$ok))
+  expect_match(r2$detail[r2$check == "unique_paths"], "1 path\\(s\\) listed more than once: short/data_0.parquet")
+  expect_match(r2$detail[r2$check == "one_object_per_partition"], "4 object\\(s\\) for 3 partition.*2015-02-32OC")
+  expect_equal(r2$n[r2$check == "published_rows"], 407)
+  expect_match(r2$detail[r2$check == "published_rows"], "published 407 rows, catalog says 600 \\(-193\\)")
+  # without a connection, only the two catalog checks run
+  expect_equal(nrow(check_release_objects(bad, tables = "obs_ctd_full")), 2)
+  # a single-file table listed twice
+  one <- list(tables = list(list(name = "sample", rows = 1, partitioned = FALSE,
+    objects = list(list(path = "s.parquet"), list(path = "s2.parquet")))))
+  r3 <- check_release_objects(one)
+  expect_equal(r3$ok, c(TRUE, FALSE)); expect_match(r3$detail[2], "2 objects for a single-file table")
+})
+
+test_that("check_release_objects() counts a single-file twin on its own", {
+  con <- get_duckdb_con(":memory:")
+  withr::defer(DBI::dbDisconnect(con, shutdown = TRUE))
+  set.seed(10); pf_fixture(con, n_part = 2, n_per = 50)
+  d <- withr::local_tempdir()
+  files <- export_release_parquet(con, "obs_ctd_full", file.path(d, "p"), c("cruise_key", "depth_m", "obs_id"),
+                                  partition_by = "cruise_key")
+  export_release_parquet(con, "obs_ctd_full", file.path(d, "twin.parquet"), c("cruise_key", "depth_m", "obs_id"))
+  pv <- sub("^.*cruise_key=([^/]+)/.*$", "\\1", files$rel_path)
+  objs <- c(lapply(seq_along(pv), function(i) list(path = files$rel_path[i], partition_by = "cruise_key",
+                                                   partition_value = pv[i])),
+            list(list(path = "twin.parquet")))
+  ct <- list(tables = list(list(name = "obs", rows = 100, partitioned = TRUE, objects = objs)))
+  r <- check_release_objects(ct, con, base_url = d)
+  expect_true(all(r$ok)); expect_equal(r$n[r$check == "published_rows"], 100)
+  ct$tables[[1]]$rows <- 90
+  r2 <- check_release_objects(ct, con, base_url = d)
+  expect_match(r2$detail[r2$check == "published_rows"], "^published 100 rows.*; single-file twin: published 100")
+  ct$tables[[1]]$rows <- 100; ct$tables[[1]]$objects[[4]] <- list(path = "twin2.parquet")
+  expect_match(check_release_objects(ct)$detail[2], "2 single-file twins")
+})

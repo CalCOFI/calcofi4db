@@ -289,8 +289,8 @@ release_objects <- function(con, table, dir_out, files, version, partition_by = 
       if (is.null(pv) || (is.list(pv) && !length(pv))) pv <- NA_character_
       rows[[length(rows) + 1]] <- tibble::tibble(
         table = as.character(t$name), partition_value = as.character(pv),
-        content_hash = as.character(o$content_hash), sha256 = as.character(o$sha256 %||% NA),
-        path = as.character(o$path), since = as.character(o$since %||% NA),
+        content_hash = as.character(o$content_hash %||% NA), sha256 = as.character(o$sha256 %||% NA),
+        path = as.character(o$path %||% NA), since = as.character(o$since %||% NA),
         bytes = as.numeric(o$bytes %||% NA))
     }
   }
@@ -599,3 +599,115 @@ thin_plan <- function(versions, latest, consolidated, keep_latest = 2) {
   to[keep] <- NA_character_
   tibble::tibble(version = vs, keep = keep, reason = reason, to = unname(to))
 }
+
+# published objects ------------------------------------------------------------
+
+#' Check a release catalog's objects as published
+#'
+#' Three checks per table of a `catalog.json`, supplemental tables included (4.38.0):
+#'
+#' - `unique_paths`: no object path is listed twice;
+#' - `one_object_per_partition`: a partitioned table has one object per partition
+#'   value (and at most one single-file twin, an object without a partition value
+#'   holding every row, as `obs` publishes), a single-file table exactly one object;
+#' - `published_rows` (only with `con`): the rows in the parquet footers of the
+#'   table's distinct partition objects, read where they are published (no scan),
+#'   sum to the catalog's `rows`, and so do a twin's.
+#'
+#' v2026.11.05 and v2026.11.09 failed all three for `obs_ctd_full`: 169 objects for
+#' 143 cruises, 24 paths listed 2 or 3 times, and 240,092,665 published rows against
+#' a catalog `rows` of 287,281,956, because the export wrote some partitions as two or
+#' three files and the uploads overwrote each other (see [export_release_parquet()]).
+#'
+#' @param catalog a parsed `catalog.json` (list, as `jsonlite::fromJSON(...,
+#'   simplifyVector = FALSE)` returns it, or a data-frame form).
+#' @param con optional DuckDB connection able to read `base_url` (httpfs loaded for
+#'   https); without it `published_rows` is not checked.
+#' @param base_url where the catalog's bucket-relative `path`s resolve.
+#' @param tables optional subset of table names.
+#' @return A tibble: `table`, `check`, `ok`, `n` (objects, or published rows),
+#'   `expected`, `detail`.
+#' @export
+#' @concept release
+#' @importFrom DBI dbGetQuery
+check_release_objects <- function(catalog, con = NULL,
+                                  base_url = "https://storage.googleapis.com/calcofi-db",
+                                  tables = NULL) {
+  objs <- .catalog_objects(catalog)
+  tbls <- catalog$tables
+  n <- if (is.data.frame(tbls)) nrow(tbls) else length(tbls)
+  meta <- do.call(rbind, lapply(seq_len(n), function(i) {
+    t <- if (is.data.frame(tbls)) as.list(tbls[i, ]) else tbls[[i]]
+    tibble::tibble(table = as.character(t[["name"]]), rows = as.numeric(t[["rows"]] %||% NA),
+                   partitioned = isTRUE(as.logical(t[["partitioned"]] %||% FALSE)))
+  }))
+  if (!is.null(tables)) meta <- meta[meta$table %in% tables, ]
+  rows_of <- NULL
+  if (!is.null(con)) {
+    paths <- unique(objs$path[objs$table %in% meta$table])
+    urls  <- paste0(sub("/$", "", base_url), "/", paths)
+    got   <- list()
+    for (ch in split(seq_along(urls), ceiling(seq_along(urls) / 200))) {
+      lst <- paste0("'", gsub("'", "''", urls[ch]), "'", collapse = ", ")
+      got[[length(got) + 1]] <- DBI::dbGetQuery(con, sprintf(
+        "SELECT file_name, num_rows FROM parquet_file_metadata([%s])", lst))
+    }
+    got <- do.call(rbind, got)
+    rows_of <- stats::setNames(as.numeric(got$num_rows), got$file_name)
+    rows_of <- stats::setNames(rows_of[urls], paths)
+  }
+  out <- list()
+  for (i in seq_len(nrow(meta))) {
+    tb <- meta$table[i]
+    o  <- objs[objs$table == tb, ]
+    dp <- unique(o$path[duplicated(o$path)])
+    out[[length(out) + 1]] <- tibble::tibble(
+      table = tb, check = "unique_paths", ok = !length(dp), n = nrow(o),
+      expected = length(unique(o$path)),
+      detail = if (length(dp)) sprintf("%d path(s) listed more than once: %s", length(dp),
+                                       .head_list(dp)) else NA_character_)
+    # a partitioned table may also list one single-file twin (`obs` does): an object
+    # without a partition value that holds every row; it is counted on its own
+    part <- meta$partitioned[i] || any(!is.na(o$partition_value))
+    is_p <- part & !is.na(o$partition_value)
+    twin <- if (part) o$path[!is_p] else character()
+    pv   <- o$partition_value[is_p]
+    n_obj <- if (part) sum(is_p) else nrow(o)
+    n_exp <- if (part) length(unique(pv)) else 1L
+    ok_part <- n_obj == n_exp && length(twin) <= 1 && (!part || n_exp > 0)
+    out[[length(out) + 1]] <- tibble::tibble(
+      table = tb, check = "one_object_per_partition", ok = ok_part, n = n_obj,
+      expected = n_exp,
+      detail = if (ok_part) NA_character_ else if (part)
+        sprintf("%d object(s) for %d partition value(s)%s%s", n_obj, n_exp,
+                if (n_obj > n_exp) paste0("; repeated: ", .head_list(unique(pv[duplicated(pv)]))) else "",
+                if (length(twin) > 1) sprintf("; %d single-file twins", length(twin)) else "")
+        else sprintf("%d objects for a single-file table", nrow(o)))
+    if (!is.null(rows_of)) {
+      sets <- if (part) list(partitions = unique(o$path[is_p]), twin = unique(twin)) else
+        list(object = unique(o$path))
+      sets <- sets[lengths(sets) > 0]
+      msg <- character(); got_rows <- NA_real_
+      for (nm in names(sets)) {
+        r <- rows_of[sets[[nm]]]
+        g <- sum(r, na.rm = TRUE)
+        if (nm != "twin") got_rows <- g
+        if (anyNA(r)) msg <- c(msg, sprintf("%s: %d object(s) unreadable", nm, sum(is.na(r))))
+        else if (!isTRUE(all.equal(g, meta$rows[i])))
+          msg <- c(msg, sprintf("%spublished %s rows, catalog says %s (%s)",
+                                if (nm == "twin") "single-file twin: " else "",
+                                format(g, big.mark = ","), format(meta$rows[i], big.mark = ","),
+                                format(g - meta$rows[i], big.mark = ",")))
+      }
+      out[[length(out) + 1]] <- tibble::tibble(
+        table = tb, check = "published_rows", ok = !length(msg) && length(sets) > 0,
+        n = got_rows, expected = meta$rows[i],
+        detail = if (length(msg)) paste(msg, collapse = "; ") else
+          if (!length(sets)) "no objects" else NA_character_)
+    }
+  }
+  do.call(rbind, out)
+}
+
+.head_list <- function(x, k = 5) paste0(paste(utils::head(x, k), collapse = ", "),
+                                        if (length(x) > k) sprintf(", … (%d more)", length(x) - k) else "")
