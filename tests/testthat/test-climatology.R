@@ -74,7 +74,7 @@ test_that("build_climatology(): the cell is a mean per dataset x station x month
   # the 4.24.0 columns are appended, never inserted (a consumer reading by position keeps working)
   expect_named(cl, c("dataset_key", "site_key", "grid_key", "month", "depth_bin", "measurement_type",
                      "clim_mean", "clim_sd", "clim_n", "n_cruises", "clim_yr_min", "clim_yr_max",
-                     "quarter", "season_mean", "season_sd", "season_n", "season_n_cruises"))
+                     "quarter", "season_mean", "season_sd", "season_n", "season_n_cruises", "sigma_theta"))
   expect_true(all(is.na(cl$season_mean)), info = "season = FALSE (the default) leaves the seasonal columns NULL")
   expect_equal(unique(cl$quarter), 3L)
   # five cells survive: ctd bin 0 + bin 10 + bottle bin 0 at 90.60, and the two st35 stations
@@ -123,7 +123,7 @@ test_that("build_climatology(): two stations in one grid cell are two rows; grid
   expect_equal(DBI::dbGetQuery(con, "SELECT count(*) AS n FROM climatology WHERE site_key IS NULL")$n, 0)
   # the primary key core_relationships() declares is unique on the result
   pk <- core_relationships("climatology")$primary_keys$climatology
-  expect_equal(pk, c("dataset_key", "site_key", "month", "depth_bin", "measurement_type"))
+  expect_equal(pk, c("dataset_key", "site_key", "month", "depth_bin", "measurement_type", "sigma_theta"))
   expect_silent(check_core_pk_unique(con, "climatology"))
 })
 
@@ -177,7 +177,7 @@ test_that("build_climatology(): pooling datasets weighted by clim_n equals the m
 test_that("climatology has a registered sort key that is a unique total order, so it exports", {
   sk <- release_sort_keys()$climatology
   expect_equal(sk$partition_by, "measurement_type")
-  expect_equal(sk$order_by, c("measurement_type", "dataset_key", "site_key", "month", "depth_bin"))
+  expect_equal(sk$order_by, c("measurement_type", "dataset_key", "site_key", "month", "depth_bin", "sigma_theta"))
   con <- clim_con(); clim_fixture(con)
   build_climatology(con, qual_ok_sql = CLIM_QUAL_OK)
   out <- withr::local_tempdir()
@@ -377,7 +377,7 @@ test_that("check_release_relationships(): a declared nullable key column is a va
   con <- clim_con(); cast_fixture(con)
   build_climatology(con, qual_ok_sql = CLIM_QUAL_OK, cast_types = "mld_sigma_theta_002", season = TRUE)
   rels <- core_relationships("climatology")
-  expect_equal(rels$nullable_key_columns, list(climatology = "depth_bin"))
+  expect_equal(rels$nullable_key_columns, list(climatology = c("depth_bin", "sigma_theta")))
   res <- check_release_relationships(con, rels, halt = FALSE)
   expect_equal(res$primary_keys$status, "ok")
   expect_equal(res$primary_keys$n_null, 0)
@@ -432,4 +432,72 @@ test_that("cruise_quarter_sql() / cruise_quarter(): 1 = DJF, 2 = MAM, 3 = JJA, 4
   expect_equal(q$sy, c(rep(2025L, 11), 2026L))
   expect_equal(cruise_quarter(c(12, 1, 3, 6, 9, NA)), c(1L, 1L, 2L, 3L, 4L, NA))
   expect_equal(CC_SEASONS, c("DJF", "MAM", "JJA", "SON"))
+})
+
+
+# --- the isopycnal arm (4.39.0): one value per cast x surface x type, depth_bin NULL, the surface in
+# sigma_theta. Five July cruises at one station on surfaces 25.0 and 26.0, one of them with a second
+# cast at the station (both count, as two rows of obs in a bin do); a surface not reached (NULL
+# value) is not a value; a cast outside the window is out.
+iso_fixture <- function(con) {
+  DBI::dbExecute(con, "CREATE TABLE sample AS SELECT * FROM (VALUES
+    ('i1',  '093.3 030.0', 'st30-ln93.3', '2001-07-33XX', TIMESTAMP '2001-07-10 00:00'),
+    ('i2',  '093.3 030.0', 'st30-ln93.3', '2002-07-33XX', TIMESTAMP '2002-07-10 00:00'),
+    ('i3',  '093.3 030.0', 'st30-ln93.3', '2003-07-33XX', TIMESTAMP '2003-07-10 00:00'),
+    ('i4',  '093.3 030.0', 'st30-ln93.3', '2004-07-33XX', TIMESTAMP '2004-07-10 00:00'),
+    ('i5',  '093.3 030.0', 'st30-ln93.3', '2005-07-33XX', TIMESTAMP '2005-07-10 00:00'),
+    ('i5b', '093.3 030.0', 'st30-ln93.3', '2005-07-33XX', TIMESTAMP '2005-07-10 02:00'),
+    ('i9',  '093.3 030.0', 'st30-ln93.3', '2020-07-33XX', TIMESTAMP '2020-07-10 00:00')
+    ) t(sample_key, site_key, grid_key, cruise_key, datetime)")
+  DBI::dbExecute(con, "CREATE TABLE obs (realm VARCHAR, sample_key VARCHAR, grid_key VARCHAR,
+    cruise_key VARCHAR, datetime TIMESTAMP, depth_min_m DOUBLE, measurement_type VARCHAR,
+    measurement_value DOUBLE, measurement_qual VARCHAR, dataset_key VARCHAR)")
+  DBI::dbExecute(con, "CREATE TABLE isopycnal AS SELECT * FROM (VALUES
+    ('calcofi_ctd-cast', 'i1',  25.0, 'iso_depth_m', 50.0), ('calcofi_ctd-cast', 'i1',  26.0, 'iso_depth_m', NULL),
+    ('calcofi_ctd-cast', 'i2',  25.0, 'iso_depth_m', 60.0), ('calcofi_ctd-cast', 'i2',  26.0, 'iso_depth_m', 200.0),
+    ('calcofi_ctd-cast', 'i3',  25.0, 'iso_depth_m', 70.0), ('calcofi_ctd-cast', 'i3',  26.0, 'iso_depth_m', 210.0),
+    ('calcofi_ctd-cast', 'i4',  25.0, 'iso_depth_m', 80.0), ('calcofi_ctd-cast', 'i4',  26.0, 'iso_depth_m', 220.0),
+    ('calcofi_ctd-cast', 'i5',  25.0, 'iso_depth_m', 90.0), ('calcofi_ctd-cast', 'i5',  26.0, 'iso_depth_m', 230.0),
+    ('calcofi_ctd-cast', 'i5b', 25.0, 'iso_depth_m', 40.0),
+    ('calcofi_ctd-cast', 'i9',  25.0, 'iso_depth_m', 999.0),
+    ('calcofi_ctd-cast', 'i1',  25.0, 'iso_temperature_ave', 12.0)
+    ) t(dataset_key, sample_key, sigma_theta, measurement_type, measurement_value)")
+}
+
+test_that("build_climatology(isopycnal_tbl =): a surface gets a baseline keyed by sigma_theta, depth_bin NULL", {
+  con <- clim_con(); iso_fixture(con)
+  build_climatology(con, qual_ok_sql = CLIM_QUAL_OK, min_cruises = 5L, cruise_tbl = NULL,
+                    isopycnal_tbl = "isopycnal", season = TRUE)
+  cl <- DBI::dbGetQuery(con, "SELECT * FROM climatology ORDER BY sigma_theta, month")
+  # 26.0 has four cruises (i1 never reaches it): below the floor in July and in JJA
+  m <- cl[!is.na(cl$clim_mean), ]
+  expect_equal(nrow(m), 1)
+  expect_equal(m$sigma_theta, 25)
+  expect_true(is.na(m$depth_bin))
+  expect_equal(m$measurement_type, "iso_depth_m")
+  expect_equal(m$month, 7L)
+  # every cast's value enters the mean: 2005's two casts both count (50, 60, 70, 80, 90, 40)
+  expect_equal(m$clim_mean, mean(c(50, 60, 70, 80, 90, 40)))
+  expect_equal(m$clim_n, 6L)
+  expect_equal(m$n_cruises, 5L)
+  expect_equal(m$grid_key, "st30-ln93.3")
+  # the season (JJA) sits on June, July and August
+  expect_setequal(cl$month[cl$sigma_theta == 25 & !is.na(cl$season_mean)], 6:8)
+  expect_equal(unique(cl$season_mean[cl$sigma_theta == 25 & !is.na(cl$season_mean)]), m$clim_mean)
+  # one type with one cast is below the floor
+  expect_false("iso_temperature_ave" %in% cl$measurement_type)
+  # sigma_theta is the last column, so no existing column moved
+  expect_equal(tail(names(cl), 1), "sigma_theta")
+})
+
+test_that("build_climatology(): every other row carries sigma_theta NULL, and the key stays unique", {
+  con <- clim_con(); clim_fixture(con)
+  build_climatology(con, qual_ok_sql = CLIM_QUAL_OK)
+  cl <- DBI::dbGetQuery(con, "SELECT * FROM climatology")
+  expect_true("sigma_theta" %in% names(cl))
+  expect_true(all(is.na(cl$sigma_theta)))
+  pk <- core_relationships("climatology")$primary_keys$climatology
+  expect_true("sigma_theta" %in% pk)
+  expect_setequal(core_relationships("climatology")$nullable_key_columns$climatology, c("depth_bin", "sigma_theta"))
+  expect_equal(anyDuplicated(cl[pk]), 0)
 })

@@ -91,6 +91,13 @@
 #'   so no per-bin join can pick one up by accident; a per-cast consumer matches `depth_bin IS NULL`.
 #'   The caller names the types (the release lists them in `release_database.qmd`'s
 #'   `clim_cast_types`), so this package carries no list of datasets.
+#' - **Density surfaces too** (`isopycnal_tbl`, 4.39.0; Rasmus Swalethorp, 2026-11-12/13: conditions
+#'   and their anomalies on sigma-theta surfaces, down casts, monthly and seasonal baselines). Each
+#'   cast's value on a surface ([build_isopycnal()], one row per cast x surface x type) is pooled by
+#'   the same rules — station, the cruise's month (or season), the window, the cruise floor — into a
+#'   cell keyed by its surface in `sigma_theta`, `depth_bin` NULL, types `iso_*`
+#'   ([calcofi4r::cc_isopycnal_type()]). Like a depth bin's rows, every cast's value enters the
+#'   mean, so a cruise with two casts at a station that month counts both.
 #' - **A seasonal baseline beside the monthly one** (`season = TRUE`, the release's setting; calcofi4db 4.24.0; Rasmus
 #'   Swalethorp, 2026-10-06: let the user toggle between a monthly and a seasonal baseline). The
 #'   season is that of the **cruise's month** — since 4.34.0 the meteorological seasons
@@ -138,10 +145,17 @@
 #' @param cruise_tbl the cruise table whose `month_median` / `date_median` (from
 #'   [add_cruise_median_date()]) give each row its cruise's month and year (default `"cruise"`);
 #'   when the table is absent or lacks the column, or `NULL`, the `cruise_key`'s YYYY-MM is used.
+#' @param isopycnal_tbl the per-cast isopycnal table ([build_isopycnal()]: `dataset_key`,
+#'   `sample_key`, `sigma_theta`, `measurement_type`, `measurement_value`) to give a baseline on
+#'   each density surface too, with `depth_bin` NULL and the surface in `sigma_theta`; `NULL` (the
+#'   default) for none. Its types are their own (`iso_*`), never an `obs` type, so a reader of a
+#'   depth bin or a per-cast cell cannot meet a surface row.
 #' @param tbl output table (default `climatology`).
 #' @return Invisibly, the row count. Columns: `dataset_key`, `site_key`, `grid_key`, `month`,
 #'   `depth_bin`, `measurement_type`, `clim_mean`, `clim_sd`, `clim_n`, `n_cruises`, `clim_yr_min`,
-#'   `clim_yr_max`, `quarter`, `season_mean`, `season_sd`, `season_n`, `season_n_cruises`.
+#'   `clim_yr_max`, `quarter`, `season_mean`, `season_sd`, `season_n`, `season_n_cruises`,
+#'   `sigma_theta` (4.39.0: the density surface of an isopycnal cell, NULL on every other row;
+#'   appended last, so no column moved).
 #' @examples
 #' \dontrun{
 #' n <- build_climatology(con, qual_ok_sql = calcofi4r::cc_qual_ok_sql("o"))
@@ -156,7 +170,7 @@ build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, 
                               cast_types = NULL, season = FALSE,
                               tbl = "climatology", sample_tbl = "sample",
                               sample_measurement_tbl = "sample_measurement",
-                              cruise_tbl = "cruise") {
+                              cruise_tbl = "cruise", isopycnal_tbl = NULL) {
   stopifnot(is.character(qual_ok_sql), length(qual_ok_sql) == 1, nzchar(qual_ok_sql),
             is.numeric(yr_min), is.numeric(yr_max), length(yr_min) == 1, length(yr_max) == 1,
             yr_min <= yr_max, is.numeric(min_cruises), min_cruises >= 1,
@@ -166,7 +180,8 @@ build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, 
             is.numeric(round_digits), length(round_digits) == 1, round_digits >= 0,
             is.null(cast_types) || (is.character(cast_types) && !anyNA(cast_types)),
             is.logical(season), length(season) == 1, !is.na(season),
-            is.null(cruise_tbl) || (is.character(cruise_tbl) && length(cruise_tbl) == 1))
+            is.null(cruise_tbl) || (is.character(cruise_tbl) && length(cruise_tbl) == 1),
+            is.null(isopycnal_tbl) || (is.character(isopycnal_tbl) && length(isopycnal_tbl) == 1))
   # the cruise's month: the cruise table's median cast month (4.34.0) where the table carries it,
   # the YYYY-MM of the key otherwise (an older wrangling db, a test fixture without a cruise table)
   cr <- .cruise_tbl_join(con, cruise_tbl)
@@ -183,7 +198,7 @@ build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, 
     SELECT o.dataset_key, s.site_key, o.grid_key, o.cruise_key, o.measurement_type,
            {.cruise_month_sql('o', cr$alias)} AS month,
            (floor(o.depth_min_m / {depth_bin_m}) * {depth_bin_m})::INTEGER AS depth_bin,
-           o.measurement_value AS v
+           o.measurement_value AS v, NULL::DOUBLE AS sigma_theta
     FROM obs o
     JOIN {sample_tbl} s USING (sample_key){cr$join('o')}
     WHERE o.realm = 'env'
@@ -203,7 +218,7 @@ build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, 
     SELECT o.dataset_key, s.site_key, s.grid_key, s.cruise_key, o.measurement_type,
            {.cruise_month_sql('s', cr$alias)} AS month,
            NULL::INTEGER AS depth_bin,
-           o.measurement_value AS v
+           o.measurement_value AS v, NULL::DOUBLE AS sigma_theta
     FROM {sample_measurement_tbl} o
     JOIN {sample_tbl} s USING (sample_key){cr$join('s')}
     WHERE o.measurement_type IN ({types_sql})
@@ -212,12 +227,31 @@ build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, 
       AND {.cruise_year_sql('s', cr$alias)} BETWEEN {yr_min} AND {yr_max}
       AND ({qual_ok_sql})")
   } else ""
+  # the surface arm (4.39.0): one value per cast x density surface x type in `isopycnal_tbl`
+  # (build_isopycnal(): calcofi4r::cc_isopycnal() over the release's down casts), filed under its
+  # surface in `sigma_theta`, depth_bin NULL. The table's values are already the flag rule's
+  # (cc_isopycnal() drops 8/9 before it interpolates), and it carries no measurement_qual, so the
+  # quality predicate is not applied; rows that are not a value (a surface not reached, an
+  # outcrop: measurement_value NULL) are left out as everywhere else. One row per cast, so a cast
+  # weighs one in its cell, as a row of obs does in a depth bin.
+  src_iso <- if (!is.null(isopycnal_tbl)) glue("
+    UNION ALL
+    SELECT i.dataset_key, s.site_key, s.grid_key, s.cruise_key, i.measurement_type,
+           {.cruise_month_sql('s', cr$alias)} AS month,
+           NULL::INTEGER AS depth_bin,
+           i.measurement_value AS v, i.sigma_theta::DOUBLE AS sigma_theta
+    FROM {isopycnal_tbl} i
+    JOIN {sample_tbl} s USING (sample_key){cr$join('s')}
+    WHERE s.site_key IS NOT NULL AND s.datetime IS NOT NULL AND i.sigma_theta IS NOT NULL
+      AND i.measurement_value IS NOT NULL AND isfinite(i.measurement_value)
+      AND {.cruise_year_sql('s', cr$alias)} BETWEEN {yr_min} AND {yr_max}") else ""
 
   # the cell key, NULL-safe: a per-cast cell's depth_bin is NULL, and `=` never matches NULL
   key_eq <- function(a, b) paste(
     glue("{a}.dataset_key = {b}.dataset_key AND {a}.site_key = {b}.site_key"),
     glue("{a}.measurement_type = {b}.measurement_type"),
-    glue("{a}.depth_bin IS NOT DISTINCT FROM {b}.depth_bin"), sep = " AND ")
+    glue("{a}.depth_bin IS NOT DISTINCT FROM {b}.depth_bin"),
+    glue("{a}.sigma_theta IS NOT DISTINCT FROM {b}.sigma_theta"), sep = " AND ")
   stats <- function(prefix) glue(
     "round(avg(v), {round_digits}) AS {prefix}_mean, ",
     "round(stddev_samp(v), {round_digits}) AS {prefix}_sd, ",
@@ -230,7 +264,7 @@ build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, 
   months_sql <- "SELECT unnest(range(1, 13))::TINYINT AS month"
   season_cte <- if (season) glue(",
     seas AS (
-      SELECT dataset_key, site_key, depth_bin, measurement_type,
+      SELECT dataset_key, site_key, depth_bin, sigma_theta, measurement_type,
              {cruise_quarter_sql('month')}::TINYINT AS quarter, {stats('s')}
       FROM src GROUP BY ALL
       HAVING count(DISTINCT cruise_key) >= {min_cruises}),
@@ -244,12 +278,13 @@ build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, 
            COALESCE(mon.month, sm.month)                       AS month,
            COALESCE(mon.depth_bin, sm.depth_bin)               AS depth_bin,
            COALESCE(mon.measurement_type, sm.measurement_type) AS measurement_type,
+           COALESCE(mon.sigma_theta, sm.sigma_theta)           AS sigma_theta,
            mon.m_mean AS clim_mean, mon.m_sd AS clim_sd, mon.m_n AS clim_n, mon.m_n_cruises AS n_cruises,
            {cruise_quarter_sql('COALESCE(mon.month, sm.month)')}::TINYINT AS quarter,
            sm.s_mean AS season_mean, sm.s_sd AS season_sd, sm.s_n AS season_n,
            sm.s_n_cruises AS season_n_cruises
     FROM mon FULL OUTER JOIN seas_m sm ON {key_eq('mon', 'sm')} AND mon.month = sm.month") else glue("
-    SELECT dataset_key, site_key, m_grid_key AS grid_key, month, depth_bin, measurement_type,
+    SELECT dataset_key, site_key, m_grid_key AS grid_key, month, depth_bin, measurement_type, sigma_theta,
            m_mean AS clim_mean, m_sd AS clim_sd, m_n AS clim_n, m_n_cruises AS n_cruises,
            {cruise_quarter_sql('month')}::TINYINT AS quarter,
            NULL::DOUBLE AS season_mean, NULL::DOUBLE AS season_sd, NULL::INTEGER AS season_n,
@@ -258,15 +293,15 @@ build_climatology <- function(con, qual_ok_sql, yr_min = 1993L, yr_max = 2013L, 
 
   dbExecute(con, glue("
     CREATE OR REPLACE TABLE {tbl} AS
-    WITH src AS ({src_bin}{src_cast}),
+    WITH src AS ({src_bin}{src_cast}{src_iso}),
     mon AS (
-      SELECT dataset_key, site_key, month, depth_bin, measurement_type, {stats('m')}
+      SELECT dataset_key, site_key, month, depth_bin, sigma_theta, measurement_type, {stats('m')}
       FROM src GROUP BY ALL
       HAVING count(DISTINCT cruise_key) >= {min_cruises}){season_cte}
     SELECT dataset_key, site_key, grid_key, month::TINYINT AS month, depth_bin, measurement_type,
            clim_mean, clim_sd, clim_n, n_cruises,
            {yr_min}::SMALLINT AS clim_yr_min, {yr_max}::SMALLINT AS clim_yr_max,
-           quarter, season_mean, season_sd, season_n, season_n_cruises
+           quarter, season_mean, season_sd, season_n, season_n_cruises, sigma_theta
     FROM ({cells})"))
   n <- dbGetQuery(con, glue("SELECT count(*) AS n FROM {tbl}"))$n
   invisible(n)

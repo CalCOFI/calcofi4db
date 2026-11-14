@@ -18,7 +18,8 @@ build_climatology(
   tbl = "climatology",
   sample_tbl = "sample",
   sample_measurement_tbl = "sample_measurement",
-  cruise_tbl = "cruise"
+  cruise_tbl = "cruise",
+  isopycnal_tbl = NULL
 )
 }
 \arguments{
@@ -64,11 +65,19 @@ those columns NULL and keeps only cells that pass the monthly floor.}
 \item{cruise_tbl}{the cruise table whose \code{month_median} / \code{date_median} (from
 \code{\link[=add_cruise_median_date]{add_cruise_median_date()}}) give each row its cruise's month and year (default \code{"cruise"});
 when the table is absent or lacks the column, or \code{NULL}, the \code{cruise_key}'s YYYY-MM is used.}
+
+\item{isopycnal_tbl}{the per-cast isopycnal table (\code{\link[=build_isopycnal]{build_isopycnal()}}: \code{dataset_key},
+\code{sample_key}, \code{sigma_theta}, \code{measurement_type}, \code{measurement_value}) to give a baseline on
+each density surface too, with \code{depth_bin} NULL and the surface in \code{sigma_theta}; \code{NULL} (the
+default) for none. Its types are their own (\verb{iso_*}), never an \code{obs} type, so a reader of a
+depth bin or a per-cast cell cannot meet a surface row.}
 }
 \value{
 Invisibly, the row count. Columns: \code{dataset_key}, \code{site_key}, \code{grid_key}, \code{month},
 \code{depth_bin}, \code{measurement_type}, \code{clim_mean}, \code{clim_sd}, \code{clim_n}, \code{n_cruises}, \code{clim_yr_min},
-\code{clim_yr_max}, \code{quarter}, \code{season_mean}, \code{season_sd}, \code{season_n}, \code{season_n_cruises}.
+\code{clim_yr_max}, \code{quarter}, \code{season_mean}, \code{season_sd}, \code{season_n}, \code{season_n_cruises},
+\code{sigma_theta} (4.39.0: the density surface of an isopycnal cell, NULL on every other row;
+appended last, so no column moved).
 }
 \description{
 A plain mean per \strong{dataset, station (\code{site_key}), the cruise's month, 10 m depth bin and measurement type} over
@@ -153,6 +162,13 @@ floor) with \strong{\code{depth_bin} NULL} — "a per-cast value", never a depth
 so no per-bin join can pick one up by accident; a per-cast consumer matches \verb{depth_bin IS NULL}.
 The caller names the types (the release lists them in \code{release_database.qmd}'s
 \code{clim_cast_types}), so this package carries no list of datasets.
+\item \strong{Density surfaces too} (\code{isopycnal_tbl}, 4.39.0; Rasmus Swalethorp, 2026-11-12/13: conditions
+and their anomalies on sigma-theta surfaces, down casts, monthly and seasonal baselines). Each
+cast's value on a surface (\code{\link[=build_isopycnal]{build_isopycnal()}}, one row per cast x surface x type) is pooled by
+the same rules — station, the cruise's month (or season), the window, the cruise floor — into a
+cell keyed by its surface in \code{sigma_theta}, \code{depth_bin} NULL, types \verb{iso_*}
+(\code{\link[calcofi4r:cc_isopycnal_type]{calcofi4r::cc_isopycnal_type()}}). Like a depth bin's rows, every cast's value enters the
+mean, so a cruise with two casts at a station that month counts both.
 \item \strong{A seasonal baseline beside the monthly one} (\code{season = TRUE}, the release's setting; calcofi4db 4.24.0; Rasmus
 Swalethorp, 2026-10-06: let the user toggle between a monthly and a seasonal baseline). The
 season is that of the \strong{cruise's month} — since 4.34.0 the meteorological seasons

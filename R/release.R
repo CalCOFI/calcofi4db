@@ -85,7 +85,11 @@ release_sort_keys <- function(core_sort = c("grid_key NULLS LAST", "depth_min_m 
     grid_crosswalk     = list(partition_by = NULL, order_by = c("prev_grid_key", "grid_key")),
     # the one baseline every anomaly subtracts (R/climatology.R); one object per variable, like obs_env
     climatology        = list(partition_by = "measurement_type",
-                              order_by = c("measurement_type", "dataset_key", "site_key", "month", "depth_bin"))))
+                              order_by = c("measurement_type", "dataset_key", "site_key", "month", "depth_bin",
+                                           "sigma_theta")),
+    # conditions on density surfaces (R/isopycnal.R), one row per cast x surface x type
+    isopycnal          = list(partition_by = NULL,
+                              order_by = c("sample_key", "sigma_theta", "measurement_type"))))
 }
 
 .order_cols <- function(order_by) trimws(sub("\\s+NULLS\\s+(FIRST|LAST)$", "", order_by, ignore.case = TRUE))
