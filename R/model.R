@@ -782,7 +782,9 @@ core_relationships <- function(tables) {
     sample_spatial     = c("root_sample_key", "spatial_key"),
     spatial            = "spatial_key",
     spatial_attribute  = c("spatial_key", "fld"),
-    climatology        = c("dataset_key", "site_key", "month", "depth_bin", "measurement_type"),
+    climatology        = c("dataset_key", "site_key", "month", "depth_bin", "measurement_type", "sigma_theta"),
+    # conditions on density surfaces, one row per cast x surface x type (build_isopycnal(), 4.39.0)
+    isopycnal          = c("sample_key", "sigma_theta", "measurement_type"),
     grid_crosswalk     = c("prev_grid_key", "grid_key"),
     dataset            = "dataset_key",
     lookup             = "lookup_id",
@@ -806,6 +808,10 @@ core_relationships <- function(tables) {
     list(table = "fish",               column = "sample_key",        ref_table = "sample",           ref_column = "sample_key"),
     list(table = "fish",               column = "taxon_key",         ref_table = "taxon",            ref_column = "taxon_key"),
     list(table = "ichthyo_net",        column = "sample_key",        ref_table = "sample",           ref_column = "sample_key"),
+    list(table = "isopycnal",          column = "sample_key",        ref_table = "sample",           ref_column = "sample_key"),
+    list(table = "isopycnal",          column = "measurement_type",  ref_table = "measurement_type", ref_column = "measurement_type"),
+    list(table = "isopycnal",          column = "cruise_key",        ref_table = "cruise",           ref_column = "cruise_key"),
+    list(table = "isopycnal",          column = "grid_key",          ref_table = "grid",             ref_column = "grid_key"),
     list(table = "dataset_taxon",      column = "taxon_key",         ref_table = "taxon",            ref_column = "taxon_key"),
     list(table = "taxon_group",        column = "taxon_key",         ref_table = "taxon",            ref_column = "taxon_key"),
     list(table = "taxon",              column = "parent_taxon_key",  ref_table = "taxon",            ref_column = "taxon_key"))
@@ -814,7 +820,9 @@ core_relationships <- function(tables) {
   # types: a mixed-layer depth, an integrated chlorophyll) have no depth, so their depth_bin is NULL
   # by design (build_climatology(cast_types =), 4.24.0). check_release_relationships() counts a NULL
   # in any OTHER key column as a failure, and compares these as part of the tuple.
-  pk_nullable <- list(climatology = "depth_bin")
+  # 4.39.0: and its isopycnal cells (build_climatology(isopycnal_tbl =)) carry their surface in
+  # sigma_theta, NULL on every other cell
+  pk_nullable <- list(climatology = c("depth_bin", "sigma_theta"))
 
   list(
     primary_keys = pk[intersect(names(pk), tables)],
