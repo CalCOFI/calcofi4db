@@ -49,7 +49,7 @@ departure from. Written once at release time so the products cannot disagree."><
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.38.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.39.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -107,7 +107,8 @@ departure from. Written once at release time so the products cannot disagree.</p
 <span>  tbl <span class="op">=</span> <span class="st">"climatology"</span>,</span>
 <span>  sample_tbl <span class="op">=</span> <span class="st">"sample"</span>,</span>
 <span>  sample_measurement_tbl <span class="op">=</span> <span class="st">"sample_measurement"</span>,</span>
-<span>  cruise_tbl <span class="op">=</span> <span class="st">"cruise"</span></span>
+<span>  cruise_tbl <span class="op">=</span> <span class="st">"cruise"</span>,</span>
+<span>  isopycnal_tbl <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -183,12 +184,22 @@ those columns NULL and keeps only cells that pass the monthly floor.</p></dd>
 <code><a href="add_cruise_median_date.html">add_cruise_median_date()</a></code>) give each row its cruise's month and year (default <code>"cruise"</code>);
 when the table is absent or lacks the column, or <code>NULL</code>, the <code>cruise_key</code>'s YYYY-MM is used.</p></dd>
 
+
+<dt id="arg-isopycnal-tbl">isopycnal_tbl<a class="anchor" aria-label="anchor" href="#arg-isopycnal-tbl"></a></dt>
+<dd><p>the per-cast isopycnal table (<code><a href="build_isopycnal.html">build_isopycnal()</a></code>: <code>dataset_key</code>,
+<code>sample_key</code>, <code>sigma_theta</code>, <code>measurement_type</code>, <code>measurement_value</code>) to give a baseline on
+each density surface too, with <code>depth_bin</code> NULL and the surface in <code>sigma_theta</code>; <code>NULL</code> (the
+default) for none. Its types are their own (<code>iso_*</code>), never an <code>obs</code> type, so a reader of a
+depth bin or a per-cast cell cannot meet a surface row.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>Invisibly, the row count. Columns: <code>dataset_key</code>, <code>site_key</code>, <code>grid_key</code>, <code>month</code>,
 <code>depth_bin</code>, <code>measurement_type</code>, <code>clim_mean</code>, <code>clim_sd</code>, <code>clim_n</code>, <code>n_cruises</code>, <code>clim_yr_min</code>,
-<code>clim_yr_max</code>, <code>quarter</code>, <code>season_mean</code>, <code>season_sd</code>, <code>season_n</code>, <code>season_n_cruises</code>.</p>
+<code>clim_yr_max</code>, <code>quarter</code>, <code>season_mean</code>, <code>season_sd</code>, <code>season_n</code>, <code>season_n_cruises</code>,
+<code>sigma_theta</code> (4.39.0: the density surface of an isopycnal cell, NULL on every other row;
+appended last, so no column moved).</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -266,6 +277,13 @@ floor) with <strong><code>depth_bin</code> NULL</strong> — "a per-cast value",
 so no per-bin join can pick one up by accident; a per-cast consumer matches <code>depth_bin IS NULL</code>.
 The caller names the types (the release lists them in <code>release_database.qmd</code>'s
 <code>clim_cast_types</code>), so this package carries no list of datasets.</p></li>
+<li><p><strong>Density surfaces too</strong> (<code>isopycnal_tbl</code>, 4.39.0; Rasmus Swalethorp, 2026-11-12/13: conditions
+and their anomalies on sigma-theta surfaces, down casts, monthly and seasonal baselines). Each
+cast's value on a surface (<code><a href="build_isopycnal.html">build_isopycnal()</a></code>, one row per cast x surface x type) is pooled by
+the same rules — station, the cruise's month (or season), the window, the cruise floor — into a
+cell keyed by its surface in <code>sigma_theta</code>, <code>depth_bin</code> NULL, types <code>iso_*</code>
+(<code><a href="https://calcofi.io/calcofi4r/reference/cc_isopycnal_type.html" class="external-link">calcofi4r::cc_isopycnal_type()</a></code>). Like a depth bin's rows, every cast's value enters the
+mean, so a cruise with two casts at a station that month counts both.</p></li>
 <li><p><strong>A seasonal baseline beside the monthly one</strong> (<code>season = TRUE</code>, the release's setting; calcofi4db 4.24.0; Rasmus
 Swalethorp, 2026-10-06: let the user toggle between a monthly and a seasonal baseline). The
 season is that of the <strong>cruise's month</strong> — since 4.34.0 the meteorological seasons

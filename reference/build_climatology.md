@@ -25,7 +25,8 @@ build_climatology(
   tbl = "climatology",
   sample_tbl = "sample",
   sample_measurement_tbl = "sample_measurement",
-  cruise_tbl = "cruise"
+  cruise_tbl = "cruise",
+  isopycnal_tbl = NULL
 )
 ```
 
@@ -109,12 +110,25 @@ build_climatology(
   the table is absent or lacks the column, or `NULL`, the `cruise_key`'s
   YYYY-MM is used.
 
+- isopycnal_tbl:
+
+  the per-cast isopycnal table
+  ([`build_isopycnal()`](https://calcofi.io/calcofi4db/reference/build_isopycnal.md):
+  `dataset_key`, `sample_key`, `sigma_theta`, `measurement_type`,
+  `measurement_value`) to give a baseline on each density surface too,
+  with `depth_bin` NULL and the surface in `sigma_theta`; `NULL` (the
+  default) for none. Its types are their own (`iso_*`), never an `obs`
+  type, so a reader of a depth bin or a per-cast cell cannot meet a
+  surface row.
+
 ## Value
 
 Invisibly, the row count. Columns: `dataset_key`, `site_key`,
 `grid_key`, `month`, `depth_bin`, `measurement_type`, `clim_mean`,
 `clim_sd`, `clim_n`, `n_cruises`, `clim_yr_min`, `clim_yr_max`,
-`quarter`, `season_mean`, `season_sd`, `season_n`, `season_n_cruises`.
+`quarter`, `season_mean`, `season_sd`, `season_n`, `season_n_cruises`,
+`sigma_theta` (4.39.0: the density surface of an isopycnal cell, NULL on
+every other row; appended last, so no column moved).
 
 ## Details
 
@@ -230,6 +244,19 @@ Why each part of the grain:
   per-cast consumer matches `depth_bin IS NULL`. The caller names the
   types (the release lists them in `release_database.qmd`'s
   `clim_cast_types`), so this package carries no list of datasets.
+
+- **Density surfaces too** (`isopycnal_tbl`, 4.39.0; Rasmus Swalethorp,
+  2026-11-12/13: conditions and their anomalies on sigma-theta surfaces,
+  down casts, monthly and seasonal baselines). Each cast's value on a
+  surface
+  ([`build_isopycnal()`](https://calcofi.io/calcofi4db/reference/build_isopycnal.md),
+  one row per cast x surface x type) is pooled by the same rules —
+  station, the cruise's month (or season), the window, the cruise floor
+  — into a cell keyed by its surface in `sigma_theta`, `depth_bin` NULL,
+  types `iso_*`
+  ([`calcofi4r::cc_isopycnal_type()`](https://calcofi.io/calcofi4r/reference/cc_isopycnal_type.html)).
+  Like a depth bin's rows, every cast's value enters the mean, so a
+  cruise with two casts at a station that month counts both.
 
 - **A seasonal baseline beside the monthly one** (`season = TRUE`, the
   release's setting; calcofi4db 4.24.0; Rasmus Swalethorp, 2026-10-06:

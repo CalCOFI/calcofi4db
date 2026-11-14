@@ -1,5 +1,34 @@
 # Changelog
 
+## calcofi4db 4.39.0
+
+- **New
+  [`build_isopycnal()`](https://calcofi.io/calcofi4db/reference/build_isopycnal.md)**:
+  the release’s `isopycnal` table, conditions on sigma-theta surfaces
+  for every CTD down cast, built by calling
+  [`calcofi4r::cc_isopycnal()`](https://calcofi.io/calcofi4r/reference/cc_isopycnal.html)
+  (calcofi4r \>= 1.34.0) cruise by cruise with its defaults, which are
+  Rasmus Swalethorp’s answers (2026-11-13): 24.0 to 27.0 by 0.2 plus
+  25.5 and 26.5, the shallowest crossing, depth, temperature, salinity,
+  oxygen, estimated nitrate and spice. One row per cast x surface x
+  type, the types `iso_*`
+  ([`calcofi4r::cc_isopycnal_type()`](https://calcofi.io/calcofi4r/reference/cc_isopycnal_type.html)),
+  every cast x surface keeping its `iso_depth_m` row and `status`.
+  Registered in
+  [`core_relationships()`](https://calcofi.io/calcofi4db/reference/core_relationships.md)
+  (key `sample_key, sigma_theta, measurement_type`; foreign keys to
+  `sample`, `cruise`, `grid`, `measurement_type`) and
+  [`release_sort_keys()`](https://calcofi.io/calcofi4db/reference/release_sort_keys.md).
+- **`build_climatology(isopycnal_tbl = )`: the baseline on density
+  surfaces, in the one `climatology`.** Each cast’s value on a surface
+  is pooled by the depth bins’ rules (station, the cruise’s month or
+  season, window, cruise floor) into a cell with `depth_bin` NULL and
+  the surface in a new **`sigma_theta`** column, appended last and NULL
+  on every other row; every cast’s value enters the mean, as every `obs`
+  row does in a bin. `sigma_theta` joins the climatology’s primary key
+  and its nullable key columns, and its sort key (last), so the existing
+  rows keep their order.
+
 ## calcofi4db 4.38.0
 
 - **A partitioned release table is written and published as one object

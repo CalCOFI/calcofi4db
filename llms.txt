@@ -904,6 +904,10 @@ check for other functions or datasets not captured by above categories
   Build the shared `grid` reference table (deterministic,
   dataset-independent)
 
+- [`build_isopycnal()`](https://calcofi.io/calcofi4db/reference/build_isopycnal.md)
+  : Build the release's isopycnal table: conditions on density surfaces,
+  every CTD down cast
+
 - [`build_measurements_catalog()`](https://calcofi.io/calcofi4db/reference/build_measurements_catalog.md)
   :
 
