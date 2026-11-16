@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.40.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.41.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -1311,6 +1311,13 @@
 
         </dt>
         <dd>Pinned parquet writer options for released tables</dd>
+
+        <dt>
+
+          <code><a href="CC_PUBLISH_FORMAT.html">CC_PUBLISH_FORMAT</a></code>
+
+        </dt>
+        <dd>Pinned output format of each publisher</dd>
 
         <dt>
 
@@ -2749,10 +2756,24 @@
 
         <dt>
 
+          <code><a href="publish_object_path.html">publish_object_path()</a></code>
+
+        </dt>
+        <dd>Content-addressed path of a published object</dd>
+
+        <dt>
+
           <code><a href="publish_object_signatures.html">publish_object_signatures()</a></code>
 
         </dt>
         <dd>Per-dataset row signatures of a release's objects</dd>
+
+        <dt>
+
+          <code><a href="publish_objects_plan.html">publish_objects_plan()</a></code>
+
+        </dt>
+        <dd>Decide, per published object, whether to upload it or point at the one already there</dd>
 
         <dt>
 

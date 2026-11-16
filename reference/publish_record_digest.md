@@ -18,7 +18,9 @@ publish_record_digest(record, drop = PUBLISH_RECORD_VOLATILE)
 
   top-level keys to leave out; defaults to the internal
   `PUBLISH_RECORD_VOLATILE` (`objects`, `since_version`,
-  `distributions`, `registrations`, `status`)
+  `distributions`, `registrations`, `status`);
+  `attribution.source_accessed`, re-measured at every release, is always
+  left out
 
 ## Value
 

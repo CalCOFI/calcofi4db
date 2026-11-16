@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.40.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.41.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,6 +77,15 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.41.0" id="calcofi4db-4410">calcofi4db 4.41.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4410"></a></h2>
+<ul><li>
+<strong>Published objects follow the release tables’ content-addressing</strong> (<code>R/release.R</code>: one object per distinct content, <code>content_hash</code> the identity, <code>since</code> the first release that carried it, <code>upload</code> / <code>exists</code>, nothing deleted). <code><a href="../reference/publish_fingerprint.html">publish_fingerprint()</a></code> now also returns <code>content_hash</code> (the <code>.short_sig()</code> of the data and metadata parts and the new <code>format</code> argument; never the code) and <code>data_hash</code> (the data parts alone); <code><a href="../reference/publish_decide.html">publish_decide()</a></code> compares <code>content_hash</code> when both sides carry one, so a code-only edit reuses (and says so). New <code>CC_PUBLISH_FORMAT</code> pins each publisher’s output format, as <code>CC_PARQUET_WRITER</code> pins the release’s: bumping it is what republishes. New <code><a href="../reference/publish_object_path.html">publish_object_path()</a></code> (<code>publish/{publisher}/{dataset_key}/{hash24}/{file}</code>, the form of <code><a href="../reference/canonical_path.html">canonical_path()</a></code>) and <code><a href="../reference/publish_objects_plan.html">publish_objects_plan()</a></code> (the publishers’ <code><a href="../reference/freeze_plan.html">freeze_plan()</a></code>: <code>exists</code> inherits <code>since</code>, path, bytes and sha256; <code>upload</code> is new content).</li>
+<li>
+<code><a href="../reference/publish_record_digest.html">publish_record_digest()</a></code> leaves out <code>attribution.source_accessed</code>, which every release re-measures: a new release alone no longer makes a published object look changed.</li>
+<li>
+<strong>Download bundles are content-addressed.</strong> <code><a href="../reference/bundle_manifest_entry.html">bundle_manifest_entry()</a></code> records <code>since</code>, <code>content_hash</code>, <code>data_hash</code> and each zip’s <code>path</code>, and builds the URL from the hash directory (manifest <code>schema_version</code> 1.1; <code>version</code> is kept, equal to <code>since</code>). <code><a href="../reference/bundle_readme.html">bundle_readme()</a></code> names the release the content was built from and says the data are identical in every later release that lists the file, pointing at the dataset page for the current release; a new release alone no longer changes a package’s bytes.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.40.0" id="calcofi4db-4400">calcofi4db 4.40.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4400"></a></h2>
 <ul><li>

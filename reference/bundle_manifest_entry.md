@@ -1,11 +1,19 @@
 # One dataset's entry in the bundle manifest the website reads
 
 The contract between `publish_to-zip.qmd` and calcofi.io: per dataset,
-the release the bundles were built from (`version`) and last confirmed
-against (`checked_version`), the licence kind, whether the provider gave
-a citation, the rows of every table, what was left out, and per format
-either the file (`url`, `bytes`, `sha256`, `excel_openable`) or the
-reason it is not offered, in plain words.
+the release its content first appeared in (`since`, also `version` for a
+schema-1.0 reader) and the release this run confirmed it against
+(`checked_version`), its identities — `content_hash` (data + its
+metadata record + the pinned format; names the object's directory, as a
+release table's content_hash does) and `data_hash` (the data alone) —
+the licence kind, whether the provider gave a citation, the rows of
+every table, what was left out, and per format either the file (`path`,
+`url`, `bytes`, `sha256`, `excel_openable`) or the reason it is not
+offered, in plain words. Each release's manifest is kept
+(`publish/zip/releases/{version}/manifest.json`), so the history of a
+dataset's packages is the chain of manifests, as a release table's is
+the chain of catalogs; an object a newer content replaced stays at its
+path.
 
 ## Usage
 
@@ -33,7 +41,7 @@ bundle_manifest_entry(
 
 - version:
 
-  the release the bundles were built from
+  the release the bundles' content first appeared in (`since`)
 
 - release_date:
 
@@ -73,7 +81,8 @@ bundle_manifest_entry(
 - base_url:
 
   the public root the zips are served from
-  (`{base_url}/{dataset_key}/{file}`)
+  (`{base_url}/{dataset_key}/{content_hash[1:24]}/{file}`,
+  [`publish_object_path()`](https://calcofi.io/calcofi4db/reference/publish_object_path.md))
 
 ## Value
 

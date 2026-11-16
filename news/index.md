@@ -1,5 +1,44 @@
 # Changelog
 
+## calcofi4db 4.41.0
+
+- **Published objects follow the release tables’ content-addressing**
+  (`R/release.R`: one object per distinct content, `content_hash` the
+  identity, `since` the first release that carried it, `upload` /
+  `exists`, nothing deleted).
+  [`publish_fingerprint()`](https://calcofi.io/calcofi4db/reference/publish_fingerprint.md)
+  now also returns `content_hash` (the `.short_sig()` of the data and
+  metadata parts and the new `format` argument; never the code) and
+  `data_hash` (the data parts alone);
+  [`publish_decide()`](https://calcofi.io/calcofi4db/reference/publish_decide.md)
+  compares `content_hash` when both sides carry one, so a code-only edit
+  reuses (and says so). New `CC_PUBLISH_FORMAT` pins each publisher’s
+  output format, as `CC_PARQUET_WRITER` pins the release’s: bumping it
+  is what republishes. New
+  [`publish_object_path()`](https://calcofi.io/calcofi4db/reference/publish_object_path.md)
+  (`publish/{publisher}/{dataset_key}/{hash24}/{file}`, the form of
+  [`canonical_path()`](https://calcofi.io/calcofi4db/reference/canonical_path.md))
+  and
+  [`publish_objects_plan()`](https://calcofi.io/calcofi4db/reference/publish_objects_plan.md)
+  (the publishers’
+  [`freeze_plan()`](https://calcofi.io/calcofi4db/reference/freeze_plan.md):
+  `exists` inherits `since`, path, bytes and sha256; `upload` is new
+  content).
+- [`publish_record_digest()`](https://calcofi.io/calcofi4db/reference/publish_record_digest.md)
+  leaves out `attribution.source_accessed`, which every release
+  re-measures: a new release alone no longer makes a published object
+  look changed.
+- **Download bundles are content-addressed.**
+  [`bundle_manifest_entry()`](https://calcofi.io/calcofi4db/reference/bundle_manifest_entry.md)
+  records `since`, `content_hash`, `data_hash` and each zip’s `path`,
+  and builds the URL from the hash directory (manifest `schema_version`
+  1.1; `version` is kept, equal to `since`).
+  [`bundle_readme()`](https://calcofi.io/calcofi4db/reference/bundle_readme.md)
+  names the release the content was built from and says the data are
+  identical in every later release that lists the file, pointing at the
+  dataset page for the current release; a new release alone no longer
+  changes a package’s bytes.
+
 ## calcofi4db 4.40.0
 
 - **New: download bundles** (`R/bundle.R`, `@concept bundle`), the rules

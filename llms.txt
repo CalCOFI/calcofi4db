@@ -732,6 +732,9 @@ check for other functions or datasets not captured by above categories
 - [`CC_PARQUET_WRITER`](https://calcofi.io/calcofi4db/reference/CC_PARQUET_WRITER.md)
   : Pinned parquet writer options for released tables
 
+- [`CC_PUBLISH_FORMAT`](https://calcofi.io/calcofi4db/reference/CC_PUBLISH_FORMAT.md)
+  : Pinned output format of each publisher
+
 - [`CC_RELEASE_PREFIX`](https://calcofi.io/calcofi4db/reference/CC_RELEASE_PREFIX.md)
   [`CC_TABLES_PREFIX`](https://calcofi.io/calcofi4db/reference/CC_RELEASE_PREFIX.md)
   : Release layout prefixes (bucket-relative)
@@ -1575,8 +1578,15 @@ check for other functions or datasets not captured by above categories
 - [`publish_fingerprint()`](https://calcofi.io/calcofi4db/reference/publish_fingerprint.md)
   : Fingerprint what one dataset's published output is a function of
 
+- [`publish_object_path()`](https://calcofi.io/calcofi4db/reference/publish_object_path.md)
+  : Content-addressed path of a published object
+
 - [`publish_object_signatures()`](https://calcofi.io/calcofi4db/reference/publish_object_signatures.md)
   : Per-dataset row signatures of a release's objects
+
+- [`publish_objects_plan()`](https://calcofi.io/calcofi4db/reference/publish_objects_plan.md)
+  : Decide, per published object, whether to upload it or point at the
+  one already there
 
 - [`publish_record_digest()`](https://calcofi.io/calcofi4db/reference/publish_record_digest.md)
   : Digest a dataset's catalog record, ignoring what changes every

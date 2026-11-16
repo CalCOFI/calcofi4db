@@ -8,6 +8,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/CC_DEPTH_MAX_M.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/CC_PARQUET_WRITER.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/CC_PUBLIC_BUCKETS.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/CC_PUBLISH_FORMAT.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/CC_RELEASE_PREFIX.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/EXCEL_MAX_ROWS.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/OBS_VIEW_COLUMNS.html</loc></url>
@@ -328,7 +329,9 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/publish_data_parts.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/publish_decide.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/publish_fingerprint.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/publish_object_path.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/publish_object_signatures.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/publish_objects_plan.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/publish_record_digest.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/publish_release_notes.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/publish_table_signatures.html</loc></url>
