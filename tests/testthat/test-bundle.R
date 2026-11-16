@@ -360,6 +360,30 @@ test_that("bundle_manifest_entry() is the site's contract: a url per file, a rea
   expect_true(jsonlite::validate(j))
 })
 
+test_that("dataset_distributions() carries bundles: this release's entry, else the newest", {
+  ent <- function(v, fmt = "csv") list(dataset_key = "ds_a", version = v, bundles = list(
+    list(format = "csv", written = TRUE, file = sprintf("calcofi_ds_a_%s_csv.zip", v),
+         url = sprintf("https://x.example/ds_a/calcofi_ds_a_%s_csv.zip", v), bytes = 10, sha256 = "ab",
+         excel_openable = TRUE, rows = list(obs = 3)),
+    list(format = "xlsx", written = FALSE, reason = "too big")))
+  man <- list(datasets = list(ent("v2026.11.01"), ent("v2026.11.14"),
+                              list(dataset_key = "ds_z", version = "v2026.11.14", bundles = list())))
+  d <- dataset_distributions("ds_a", list(), list(), bundles = man, version = "v2026.11.01")
+  b <- Filter(function(r) identical(r$kind, "bundle"), d)
+  expect_length(b, 1)
+  expect_equal(b[[1]]$release, "v2026.11.01"); expect_equal(b[[1]]$format, "csv")
+  expect_equal(b[[1]]$id, "calcofi_ds_a_v2026.11.01_csv"); expect_equal(b[[1]]$media_type, "application/zip")
+  expect_equal(b[[1]]$skipped, list(list(format = "xlsx", reason = "too big")))
+  # no entry for the release being built (the publisher runs after it): the newest
+  d <- dataset_distributions("ds_a", list(), list(), bundles = man, version = "v2026.12.01")
+  expect_equal(Filter(function(r) identical(r$kind, "bundle"), d)[[1]]$release, "v2026.11.14")
+  expect_length(Filter(function(r) identical(r$kind, "bundle"),
+                       dataset_distributions("ds_q", list(), list(), bundles = man)), 0)
+  expect_true("bundle" %in% distribution_kinds())
+  sch <- jsonlite::fromJSON(system.file("schema", "datasets.schema.json", package = "calcofi4db"), simplifyVector = FALSE)
+  expect_true("bundle" %in% unlist(sch$definitions$distribution$properties$kind$enum))
+})
+
 test_that("fetch_bundle_manifest() returns the parsed manifest, or NULL when it does not answer", {
   f <- function(url, ...) if (grepl("manifest.json", url, fixed = TRUE))
     list(status = 200L, content = '{"datasets":[{"dataset_key":"ds_a","version":"v1"}]}') else
@@ -367,4 +391,15 @@ test_that("fetch_bundle_manifest() returns the parsed manifest, or NULL when it 
   m <- fetch_bundle_manifest(fetch = f)
   expect_equal(m$datasets[[1]]$dataset_key, "ds_a")
   expect_null(fetch_bundle_manifest("https://x.example/none", fetch = f))
+})
+
+test_that("a curated distribution.csv row cannot claim kind bundle (record-only, derived)", {
+  bad <- withr::local_tempfile(fileext = ".csv")
+  writeLines(c("dataset_key,kind,portal,id,url,title,status,superseded_by,observed_utc,notes",
+               "a_b,bundle,gcs,x,https://x.example/a.zip,t,current,,,"), bad)
+  expect_error(read_distribution_registry(bad), "bundle")
+})
+
+test_that("STAC reads a bundle as application/zip data", {
+  expect_equal(.stac_media_type("https://x.example/calcofi_dic_v2026.11.14_csv.zip"), "application/zip")
 })

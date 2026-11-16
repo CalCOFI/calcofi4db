@@ -13,7 +13,8 @@ dataset_distributions(
   curated = NULL,
   version = NULL,
   workflow_url = NULL,
-  stac_base = NULL
+  stac_base = NULL,
+  bundles = NULL
 )
 }
 \arguments{
@@ -35,6 +36,12 @@ dataset_distributions(
 
 \item{stac_base}{the STAC root the release writes (\verb{https://…/calcofi-db/stac});
 NULL (a holding, or a run with no STAC) adds no row}
+
+\item{bundles}{the parsed bundle manifest from \code{\link[=fetch_bundle_manifest]{fetch_bundle_manifest()}}, or NULL: one
+\code{kind = "bundle"} row per format written for the dataset — the entry built from
+\code{version}, else the newest built (\code{publish_to-zip.qmd} runs after the release, so at
+release time it is the previous release's, which still holds the same rows unless the
+dataset changed). The CSV row carries \code{skipped}, the formats not offered and why.}
 }
 \value{
 A list of rows, each a named list (\code{kind}, \code{url}, …).

@@ -29,8 +29,9 @@ Character vectors.
 \code{distributions[]} entry) is: \code{download} (bytes you can fetch), \code{service} (a
 queryable endpoint), \code{mirror} (the same rows served by someone else),
 \code{source} (where the ingest read from), \code{archive} (a DOI-minting deposit), and
-— record-only, derived — \code{page} (a calcofi.org page) and \code{notebook} (the
-ingest). \code{distribution_portals()} — the host families a URL is classified
+— record-only, derived — \code{page} (a calcofi.org page), \code{notebook} (the
+ingest) and \code{bundle} (a zip of the dataset's tables a person can open, by format, from
+\code{publish_to-zip.qmd}'s manifest; see \code{\link[=bundle_manifest_entry]{bundle_manifest_entry()}}). \code{distribution_portals()} — the host families a URL is classified
 into by \code{\link[=classify_portal]{classify_portal()}}. \code{distribution_statuses()} — \code{current} (answers
 today), \code{superseded} (a newer record exists: see \code{superseded_by}), \code{retired}
 (the authority no longer serves it), \code{external} (a portal we do not run,

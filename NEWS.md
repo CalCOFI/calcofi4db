@@ -27,6 +27,11 @@
     `calcofi_{dataset_key}_{version}_{format}.zip` (no doubled `calcofi_`).
   - `bundle_manifest_entry()` is one dataset's record in the manifest the website reads
     (`publish/zip/manifest.json`); `fetch_bundle_manifest()` reads it.
+- **`distribution_kinds()` gains `bundle`** (record-only, like `page`/`notebook`; also in
+  `inst/schema/datasets.schema.json`). `dataset_distributions()` and `build_dataset_catalog()`
+  take `bundles =` (the parsed manifest) and add one `kind = "bundle"` row per format written,
+  the entry built from the release, else the newest; the CSV row carries `skipped`, the formats
+  not offered and why. STAC treats a `.zip` as `application/zip` with role `data`.
 - `writexl` and `zip` are now Imports (`zip` was Suggests); `readxl` joins Suggests (tests).
 
 # calcofi4db 4.39.0

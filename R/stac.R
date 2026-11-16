@@ -38,6 +38,7 @@ STAC_EXT <- c(
   if (grepl("\\.json$|\\.geojson$", u))   return("application/json")
   if (grepl("\\.pmtiles$", u))            return("application/vnd.pmtiles")
   if (grepl("\\.csv$", u))                return("text/csv")
+  if (grepl("\\.zip$", u))                return("application/zip")
   if (grepl("\\.tif$|\\.tiff$", u))       return("image/tiff; application=geotiff")
   "text/html"
 }
@@ -151,6 +152,7 @@ STAC_EXT <- c(
     type <- .stac_media_type(url)
     role <- switch(kind,
       download = "data",
+      bundle   = "data",
       service  = if (identical(type, "application/xml")) "metadata" else "overview",
       notebook = "overview",
       page     = "overview",

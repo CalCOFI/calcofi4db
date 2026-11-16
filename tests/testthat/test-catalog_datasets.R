@@ -40,7 +40,7 @@ fake_fetch <- function(map, status_default = 404L) {
 # vocabularies and classification -----------------------------------------------------
 
 test_that("the registry vocabularies are what the plan says", {
-  expect_setequal(distribution_kinds(), c("download", "service", "mirror", "source", "archive", "page", "notebook"))
+  expect_setequal(distribution_kinds(), c("download", "service", "mirror", "source", "archive", "page", "notebook", "bundle"))
   expect_true(all(c("erddap", "erddap-noaa", "edi", "ncei", "obis", "ipt", "caloos", "datazoo",
                     "ucsd-library", "zenodo", "ncbi", "calcofi.org", "other") %in% distribution_portals()))
   expect_equal(distribution_statuses(), c("current", "superseded", "retired", "external", "planned"))

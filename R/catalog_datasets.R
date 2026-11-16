@@ -54,8 +54,9 @@ DATASET_STATUS_PUBLISH_COLS <- c("publish_obis", "publish_erddap", "publish_edi"
 #' `distributions[]` entry) is: `download` (bytes you can fetch), `service` (a
 #' queryable endpoint), `mirror` (the same rows served by someone else),
 #' `source` (where the ingest read from), `archive` (a DOI-minting deposit), and
-#' — record-only, derived — `page` (a calcofi.org page) and `notebook` (the
-#' ingest). `distribution_portals()` — the host families a URL is classified
+#' — record-only, derived — `page` (a calcofi.org page), `notebook` (the
+#' ingest) and `bundle` (a zip of the dataset's tables a person can open, by format, from
+#' `publish_to-zip.qmd`'s manifest; see [bundle_manifest_entry()]). `distribution_portals()` — the host families a URL is classified
 #' into by [classify_portal()]. `distribution_statuses()` — `current` (answers
 #' today), `superseded` (a newer record exists: see `superseded_by`), `retired`
 #' (the authority no longer serves it), `external` (a portal we do not run,
@@ -68,7 +69,7 @@ DATASET_STATUS_PUBLISH_COLS <- c("publish_obis", "publish_erddap", "publish_edi"
 #' @return Character vectors.
 #' @export
 #' @concept catalog
-distribution_kinds <- function() c("download", "service", "mirror", "source", "archive", "page", "notebook")
+distribution_kinds <- function() c("download", "service", "mirror", "source", "archive", "page", "notebook", "bundle")
 
 #' @rdname distribution_kinds
 #' @export
@@ -257,7 +258,7 @@ release_stac_base <- function(release_prefix = "ducklake/releases", bucket = "ca
 #' @concept catalog
 read_distribution_registry <- function(path) {
   d <- .read_registry_csv(path, DISTRIBUTION_COLS, "distribution")
-  .check_vocab(d, "kind", setdiff(distribution_kinds(), c("page", "notebook")), path)
+  .check_vocab(d, "kind", setdiff(distribution_kinds(), c("page", "notebook", "bundle")), path)
   .check_vocab(d, "portal", distribution_portals(), path)
   .check_vocab(d, "status", distribution_statuses(), path)
   bad <- d[["url"]][!is.na(d[["url"]]) & !grepl("^https?://", d[["url"]])]
@@ -614,11 +615,17 @@ dataset_since_versions <- function(versions, base = CC_RELEASES_HTTPS, fetch = N
 #' @param workflow_url the ingest notebook URL
 #' @param stac_base the STAC root the release writes (`https://…/calcofi-db/stac`);
 #'   NULL (a holding, or a run with no STAC) adds no row
+#' @param bundles the parsed bundle manifest from [fetch_bundle_manifest()], or NULL: one
+#'   `kind = "bundle"` row per format written for the dataset — the entry built from
+#'   `version`, else the newest built (`publish_to-zip.qmd` runs after the release, so at
+#'   release time it is the previous release's, which still holds the same rows unless the
+#'   dataset changed). The CSV row carries `skipped`, the formats not offered and why.
 #' @return A list of rows, each a named list (`kind`, `url`, …).
 #' @export
 #' @concept catalog
 dataset_distributions <- function(key, ds, objects, erddap = NULL, netcdf = NULL, curated = NULL,
-                                  version = NULL, workflow_url = NULL, stac_base = NULL) {
+                                  version = NULL, workflow_url = NULL, stac_base = NULL,
+                                  bundles = NULL) {
   rows <- list()
   add <- function(r) rows[[length(rows) + 1]] <<- r
   # the STAC collection (4.6.0): one per public dataset at the release's STAC root, an item per
@@ -653,6 +660,26 @@ dataset_distributions <- function(key, ds, objects, erddap = NULL, netcdf = NULL
                   bytes = .num_or_null(e[["bytes"]]), sha256 = .chr_or_null(e[["sha256"]]),
                   cf_scope = .chr_or_null(e[["cf_scope"]]), release = .chr_or_null(e[["db_release"]]),
                   generated_utc = .chr_or_null(e[["generated_utc"]]), status = "current"))
+  }
+  # download bundles: zips by format, the entry for this release, else the newest ----
+  be <- if (!is.null(bundles)) .bundle_entry_for(bundles, key, version) else NULL
+  if (!is.null(be)) {
+    bs <- .rows(be[["bundles"]])
+    skipped <- Filter(function(b) !isTRUE(b[["written"]]), bs)
+    skipped <- lapply(skipped, function(b) list(format = .s(b[["format"]]), reason = .chr_or_null(b[["reason"]])))
+    titles <- c(csv = "CSV tables (zip)", xlsx = "Excel workbook (zip)", parquet = "Parquet tables (zip)")
+    for (b in Filter(function(b) isTRUE(b[["written"]]) && nzchar(.s(b[["url"]])), bs)) {
+      f <- .s(b[["format"]])
+      r <- .dist_row("bundle", b[["url"]], format = f, id = sub("\\.zip$", "", .s(b[["file"]])),
+                     title = if (f %in% names(titles)) titles[[f]] else sprintf("%s (zip)", f),
+                     media_type = .chr_or_null(b[["media_type"]]) %||% "application/zip",
+                     bytes = .num_or_null(b[["bytes"]]), sha256 = .chr_or_null(b[["sha256"]]),
+                     release = .chr_or_null(be[["version"]]),
+                     excel_openable = isTRUE(b[["excel_openable"]]),
+                     rows = b[["rows"]], note = .chr_or_null(b[["note"]]), status = "current")
+      if (f == "csv" && length(skipped)) r$skipped <- skipped
+      add(r)
+    }
   }
   # ERDDAP: the ids that exist now, by prefix ----
   erddap_ids <- character()
@@ -992,6 +1019,8 @@ dataset_distributions <- function(key, ds, objects, erddap = NULL, netcdf = NULL
 #' @param version the release version (default: the catalog's)
 #' @param erddap the table from [fetch_erddap_datasets()] (NULL: no ERDDAP rows)
 #' @param netcdf the list from [fetch_netcdf_manifests()]
+#' @param bundles the parsed bundle manifest from [fetch_bundle_manifest()] (NULL: no
+#'   `bundle` rows); see [dataset_distributions()]
 #' @param since a named character vector `dataset_key -> first version`
 #'   ([dataset_since_versions()])
 #' @param source_accessed a named character vector `dataset_key -> YYYY-MM-DD`
@@ -1008,7 +1037,7 @@ dataset_distributions <- function(key, ds, objects, erddap = NULL, netcdf = NULL
 #' @concept catalog
 #' @seealso [check_dataset_catalog()], [write_dataset_catalog()]
 build_dataset_catalog <- function(meta, coverage, catalog, registries, version = NULL,
-                                  erddap = NULL, netcdf = NULL, since = NULL, source_accessed = NULL,
+                                  erddap = NULL, netcdf = NULL, bundles = NULL, since = NULL, source_accessed = NULL,
                                   spatial_layers = NULL, bathymetry = NULL,
                                   workflows_base = "https://calcofi.io/workflows/",
                                   release_prefix = "ducklake/releases",
@@ -1031,7 +1060,7 @@ build_dataset_catalog <- function(meta, coverage, catalog, registries, version =
     cat_block <- .category_block(.s(ds[["category"]]), registries$category)
     objects <- .dataset_objects(key, ds, meta, catalog)
     wf <- .chr_or_null(ds[["workflow_url"]]) %||% paste0(workflows_base, "ingest_", key, ".html")
-    dists <- dataset_distributions(key, ds, objects, erddap = erddap, netcdf = netcdf, curated = cur,
+    dists <- dataset_distributions(key, ds, objects, erddap = erddap, netcdf = netcdf, bundles = bundles, curated = cur,
                                    stac_base = stac_base,
                                    version = version, workflow_url = wf)
     erddap_published <- any(vapply(dists, function(r) identical(r[["kind"]], "service") && identical(r[["format"]], "erddap"), logical(1)))

@@ -12,6 +12,7 @@ build_dataset_catalog(
   version = NULL,
   erddap = NULL,
   netcdf = NULL,
+  bundles = NULL,
   since = NULL,
   source_accessed = NULL,
   spatial_layers = NULL,
@@ -35,6 +36,9 @@ build_dataset_catalog(
 \item{erddap}{the table from \code{\link[=fetch_erddap_datasets]{fetch_erddap_datasets()}} (NULL: no ERDDAP rows)}
 
 \item{netcdf}{the list from \code{\link[=fetch_netcdf_manifests]{fetch_netcdf_manifests()}}}
+
+\item{bundles}{the parsed bundle manifest from \code{\link[=fetch_bundle_manifest]{fetch_bundle_manifest()}} (NULL: no
+\code{bundle} rows); see \code{\link[=dataset_distributions]{dataset_distributions()}}}
 
 \item{since}{a named character vector \verb{dataset_key -> first version}
 (\code{\link[=dataset_since_versions]{dataset_since_versions()}})}
