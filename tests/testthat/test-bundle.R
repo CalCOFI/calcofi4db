@@ -181,17 +181,28 @@ test_that("bundle_format_decision() offers Excel only when every table fits, and
   d <- bundle_format_decision(c(obs = 1000, sample = 10))
   expect_equal(d$format, c("csv", "xlsx", "parquet"))
   expect_equal(d$write, c(TRUE, TRUE, TRUE)); expect_equal(d$excel_openable, c(TRUE, TRUE, FALSE))
+  # half a million rows fits Excel: a workbook is offered (ichthyo, cufes, mets)
   d <- bundle_format_decision(c(obs = 488123, sample = 212000))
-  expect_false(d$write[d$format == "xlsx"])
-  expect_match(d$reason[d$format == "xlsx"], "largest table, obs, has 488,123 rows")
-  expect_match(d$reason[d$format == "xlsx"], "250,000")
+  expect_true(d$write[d$format == "xlsx"]); expect_equal(d$reason[d$format == "xlsx"], "")
   expect_true(d$excel_openable[d$format == "csv"])
   d <- bundle_format_decision(c(obs = 19000000, sample = 19800))
-  expect_false(d$excel_openable[d$format == "csv"])
+  expect_false(d$write[d$format == "xlsx"]); expect_false(d$excel_openable[d$format == "csv"])
+  expect_match(d$reason[d$format == "xlsx"], "largest table, obs, has 19,000,000 rows")
+  expect_match(d$reason[d$format == "xlsx"], "more than an Excel sheet holds (1,048,576 rows including the header row)", fixed = TRUE)
   expect_match(d$note[d$format == "csv"], "obs \\(19,000,000 rows\\)")
-  # the edge: Excel's limit counts the header
-  expect_true(bundle_format_decision(c(obs = EXCEL_MAX_ROWS - 1), xlsx_max_rows = 2e6)$write[2])
-  expect_false(bundle_format_decision(c(obs = EXCEL_MAX_ROWS), xlsx_max_rows = 2e6)$excel_openable[1])
+  # a lower cap, when a caller passes one, is named in the reason
+  expect_match(bundle_format_decision(c(obs = 300), xlsx_max_rows = 200)$reason[2], "at most 200 rows")
+})
+
+test_that("bundle_format_decision()'s Excel edge: 1,048,575 data rows fit, 1,048,576 do not (header row)", {
+  expect_equal(BUNDLE_XLSX_MAX_ROWS, 1048575L); expect_equal(EXCEL_MAX_ROWS, 1048576L)
+  fits <- bundle_format_decision(c(obs = 1048575, sample = 10))
+  expect_true(fits$write[fits$format == "xlsx"]); expect_true(fits$excel_openable[fits$format == "xlsx"])
+  expect_true(fits$excel_openable[fits$format == "csv"]); expect_equal(fits$note[fits$format == "csv"], "")
+  over <- bundle_format_decision(c(obs = 1048576, sample = 10))
+  expect_false(over$write[over$format == "xlsx"]); expect_false(over$excel_openable[over$format == "xlsx"])
+  expect_false(over$excel_openable[over$format == "csv"])
+  expect_match(over$reason[over$format == "xlsx"], "obs, has 1,048,576 rows")
 })
 
 test_that("bundle_license() carries the legal text only for a recognised licence id", {
@@ -264,7 +275,7 @@ test_that("bundle_readme() says what, who, when, which files, what is left out a
   con <- bundle_fixture_con(); on.exit(DBI::dbDisconnect(con, shutdown = TRUE))
   p <- bundle_plan(rec_a, bundle_cols(con), supplemental = "obs_full", supplemental_rows = c(obs_full = 1e8))
   b <- bundle_build_tables(con, p, "ds_a", bundle_from())
-  d <- bundle_format_decision(c(obs = 300000, sample = 4))
+  d <- bundle_format_decision(c(obs = 2e6, sample = 4))
   r <- bundle_readme(rec_a, release_fx, "csv", b, p, d, bundle_license(rec_a))
   for (s in c("# Dataset A", "release **v2026.11.14** (2026-11-14)", "Provider Lab", "J Doe",
               "https://calcofi.io/datasets/ds_a/", "https://calcofi.io/explore/", CC_REGISTER_USE_URL,

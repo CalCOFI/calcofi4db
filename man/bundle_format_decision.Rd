@@ -21,8 +21,9 @@ A data frame, one row per \code{\link[=bundle_formats]{bundle_formats()}}: \code
 \item \code{csv} — always. \code{excel_openable} only when every table is within Excel's sheet
 limit (\link{EXCEL_MAX_ROWS}, header included); otherwise \code{note} says which table is too
 long to open in a spreadsheet.
-\item \code{xlsx} — only when every table has at most \code{xlsx_max_rows} rows
-(\link{BUNDLE_XLSX_MAX_ROWS}); otherwise not written, and \code{reason} says why in plain words.
+\item \code{xlsx} — only when every table has at most \code{xlsx_max_rows} rows of data
+(\link{BUNDLE_XLSX_MAX_ROWS}, so every sheet fits Excel's 1,048,576 rows with its header);
+otherwise not written, and \code{reason} says why in plain words.
 \item \code{parquet} — always.
 }
 }

@@ -37,9 +37,9 @@ CC_DATA_CONTACT <- "data@calcofi.io"
 #' Limits a bundle is held to
 #'
 #' * `EXCEL_MAX_ROWS` — Excel's own sheet limit, 1,048,576 rows including the header.
-#' * `BUNDLE_XLSX_MAX_ROWS` — the largest table an Excel workbook is offered for, 250,000
-#'   rows: under a quarter of Excel's limit, so a workbook stays a few tens of megabytes and
-#'   opens in seconds on an ordinary laptop. Above it the CSV zip is the spreadsheet route.
+#' * `BUNDLE_XLSX_MAX_ROWS` — the largest table an Excel workbook is offered for: Excel's own
+#'   limit, 1,048,575 rows of data below the header row (owner's decision, 2026-11-16: any
+#'   lower cap would be arbitrary). Above it the CSV zip is the route.
 #' * `BUNDLE_MAX_ZIP_BYTES` — the largest zip [write_bundle()] will leave for a browser
 #'   download, 2 GiB; over it the build stops and says so rather than dropping the file.
 #'
@@ -50,7 +50,7 @@ EXCEL_MAX_ROWS <- 1048576L
 
 #' @rdname EXCEL_MAX_ROWS
 #' @export
-BUNDLE_XLSX_MAX_ROWS <- 250000L
+BUNDLE_XLSX_MAX_ROWS <- EXCEL_MAX_ROWS - 1L
 
 #' @rdname EXCEL_MAX_ROWS
 #' @export
@@ -395,8 +395,9 @@ bundle_table_signatures <- function(con, tables, prefix = "bundle_") {
 #' * `csv` — always. `excel_openable` only when every table is within Excel's sheet
 #'   limit ([EXCEL_MAX_ROWS], header included); otherwise `note` says which table is too
 #'   long to open in a spreadsheet.
-#' * `xlsx` — only when every table has at most `xlsx_max_rows` rows
-#'   ([BUNDLE_XLSX_MAX_ROWS]); otherwise not written, and `reason` says why in plain words.
+#' * `xlsx` — only when every table has at most `xlsx_max_rows` rows of data
+#'   ([BUNDLE_XLSX_MAX_ROWS], so every sheet fits Excel's 1,048,576 rows with its header);
+#'   otherwise not written, and `reason` says why in plain words.
 #' * `parquet` — always.
 #'
 #' @param rows named numeric, table -> rows in the bundle
@@ -419,10 +420,14 @@ bundle_format_decision <- function(rows, xlsx_max_rows = BUNDLE_XLSX_MAX_ROWS) {
     write  = c(TRUE, xlsx_ok, TRUE),
     excel_openable = c(csv_ok, xlsx_ok, FALSE),
     reason = c("",
-               if (xlsx_ok) "" else sprintf(paste0(
+               if (xlsx_ok) "" else if (xlsx_max_rows >= EXCEL_MAX_ROWS - 1) sprintf(paste0(
+                 "Not offered as an Excel workbook: its largest table, %s, has %s rows, more than ",
+                 "an Excel sheet holds (%s rows including the header row). Use the CSV download, ",
+                 "or take a subset from the Explorer."), big, fmt(rows[[big]]), fmt(EXCEL_MAX_ROWS)) else
+                 sprintf(paste0(
                  "Not offered as an Excel workbook: its largest table, %s, has %s rows, and a ",
-                 "workbook is made only when every table has at most %s rows (Excel itself stops at ",
-                 "%s). Use the CSV download."), big, fmt(rows[[big]]), fmt(xlsx_max_rows), fmt(EXCEL_MAX_ROWS)),
+                 "workbook is made only when every table has at most %s rows. Use the CSV download."),
+                 big, fmt(rows[[big]]), fmt(xlsx_max_rows)),
                ""),
     note = c(if (csv_ok) "" else sprintf(paste0(
                "%s has more rows than a spreadsheet can open (Excel stops at %s): open it with R, ",

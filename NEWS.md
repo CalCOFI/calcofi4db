@@ -13,9 +13,10 @@
     `site_key`, `line`, `station`, `scientific_name`, `common_name` and `units` added beside
     their keys so a row reads without a join; stored `ORDER BY ALL`.
     `bundle_table_signatures()` signs them for `publish_fingerprint()`.
-  - `bundle_format_decision()`: Excel only when every table has at most
-    `BUNDLE_XLSX_MAX_ROWS` (250,000) rows; a CSV wider than Excel's `EXCEL_MAX_ROWS` is
-    flagged as not openable in a spreadsheet; each reason in plain words.
+  - `bundle_format_decision()`: an Excel workbook whenever every table fits an Excel sheet
+    (`BUNDLE_XLSX_MAX_ROWS`, 1,048,575 data rows below the header row, Excel's own
+    `EXCEL_MAX_ROWS` of 1,048,576); a CSV longer than that is flagged as not openable in a
+    spreadsheet; each reason in plain words.
   - `bundle_readme()`, `bundle_citation()` (the dataset's citation when the provider gave one,
     always the release's with its DOIs; Markdown and BibTeX), `bundle_license()` (the legal
     code, shipped in `inst/licenses/`, only for a recognised licence id; the provider's terms
