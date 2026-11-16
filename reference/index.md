@@ -468,6 +468,11 @@ check for other functions or datasets not captured by above categories
   [`CC_TABLES_PREFIX`](https://calcofi.io/calcofi4db/reference/CC_RELEASE_PREFIX.md)
   : Release layout prefixes (bucket-relative)
 
+- [`EXCEL_MAX_ROWS`](https://calcofi.io/calcofi4db/reference/EXCEL_MAX_ROWS.md)
+  [`BUNDLE_XLSX_MAX_ROWS`](https://calcofi.io/calcofi4db/reference/EXCEL_MAX_ROWS.md)
+  [`BUNDLE_MAX_ZIP_BYTES`](https://calcofi.io/calcofi4db/reference/EXCEL_MAX_ROWS.md)
+  : Limits a bundle is held to
+
 - [`OBS_VIEW_COLUMNS`](https://calcofi.io/calcofi4db/reference/OBS_VIEW_COLUMNS.md)
   :
 
@@ -695,6 +700,42 @@ check for other functions or datasets not captured by above categories
   :
 
   Build the `versions.json` register of every release under a prefix
+
+- [`bundle_build_tables()`](https://calcofi.io/calcofi4db/reference/bundle_build_tables.md)
+  : Build a dataset's bundle tables in a DuckDB connection
+
+- [`bundle_citation()`](https://calcofi.io/calcofi4db/reference/bundle_citation.md)
+  : The citation a dataset's bundle carries
+
+- [`bundle_columns()`](https://calcofi.io/calcofi4db/reference/bundle_columns.md)
+  : The column dictionary of a dataset's bundle
+
+- [`bundle_file_name()`](https://calcofi.io/calcofi4db/reference/bundle_file_name.md)
+  : The file name of a dataset's bundle
+
+- [`bundle_format_decision()`](https://calcofi.io/calcofi4db/reference/bundle_format_decision.md)
+  : Which formats a dataset's bundle is offered in, and why one is not
+
+- [`bundle_formats()`](https://calcofi.io/calcofi4db/reference/bundle_formats.md)
+  : The download formats a dataset bundle can be written in
+
+- [`bundle_license()`](https://calcofi.io/calcofi4db/reference/bundle_license.md)
+  : The licence a dataset's bundle carries, in words
+
+- [`bundle_manifest_entry()`](https://calcofi.io/calcofi4db/reference/bundle_manifest_entry.md)
+  : One dataset's entry in the bundle manifest the website reads
+
+- [`bundle_plan()`](https://calcofi.io/calcofi4db/reference/bundle_plan.md)
+  : Plan a dataset's bundle: which tables, cut how, and what is left out
+
+- [`bundle_readme()`](https://calcofi.io/calcofi4db/reference/bundle_readme.md)
+  : The README of a dataset's bundle
+
+- [`bundle_table_signatures()`](https://calcofi.io/calcofi4db/reference/bundle_table_signatures.md)
+  : Row signatures of a dataset's bundle tables, for its fingerprint
+
+- [`bundle_zip()`](https://calcofi.io/calcofi4db/reference/bundle_zip.md)
+  : Zip files so the same content always gives the same bytes
 
 - [`canonical_path()`](https://calcofi.io/calcofi4db/reference/canonical_path.md)
   : Canonical (content-addressed) object path for a table or partition
@@ -1045,6 +1086,11 @@ check for other functions or datasets not captured by above categories
 
 - [`export_release_parquet()`](https://calcofi.io/calcofi4db/reference/export_release_parquet.md)
   : Deterministic parquet export of one released table
+
+- [`fetch_bundle_manifest()`](https://calcofi.io/calcofi4db/reference/fetch_bundle_manifest.md)
+  :
+
+  The bundle manifest of every dataset published by `publish_to-zip.qmd`
 
 - [`fetch_erddap_datasets()`](https://calcofi.io/calcofi4db/reference/fetch_erddap_datasets.md)
   [`parse_erddap_all_datasets()`](https://calcofi.io/calcofi4db/reference/fetch_erddap_datasets.md)
@@ -1667,6 +1713,9 @@ check for other functions or datasets not captured by above categories
   :
 
   One release's record in `versions.json`, from its `catalog.json`
+
+- [`write_bundle()`](https://calcofi.io/calcofi4db/reference/write_bundle.md)
+  : Write a dataset's bundle zips
 
 - [`write_dataset_catalog()`](https://calcofi.io/calcofi4db/reference/write_dataset_catalog.md)
   :

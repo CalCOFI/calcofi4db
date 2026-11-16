@@ -4,9 +4,11 @@
 `distributions[]` entry) is: `download` (bytes you can fetch), `service`
 (a queryable endpoint), `mirror` (the same rows served by someone else),
 `source` (where the ingest read from), `archive` (a DOI-minting
-deposit), and — record-only, derived — `page` (a calcofi.org page) and
-`notebook` (the ingest). `distribution_portals()` — the host families a
-URL is classified into by
+deposit), and — record-only, derived — `page` (a calcofi.org page),
+`notebook` (the ingest) and `bundle` (a zip of the dataset's tables a
+person can open, by format, from `publish_to-zip.qmd`'s manifest; see
+[`bundle_manifest_entry()`](https://calcofi.io/calcofi4db/reference/bundle_manifest_entry.md)).
+`distribution_portals()` — the host families a URL is classified into by
 [`classify_portal()`](https://calcofi.io/calcofi4db/reference/classify_portal.md).
 `distribution_statuses()` — `current` (answers today), `superseded` (a
 newer record exists: see `superseded_by`), `retired` (the authority no

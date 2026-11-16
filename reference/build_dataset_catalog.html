@@ -45,7 +45,7 @@ release sidecars, the registries and the measured endpoints:"><!-- calcofi.io br
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.39.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.40.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -95,6 +95,7 @@ release sidecars, the registries and the measured endpoints:</p>
 <span>  version <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  erddap <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  netcdf <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  bundles <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  since <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  source_accessed <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  spatial_layers <span class="op">=</span> <span class="cn">NULL</span>,</span>
@@ -135,6 +136,11 @@ release sidecars, the registries and the measured endpoints:</p>
 
 <dt id="arg-netcdf">netcdf<a class="anchor" aria-label="anchor" href="#arg-netcdf"></a></dt>
 <dd><p>the list from <code><a href="fetch_netcdf_manifests.html">fetch_netcdf_manifests()</a></code></p></dd>
+
+
+<dt id="arg-bundles">bundles<a class="anchor" aria-label="anchor" href="#arg-bundles"></a></dt>
+<dd><p>the parsed bundle manifest from <code><a href="fetch_bundle_manifest.html">fetch_bundle_manifest()</a></code> (NULL: no
+<code>bundle</code> rows); see <code><a href="dataset_distributions.html">dataset_distributions()</a></code></p></dd>
 
 
 <dt id="arg-since">since<a class="anchor" aria-label="anchor" href="#arg-since"></a></dt>

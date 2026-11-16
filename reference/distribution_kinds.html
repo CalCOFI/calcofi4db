@@ -3,8 +3,9 @@
 distributions[] entry) is: download (bytes you can fetch), service (a
 queryable endpoint), mirror (the same rows served by someone else),
 source (where the ingest read from), archive (a DOI-minting deposit), and
-— record-only, derived — page (a calcofi.org page) and notebook (the
-ingest). distribution_portals() — the host families a URL is classified
+— record-only, derived — page (a calcofi.org page), notebook (the
+ingest) and bundle (a zip of the dataset's tables a person can open, by format, from
+publish_to-zip.qmd's manifest; see bundle_manifest_entry()). distribution_portals() — the host families a URL is classified
 into by classify_portal(). distribution_statuses() — current (answers
 today), superseded (a newer record exists: see superseded_by), retired
 (the authority no longer serves it), external (a portal we do not run,
@@ -16,8 +17,9 @@ internal dataset is in the record and flagged; every public surface skips it).">
 distributions[] entry) is: download (bytes you can fetch), service (a
 queryable endpoint), mirror (the same rows served by someone else),
 source (where the ingest read from), archive (a DOI-minting deposit), and
-— record-only, derived — page (a calcofi.org page) and notebook (the
-ingest). distribution_portals() — the host families a URL is classified
+— record-only, derived — page (a calcofi.org page), notebook (the
+ingest) and bundle (a zip of the dataset's tables a person can open, by format, from
+publish_to-zip.qmd's manifest; see bundle_manifest_entry()). distribution_portals() — the host families a URL is classified
 into by classify_portal(). distribution_statuses() — current (answers
 today), superseded (a newer record exists: see superseded_by), retired
 (the authority no longer serves it), external (a portal we do not run,
@@ -69,7 +71,7 @@ internal dataset is in the record and flagged; every public surface skips it).">
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.39.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.40.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -109,8 +111,9 @@ internal dataset is in the record and flagged; every public surface skips it).">
 <code>distributions[]</code> entry) is: <code>download</code> (bytes you can fetch), <code>service</code> (a
 queryable endpoint), <code>mirror</code> (the same rows served by someone else),
 <code>source</code> (where the ingest read from), <code>archive</code> (a DOI-minting deposit), and
-— record-only, derived — <code>page</code> (a calcofi.org page) and <code>notebook</code> (the
-ingest). <code>distribution_portals()</code> — the host families a URL is classified
+— record-only, derived — <code>page</code> (a calcofi.org page), <code>notebook</code> (the
+ingest) and <code>bundle</code> (a zip of the dataset's tables a person can open, by format, from
+<code>publish_to-zip.qmd</code>'s manifest; see <code><a href="bundle_manifest_entry.html">bundle_manifest_entry()</a></code>). <code>distribution_portals()</code> — the host families a URL is classified
 into by <code><a href="classify_portal.html">classify_portal()</a></code>. <code>distribution_statuses()</code> — <code>current</code> (answers
 today), <code>superseded</code> (a newer record exists: see <code>superseded_by</code>), <code>retired</code>
 (the authority no longer serves it), <code>external</code> (a portal we do not run,

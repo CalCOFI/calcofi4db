@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.39.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.40.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,6 +77,28 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.40.0" id="calcofi4db-4400">calcofi4db 4.40.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4400"></a></h2>
+<ul><li>
+<strong>New: download bundles</strong> (<code>R/bundle.R</code>, <code>@concept bundle</code>), the rules of the workflows publisher <code>publish_to-zip.qmd</code>, which writes one zip per dataset per format so a researcher gets a file they can open: CSV for every dataset, an Excel workbook where every table fits, Parquet for every dataset.
+<ul><li>
+<code><a href="../reference/bundle_plan.html">bundle_plan()</a></code>: the record’s tables plus the shared ones a download needs to be used alone (<code>sample</code>, <code>cruise</code>, <code>taxon</code>, <code>measurement_type</code>), each cut to the dataset by one rule (<code>dataset_key</code>; <code>sample</code> also takes the samples the dataset’s rows point at and their parents; a shared table through its first <code>*_key</code>; a small table whole), and the supplemental full-resolution tables (<code>obs_ctd_full</code>, <code>obs_mets_full</code>) excluded with why.</li>
+<li>
+<code><a href="../reference/bundle_build_tables.html">bundle_build_tables()</a></code>: those tables in DuckDB, geometry and H3 cell columns dropped, and <code>site_key</code>, <code>line</code>, <code>station</code>, <code>scientific_name</code>, <code>common_name</code> and <code>units</code> added beside their keys so a row reads without a join; stored <code>ORDER BY ALL</code>. <code><a href="../reference/bundle_table_signatures.html">bundle_table_signatures()</a></code> signs them for <code><a href="../reference/publish_fingerprint.html">publish_fingerprint()</a></code>.</li>
+<li>
+<code><a href="../reference/bundle_format_decision.html">bundle_format_decision()</a></code>: an Excel workbook whenever every table fits an Excel sheet (<code>BUNDLE_XLSX_MAX_ROWS</code>, 1,048,575 data rows below the header row, Excel’s own <code>EXCEL_MAX_ROWS</code> of 1,048,576); a CSV longer than that is flagged as not openable in a spreadsheet; each reason in plain words.</li>
+<li>
+<code><a href="../reference/bundle_readme.html">bundle_readme()</a></code>, <code><a href="../reference/bundle_citation.html">bundle_citation()</a></code> (the dataset’s citation when the provider gave one, always the release’s with its DOIs; Markdown and BibTeX), <code><a href="../reference/bundle_license.html">bundle_license()</a></code> (the legal code, shipped in <code>inst/licenses/</code>, only for a recognised licence id; the provider’s terms URL for <code>custom</code>; a plain statement and whom to ask when no licence is established) and <code><a href="../reference/bundle_columns.html">bundle_columns()</a></code> (a dictionary from the release’s <code>metadata.json</code>).</li>
+<li>
+<code><a href="../reference/write_bundle.html">write_bundle()</a></code> writes the zips; <code><a href="../reference/bundle_zip.html">bundle_zip()</a></code> makes them byte-reproducible (fixed member order, timestamp, mode and <code>TZ=UTC</code>; an Excel workbook’s internal timestamp fixed too); a zip over <code>BUNDLE_MAX_ZIP_BYTES</code> (2 GiB) stops the build. <code><a href="../reference/bundle_file_name.html">bundle_file_name()</a></code> names them <code>calcofi_{dataset_key}_{version}_{format}.zip</code> (no doubled <code>calcofi_</code>).</li>
+<li>
+<code><a href="../reference/bundle_manifest_entry.html">bundle_manifest_entry()</a></code> is one dataset’s record in the manifest the website reads (<code>publish/zip/manifest.json</code>); <code><a href="../reference/fetch_bundle_manifest.html">fetch_bundle_manifest()</a></code> reads it.</li>
+</ul></li>
+<li>
+<strong><code><a href="../reference/distribution_kinds.html">distribution_kinds()</a></code> gains <code>bundle</code></strong> (record-only, like <code>page</code>/<code>notebook</code>; also in <code>inst/schema/datasets.schema.json</code>). <code><a href="../reference/dataset_distributions.html">dataset_distributions()</a></code> and <code><a href="../reference/build_dataset_catalog.html">build_dataset_catalog()</a></code> take <code>bundles =</code> (the parsed manifest) and add one <code>kind = "bundle"</code> row per format written, the entry built from the release, else the newest; the CSV row carries <code>skipped</code>, the formats not offered and why. STAC treats a <code>.zip</code> as <code>application/zip</code> with role <code>data</code>.</li>
+<li>
+<code>writexl</code> and <code>zip</code> are now Imports (<code>zip</code> was Suggests); <code>readxl</code> joins Suggests (tests).</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.39.0" id="calcofi4db-4390">calcofi4db 4.39.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4390"></a></h2>
 <ul><li>

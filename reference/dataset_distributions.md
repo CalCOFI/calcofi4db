@@ -22,7 +22,8 @@ dataset_distributions(
   curated = NULL,
   version = NULL,
   workflow_url = NULL,
-  stac_base = NULL
+  stac_base = NULL,
+  bundles = NULL
 )
 ```
 
@@ -68,6 +69,17 @@ dataset_distributions(
 
   the STAC root the release writes (`https://…/calcofi-db/stac`); NULL
   (a holding, or a run with no STAC) adds no row
+
+- bundles:
+
+  the parsed bundle manifest from
+  [`fetch_bundle_manifest()`](https://calcofi.io/calcofi4db/reference/fetch_bundle_manifest.md),
+  or NULL: one `kind = "bundle"` row per format written for the dataset
+  — the entry built from `version`, else the newest built
+  (`publish_to-zip.qmd` runs after the release, so at release time it is
+  the previous release's, which still holds the same rows unless the
+  dataset changed). The CSV row carries `skipped`, the formats not
+  offered and why.
 
 ## Value
 

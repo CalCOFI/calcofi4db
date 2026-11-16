@@ -14,6 +14,7 @@ build_dataset_catalog(
   version = NULL,
   erddap = NULL,
   netcdf = NULL,
+  bundles = NULL,
   since = NULL,
   source_accessed = NULL,
   spatial_layers = NULL,
@@ -57,6 +58,13 @@ build_dataset_catalog(
 
   the list from
   [`fetch_netcdf_manifests()`](https://calcofi.io/calcofi4db/reference/fetch_netcdf_manifests.md)
+
+- bundles:
+
+  the parsed bundle manifest from
+  [`fetch_bundle_manifest()`](https://calcofi.io/calcofi4db/reference/fetch_bundle_manifest.md)
+  (NULL: no `bundle` rows); see
+  [`dataset_distributions()`](https://calcofi.io/calcofi4db/reference/dataset_distributions.md)
 
 - since:
 

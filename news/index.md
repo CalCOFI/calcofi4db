@@ -1,5 +1,71 @@
 # Changelog
 
+## calcofi4db 4.40.0
+
+- **New: download bundles** (`R/bundle.R`, `@concept bundle`), the rules
+  of the workflows publisher `publish_to-zip.qmd`, which writes one zip
+  per dataset per format so a researcher gets a file they can open: CSV
+  for every dataset, an Excel workbook where every table fits, Parquet
+  for every dataset.
+  - [`bundle_plan()`](https://calcofi.io/calcofi4db/reference/bundle_plan.md):
+    the record’s tables plus the shared ones a download needs to be used
+    alone (`sample`, `cruise`, `taxon`, `measurement_type`), each cut to
+    the dataset by one rule (`dataset_key`; `sample` also takes the
+    samples the dataset’s rows point at and their parents; a shared
+    table through its first `*_key`; a small table whole), and the
+    supplemental full-resolution tables (`obs_ctd_full`,
+    `obs_mets_full`) excluded with why.
+  - [`bundle_build_tables()`](https://calcofi.io/calcofi4db/reference/bundle_build_tables.md):
+    those tables in DuckDB, geometry and H3 cell columns dropped, and
+    `site_key`, `line`, `station`, `scientific_name`, `common_name` and
+    `units` added beside their keys so a row reads without a join;
+    stored `ORDER BY ALL`.
+    [`bundle_table_signatures()`](https://calcofi.io/calcofi4db/reference/bundle_table_signatures.md)
+    signs them for
+    [`publish_fingerprint()`](https://calcofi.io/calcofi4db/reference/publish_fingerprint.md).
+  - [`bundle_format_decision()`](https://calcofi.io/calcofi4db/reference/bundle_format_decision.md):
+    an Excel workbook whenever every table fits an Excel sheet
+    (`BUNDLE_XLSX_MAX_ROWS`, 1,048,575 data rows below the header row,
+    Excel’s own `EXCEL_MAX_ROWS` of 1,048,576); a CSV longer than that
+    is flagged as not openable in a spreadsheet; each reason in plain
+    words.
+  - [`bundle_readme()`](https://calcofi.io/calcofi4db/reference/bundle_readme.md),
+    [`bundle_citation()`](https://calcofi.io/calcofi4db/reference/bundle_citation.md)
+    (the dataset’s citation when the provider gave one, always the
+    release’s with its DOIs; Markdown and BibTeX),
+    [`bundle_license()`](https://calcofi.io/calcofi4db/reference/bundle_license.md)
+    (the legal code, shipped in `inst/licenses/`, only for a recognised
+    licence id; the provider’s terms URL for `custom`; a plain statement
+    and whom to ask when no licence is established) and
+    [`bundle_columns()`](https://calcofi.io/calcofi4db/reference/bundle_columns.md)
+    (a dictionary from the release’s `metadata.json`).
+  - [`write_bundle()`](https://calcofi.io/calcofi4db/reference/write_bundle.md)
+    writes the zips;
+    [`bundle_zip()`](https://calcofi.io/calcofi4db/reference/bundle_zip.md)
+    makes them byte-reproducible (fixed member order, timestamp, mode
+    and `TZ=UTC`; an Excel workbook’s internal timestamp fixed too); a
+    zip over `BUNDLE_MAX_ZIP_BYTES` (2 GiB) stops the build.
+    [`bundle_file_name()`](https://calcofi.io/calcofi4db/reference/bundle_file_name.md)
+    names them `calcofi_{dataset_key}_{version}_{format}.zip` (no
+    doubled `calcofi_`).
+  - [`bundle_manifest_entry()`](https://calcofi.io/calcofi4db/reference/bundle_manifest_entry.md)
+    is one dataset’s record in the manifest the website reads
+    (`publish/zip/manifest.json`);
+    [`fetch_bundle_manifest()`](https://calcofi.io/calcofi4db/reference/fetch_bundle_manifest.md)
+    reads it.
+- **[`distribution_kinds()`](https://calcofi.io/calcofi4db/reference/distribution_kinds.md)
+  gains `bundle`** (record-only, like `page`/`notebook`; also in
+  `inst/schema/datasets.schema.json`).
+  [`dataset_distributions()`](https://calcofi.io/calcofi4db/reference/dataset_distributions.md)
+  and
+  [`build_dataset_catalog()`](https://calcofi.io/calcofi4db/reference/build_dataset_catalog.md)
+  take `bundles =` (the parsed manifest) and add one `kind = "bundle"`
+  row per format written, the entry built from the release, else the
+  newest; the CSV row carries `skipped`, the formats not offered and
+  why. STAC treats a `.zip` as `application/zip` with role `data`.
+- `writexl` and `zip` are now Imports (`zip` was Suggests); `readxl`
+  joins Suggests (tests).
+
 ## calcofi4db 4.39.0
 
 - **New

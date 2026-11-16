@@ -9,6 +9,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/CC_PARQUET_WRITER.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/CC_PUBLIC_BUCKETS.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/CC_RELEASE_PREFIX.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/EXCEL_MAX_ROWS.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/OBS_VIEW_COLUMNS.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/RELEASE_REQUIRED_OBJECTS.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/add_cruise_date_span.html</loc></url>
@@ -72,6 +73,18 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/build_taxon_reference.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_taxon_table.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/build_versions_json.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/bundle_build_tables.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/bundle_citation.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/bundle_columns.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/bundle_file_name.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/bundle_format_decision.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/bundle_formats.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/bundle_license.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/bundle_manifest_entry.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/bundle_plan.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/bundle_readme.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/bundle_table_signatures.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/bundle_zip.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/calcofi4db-package.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/canonical_path.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/catalog_findings.html</loc></url>
@@ -215,6 +228,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/erddap_grain_description.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/export_parquet.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/export_release_parquet.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/fetch_bundle_manifest.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/fetch_erddap_datasets.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/fetch_netcdf_manifests.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/fetch_ship_ices.html</loc></url>
@@ -450,6 +464,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/validate_taxa_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/variable_csv_header_comment.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/versions_record.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/write_bundle.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/write_dataset_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/write_distribution_observed.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/write_eml_files.html</loc></url>

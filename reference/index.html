@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.39.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.40.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -1321,6 +1321,13 @@
 
         <dt>
 
+          <code><a href="EXCEL_MAX_ROWS.html">EXCEL_MAX_ROWS</a></code> <code><a href="EXCEL_MAX_ROWS.html">BUNDLE_XLSX_MAX_ROWS</a></code> <code><a href="EXCEL_MAX_ROWS.html">BUNDLE_MAX_ZIP_BYTES</a></code>
+
+        </dt>
+        <dd>Limits a bundle is held to</dd>
+
+        <dt>
+
           <code><a href="OBS_VIEW_COLUMNS.html">OBS_VIEW_COLUMNS</a></code>
 
         </dt>
@@ -1668,6 +1675,90 @@
 
         </dt>
         <dd>Build the <code>versions.json</code> register of every release under a prefix</dd>
+
+        <dt>
+
+          <code><a href="bundle_build_tables.html">bundle_build_tables()</a></code>
+
+        </dt>
+        <dd>Build a dataset's bundle tables in a DuckDB connection</dd>
+
+        <dt>
+
+          <code><a href="bundle_citation.html">bundle_citation()</a></code>
+
+        </dt>
+        <dd>The citation a dataset's bundle carries</dd>
+
+        <dt>
+
+          <code><a href="bundle_columns.html">bundle_columns()</a></code>
+
+        </dt>
+        <dd>The column dictionary of a dataset's bundle</dd>
+
+        <dt>
+
+          <code><a href="bundle_file_name.html">bundle_file_name()</a></code>
+
+        </dt>
+        <dd>The file name of a dataset's bundle</dd>
+
+        <dt>
+
+          <code><a href="bundle_format_decision.html">bundle_format_decision()</a></code>
+
+        </dt>
+        <dd>Which formats a dataset's bundle is offered in, and why one is not</dd>
+
+        <dt>
+
+          <code><a href="bundle_formats.html">bundle_formats()</a></code>
+
+        </dt>
+        <dd>The download formats a dataset bundle can be written in</dd>
+
+        <dt>
+
+          <code><a href="bundle_license.html">bundle_license()</a></code>
+
+        </dt>
+        <dd>The licence a dataset's bundle carries, in words</dd>
+
+        <dt>
+
+          <code><a href="bundle_manifest_entry.html">bundle_manifest_entry()</a></code>
+
+        </dt>
+        <dd>One dataset's entry in the bundle manifest the website reads</dd>
+
+        <dt>
+
+          <code><a href="bundle_plan.html">bundle_plan()</a></code>
+
+        </dt>
+        <dd>Plan a dataset's bundle: which tables, cut how, and what is left out</dd>
+
+        <dt>
+
+          <code><a href="bundle_readme.html">bundle_readme()</a></code>
+
+        </dt>
+        <dd>The README of a dataset's bundle</dd>
+
+        <dt>
+
+          <code><a href="bundle_table_signatures.html">bundle_table_signatures()</a></code>
+
+        </dt>
+        <dd>Row signatures of a dataset's bundle tables, for its fingerprint</dd>
+
+        <dt>
+
+          <code><a href="bundle_zip.html">bundle_zip()</a></code>
+
+        </dt>
+        <dd>Zip files so the same content always gives the same bytes</dd>
 
         <dt>
 
@@ -2284,6 +2375,13 @@
 
         </dt>
         <dd>Deterministic parquet export of one released table</dd>
+
+        <dt>
+
+          <code><a href="fetch_bundle_manifest.html">fetch_bundle_manifest()</a></code>
+
+        </dt>
+        <dd>The bundle manifest of every dataset published by <code>publish_to-zip.qmd</code></dd>
 
         <dt>
 
@@ -3313,6 +3411,13 @@
 
         </dt>
         <dd>One release's record in <code>versions.json</code>, from its <code>catalog.json</code></dd>
+
+        <dt>
+
+          <code><a href="write_bundle.html">write_bundle()</a></code>
+
+        </dt>
+        <dd>Write a dataset's bundle zips</dd>
 
         <dt>
 

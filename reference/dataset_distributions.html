@@ -57,7 +57,7 @@ of those, listed with legacy: true and whether it is still live."><!-- calcofi.i
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.39.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.40.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -114,7 +114,8 @@ of those, listed with <code>legacy: true</code> and whether it is still <code>li
 <span>  curated <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  version <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  workflow_url <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  stac_base <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  stac_base <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  bundles <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -157,6 +158,14 @@ of those, listed with <code>legacy: true</code> and whether it is still <code>li
 <dt id="arg-stac-base">stac_base<a class="anchor" aria-label="anchor" href="#arg-stac-base"></a></dt>
 <dd><p>the STAC root the release writes (<code>https://…/calcofi-db/stac</code>);
 NULL (a holding, or a run with no STAC) adds no row</p></dd>
+
+
+<dt id="arg-bundles">bundles<a class="anchor" aria-label="anchor" href="#arg-bundles"></a></dt>
+<dd><p>the parsed bundle manifest from <code><a href="fetch_bundle_manifest.html">fetch_bundle_manifest()</a></code>, or NULL: one
+<code>kind = "bundle"</code> row per format written for the dataset — the entry built from
+<code>version</code>, else the newest built (<code>publish_to-zip.qmd</code> runs after the release, so at
+release time it is the previous release's, which still holds the same rows unless the
+dataset changed). The CSV row carries <code>skipped</code>, the formats not offered and why.</p></dd>
 
 </dl></div>
     <div class="section level2">
