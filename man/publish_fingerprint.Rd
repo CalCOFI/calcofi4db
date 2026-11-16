@@ -4,7 +4,12 @@
 \alias{publish_fingerprint}
 \title{Fingerprint what one dataset's published output is a function of}
 \usage{
-publish_fingerprint(data = character(), metadata = list(), code = character())
+publish_fingerprint(
+  data = character(),
+  metadata = list(),
+  code = character(),
+  format = NULL
+)
 }
 \arguments{
 \item{data}{named character from \code{\link[=publish_data_parts]{publish_data_parts()}}}
@@ -14,12 +19,26 @@ from \code{\link[=publish_record_digest]{publish_record_digest()}}, a registry t
 is digested and named \code{meta:{name}}}
 
 \item{code}{named character from \code{\link[=publish_code_parts]{publish_code_parts()}}}
+
+\item{format}{the publisher's format version, e.g. \code{CC_PUBLISH_FORMAT[["zip"]]};
+NULL leaves it out (\code{content_hash} is then over data and metadata only)}
 }
 \value{
-A list shaped like \code{\link[=input_fingerprint]{input_fingerprint()}}'s — \code{hash} and named \code{parts} — so
-\code{\link[=changed_inputs]{changed_inputs()}} reports what moved.
+A list shaped like \code{\link[=input_fingerprint]{input_fingerprint()}}'s — \code{hash} and named \code{parts} — plus
+\code{content_hash} (32 hex characters, the release objects' form) and \code{data_hash} (the
+same over the \verb{data:*} parts alone, so a rebuild for a metadata change reads as
+"same data, new object").
 }
 \description{
-Fingerprint what one dataset's published output is a function of
+Two digests, the release's two identities carried over to published objects
+(\code{R/release.R}): \code{content_hash} is the object's identity and names its path
+(\code{\link[=publish_object_path]{publish_object_path()}}), exactly as a release table's \code{content_hash} names its
+canonical object — the \code{.short_sig()} of the dataset's row signatures in every table
+the output holds (\verb{data:*}, the release's own order-independent signatures), the
+metadata it carries (\verb{meta:*}) and the publisher's pinned output format
+(\link{CC_PUBLISH_FORMAT}), and \strong{not} the code: as a parquet writer change does not
+re-upload a release table, a code edit does not re-publish an object until the
+publisher's format version is bumped. \code{hash} additionally covers the code, so
+\code{\link[=changed_inputs]{changed_inputs()}} can still say a code file moved.
 }
 \concept{publish}

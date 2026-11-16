@@ -277,7 +277,8 @@ test_that("bundle_readme() says what, who, when, which files, what is left out a
   b <- bundle_build_tables(con, p, "ds_a", bundle_from())
   d <- bundle_format_decision(c(obs = 2e6, sample = 4))
   r <- bundle_readme(rec_a, release_fx, "csv", b, p, d, bundle_license(rec_a))
-  for (s in c("# Dataset A", "release **v2026.11.14** (2026-11-14)", "Provider Lab", "J Doe",
+  for (s in c("# Dataset A", "built from CalCOFI integrated database release **v2026.11.14** (2026-11-14)",
+              "identical in\nevery later release that lists this file; see https://calcofi.io/datasets/ds_a/", "Provider Lab", "J Doe",
               "https://calcofi.io/datasets/ds_a/", "https://calcofi.io/explore/", CC_REGISTER_USE_URL,
               CC_STAY_INFORMED_URL, "| `obs.csv` |", "| 3 |", "`obs_full`: full-resolution supplemental",
               "XLSX: Not offered as an Excel workbook", "`hex_id`", "`sample_key` → `sample`",
@@ -361,7 +362,11 @@ test_that("bundle_manifest_entry() is the site's contract: a url per file, a rea
   expect_equal(e$checked_version, "v2026.11.20"); expect_equal(e$license, "CC-BY-4.0")
   expect_equal(vapply(e$bundles, `[[`, "", "format"), c("csv", "xlsx", "parquet"))
   csv <- e$bundles[[1]]
-  expect_equal(csv$url, "https://storage.googleapis.com/calcofi-db/publish/zip/ds_a/calcofi_ds_a_v2026.11.14_csv.zip")
+  h24 <- substr(fp$content_hash, 1, 24)
+  expect_equal(csv$url, sprintf("https://storage.googleapis.com/calcofi-db/publish/zip/ds_a/%s/calcofi_ds_a_v2026.11.14_csv.zip", h24))
+  expect_equal(csv$path, sprintf("publish/zip/ds_a/%s/calcofi_ds_a_v2026.11.14_csv.zip", h24))
+  expect_equal(e$content_hash, fp$content_hash); expect_equal(e$data_hash, fp$data_hash)
+  expect_equal(e$since, "v2026.11.14")
   expect_equal(csv$rows$obs, 3); expect_true(csv$excel_openable); expect_equal(csv$bytes, w$bytes[1])
   xl <- e$bundles[[2]]
   expect_false(xl$written); expect_null(xl$url); expect_match(xl$reason, "Not offered as an Excel workbook")

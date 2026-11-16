@@ -10,7 +10,8 @@ publish_record_digest(record, drop = PUBLISH_RECORD_VOLATILE)
 \item{record}{one dataset record from \code{datasets.json} (a list), or any list}
 
 \item{drop}{top-level keys to leave out; defaults to the internal \code{PUBLISH_RECORD_VOLATILE}
-(\code{objects}, \code{since_version}, \code{distributions}, \code{registrations}, \code{status})}
+(\code{objects}, \code{since_version}, \code{distributions}, \code{registrations}, \code{status});
+\code{attribution.source_accessed}, re-measured at every release, is always left out}
 }
 \value{
 An md5 over the record's canonical JSON (names sorted at every level), so

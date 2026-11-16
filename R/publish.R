@@ -215,7 +215,8 @@ publish_data_parts <- function(signatures, dataset_key, tables) {
 #'
 #' @param record one dataset record from `datasets.json` (a list), or any list
 #' @param drop top-level keys to leave out; defaults to the internal `PUBLISH_RECORD_VOLATILE`
-#'   (`objects`, `since_version`, `distributions`, `registrations`, `status`)
+#'   (`objects`, `since_version`, `distributions`, `registrations`, `status`);
+#'   `attribution.source_accessed`, re-measured at every release, is always left out
 #' @return An md5 over the record's canonical JSON (names sorted at every level), so
 #'   key order never matters and a changed value always does.
 #' @export
@@ -224,6 +225,9 @@ publish_record_digest <- function(record, drop = PUBLISH_RECORD_VOLATILE) {
   if (is.null(record)) return("<missing>")
   if (is.list(record) && !is.null(names(record)))
     record <- record[setdiff(names(record), drop)]
+  # measured at every release (the date the source was last read), not a fact about the
+  # dataset's content: a new release alone must not make its published objects look changed
+  if (is.list(record[["attribution"]])) record[["attribution"]][["source_accessed"]] <- NULL
   .publish_digest(record)
 }
 
@@ -281,24 +285,121 @@ publish_code_parts <- function(files) {
 
 #' Fingerprint what one dataset's published output is a function of
 #'
+#' Two digests, the release's two identities carried over to published objects
+#' (`R/release.R`): `content_hash` is the object's identity and names its path
+#' ([publish_object_path()]), exactly as a release table's `content_hash` names its
+#' canonical object — the `.short_sig()` of the dataset's row signatures in every table
+#' the output holds (`data:*`, the release's own order-independent signatures), the
+#' metadata it carries (`meta:*`) and the publisher's pinned output format
+#' ([CC_PUBLISH_FORMAT]), and **not** the code: as a parquet writer change does not
+#' re-upload a release table, a code edit does not re-publish an object until the
+#' publisher's format version is bumped. `hash` additionally covers the code, so
+#' [changed_inputs()] can still say a code file moved.
+#'
 #' @param data named character from [publish_data_parts()]
 #' @param metadata named list of anything else the output reads — the record digest
 #'   from [publish_record_digest()], a registry table, a sidecar list; each element
 #'   is digested and named `meta:{name}`
 #' @param code named character from [publish_code_parts()]
-#' @return A list shaped like [input_fingerprint()]'s — `hash` and named `parts` — so
-#'   [changed_inputs()] reports what moved.
+#' @param format the publisher's format version, e.g. `CC_PUBLISH_FORMAT[["zip"]]`;
+#'   NULL leaves it out (`content_hash` is then over data and metadata only)
+#' @return A list shaped like [input_fingerprint()]'s — `hash` and named `parts` — plus
+#'   `content_hash` (32 hex characters, the release objects' form) and `data_hash` (the
+#'   same over the `data:*` parts alone, so a rebuild for a metadata change reads as
+#'   "same data, new object").
 #' @export
 #' @concept publish
-publish_fingerprint <- function(data = character(), metadata = list(), code = character()) {
+publish_fingerprint <- function(data = character(), metadata = list(), code = character(),
+                                format = NULL) {
   meta <- if (length(metadata))
     stats::setNames(vapply(metadata, .publish_digest, ""), paste0("meta:", names(metadata))) else
     character()
+  if (!is.null(format)) meta <- c(meta, `format:version` = as.character(format))
   parts <- c(data, meta, code)
   parts <- parts[order(names(parts))]
+  ident <- parts[!startsWith(names(parts), "code:")]
+  dat   <- parts[startsWith(names(parts), "data:")]
+  sig   <- function(x) .short_sig(paste(names(x), x, sep = "=", collapse = "\n"))
   list(hash  = digest::digest(paste(names(parts), parts, sep = "=", collapse = "\n"),
                               algo = "md5", serialize = FALSE),
-       parts = parts)
+       parts = parts,
+       content_hash = sig(ident),
+       data_hash    = sig(dat))
+}
+
+#' Pinned output format of each publisher
+#'
+#' The publishers' counterpart of [CC_PARQUET_WRITER]: a published object's identity
+#' ([publish_fingerprint()]'s `content_hash`) covers its data, its metadata and this
+#' version, not the code that wrote it, so a fix to how a publisher writes its files
+#' reaches users only when its entry here is bumped — which gives every object of that
+#' publisher a new `content_hash`, a new path and a new upload. Record a bump in
+#' workflows' RELEASES.md.
+#' @export
+#' @concept publish
+CC_PUBLISH_FORMAT <- list(zip = "1", netcdf = "1", edi = "1", dwca = "1")
+
+#' Content-addressed path of a published object
+#'
+#' The publishers' form of [canonical_path()]: the identity is a directory and the file
+#' keeps its readable name, so one object per distinct content is stored once and every
+#' release that carries the same content points at it.
+#'
+#' @param publisher `zip`, `netcdf`, `edi`, `dwca`, … (the folder under `prefix`)
+#' @param dataset_key the dataset
+#' @param content_hash the object's identity ([publish_fingerprint()]); its first 24
+#'   characters name the directory, as in [canonical_path()]
+#' @param file the file name inside it; NULL gives the directory
+#' @param prefix bucket-relative prefix
+#' @return A bucket-relative path: `{prefix}/{publisher}/{dataset_key}/{hash24}/{file}`.
+#' @export
+#' @concept publish
+publish_object_path <- function(publisher, dataset_key, content_hash, file = NULL, prefix = "publish") {
+  stopifnot(nzchar(publisher), nzchar(dataset_key), nchar(.s(content_hash)) >= 24)
+  d <- paste(c(if (nzchar(.s(prefix))) prefix, publisher, dataset_key, substr(content_hash, 1, 24)), collapse = "/")
+  if (is.null(file)) d else paste0(d, "/", file)
+}
+
+#' Decide, per published object, whether to upload it or point at the one already there
+#'
+#' The publishers' [freeze_plan()]: an object whose `content_hash` the previous manifest
+#' already lists for the same dataset and format **exists** — nothing is written or
+#' uploaded, it keeps the previous object's `since`, `path`, `bytes` and `sha256`, and only
+#' the manifest's release moves on; any other is an **upload** under its own
+#' content-addressed path, `since` this release. Nothing is ever deleted: an object a
+#' newer content replaces stays addressable at its path (thinning is a separate, explicit
+#' act, as for release tables).
+#'
+#' @param objects data frame, one row per object this release would publish:
+#'   `dataset_key`, `format`, `content_hash`, and optionally `path`, `bytes`, `sha256`
+#' @param prev data frame of the previous manifest's objects (same columns plus `since`),
+#'   or NULL
+#' @param version the release being published from
+#' @return `objects` with `since`, `action` (`upload` | `exists`), and `path`, `bytes`,
+#'   `sha256` taken from `prev` for an existing object.
+#' @export
+#' @concept publish
+publish_objects_plan <- function(objects, prev = NULL, version) {
+  stopifnot(is.data.frame(objects), all(c("dataset_key", "format", "content_hash") %in% names(objects)),
+            nzchar(.s(version)))
+  for (col in c("path", "sha256")) if (!col %in% names(objects)) objects[[col]] <- NA_character_
+  if (!"bytes" %in% names(objects)) objects$bytes <- NA_real_
+  key <- function(d) paste(d$dataset_key, d$format, d$content_hash, sep = "|")
+  m <- if (is.null(prev) || !nrow(prev)) rep(NA_integer_, nrow(objects)) else match(key(objects), key(prev))
+  hit <- !is.na(m)
+  objects$action <- ifelse(hit, "exists", "upload")
+  objects$since  <- version
+  if (any(hit)) {
+    pv <- prev[m[hit], , drop = FALSE]
+    objects$since[hit] <- ifelse(is.na(pv$since) | !nzchar(pv$since), version, pv$since)
+    for (col in intersect(c("path", "bytes", "sha256"), names(prev)))
+      objects[[col]][hit] <- ifelse(is.na(pv[[col]]), objects[[col]][hit], pv[[col]])
+  }
+  dp <- unique(objects$path[!is.na(objects$path) & duplicated(objects$path)])
+  if (length(dp))
+    stop("publish_objects_plan(): two objects would share one path: ", paste(dp, collapse = ", "),
+         call. = FALSE)
+  objects
 }
 
 #' Reuse a dataset's previous build, or rebuild it?
@@ -317,8 +418,15 @@ publish_decide <- function(fp, prior = NULL, outputs = character()) {
   if (is.null(prior) || !nzchar(.s(prior[["hash"]])))
     return(list(action = "build", changed = names(fp$parts), reason = "no previous build"))
   changed <- changed_inputs(fp, list(parts = as.list(unlist(prior[["parts"]]))))
-  if (identical(.s(prior[["hash"]]), fp$hash) && !length(missing))
-    return(list(action = "reuse", changed = character(), reason = "no input changed"))
+  # identity is the content_hash when both carry one (code is not identity; see
+  # publish_fingerprint()), else the whole fingerprint as before
+  same <- if (nzchar(.s(prior[["content_hash"]])) && nzchar(.s(fp$content_hash)))
+    identical(.s(prior[["content_hash"]]), fp$content_hash) else identical(.s(prior[["hash"]]), fp$hash)
+  if (same && !length(missing))
+    return(list(action = "reuse", changed = changed,
+                reason = if (length(changed)) paste("same content; only code changed:", paste(changed, collapse = ", "),
+                                                    "(not republished until CC_PUBLISH_FORMAT is bumped)") else
+                  "no input changed"))
   reason <- if (length(changed)) paste("changed:", paste(changed, collapse = ", ")) else
     paste("outputs missing:", paste(basename(missing), collapse = ", "))
   list(action = "build", changed = changed, reason = reason)

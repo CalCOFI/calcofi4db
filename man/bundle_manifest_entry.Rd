@@ -21,7 +21,7 @@ bundle_manifest_entry(
 \arguments{
 \item{record}{one dataset record from \code{datasets.json}}
 
-\item{version}{the release the bundles were built from}
+\item{version}{the release the bundles' content first appeared in (\code{since})}
 
 \item{release_date}{that release's date}
 
@@ -37,16 +37,23 @@ bundle_manifest_entry(
 
 \item{license_kind, has_provider_citation}{from \code{\link[=bundle_license]{bundle_license()}} / \code{\link[=bundle_citation]{bundle_citation()}}}
 
-\item{base_url}{the public root the zips are served from (\code{{base_url}/{dataset_key}/{file}})}
+\item{base_url}{the public root the zips are served from
+(\code{{base_url}/{dataset_key}/{content_hash[1:24]}/{file}}, \code{\link[=publish_object_path]{publish_object_path()}})}
 }
 \value{
 A named list, ready for \code{jsonlite::toJSON(auto_unbox = TRUE)}.
 }
 \description{
-The contract between \code{publish_to-zip.qmd} and calcofi.io: per dataset, the release the
-bundles were built from (\code{version}) and last confirmed against (\code{checked_version}), the
-licence kind, whether the provider gave a citation, the rows of every table, what was
-left out, and per format either the file (\code{url}, \code{bytes}, \code{sha256}, \code{excel_openable}) or
-the reason it is not offered, in plain words.
+The contract between \code{publish_to-zip.qmd} and calcofi.io: per dataset, the release its
+content first appeared in (\code{since}, also \code{version} for a schema-1.0 reader) and the
+release this run confirmed it against (\code{checked_version}), its identities —
+\code{content_hash} (data + its metadata record + the pinned format; names the object's
+directory, as a release table's content_hash does) and \code{data_hash} (the data alone) —
+the licence kind, whether the provider gave a citation, the rows of every table, what
+was left out, and per format either the file (\code{path}, \code{url}, \code{bytes}, \code{sha256},
+\code{excel_openable}) or the reason it is not offered, in plain words. Each release's
+manifest is kept (\code{publish/zip/releases/{version}/manifest.json}), so the history of a
+dataset's packages is the chain of manifests, as a release table's is the chain of
+catalogs; an object a newer content replaced stays at its path.
 }
 \concept{bundle}

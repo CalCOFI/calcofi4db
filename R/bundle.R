@@ -742,8 +742,10 @@ bundle_readme <- function(record, release, format, tables, plan, decision, licen
   lic_line <- license$summary
   txt <- c(
     sprintf("# %s", nm), "",
-    sprintf("CalCOFI integrated database, release **%s**%s: %s.", v,
-            if (nzchar(rd)) sprintf(" (%s)", rd) else "", what), "",
+    sprintf("%s, built from CalCOFI integrated database release **%s**%s. The data are identical in",
+            paste0(toupper(substr(what, 1, 1)), substring(what, 2)), v, if (nzchar(rd)) sprintf(" (%s)", rd) else ""),
+    sprintf("every later release that lists this file; see %s%s/ for the current release.",
+            CC_DATASET_PAGE_BASE, key), "",
     if (nzchar(desc)) c(desc, ""),
     if (nzchar(.s(prov[["name"]]))) sprintf("- **Provided by:** %s%s", .s(prov[["name"]]),
                                             if (nzchar(.s(prov[["url"]]))) sprintf(" (%s)", .s(prov[["url"]])) else ""),
@@ -970,14 +972,20 @@ write_bundle <- function(con, record, release, tables, plan, out_dir,
 
 #' One dataset's entry in the bundle manifest the website reads
 #'
-#' The contract between `publish_to-zip.qmd` and calcofi.io: per dataset, the release the
-#' bundles were built from (`version`) and last confirmed against (`checked_version`), the
-#' licence kind, whether the provider gave a citation, the rows of every table, what was
-#' left out, and per format either the file (`url`, `bytes`, `sha256`, `excel_openable`) or
-#' the reason it is not offered, in plain words.
+#' The contract between `publish_to-zip.qmd` and calcofi.io: per dataset, the release its
+#' content first appeared in (`since`, also `version` for a schema-1.0 reader) and the
+#' release this run confirmed it against (`checked_version`), its identities —
+#' `content_hash` (data + its metadata record + the pinned format; names the object's
+#' directory, as a release table's content_hash does) and `data_hash` (the data alone) —
+#' the licence kind, whether the provider gave a citation, the rows of every table, what
+#' was left out, and per format either the file (`path`, `url`, `bytes`, `sha256`,
+#' `excel_openable`) or the reason it is not offered, in plain words. Each release's
+#' manifest is kept (`publish/zip/releases/{version}/manifest.json`), so the history of a
+#' dataset's packages is the chain of manifests, as a release table's is the chain of
+#' catalogs; an object a newer content replaced stays at its path.
 #'
 #' @param record one dataset record from `datasets.json`
-#' @param version the release the bundles were built from
+#' @param version the release the bundles' content first appeared in (`since`)
 #' @param release_date that release's date
 #' @param checked_version the release this run confirmed them against
 #' @param fingerprint the list from [publish_fingerprint()]
@@ -985,7 +993,8 @@ write_bundle <- function(con, record, release, tables, plan, out_dir,
 #' @param plan the data frame from [bundle_plan()]
 #' @param written the data frame from [write_bundle()]
 #' @param license_kind,has_provider_citation from [bundle_license()] / [bundle_citation()]
-#' @param base_url the public root the zips are served from (`{base_url}/{dataset_key}/{file}`)
+#' @param base_url the public root the zips are served from
+#'   (`{base_url}/{dataset_key}/{content_hash[1:24]}/{file}`, [publish_object_path()])
 #' @return A named list, ready for `jsonlite::toJSON(auto_unbox = TRUE)`.
 #' @export
 #' @concept bundle
@@ -995,12 +1004,17 @@ bundle_manifest_entry <- function(record, version, release_date, checked_version
   key <- .s(record[["dataset_key"]])
   rows <- stats::setNames(as.list(as.numeric(tables$rows)), tables$table)
   excl <- plan[plan$rule == "excluded", , drop = FALSE]
+  ch <- .s(fingerprint$content_hash)
+  stopifnot("the fingerprint carries no content_hash (calcofi4db >= 4.41.0)" = nchar(ch) >= 24)
   list(
     dataset_key     = key,
     dataset_name    = .chr_or_null(record[["dataset_name"]]),
+    since           = version,
     version         = version,
     release_date    = .chr_or_null(release_date),
     checked_version = checked_version,
+    content_hash    = ch,
+    data_hash       = .chr_or_null(fingerprint$data_hash),
     license         = .chr_or_null(.bundle_attr(record)[["license"]]),
     license_kind    = license_kind,
     has_provider_citation = isTRUE(has_provider_citation),
@@ -1014,7 +1028,8 @@ bundle_manifest_entry <- function(record, version, release_date, checked_version
       if (!isTRUE(w$written))
         return(list(format = w$format, written = FALSE, reason = w$reason))
       e <- list(format = w$format, written = TRUE, file = w$file,
-                url = sprintf("%s/%s/%s", sub("/+$", "", base_url), key, w$file),
+                path = publish_object_path("zip", key, ch, w$file),
+                url = sprintf("%s/%s/%s/%s", sub("/+$", "", base_url), key, substr(ch, 1, 24), w$file),
                 bytes = as.numeric(w$bytes), sha256 = w$sha256, media_type = "application/zip",
                 excel_openable = isTRUE(w$excel_openable), rows = rows)
       if (nzchar(.s(w$note))) e$note <- w$note
