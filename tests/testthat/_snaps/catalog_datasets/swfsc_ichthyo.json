@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "release": {
     "version": "v2026.09.04",
     "release_date": "2026-09-04",
@@ -37,6 +37,31 @@
     "visibility": "public",
     "description_md": "Ichthyoplankton (fish eggs and larvae) collected by bongo and manta net tows on CalCOFI cruises, processed by SWFSC.\n",
     "keywords": ["EARTH SCIENCE > BIOLOGICAL CLASSIFICATION > ANIMALS/VERTEBRATES > FISH", "EARTH SCIENCE > OCEANS > MARINE BIOLOGY > FISH LARVAE"],
+    "display": {
+      "name_plain": "Fish Egg and Larva Counts",
+      "description_short": "Fish eggs and larvae from net tows.",
+      "description_lede": null,
+      "notes_md": "A tow with nothing in it is a true zero.",
+      "collection": "Bongo and manta net tows on CalCOFI cruises",
+      "analysis": "Visual microscopy",
+      "analysis_org": "CalCOFI, NOAA SWFSC",
+      "collection_method": {
+        "key": "net",
+        "label": "Net tow"
+      },
+      "collection_status": "ongoing",
+      "browse_group": "fish-eggs-larvae",
+      "spatial_note": null,
+      "references": [
+        {
+          "label": "Methods",
+          "url": "https://example.org/methods"
+        }
+      ],
+      "column_notes": {
+        "tow_type": "Net type of the tow, for example CB (bongo)."
+      }
+    },
     "attribution": {
       "citation_main": "NOAA Fisheries SWFSC. CalCOFI Ichthyoplankton Database.",
       "citation_others": [],
@@ -54,6 +79,14 @@
           "orcid": null,
           "email": null,
           "role": "creator"
+        }
+      ],
+      "associated_parties": [
+        {
+          "name": "Noelle Bowlin",
+          "organization": "NOAA SWFSC",
+          "email": null,
+          "role": "data provider"
         }
       ],
       "funding": null,

@@ -18,7 +18,7 @@
 # by small helpers with an injectable `fetch`, so the tests run on fixtures.
 
 #' @keywords internal
-CC_DATASETS_SCHEMA_VERSION <- "1.1"
+CC_DATASETS_SCHEMA_VERSION <- "1.2"
 
 #' @keywords internal
 CC_DATASET_PAGE_BASE <- "https://calcofi.io/datasets/"
@@ -113,12 +113,23 @@ dataset_meta_descriptive_keys <- function() c(
   "quality_control_md", "maintenance", "creators", "associated_parties", "contact", "keywords",
   "keywords_gcmd", "funding", "acknowledgement", "citation_main", "citation_others", "license",
   "license_url", "doi", "pi_names", "link_calcofi_org", "link_data_source", "link_others",
-  "coverage_temporal", "coverage_spatial", "visibility")
+  "coverage_temporal", "coverage_spatial", "visibility",
+  # the reader's words (schema 1.2, `display`): they were typed in the site's
+  # `_data/dataset_extras.yml` until 2026-11-24 and are a provider's to edit
+  "description_short", "description_lede", "notes_md", "collection", "analysis", "analysis_org",
+  "collection_status", "references")
 
 #' @rdname dataset_meta_descriptive_keys
 #' @export
 dataset_meta_structural_keys <- function() c(
-  "dataset_name", "dataset_name_short", "category", "color", "tables", "in_release")
+  "dataset_name", "dataset_name_short", "category", "color", "tables", "in_release",
+  # display keys (schema 1.2): the plain name a browser recognises, the collection-method
+  # picture (`metadata/collection_method.csv`) and the browse tile (`metadata/browse_group.csv`)
+  "dataset_name_plain", "collection_method", "browse_group")
+
+#' @rdname dataset_meta_descriptive_keys
+#' @export
+collection_statuses <- function() c("ongoing", "ended")
 
 # small helpers --------------------------------------------------------------------
 
@@ -383,6 +394,32 @@ read_dataset_sidecars <- function(metadata_dir, licenses = NULL) {
   out
 }
 
+#' Read the display keys each ingest notebook declares
+#'
+#' The three structural display keys of schema 1.2 (`dataset_name_plain`,
+#' `collection_method`, `browse_group`) are authored in an ingest notebook's
+#' `calcofi.dataset_meta`. They never enter the release `dataset` table, so the
+#' record builder reads them from the notebooks' YAML directly.
+#'
+#' @param workflow_dir the directory holding `ingest_*.qmd`
+#' @param pattern which notebooks
+#' @return A named list keyed by `dataset_key`; each element a list of the three
+#'   keys (absent ones `NULL`). Empty when the directory holds no notebook.
+#' @export
+#' @concept catalog
+read_notebook_display <- function(workflow_dir, pattern = "^ingest_.*\\.qmd$") {
+  qmds <- sort(list.files(workflow_dir, pattern = pattern, full.names = TRUE))
+  out <- list()
+  for (qmd in qmds) {
+    cc <- tryCatch(.read_yaml_front_matter(qmd)$calcofi, error = function(e) NULL)
+    if (is.null(cc) || is.null(cc$provider) || is.null(cc$dataset)) next
+    m <- cc$dataset_meta %||% list()
+    out[[paste0(cc$provider, "_", cc$dataset)]] <-
+      m[intersect(names(m), c("dataset_name_plain", "collection_method", "browse_group"))]
+  }
+  out
+}
+
 #' Read every registry the dataset catalog joins
 #'
 #' One call for `category.csv`, `provider.csv`, `license.csv`,
@@ -433,7 +470,39 @@ read_catalog_registries <- function(metadata_dir) {
     q <- read_questions(p)
     sum(q[["status"]] %in% c("open", "proposed"))
   }
+  # display registries (schema 1.2), each optional: without one the record's block is null
+  opt <- function(file, cols, what) if (file.exists(f(file))) .read_registry_csv(f(file), cols, what) else NULL
+  collection_method <- opt("collection_method.csv", c("collection_method", "label"), "collection_method")
+  browse_group <- opt("browse_group.csv", c("browse_group", "name", "realm", "order", "line", "description"), "browse_group")
+  browse_realm <- opt("browse_realm.csv", c("realm", "title", "sub", "order"), "realm")
+  notebooks <- read_notebook_display(dirname(normalizePath(metadata_dir)))
+  for (k in names(notebooks)) {
+    nb <- notebooks[[k]]
+    if (.has_value(nb[["collection_method"]]) && !is.null(collection_method) &&
+        !.s(nb[["collection_method"]]) %in% collection_method$collection_method)
+      stop(k, " declares collection_method `", .s(nb[["collection_method"]]),
+           "` not in metadata/collection_method.csv", call. = FALSE)
+    if (.has_value(nb[["browse_group"]]) && !is.null(browse_group) &&
+        !.s(nb[["browse_group"]]) %in% browse_group$browse_group)
+      stop(k, " declares browse_group `", .s(nb[["browse_group"]]),
+           "` not in metadata/browse_group.csv", call. = FALSE)
+  }
+  for (k in names(sidecars)) {
+    cs <- .s(sidecars[[k]][["collection_status"]])
+    if (nzchar(cs) && !cs %in% collection_statuses())
+      stop(k, " declares collection_status `", cs, "`; allowed: ",
+           paste(collection_statuses(), collapse = " | "), call. = FALSE)
+  }
+  column_notes <- function(dataset_key) {
+    pd <- regmatches(dataset_key, regexec("^([^_]+)_(.+)$", dataset_key))[[1]]
+    if (length(pd) != 3) return(NULL)
+    p <- file.path(metadata_dir, pd[2], pd[3], "column_notes.csv")
+    if (!file.exists(p)) return(NULL)
+    .read_registry_csv(p, c("column", "note"), "column")
+  }
   list(category = category, provider = provider, license = license,
+       collection_method = collection_method, browse_group = browse_group, browse_realm = browse_realm,
+       notebooks = notebooks, column_notes = column_notes,
        dataset_status = read_dataset_status(f("dataset_status.csv")),
        distribution = dist, portal = portal, measurement_type = measurement_type, sidecars = sidecars,
        questions = questions, questions_open = questions_open, metadata_dir = metadata_dir)
@@ -977,8 +1046,59 @@ dataset_distributions <- function(key, ds, objects, erddap = NULL, netcdf = NULL
     contact         = .chr_or_null(ds[["contact"]]) %||% .chr_or_null(sc[["contact"]]),
     pi_names        = .split_semi(ds[["pi_names"]] %||% sc[["pi_names"]]),
     creators        = creators,
+    # the people beside the creators (schema 1.2): a data provider, a curator. They reached EML
+    # only, so the site typed its own "data provider" for three datasets.
+    associated_parties = lapply(.rows(sc[["associated_parties"]]), function(p) list(
+      name = .chr_or_null(p[["name"]]), organization = .chr_or_null(p[["organization"]]),
+      email = .chr_or_null(p[["email"]]), role = .chr_or_null(p[["role"]]))),
     funding         = .chr_or_null(sc[["funding"]]),
     source_accessed = .chr_or_null(source_accessed))
+}
+
+# display (schema 1.2): the words and pictures a person browsing needs, each from its one home.
+# Every key is null when its home is silent; a consumer draws nothing for a null.
+.display_block <- function(key, sc, registries) {
+  nb <- (registries[["notebooks"]] %||% list())[[key]] %||% list()
+  cm <- registries[["collection_method"]]
+  mk <- .chr_or_null(nb[["collection_method"]])
+  mi <- if (!is.null(mk) && !is.null(cm)) match(mk, cm$collection_method) else NA
+  cn <- if (is.function(registries[["column_notes"]])) registries$column_notes(key) else NULL
+  notes <- if (is.null(cn) || !nrow(cn)) NULL else
+    stats::setNames(as.list(as.character(cn[["note"]])), as.character(cn[["column"]]))
+  refs <- lapply(.rows(sc[["references"]]), function(r) list(
+    label = .chr_or_null(r[["label"]]) %||% .chr_or_null(r[["url"]]), url = .chr_or_null(r[["url"]])))
+  list(
+    name_plain        = .chr_or_null(nb[["dataset_name_plain"]]),
+    description_short = .chr_or_null(sc[["description_short"]]),
+    description_lede  = .chr_or_null(sc[["description_lede"]]),
+    notes_md          = .chr_or_null(sc[["notes_md"]]),
+    collection        = .chr_or_null(sc[["collection"]]),
+    analysis          = .chr_or_null(sc[["analysis"]]),
+    analysis_org      = .chr_or_null(sc[["analysis_org"]]),
+    collection_method = if (is.null(mk)) NULL else list(
+      key = mk, label = if (!is.na(mi)) .chr_or_null(cm$label[mi]) else NULL),
+    collection_status = .chr_or_null(sc[["collection_status"]]),
+    browse_group      = .chr_or_null(nb[["browse_group"]]),
+    # a sentence about where, for a dataset whose rows carry no station (region-pooled counts)
+    spatial_note      = .chr_or_null(sc[["coverage_spatial"]]),
+    references        = Filter(function(r) !is.null(r$url), refs),
+    column_notes      = notes)
+}
+
+# browse (schema 1.2): the tiles of a datasets page, their order and words, from the registries
+.browse_block <- function(registries) {
+  g <- registries[["browse_group"]]; r <- registries[["browse_realm"]]
+  if (is.null(g) || !nrow(g)) return(NULL)
+  g <- g[order(as.integer(g[["order"]])), , drop = FALSE]
+  list(
+    realms = if (is.null(r)) list() else lapply(order(as.integer(r[["order"]])), function(i) list(
+      realm = r[["realm"]][i], title = .chr_or_null(r[["title"]][i]), sub = .chr_or_null(r[["sub"]][i]),
+      order = .int_or_null(r[["order"]][i]))),
+    groups = lapply(seq_len(nrow(g)), function(i) list(
+      key = g[["browse_group"]][i], name = .chr_or_null(g[["name"]][i]), realm = .chr_or_null(g[["realm"]][i]),
+      order = .int_or_null(g[["order"]][i]),
+      icon = if ("icon" %in% names(g)) .chr_or_null(g[["icon"]][i]) else NULL,
+      line = .chr_or_null(g[["line"]][i]), description = .chr_or_null(g[["description"]][i]))))
 }
 
 .keywords_of <- function(sc) .arr(c(unlist(sc[["keywords_gcmd"]]), unlist(sc[["keywords"]])))
@@ -1075,6 +1195,7 @@ build_dataset_catalog <- function(meta, coverage, catalog, registries, version =
       visibility  = .s(sc[["visibility"]] %||% "public"),
       description_md = .chr_or_null(ds[["description"]]) %||% .chr_or_null(sc[["abstract"]]) %||% .chr_or_null(sc[["description"]]),
       keywords    = .keywords_of(sc),
+      display     = .display_block(key, sc, registries),
       attribution = .attribution_block(ds, sc, registries$license,
                                        source_accessed = if (!is.null(source_accessed)) source_accessed[key] else NULL),
       links = list(
@@ -1098,6 +1219,7 @@ build_dataset_catalog <- function(meta, coverage, catalog, registries, version =
   list(
     schema_version = CC_DATASETS_SCHEMA_VERSION,
     portals = .portals_block(registries),
+    browse  = .browse_block(registries),
     release = list(
       version = version, release_date = .chr_or_null(catalog[["release_date"]]),
       doi = .chr_or_null(catalog[["doi"]]), concept_doi = .chr_or_null(catalog[["concept_doi"]]),

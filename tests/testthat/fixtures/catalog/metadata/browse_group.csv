@@ -1,0 +1,3 @@
+browse_group,name,realm,order,icon,line,description
+fish-eggs-larvae,Fish Eggs & Larvae,bio,2,,Eggs and larvae from net tows,Fish eggs and larvae from net tows.
+ctd-bottle,CTD & Bottle,env,1,cat-physical,Temperature by depth,Measurements of the water column.

@@ -49,7 +49,8 @@ test_that("the registry vocabularies are what the plan says", {
   expect_equal(visibility_values(), c("public", "internal"))
   expect_true(all(c("description", "citation_main", "license", "doi", "contact", "keywords_gcmd", "visibility") %in%
                     dataset_meta_descriptive_keys()))
-  expect_equal(dataset_meta_structural_keys(), c("dataset_name", "dataset_name_short", "category", "color", "tables", "in_release"))
+  expect_equal(dataset_meta_structural_keys(), c("dataset_name", "dataset_name_short", "category", "color", "tables", "in_release",
+                 "dataset_name_plain", "collection_method", "browse_group"))
   expect_length(intersect(dataset_meta_descriptive_keys(), dataset_meta_structural_keys()), 0)
 })
 
@@ -140,7 +141,8 @@ test_that("read_dataset_sidecar() defaults visibility, validates it, the status 
 test_that("read_catalog_registries() reads everything once and refuses an unregistered holding", {
   reg <- fixture_registries()
   expect_setequal(names(reg), c("category", "provider", "license", "dataset_status", "distribution", "portal",
-                                "measurement_type", "sidecars", "questions", "questions_open", "metadata_dir"))
+                                "measurement_type", "sidecars", "questions", "questions_open", "metadata_dir",
+                                "collection_method", "browse_group", "browse_realm", "notebooks", "column_notes"))
   expect_setequal(names(reg$sidecars), c("swfsc_ichthyo", "calcofi_dic", "cce-lter_hplc-pigments"))
   expect_equal(reg$sidecars$`cce-lter_hplc-pigments`$status, "planned")
   q <- reg$questions("swfsc_ichthyo")
@@ -206,7 +208,7 @@ test_that("dataset_since_versions() walks the versions oldest first and keeps th
 
 test_that("build_dataset_catalog() pins the two fixture records (snapshot)", {
   rec <- fixture_record()
-  expect_equal(rec$schema_version, "1.1")
+  expect_equal(rec$schema_version, "1.2")
   expect_equal(rec$release$version, "v2026.09.04"); expect_equal(rec$release$doi, "10.5281/zenodo.22310858")
   expect_equal(rec$counts, list(datasets = 2L, holdings = 1L, reference = 8L))
   expect_equal(vapply(rec$datasets, `[[`, "", "dataset_key"), c("calcofi_dic", "swfsc_ichthyo"))
@@ -686,7 +688,7 @@ test_that("coverage.months and bbox_robust reach the record, and validate", {
 
 test_that("a 1.0 record is not silently accepted as 1.1", {
   rec <- fixture_record()
-  expect_equal(rec$schema_version, "1.1")
+  expect_equal(rec$schema_version, "1.2")
   rec$schema_version <- "1.0"
   expect_error(validate_dataset_catalog(rec), "does not validate|schema")
 })

@@ -1,0 +1,11 @@
+---
+title: "fixture"
+calcofi:
+  provider: swfsc
+  dataset: ichthyo
+  dataset_meta:
+    dataset_name: CalCOFI Fish Larvae & Egg Tows
+    dataset_name_plain: Fish Egg and Larva Counts
+    collection_method: net
+    browse_group: fish-eggs-larvae
+---

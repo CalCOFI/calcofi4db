@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "release": {
     "version": "v2026.09.04",
     "release_date": "2026-09-04",
@@ -37,6 +37,21 @@
     "visibility": "internal",
     "description_md": "Discrete profile dissolved inorganic carbon (DIC) and total alkalinity (TA) from CalCOFI Niskin bottle samples, quality-controlled using WOCE flagging.\n",
     "keywords": [],
+    "display": {
+      "name_plain": null,
+      "description_short": null,
+      "description_lede": null,
+      "notes_md": null,
+      "collection": null,
+      "analysis": null,
+      "analysis_org": null,
+      "collection_method": null,
+      "collection_status": null,
+      "browse_group": null,
+      "spatial_note": null,
+      "references": [],
+      "column_notes": null
+    },
     "attribution": {
       "citation_main": "Keeling, C.D.; Lueker, T.J.; Emanuele, G.; Dickson, A.G.; Martz, T.R.; Wolfe, W.H.; Mau, A. (2025). Discrete profile dissolved inorganic carbon, total alkalinity, water temperature and salinity measurements for CalCOFI (NCEI Accession 0301029). NOAA NCEI. https://doi.org/10.25921/3w9f-jd72",
       "citation_others": [],
@@ -48,6 +63,7 @@
       "contact": null,
       "pi_names": ["Todd Martz", "Aaron Mau"],
       "creators": [],
+      "associated_parties": [],
       "funding": null,
       "source_accessed": "2026-08-25"
     },

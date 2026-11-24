@@ -8,3 +8,17 @@ creators:
     organization: NOAA Southwest Fisheries Science Center
     role: creator
 contact: data@calcofi.io
+# display (schema 1.2)
+description_short: Fish eggs and larvae from net tows.
+notes_md: "A tow with nothing in it is a true zero."
+collection: Bongo and manta net tows on CalCOFI cruises
+analysis: Visual microscopy
+analysis_org: CalCOFI, NOAA SWFSC
+collection_status: ongoing
+references:
+  - label: Methods
+    url: https://example.org/methods
+associated_parties:
+  - name: Noelle Bowlin
+    organization: NOAA SWFSC
+    role: data provider

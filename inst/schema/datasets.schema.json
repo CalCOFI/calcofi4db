@@ -14,7 +14,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "1.1"
+      "const": "1.2"
     },
     "release": {
       "type": "object",
@@ -126,6 +126,76 @@
       "type": "array",
       "items": {
         "$ref": "#/definitions/reference"
+      }
+    },
+    "browse": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "Schema 1.2. The tiles of a datasets page.",
+      "properties": {
+        "realms": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "realm"
+            ],
+            "properties": {
+              "realm": {
+                "type": "string"
+              },
+              "title": {
+                "$ref": "#/definitions/nullable_string"
+              },
+              "sub": {
+                "$ref": "#/definitions/nullable_string"
+              },
+              "order": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "key"
+            ],
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "name": {
+                "$ref": "#/definitions/nullable_string"
+              },
+              "realm": {
+                "$ref": "#/definitions/nullable_string"
+              },
+              "order": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "icon": {
+                "$ref": "#/definitions/nullable_string"
+              },
+              "line": {
+                "$ref": "#/definitions/nullable_string"
+              },
+              "description": {
+                "$ref": "#/definitions/nullable_string"
+              }
+            }
+          }
+        }
       }
     }
   },
@@ -289,6 +359,26 @@
         },
         "source_accessed": {
           "$ref": "#/definitions/nullable_string"
+        },
+        "associated_parties": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "$ref": "#/definitions/nullable_string"
+              },
+              "organization": {
+                "$ref": "#/definitions/nullable_string"
+              },
+              "email": {
+                "$ref": "#/definitions/nullable_string"
+              },
+              "role": {
+                "$ref": "#/definitions/nullable_string"
+              }
+            }
+          }
         }
       }
     },
@@ -525,7 +615,7 @@
           "$ref": "#/definitions/bbox"
         },
         "months": {
-          "description": "Observations by calendar month, January first. CalCOFI is a quarterly survey, so which quarters a dataset covers is coverage \u2014 and it is the one thing a years sparkline cannot show.",
+          "description": "Observations by calendar month, January first. CalCOFI is a quarterly survey, so which quarters a dataset covers is coverage — and it is the one thing a years sparkline cannot show.",
           "type": [
             "array",
             "null"
@@ -717,7 +807,7 @@
           "type": "string"
         },
         "id": {
-          "description": "The identifier this portal knows the dataset by \u2014 `edi.109.4`, `gov.noaa.nodc:0301029`, an OBIS uuid. Curated in metadata/distribution.csv where a row exists, else read off the URL by calcofi4db::derive_registration_id(); null when the URL names none.",
+          "description": "The identifier this portal knows the dataset by — `edi.109.4`, `gov.noaa.nodc:0301029`, an OBIS uuid. Curated in metadata/distribution.csv where a row exists, else read off the URL by calcofi4db::derive_registration_id(); null when the URL names none.",
           "$ref": "#/definitions/nullable_string"
         },
         "title": {
@@ -899,6 +989,93 @@
         },
         "status": {
           "$ref": "#/definitions/status"
+        },
+        "display": {
+          "type": "object",
+          "description": "Schema 1.2. Words and pictures for a person browsing; every key null when its home in workflows is silent.",
+          "properties": {
+            "name_plain": {
+              "$ref": "#/definitions/nullable_string"
+            },
+            "description_short": {
+              "$ref": "#/definitions/nullable_string"
+            },
+            "description_lede": {
+              "$ref": "#/definitions/nullable_string"
+            },
+            "notes_md": {
+              "$ref": "#/definitions/nullable_string"
+            },
+            "collection": {
+              "$ref": "#/definitions/nullable_string"
+            },
+            "analysis": {
+              "$ref": "#/definitions/nullable_string"
+            },
+            "analysis_org": {
+              "$ref": "#/definitions/nullable_string"
+            },
+            "browse_group": {
+              "$ref": "#/definitions/nullable_string"
+            },
+            "spatial_note": {
+              "$ref": "#/definitions/nullable_string"
+            },
+            "collection_method": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "required": [
+                "key"
+              ],
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "$ref": "#/definitions/nullable_string"
+                }
+              }
+            },
+            "collection_status": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "ongoing",
+                "ended",
+                null
+              ]
+            },
+            "references": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "url"
+                ],
+                "properties": {
+                  "label": {
+                    "$ref": "#/definitions/nullable_string"
+                  },
+                  "url": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "column_notes": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
         }
       }
     },

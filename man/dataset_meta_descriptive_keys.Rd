@@ -3,11 +3,14 @@
 \name{dataset_meta_descriptive_keys}
 \alias{dataset_meta_descriptive_keys}
 \alias{dataset_meta_structural_keys}
+\alias{collection_statuses}
 \title{The \code{dataset_meta} keys that live in the descriptive sidecar, not the notebook}
 \usage{
 dataset_meta_descriptive_keys()
 
 dataset_meta_structural_keys()
+
+collection_statuses()
 }
 \value{
 Character vector of key names.
