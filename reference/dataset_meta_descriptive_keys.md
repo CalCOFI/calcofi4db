@@ -16,6 +16,8 @@ descriptive key is still found in a notebook.
 dataset_meta_descriptive_keys()
 
 dataset_meta_structural_keys()
+
+collection_statuses()
 ```
 
 ## Value

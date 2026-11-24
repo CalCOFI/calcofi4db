@@ -952,6 +952,7 @@ check for other functions or datasets not captured by above categories
 
 - [`dataset_meta_descriptive_keys()`](https://calcofi.io/calcofi4db/reference/dataset_meta_descriptive_keys.md)
   [`dataset_meta_structural_keys()`](https://calcofi.io/calcofi4db/reference/dataset_meta_descriptive_keys.md)
+  [`collection_statuses()`](https://calcofi.io/calcofi4db/reference/dataset_meta_descriptive_keys.md)
   :
 
   The `dataset_meta` keys that live in the descriptive sidecar, not the
@@ -1464,6 +1465,9 @@ check for other functions or datasets not captured by above categories
   :
 
   Read `metadata/measurement_why.csv`
+
+- [`read_notebook_display()`](https://calcofi.io/calcofi4db/reference/read_notebook_display.md)
+  : Read the display keys each ingest notebook declares
 
 - [`read_portal_registry()`](https://calcofi.io/calcofi4db/reference/read_portal_registry.md)
   :

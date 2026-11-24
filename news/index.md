@@ -1,5 +1,46 @@
 # Changelog
 
+## calcofi4db 4.42.0
+
+- **`datasets.json` schema 1.2 (additive): the words a person browsing
+  needs travel with the release.** The site had typed them for all 20
+  datasets in its own `_data/dataset_extras.yml`; each now has one home
+  in workflows and
+  [`build_dataset_catalog()`](https://calcofi.io/calcofi4db/reference/build_dataset_catalog.md)
+  carries it.
+  - New per-dataset `display` block: `name_plain`, `description_short`,
+    `description_lede`, `notes_md`, `collection`, `analysis`,
+    `analysis_org`, `collection_method {key, label}`,
+    `collection_status` (`ongoing` \| `ended`), `browse_group`,
+    `spatial_note` (the sidecar’s `coverage_spatial`),
+    `references [{label, url}]` and `column_notes {column: note}`. Every
+    key is null when its home is silent.
+  - New top-level `browse {realms[], groups[]}`: the tiles of a datasets
+    page, from `metadata/browse_realm.csv` and
+    `metadata/browse_group.csv`.
+  - `attribution.associated_parties[]` (`name`, `organization`, `email`,
+    `role`): they reached EML only, so a data provider named in a
+    sidecar never reached a page.
+- [`dataset_meta_structural_keys()`](https://calcofi.io/calcofi4db/reference/dataset_meta_descriptive_keys.md)
+  gains `dataset_name_plain`, `collection_method` and `browse_group`
+  (notebook);
+  [`dataset_meta_descriptive_keys()`](https://calcofi.io/calcofi4db/reference/dataset_meta_descriptive_keys.md)
+  gains `description_short`, `description_lede`, `notes_md`,
+  `collection`, `analysis`, `analysis_org`, `collection_status` and
+  `references` (sidecar). New
+  [`collection_statuses()`](https://calcofi.io/calcofi4db/reference/dataset_meta_descriptive_keys.md).
+- New
+  [`read_notebook_display()`](https://calcofi.io/calcofi4db/reference/read_notebook_display.md):
+  the three notebook display keys by `dataset_key`, read from the
+  `ingest_*.qmd` beside `metadata/`. They do not enter the release
+  `dataset` table.
+- [`read_catalog_registries()`](https://calcofi.io/calcofi4db/reference/read_catalog_registries.md)
+  also reads `collection_method.csv`, `browse_group.csv`,
+  `browse_realm.csv` (each optional) and a dataset’s `column_notes.csv`,
+  and stops on a `collection_method` or `browse_group` that is not
+  registered or a `collection_status` outside
+  [`collection_statuses()`](https://calcofi.io/calcofi4db/reference/dataset_meta_descriptive_keys.md).
+
 ## calcofi4db 4.41.0
 
 - **Published objects follow the release tables’ content-addressing**
