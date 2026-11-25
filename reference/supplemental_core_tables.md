@@ -32,10 +32,10 @@ Character vector of table names, possibly empty.
 Only `obs`-shaped tables (named `obs_*`) are returned. A supplemental
 table that is not a slice of the core cannot be assembled by
 [`assemble_core()`](https://calcofi.io/calcofi4db/reference/assemble_core.md),
-which renumbers `obs_id` and orders by the core's columns —
-`calcofi_mets` previously declared the raw `mets_measurement` here,
-which carried neither an `obs_id` nor any coordinate and could not be
-published usefully.
+which numbers `obs_id` and orders by the core's columns — `calcofi_mets`
+previously declared the raw `mets_measurement` here, which carried
+neither an `obs_id` nor any coordinate and could not be published
+usefully.
 
 ## Examples
 

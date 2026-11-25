@@ -7,7 +7,7 @@ measurement_qual, measurement_prec), mints a surrogate obs_id (offset from
 the current max so repeated calls stay unique within one connection) and computes
 hex_id at H3 resolution res_max. The same helper serves the central Phase-2
 materialization (release_database.qmd) and each per-dataset ingest (Phase 3);
-release assembly renumbers obs_id globally across the reassembled shards."><meta property="og:description" content="Wraps a caller-supplied projection select_sql (which must yield the canonical
+release assembly numbers obs_id inside each dataset's block (assemble_core_table())."><meta property="og:description" content="Wraps a caller-supplied projection select_sql (which must yield the canonical
 obs columns by name — realm, dataset_key, sample_key, grid_key,
 cruise_key, latitude, longitude, datetime, depth_min_m, depth_max_m,
 taxon_key, life_stage, measurement_type, measurement_value,
@@ -15,7 +15,7 @@ measurement_qual, measurement_prec), mints a surrogate obs_id (offset from
 the current max so repeated calls stay unique within one connection) and computes
 hex_id at H3 resolution res_max. The same helper serves the central Phase-2
 materialization (release_database.qmd) and each per-dataset ingest (Phase 3);
-release assembly renumbers obs_id globally across the reassembled shards."><!-- calcofi.io brand contract v2 (https://calcofi.io/brand/v2/; light default,
+release assembly numbers obs_id inside each dataset's block (assemble_core_table())."><!-- calcofi.io brand contract v2 (https://calcofi.io/brand/v2/; light default,
      in force 2026-09-04): pkgdown's own light-switch stays as the toggle (its
      key is localStorage.theme); the pre-paint below also writes that key so
      the switch and the cross-site cookie agree, and the observer pushes a
@@ -59,7 +59,7 @@ release assembly renumbers obs_id globally across the reassembled shards."><!-- 
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.42.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.43.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -103,7 +103,7 @@ release assembly renumbers obs_id globally across the reassembled shards."><!-- 
 the current max so repeated calls stay unique within one connection) and computes
 <code>hex_id</code> at H3 resolution <code>res_max</code>. The same helper serves the central Phase-2
 materialization (<code>release_database.qmd</code>) and each per-dataset ingest (Phase 3);
-release assembly renumbers <code>obs_id</code> globally across the reassembled shards.</p>
+release assembly numbers <code>obs_id</code> inside each dataset's block (<code><a href="assemble_core_table.html">assemble_core_table()</a></code>).</p>
     </div>
 
     <div class="section level2">

@@ -729,6 +729,9 @@ check for other functions or datasets not captured by above categories
 - [`CC_DEPTH_MAX_M`](https://calcofi.io/calcofi4db/reference/CC_DEPTH_MAX_M.md)
   : Deepest plausible sample depth in the CalCOFI region, metres
 
+- [`CC_ID_BLOCK_SIZE`](https://calcofi.io/calcofi4db/reference/CC_ID_BLOCK_SIZE.md)
+  : Rows of id space each dataset owns in a surrogate id column
+
 - [`CC_PARQUET_WRITER`](https://calcofi.io/calcofi4db/reference/CC_PARQUET_WRITER.md)
   : Pinned parquet writer options for released tables
 
@@ -738,6 +741,11 @@ check for other functions or datasets not captured by above categories
 - [`CC_RELEASE_PREFIX`](https://calcofi.io/calcofi4db/reference/CC_RELEASE_PREFIX.md)
   [`CC_TABLES_PREFIX`](https://calcofi.io/calcofi4db/reference/CC_RELEASE_PREFIX.md)
   : Release layout prefixes (bucket-relative)
+
+- [`CC_ROOT_ID_BLOCK_SIZE`](https://calcofi.io/calcofi4db/reference/CC_ROOT_ID_BLOCK_SIZE.md)
+  :
+
+  Rows of id space each dataset owns in `root_id`
 
 - [`EXCEL_MAX_ROWS`](https://calcofi.io/calcofi4db/reference/EXCEL_MAX_ROWS.md)
   [`BUNDLE_XLSX_MAX_ROWS`](https://calcofi.io/calcofi4db/reference/EXCEL_MAX_ROWS.md)
@@ -931,7 +939,7 @@ check for other functions or datasets not captured by above categories
   : Build the release catalog with per-table hashes and objects
 
 - [`build_sample_root()`](https://calcofi.io/calcofi4db/reference/build_sample_root.md)
-  : Root sampling events with a dense integer id
+  : Root sampling events with an integer id
 
 - [`build_sample_spatial()`](https://calcofi.io/calcofi4db/reference/build_sample_spatial.md)
   : Exact polygon membership of every root sample, one layer at a time
@@ -1068,6 +1076,9 @@ check for other functions or datasets not captured by above categories
 
 - [`check_grid_key_assignment()`](https://calcofi.io/calcofi4db/reference/check_grid_key_assignment.md)
   : Check that every keyed sample sits in the cell its key names
+
+- [`check_id_blocks()`](https://calcofi.io/calcofi4db/reference/check_id_blocks.md)
+  : Check that every surrogate id sits in its dataset's block
 
 - [`check_measurements_catalog()`](https://calcofi.io/calcofi4db/reference/check_measurements_catalog.md)
   :
@@ -1693,6 +1704,9 @@ check for other functions or datasets not captured by above categories
   :
 
   Read `metadata/gear.csv`, the net-gear registry
+
+- [`read_id_blocks()`](https://calcofi.io/calcofi4db/reference/read_id_blocks.md)
+  : Read the id-block registry
 
 - [`read_license_registry()`](https://calcofi.io/calcofi4db/reference/read_license_registry.md)
   :

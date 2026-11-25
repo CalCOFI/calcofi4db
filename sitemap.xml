@@ -6,10 +6,12 @@
 <url><loc>https://calcofi.io/calcofi4db/index.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/news/index.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/CC_DEPTH_MAX_M.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/CC_ID_BLOCK_SIZE.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/CC_PARQUET_WRITER.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/CC_PUBLIC_BUCKETS.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/CC_PUBLISH_FORMAT.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/CC_RELEASE_PREFIX.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/CC_ROOT_ID_BLOCK_SIZE.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/EXCEL_MAX_ROWS.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/OBS_VIEW_COLUMNS.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/RELEASE_REQUIRED_OBJECTS.html</loc></url>
@@ -111,6 +113,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/check_eml_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_grid_crosswalk.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_grid_key_assignment.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/check_id_blocks.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_measurement_bounds.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_measurements_catalog.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/check_multiple_datasets.html</loc></url>
@@ -364,6 +367,7 @@
 <url><loc>https://calcofi.io/calcofi4db/reference/read_distribution_registry.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_gazetteer_layer.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_gear_registry.html</loc></url>
+<url><loc>https://calcofi.io/calcofi4db/reference/read_id_blocks.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_ingest_manifest.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_ingest_parquet.html</loc></url>
 <url><loc>https://calcofi.io/calcofi4db/reference/read_ingest_yaml.html</loc></url>

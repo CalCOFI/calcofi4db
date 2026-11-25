@@ -1,8 +1,12 @@
 # Assemble one core table from its per-dataset shards
 
-UNIONs every dataset's shard into a single table. Surrogate ids are
-renumbered globally after the union (each ingest numbers from 1 within
-its own shard, so the raw ids collide across datasets).
+UNIONs every dataset's shard into a single table. A surrogate id is
+numbered **inside its dataset's block**:
+`id_block * CC_ID_BLOCK_SIZE + n`, `n` being the row's rank among its
+own dataset's rows under a total order of the columns. So an id changes
+only when its own dataset's rows change, never because another dataset
+gained or lost rows, and re-assembling unchanged shards gives the same
+ids whatever order the shards or their rows arrive in.
 
 ## Usage
 
@@ -14,7 +18,8 @@ assemble_core_table(
   id_col = NULL,
   order_by = NULL,
   parquet_dir = cc_stage_path("parquet"),
-  exclude = release_excluded_datasets(root)
+  exclude = release_excluded_datasets(root),
+  id_blocks = NULL
 )
 ```
 
@@ -34,12 +39,13 @@ assemble_core_table(
 
 - id_col:
 
-  surrogate id column to renumber globally (NULL to keep as-is)
+  surrogate id column to number (NULL to keep the table as-is)
 
 - order_by:
 
-  optional ORDER BY used when renumbering, so ids are stable across
-  re-runs of unchanged data
+  the leading terms of the order a dataset's rows are numbered in (a
+  term naming a column the table lacks, or `dataset_key`, is skipped);
+  every remaining column follows as the tiebreak
 
 - parquet_dir:
 
@@ -54,6 +60,12 @@ assemble_core_table(
 
   dataset dir names to skip (see
   [`core_shard_paths()`](https://calcofi.io/calcofi4db/reference/core_shard_paths.md))
+
+- id_blocks:
+
+  the registry from
+  [`read_id_blocks()`](https://calcofi.io/calcofi4db/reference/read_id_blocks.md);
+  read only when `id_col` is given
 
 ## Value
 

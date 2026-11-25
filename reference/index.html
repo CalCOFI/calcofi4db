@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.42.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.43.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -1307,6 +1307,13 @@
 
         <dt>
 
+          <code><a href="CC_ID_BLOCK_SIZE.html">CC_ID_BLOCK_SIZE</a></code>
+
+        </dt>
+        <dd>Rows of id space each dataset owns in a surrogate id column</dd>
+
+        <dt>
+
           <code><a href="CC_PARQUET_WRITER.html">CC_PARQUET_WRITER</a></code>
 
         </dt>
@@ -1325,6 +1332,13 @@
 
         </dt>
         <dd>Release layout prefixes (bucket-relative)</dd>
+
+        <dt>
+
+          <code><a href="CC_ROOT_ID_BLOCK_SIZE.html">CC_ROOT_ID_BLOCK_SIZE</a></code>
+
+        </dt>
+        <dd>Rows of id space each dataset owns in <code>root_id</code></dd>
 
         <dt>
 
@@ -1618,7 +1632,7 @@
           <code><a href="build_sample_root.html">build_sample_root()</a></code>
 
         </dt>
-        <dd>Root sampling events with a dense integer id</dd>
+        <dd>Root sampling events with an integer id</dd>
 
         <dt>
 
@@ -1885,6 +1899,13 @@
 
         </dt>
         <dd>Check that every keyed sample sits in the cell its key names</dd>
+
+        <dt>
+
+          <code><a href="check_id_blocks.html">check_id_blocks()</a></code>
+
+        </dt>
+        <dd>Check that every surrogate id sits in its dataset's block</dd>
 
         <dt>
 
@@ -2963,6 +2984,13 @@
 
         </dt>
         <dd>Read <code>metadata/gear.csv</code>, the net-gear registry</dd>
+
+        <dt>
+
+          <code><a href="read_id_blocks.html">read_id_blocks()</a></code>
+
+        </dt>
+        <dd>Read the id-block registry</dd>
 
         <dt>
 

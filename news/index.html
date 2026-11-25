@@ -43,7 +43,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">calcofi4db</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.42.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">4.43.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -77,6 +77,22 @@
       <small>Source: <a href="https://github.com/calcofi/calcofi4db/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="4.43.0" id="calcofi4db-4430">calcofi4db 4.43.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4430"></a></h2>
+<ul><li>
+<strong>A surrogate id now changes only when its own dataset’s rows change.</strong> Through release v2026.11.25 <code>obs_id</code>, <code>obs_attribute_id</code> and <code>sample_measurement_id</code> were one row number over the whole assembled table, so a dataset that gained rows renumbered every dataset sorted after it: 17 new CTD casts gave all 487,616 unchanged <code>swfsc_ichthyo</code> rows an <code>obs_id</code> 2,354 higher, every dataset’s <code>obs</code> object was re-uploaded under a new content hash at each release, and the download zips, which sign the same rows, would all have been rebuilt.
+<ul><li>
+<code><a href="../reference/assemble_core_table.html">assemble_core_table()</a></code> numbers an id inside its dataset’s block: <code>id_block * CC_ID_BLOCK_SIZE + n</code>, with <code>id_block</code> from the new registry <code>metadata/id_block.csv</code> (<code><a href="../reference/read_id_blocks.html">read_id_blocks()</a></code>), <code>CC_ID_BLOCK_SIZE</code> = 1e10 and <code>n</code> the row’s rank among its own dataset’s rows. The ids stay <code>BIGINT</code>, unique across the table and below 2^53. <strong>They no longer start at 1 or run without gaps across a table.</strong>
+</li>
+<li>The order a dataset’s rows are numbered in is total (the leading terms, then every other column), so re-assembling unchanged shards gives the same ids whatever order the shards or their rows arrive in. <code><a href="../reference/assemble_core.html">assemble_core()</a></code> numbers <code>obs</code> by time first and the supplemental <code>obs_*_full</code> tables by cruise first, so a dataset that gains a later cruise keeps the ids of its earlier rows.</li>
+<li>A dataset with no block stops the assembly and names the next unused number. A block is never shared, changed or reused.</li>
+<li>New <code><a href="../reference/check_id_blocks.html">check_id_blocks()</a></code>: the invariant, per table and dataset (ids unique, exactly the block’s first n numbers). The release and its test gate on it.</li>
+<li>
+<code><a href="../reference/assemble_core_table.html">assemble_core_table()</a></code> can be called again on a connection that already holds the table.</li>
+<li>
+<code>root_id</code> follows the same rule in 32 bits: <code>build_sample_root(id_blocks = )</code> numbers a dataset’s roots as <code>id_block * CC_ROOT_ID_BLOCK_SIZE + n</code> (5e6 per dataset, by time and then <code>sample_key</code>), so a new cast no longer renumbers the roots, and with them every row of <code>obs_bio</code>, <code>obs_env</code> and <code>sample_spatial</code>, of the datasets sorted after it. It stops when a dataset or a block would not fit an <code>INTEGER</code>. Without <code>id_blocks</code> it builds the old dense rank (fixtures only); <code><a href="../reference/check_id_blocks.html">check_id_blocks()</a></code> covers <code>sample_root</code>.</li>
+</ul></li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="4.42.0" id="calcofi4db-4420">calcofi4db 4.42.0<a class="anchor" aria-label="anchor" href="#calcofi4db-4420"></a></h2>
 <ul><li>

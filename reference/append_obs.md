@@ -9,8 +9,9 @@ canonical `obs` columns *by name* — `realm`, `dataset_key`,
 max so repeated calls stay unique within one connection) and computes
 `hex_id` at H3 resolution `res_max`. The same helper serves the central
 Phase-2 materialization (`release_database.qmd`) and each per-dataset
-ingest (Phase 3); release assembly renumbers `obs_id` globally across
-the reassembled shards.
+ingest (Phase 3); release assembly numbers `obs_id` inside each
+dataset's block
+([`assemble_core_table()`](https://calcofi.io/calcofi4db/reference/assemble_core_table.md)).
 
 ## Usage
 
