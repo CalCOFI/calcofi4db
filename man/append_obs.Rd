@@ -27,6 +27,6 @@ Wraps a caller-supplied projection \code{select_sql} (which must yield the canon
 the current max so repeated calls stay unique within one connection) and computes
 \code{hex_id} at H3 resolution \code{res_max}. The same helper serves the central Phase-2
 materialization (\code{release_database.qmd}) and each per-dataset ingest (Phase 3);
-release assembly renumbers \code{obs_id} globally across the reassembled shards.
+release assembly numbers \code{obs_id} inside each dataset's block (\code{\link[=assemble_core_table]{assemble_core_table()}}).
 }
 \concept{model}

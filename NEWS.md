@@ -1,3 +1,33 @@
+# calcofi4db 4.43.0
+
+- **A surrogate id now changes only when its own dataset's rows change.** Through release
+  v2026.11.25 `obs_id`, `obs_attribute_id` and `sample_measurement_id` were one row number over
+  the whole assembled table, so a dataset that gained rows renumbered every dataset sorted after
+  it: 17 new CTD casts gave all 487,616 unchanged `swfsc_ichthyo` rows an `obs_id` 2,354 higher,
+  every dataset's `obs` object was re-uploaded under a new content hash at each release, and the
+  download zips, which sign the same rows, would all have been rebuilt.
+  - `assemble_core_table()` numbers an id inside its dataset's block:
+    `id_block * CC_ID_BLOCK_SIZE + n`, with `id_block` from the new registry
+    `metadata/id_block.csv` (`read_id_blocks()`), `CC_ID_BLOCK_SIZE` = 1e10 and `n` the row's
+    rank among its own dataset's rows. The ids stay `BIGINT`, unique across the table and below
+    2^53. **They no longer start at 1 or run without gaps across a table.**
+  - The order a dataset's rows are numbered in is total (the leading terms, then every other
+    column), so re-assembling unchanged shards gives the same ids whatever order the shards or
+    their rows arrive in. `assemble_core()` numbers `obs` by time first and the supplemental
+    `obs_*_full` tables by cruise first, so a dataset that gains a later cruise keeps the ids of
+    its earlier rows.
+  - A dataset with no block stops the assembly and names the next unused number. A block is
+    never shared, changed or reused.
+  - New `check_id_blocks()`: the invariant, per table and dataset (ids unique, exactly the
+    block's first n numbers). The release and its test gate on it.
+  - `assemble_core_table()` can be called again on a connection that already holds the table.
+  - `root_id` follows the same rule in 32 bits: `build_sample_root(id_blocks = )` numbers a
+    dataset's roots as `id_block * CC_ROOT_ID_BLOCK_SIZE + n` (5e6 per dataset, by time and then
+    `sample_key`), so a new cast no longer renumbers the roots, and with them every row of
+    `obs_bio`, `obs_env` and `sample_spatial`, of the datasets sorted after it. It stops when a
+    dataset or a block would not fit an `INTEGER`. Without `id_blocks` it builds the old dense
+    rank (fixtures only); `check_id_blocks()` covers `sample_root`.
+
 # calcofi4db 4.42.0
 
 - **`datasets.json` schema 1.2 (additive): the words a person browsing needs travel with the

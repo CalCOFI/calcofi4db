@@ -76,6 +76,33 @@ test_that("build_sample_root() numbers roots densely and deterministically", {
                r$root_id[r$root_sample_key == "ich:site:1"])
 })
 
+# regression, v2026.11.25: root_id was one dense rank over every sample_key, so a new CTD cast
+# renumbered the roots of every dataset sorted after calcofi_ctd-cast
+test_that("build_sample_root() with id blocks numbers each dataset's roots in its own block", {
+  con <- ex_con(); ex_fixture(con)
+  ds <- DBI::dbGetQuery(con, "SELECT DISTINCT dataset_key FROM sample WHERE parent_sample_key IS NULL ORDER BY 1")$dataset_key
+  blocks <- data.frame(dataset_key = ds, id_block = seq_along(ds) + 1)
+  build_sample_root(con, id_blocks = blocks)
+  r <- DBI::dbGetQuery(con, "SELECT root_id, root_sample_key, dataset_key FROM sample_root ORDER BY root_id")
+  expect_equal(DBI::dbGetQuery(con, "SELECT typeof(root_id) t FROM sample_root LIMIT 1")$t, "INTEGER")
+  expect_true(all(r$root_id %/% CC_ROOT_ID_BLOCK_SIZE == blocks$id_block[match(r$dataset_key, blocks$dataset_key)]))
+  expect_true(all(check_id_blocks(con, blocks, tables = c(sample_root = "root_id"))$ok))
+  # a dataset gains a root that sorts first by key and by time: no other dataset's root moves
+  first <- ds[1]
+  DBI::dbExecute(con, glue::glue("INSERT INTO sample BY NAME
+    SELECT * REPLACE ('{first}:aaa:0' AS sample_key, TIMESTAMP '1900-01-01' AS datetime)
+    FROM sample WHERE parent_sample_key IS NULL AND dataset_key = '{first}' LIMIT 1"))
+  build_sample_root(con, id_blocks = blocks)
+  r2 <- DBI::dbGetQuery(con, "SELECT root_id, root_sample_key, dataset_key FROM sample_root ORDER BY root_id")
+  expect_equal(r2[r2$dataset_key != first, ], r[r$dataset_key != first, ], ignore_attr = TRUE)
+  expect_equal(nrow(r2), nrow(r) + 1)
+  # a dataset with no block, and a block too high for 32 bits, both stop
+  expect_error(build_sample_root(con, id_blocks = blocks[-1, ]), "no id block for")
+  blocks$id_block[1] <- 429
+  expect_error(build_sample_root(con, id_blocks = blocks), "no longer fits its 32-bit blocks")
+  expect_lt(429 * CC_ROOT_ID_BLOCK_SIZE, .Machine$integer.max)
+})
+
 test_that("build_sample_root() carries the root's own data_stage, last; NULL where the dataset records none", {
   # a preliminary CTD cast and a final one (roots), a bottle cast of a dataset that records no stage (root), and a child
   # of the preliminary cast whose own stage differs: a root takes its OWN value, never a child's

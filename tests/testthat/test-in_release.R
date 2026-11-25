@@ -95,6 +95,10 @@ test_that("core shard discovery skips flagged-out datasets", {
        TO '{file.path(pq, 'obs.parquet')}' (FORMAT PARQUET)"))
   }
 
+  dir.create(file.path(dir, "metadata"), showWarnings = FALSE)
+  writeLines(c("dataset_key,id_block,added", "aa_one,1,2026-11-26", "cc_three,3,2026-11-26"),
+             file.path(dir, "metadata", "id_block.csv"))
+
   # default `exclude` reads the flag straight from the notebooks under `root`
   paths <- core_shard_paths("obs", root = dir)
   expect_length(paths, 1)

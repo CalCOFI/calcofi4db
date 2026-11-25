@@ -124,10 +124,26 @@ add_sample_hex7 <- function(con, tbl = "sample", lat = "latitude", lng = "longit
   invisible(n$n_hex7)
 }
 
-#' Root sampling events with a dense integer id
+#' Rows of id space each dataset owns in `root_id`
 #'
-#' One row per `sample` with no parent, numbered by `dense_rank()` over `sample_key` so the id is
-#' deterministic across runs; carries the root's position, time, cruise, gear, seafloor depth,
+#' `root_id` stays a 32-bit `INTEGER` (the browser tables carry it on every row), so its blocks
+#' are smaller than the other ids': `id_block * CC_ROOT_ID_BLOCK_SIZE + n`. Five million root
+#' samples per dataset (the largest held 82,343 at v2026.11.25) and blocks up to 429.
+#' [build_sample_root()] stops if either is exceeded; `root_id` would then be widened to `BIGINT`.
+#' @export
+#' @concept release
+CC_ROOT_ID_BLOCK_SIZE <- 5e6
+
+#' Root sampling events with an integer id
+#'
+#' One row per `sample` with no parent. With `id_blocks` (the release passes
+#' [read_id_blocks()]), `root_id` is numbered inside its dataset's block,
+#' `id_block * CC_ROOT_ID_BLOCK_SIZE + n`, `n` ranking the dataset's own roots by time and then
+#' `sample_key`: a root's id changes only when its own dataset's roots change. Through
+#' v2026.11.25 it was one `dense_rank()` over every `sample_key`, so a dataset that gained a
+#' cast renumbered the roots of every dataset sorted after it, and with them every row of
+#' `obs_bio`, `obs_env` and `sample_spatial`. Without `id_blocks` that dense rank is still what
+#' is built (a fixture, a dry run); a release gates on [check_id_blocks()]. The table carries the root's position, time, cruise, gear, seafloor depth,
 #' `hex7` — the root's own H3 cell exactly as `sample` holds it — and, last, `data_stage`. Every
 #' browser object joins on `root_id`; `root_sample_key` is what it stands for.
 #'
@@ -144,24 +160,50 @@ add_sample_hex7 <- function(con, tbl = "sample", lat = "latitude", lng = "longit
 #'
 #' @param con DuckDB connection holding `sample`.
 #' @param tbl name of the table to (re)create.
+#' @param id_blocks the registry from [read_id_blocks()], or NULL for one dense rank over
+#'   `sample_key` (not for a release).
 #' @return Invisibly, the row count.
 #' @export
 #' @concept release
 #' @importFrom DBI dbExecute dbGetQuery dbListFields
 #' @importFrom glue glue
-build_sample_root <- function(con, tbl = "sample_root") {
+build_sample_root <- function(con, tbl = "sample_root", id_blocks = NULL) {
   flds     <- dbListFields(con, "sample")
   seafloor <- if ("seafloor_depth_m" %in% flds) "seafloor_depth_m" else "NULL::DOUBLE AS seafloor_depth_m"
   hex7     <- if ("hex7" %in% flds) "hex7::UBIGINT AS hex7" else "NULL::UBIGINT AS hex7"
   stage    <- if ("data_stage" %in% flds) "data_stage::VARCHAR AS data_stage" else "NULL::VARCHAR AS data_stage"
   if (!"hex7" %in% flds)
     message("build_sample_root(): `sample` has no hex7, so ", tbl, ".hex7 is NULL - run add_sample_hex7() first")
+  id_sql <- "dense_rank() OVER (ORDER BY sample_key)::INTEGER"
+  if (!is.null(id_blocks)) {
+    roots <- dbGetQuery(con, "SELECT dataset_key, count(*)::DOUBLE AS n FROM sample
+                              WHERE parent_sample_key IS NULL GROUP BY 1")
+    if (anyNA(roots$dataset_key)) stop("build_sample_root(): a root sample has no dataset_key", call. = FALSE)
+    new <- setdiff(roots$dataset_key, id_blocks$dataset_key)
+    if (length(new))
+      stop("build_sample_root(): no id block for ", paste(sort(new), collapse = ", "),
+           ". Append each to metadata/id_block.csv with the next unused number; never reuse or change one",
+           call. = FALSE)
+    b <- id_blocks[id_blocks$dataset_key %in% roots$dataset_key, , drop = FALSE]
+    if (any(roots$n >= CC_ROOT_ID_BLOCK_SIZE) ||
+        any((b$id_block + 1) * CC_ROOT_ID_BLOCK_SIZE > .Machine$integer.max))
+      stop("build_sample_root(): root_id no longer fits its 32-bit blocks (a dataset with ",
+           format(max(roots$n), big.mark = ","), " roots, or an id_block above ",
+           floor(.Machine$integer.max / CC_ROOT_ID_BLOCK_SIZE) - 1,
+           "); widen root_id to BIGINT deliberately, with its consumers", call. = FALSE)
+    block <- paste0("CASE dataset_key ", paste(sprintf(
+      "WHEN '%s' THEN %.0f", gsub("'", "''", b$dataset_key), b$id_block * CC_ROOT_ID_BLOCK_SIZE),
+      collapse = " "), " END")
+    # sample_key is unique (assemble_core() stops otherwise), so the order is total
+    id_sql <- glue("({block} + row_number() OVER (PARTITION BY dataset_key
+                      ORDER BY datetime NULLS LAST, sample_key))::INTEGER")
+  }
   dbExecute(con, glue("
     CREATE OR REPLACE TABLE {tbl} AS
-    SELECT dense_rank() OVER (ORDER BY sample_key)::INTEGER AS root_id, sample_key AS root_sample_key,
+    SELECT {id_sql} AS root_id, sample_key AS root_sample_key,
            dataset_key, sample_type, grid_key, cruise_key, order_occ, latitude, longitude, datetime,
            depth_min_m, depth_max_m, tow_type, {seafloor}, {hex7}, {stage}
-    FROM sample WHERE parent_sample_key IS NULL ORDER BY sample_key"))
+    FROM sample WHERE parent_sample_key IS NULL ORDER BY root_id"))
   n <- dbGetQuery(con, glue("SELECT count(*) AS n, count(DISTINCT root_id) AS n_id FROM {tbl}"))
   stopifnot(n$n == n$n_id)
   invisible(n$n)

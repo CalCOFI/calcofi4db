@@ -175,7 +175,7 @@ ns_key <- function(dataset_key, sample_type, id_sql) {
 #' the current max so repeated calls stay unique within one connection) and computes
 #' `hex_id` at H3 resolution `res_max`. The same helper serves the central Phase-2
 #' materialization (`release_database.qmd`) and each per-dataset ingest (Phase 3);
-#' release assembly renumbers `obs_id` globally across the reassembled shards.
+#' release assembly numbers `obs_id` inside each dataset's block ([assemble_core_table()]).
 #'
 #' @param con a DuckDB connection (open via [get_duckdb_con()])
 #' @param select_sql a SELECT producing the canonical `obs` columns by name

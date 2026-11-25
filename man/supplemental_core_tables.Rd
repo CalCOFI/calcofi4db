@@ -24,7 +24,7 @@ release but hidden from the default table list and the ERD.
 \details{
 Only \code{obs}-shaped tables (named \verb{obs_*}) are returned. A supplemental table
 that is not a slice of the core cannot be assembled by \code{\link[=assemble_core]{assemble_core()}},
-which renumbers \code{obs_id} and orders by the core's columns — \code{calcofi_mets}
+which numbers \code{obs_id} and orders by the core's columns — \code{calcofi_mets}
 previously declared the raw \code{mets_measurement} here, which carried neither an
 \code{obs_id} nor any coordinate and could not be published usefully.
 }

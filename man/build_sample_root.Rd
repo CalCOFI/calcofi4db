@@ -2,21 +2,30 @@
 % Please edit documentation in R/explore.R
 \name{build_sample_root}
 \alias{build_sample_root}
-\title{Root sampling events with a dense integer id}
+\title{Root sampling events with an integer id}
 \usage{
-build_sample_root(con, tbl = "sample_root")
+build_sample_root(con, tbl = "sample_root", id_blocks = NULL)
 }
 \arguments{
 \item{con}{DuckDB connection holding \code{sample}.}
 
 \item{tbl}{name of the table to (re)create.}
+
+\item{id_blocks}{the registry from \code{\link[=read_id_blocks]{read_id_blocks()}}, or NULL for one dense rank over
+\code{sample_key} (not for a release).}
 }
 \value{
 Invisibly, the row count.
 }
 \description{
-One row per \code{sample} with no parent, numbered by \code{dense_rank()} over \code{sample_key} so the id is
-deterministic across runs; carries the root's position, time, cruise, gear, seafloor depth,
+One row per \code{sample} with no parent. With \code{id_blocks} (the release passes
+\code{\link[=read_id_blocks]{read_id_blocks()}}), \code{root_id} is numbered inside its dataset's block,
+\code{id_block * CC_ROOT_ID_BLOCK_SIZE + n}, \code{n} ranking the dataset's own roots by time and then
+\code{sample_key}: a root's id changes only when its own dataset's roots change. Through
+v2026.11.25 it was one \code{dense_rank()} over every \code{sample_key}, so a dataset that gained a
+cast renumbered the roots of every dataset sorted after it, and with them every row of
+\code{obs_bio}, \code{obs_env} and \code{sample_spatial}. Without \code{id_blocks} that dense rank is still what
+is built (a fixture, a dry run); a release gates on \code{\link[=check_id_blocks]{check_id_blocks()}}. The table carries the root's position, time, cruise, gear, seafloor depth,
 \code{hex7} — the root's own H3 cell exactly as \code{sample} holds it — and, last, \code{data_stage}. Every
 browser object joins on \code{root_id}; \code{root_sample_key} is what it stands for.
 }

@@ -11,7 +11,8 @@ assemble_core_table(
   id_col = NULL,
   order_by = NULL,
   parquet_dir = cc_stage_path("parquet"),
-  exclude = release_excluded_datasets(root)
+  exclude = release_excluded_datasets(root),
+  id_blocks = NULL
 )
 }
 \arguments{
@@ -21,10 +22,11 @@ assemble_core_table(
 
 \item{root}{workflows repo root}
 
-\item{id_col}{surrogate id column to renumber globally (NULL to keep as-is)}
+\item{id_col}{surrogate id column to number (NULL to keep the table as-is)}
 
-\item{order_by}{optional ORDER BY used when renumbering, so ids are stable
-across re-runs of unchanged data}
+\item{order_by}{the leading terms of the order a dataset's rows are numbered
+in (a term naming a column the table lacks, or \code{dataset_key}, is skipped);
+every remaining column follows as the tiebreak}
 
 \item{parquet_dir}{directory holding the per-dataset output dirs. Defaults
 to the local staging root (see \code{\link[=cc_stage_dir]{cc_stage_dir()}}), where the bulk parquet
@@ -32,13 +34,19 @@ lives; an absolute path is used as-is, a relative one is resolved against
 \code{root}. The JSON sidecars stay in the repo and are found separately.}
 
 \item{exclude}{dataset dir names to skip (see \code{\link[=core_shard_paths]{core_shard_paths()}})}
+
+\item{id_blocks}{the registry from \code{\link[=read_id_blocks]{read_id_blocks()}}; read only when
+\code{id_col} is given}
 }
 \value{
 (invisibly) the row count written, or 0 when no shard exists
 }
 \description{
-UNIONs every dataset's shard into a single table. Surrogate ids are renumbered
-globally after the union (each ingest numbers from 1 within its own shard, so
-the raw ids collide across datasets).
+UNIONs every dataset's shard into a single table. A surrogate id is numbered
+\strong{inside its dataset's block}: \code{id_block * CC_ID_BLOCK_SIZE + n}, \code{n} being
+the row's rank among its own dataset's rows under a total order of the
+columns. So an id changes only when its own dataset's rows change, never
+because another dataset gained or lost rows, and re-assembling unchanged
+shards gives the same ids whatever order the shards or their rows arrive in.
 }
 \concept{shards}
